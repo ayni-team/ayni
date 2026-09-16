@@ -3,6 +3,10 @@
 What every module exposes, what it publishes, and what it answers over HTTP. **This is the contract.
 Everything inside a module is yours; everything in this document is not.**
 
+The interfaces and events below already exist in code: each `*Api` with its views at the root of
+its module, and every event in `pe.ayni.shared.events`. Implement them; do not redefine them. Until
+the module that owns an interface implements it, mock it in your unit tests.
+
 Read `database/data-model.md` for the tables of your module and `domain/01-event-storming.md` for
 the flows behind them. Nothing here is negotiable by editing your own code: if you need a change to
 a published interface, an event or an endpoint, say so in the pull request and it gets decided
@@ -69,12 +73,13 @@ public interface IdentityApi {
   UserView requireUser(UUID userId);
   boolean isActive(UUID userId);
   Optional<CreditPolicyView> currentPolicy(String tenantCode, PolicyKind kind);
+  List<ApprovedCourseView> approvedCourses(UUID userId);   // used by skills to enable by grade
   List<String> activeTenantCodes();              // used by scheduled jobs
 }
 ```
 
-**Publishes:** `StudentActivated`, `CoordinatorActivated`, `UniversityRegistered`,
-`UniversitySuspended`.
+**Publishes:** `AccessRequested`, `StudentActivated`, `CoordinatorActivated`,
+`UniversityRegistered`, `UniversitySuspended`.
 
 **Endpoints**
 
@@ -107,6 +112,7 @@ public interface SkillsApi {
 ```
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
+**Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
 **Listens to:** `StudentActivated` — to enable the courses their grades already justify.
 
 | Method | Path | Who | Does |
@@ -162,7 +168,8 @@ public interface BookingApi {
 }
 ```
 
-**Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`.
+**Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
+`HoursWithdrawn`.
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
 
 | Method | Path | Who | Does |
@@ -188,7 +195,7 @@ cancelled. A tutor removing availability over a confirmed booking is cancelling 
 
 Owns nothing but the search. **No published interface:** it is read only.
 
-**Listens to:** `HoursGenerated`, `BookingConfirmed`, `BookingCancelled`, `SkillEnabled`,
+**Listens to:** `HoursGenerated`, `HoursWithdrawn`, `BookingConfirmed`, `BookingCancelled`, `SkillEnabled`,
 `SkillWithdrawn`, `SessionRated` — and keeps its own projection updated.
 
 | Method | Path | Who |

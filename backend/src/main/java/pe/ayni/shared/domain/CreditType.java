@@ -9,10 +9,10 @@ package pe.ayni.shared.domain;
  */
 public enum CreditType {
 
-  /** Granted to every student of the university when they join. Expires with the term. */
+  /** Granted to every student of the university when they join. Expires after the policy's validity. */
   SEED,
 
-  /** Granted by the university following its own allocation policy. Expires with the term. */
+  /** Granted by the university to a targeted group. Expires after the policy's validity. */
   ALLOCATED,
 
   /** Obtained by teaching a session. Never expires and counts towards recognition. */
