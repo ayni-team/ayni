@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: ayni-backend
+
+  datasource:
+    # Inside docker compose the host is "postgres"; running from an IDE it is
+    # localhost. The default below covers the second case.
+    url: ${AYNI_DB_URL:jdbc:postgresql://localhost:5432/ayni}
+    username: ${AYNI_DB_USER:ayni}
+    password: ${AYNI_DB_PASSWORD:ayni}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway creates the tables. Hibernate only checks that the entities match
+      # what exists, and refuses to start when they do not.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${AYNI_PORT:8080}
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+logging:
+  level:
+    pe.ayni: DEBUG

@@ -1,0 +1,55 @@
+name: CI
+
+# Runs on every pull request towards the protected branches, and again after a
+# merge. A red check is a pull request that does not get merged.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Compiles and runs the tests, ModularityTest among them: a module that
+      # reaches into another module's internals fails here, before review.
+      - name: Build and test
+        working-directory: backend
+        run: ./mvnw -B verify
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm install
+
+      # Type checks and builds. Catches the errors an editor would show to
+      # somebody who has the dependencies installed, for everybody else.
+      - name: Build
+        working-directory: web
+        run: npm run build

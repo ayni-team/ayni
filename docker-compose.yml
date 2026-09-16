@@ -1,0 +1,67 @@
+# =============================================================================
+# The whole project with one command:
+#
+#     docker compose up
+#
+# Postgres, the API and the web application. Nobody needs Java, Maven, Node or
+# Postgres installed: Docker provides all of it, and everyone runs the same
+# versions.
+# =============================================================================
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ayni-postgres
+    environment:
+      POSTGRES_DB: ayni
+      POSTGRES_USER: ayni
+      POSTGRES_PASSWORD: ayni
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ayni -d ayni"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: ayni-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AYNI_DB_URL: jdbc:postgresql://postgres:5432/ayni
+      AYNI_DB_USER: ayni
+      AYNI_DB_PASSWORD: ayni
+    ports:
+      - "8080:8080"
+    volumes:
+      # The sources are mounted, so the container always runs what you have
+      # edited. The Maven cache is a named volume so that a restart does not
+      # download the internet again.
+      - ./backend/src:/app/src
+      - ./backend/pom.xml:/app/pom.xml
+      - maven-cache:/root/.m2
+
+  web:
+    build: ./web
+    container_name: ayni-web
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      # node_modules stays inside the container: the host may run a different
+      # operating system, and native packages are not interchangeable.
+      - ./web:/app
+      - /app/node_modules
+
+volumes:
+  postgres-data:
+    name: ayni-postgres-data
+  maven-cache:
+    name: ayni-maven-cache

@@ -1,0 +1,10 @@
+# Every pull request requires a review from the owner listed here.
+#
+# GitHub enforces this only when "Require review from Code Owners" is enabled in
+# the branch protection rules of main and develop. Setting it up is described in
+# docs/pull-requests.md.
+#
+# The pattern below covers the whole repository: nothing reaches main or develop
+# without an approval from the team lead.
+
+* @rodrigolopezu
