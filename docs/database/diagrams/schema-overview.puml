@@ -1,0 +1,120 @@
+@startuml schema-overview
+title Ayni database: one schema per module (41 tables)
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 60
+hide circle
+hide empty members
+left to right direction
+
+package "identity" as identity #E3F2FD {
+  entity tenants
+  entity platform_admins
+  entity users
+  entity access_links
+  entity user_sessions
+  entity academic_records
+  entity credit_policies
+}
+package "skills" as skills #E8F5E9 {
+  entity categories
+  entity catalog_items
+  entity offered_skills
+  entity validation_requests
+  entity evidence_files
+  entity learning_interests
+}
+package "booking" as booking #FFF3E0 {
+  entity availability_patterns
+  entity availability_exceptions
+  entity availability_pauses
+  entity hour_blocks
+  entity bookings
+  entity tutor_reliability
+}
+package "sessions" as sessions #F3E5F5 {
+  entity "sessions" as sessions_t
+  entity participations
+  entity presence_checks
+  entity whiteboards
+  entity support_materials
+}
+package "wallet" as wallet #FFFDE7 {
+  entity credit_accounts
+  entity credit_lots
+  entity ledger_entries
+}
+package "recognition" as recognition #FCE4EC {
+  entity rules
+  entity requests
+  entity request_sessions
+}
+package "reputation" as reputation #E0F7FA {
+  entity ratings
+  entity rating_tags
+  entity tutor_standing
+}
+package "matching" as matching #F1F8E9 {
+  entity available_offers
+}
+package "audit" as audit #EFEBE9 {
+  entity activity_log
+  entity anomalies
+  entity anomaly_sessions
+}
+package "notifications" as notifications #ECEFF1 {
+  entity "notifications" as notifications_t
+}
+package "payments" as payments #EDE7F6 {
+  entity purchases
+}
+package "analytics" as analytics #FBE9E7 {
+  entity daily_indicators
+  entity uncovered_demand
+}
+
+' Foreign keys inside a schema
+users ||--o{ academic_records
+users |o--o{ user_sessions
+platform_admins |o--o{ user_sessions
+categories ||--o{ catalog_items
+catalog_items ||--o{ offered_skills
+catalog_items ||--o{ learning_interests
+offered_skills ||--o{ validation_requests
+validation_requests ||--o{ evidence_files
+availability_patterns |o--o{ hour_blocks
+bookings |o--o{ hour_blocks
+bookings ||--o{ tutor_reliability
+sessions_t ||--o{ participations
+sessions_t ||--o{ presence_checks
+sessions_t ||--o| whiteboards
+sessions_t ||--o{ support_materials
+credit_accounts ||--o{ credit_lots
+credit_accounts ||--o{ ledger_entries
+credit_lots |o--o{ ledger_entries
+requests ||--|{ request_sessions
+ratings ||--o{ rating_tags
+anomalies ||--|{ anomaly_sessions
+
+' Logical references across schemas: a uuid, never a foreign key
+skills ..> identity : tutor_id
+booking ..> identity : student_id, tutor_id
+booking ..> skills : catalog_item_id
+sessions ..> booking : booking_id
+wallet ..> identity : user_id
+recognition ..> sessions : session_id
+reputation ..> sessions : session_id
+matching ..> booking : block_id
+matching ..> skills : catalog_item_id
+audit ..> sessions : session_id
+notifications ..> identity : recipient_id
+payments ..> identity : student_id
+analytics ..> skills : catalog_item_id
+
+legend right
+  Solid line: foreign key inside a schema
+  Dashed line: logical reference by uuid
+  No foreign key crosses a schema
+endlegend
+@enduml

@@ -8,6 +8,9 @@ changed in the domain flows session: see `../domain/01-event-storming.md`.
 
 ---
 
+The executable version of this model, one PostgreSQL script per schema, is in `ddl/`. It was
+checked against PostgreSQL 16: every table is created and no foreign key crosses a schema.
+
 ## Rules that apply everywhere
 
 **Tenant.** Every table carries `tenant_id varchar(32) NOT NULL` holding the university code, and
@@ -875,6 +878,8 @@ The coordinator sees these when reviewing a recognition request, which is the mo
 
 ## `notifications`
 
+### `notifications.notifications`
+
 ```
 id             uuid          PK
 tenant_id      varchar(32)
@@ -898,6 +903,8 @@ two things that matter depend on email arriving: getting in, and confirming pres
 ---
 
 ## `payments`
+
+### `payments.purchases`
 
 ```
 id                  uuid          PK
@@ -924,6 +931,8 @@ once.
 
 ## `analytics`
 
+### `analytics.daily_indicators`
+
 ```
 tenant_id             varchar(32)   NOT NULL
 day                   date          NOT NULL
@@ -936,8 +945,9 @@ requests_approved     integer       NOT NULL DEFAULT 0
 PRIMARY KEY (tenant_id, day)
 ```
 
+### `analytics.uncovered_demand`
+
 ```
--- analytics.uncovered_demand
 tenant_id          varchar(32)   NOT NULL
 catalog_item_id    uuid          NOT NULL
 day                date          NOT NULL
@@ -954,5 +964,5 @@ counts across universities without ever touching academic data.
 
 ## Counts
 
-Twelve modules, twelve schemas, thirty one tables. No table exists without a flow that needs it, and
+Twelve modules, twelve schemas, forty one tables. No table exists without a flow that needs it, and
 no flow from the session is left without tables.
