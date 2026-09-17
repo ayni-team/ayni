@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import pe.ayni.booking.domain.model.valueobjects.ExceptionKind;
 import pe.ayni.booking.domain.model.valueobjects.TimeRange;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -29,27 +31,30 @@ import java.util.UUID;
 public class AvailabilityException {
 
     @Id
-    @Column(nullable = false, updatable = false)
+    @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "tenant_id", length = 32, nullable = false)
+    @Column(name = "tenant_id", length = 32, nullable = false, updatable = false)
     private String tenantId;
 
-    @Column(name = "tutor_id", nullable = false)
+    @Column(name = "tutor_id", nullable = false, updatable = false)
     private UUID tutorId;
 
     @Column(name = "exception_date", nullable = false)
     private LocalDate exceptionDate;
 
-    @Embedded
-    private TimeRange timeRange;
+    @Column(name = "starts_at_time")
+    private LocalTime startsAtTime;
+
+    @Column(name = "ends_at_time")
+    private LocalTime endsAtTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 8, nullable = false)
+    @Column(name = "kind", length = 8, nullable = false)
     private ExceptionKind kind;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
 
     protected AvailabilityException() {
@@ -61,25 +66,32 @@ public class AvailabilityException {
             String tenantId,
             UUID tutorId,
             LocalDate exceptionDate,
-            TimeRange timeRange,
-            ExceptionKind kind
+            LocalTime startsAtTime,
+            LocalTime endsAtTime,
+            ExceptionKind kind,
+            Instant now
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.tenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
         this.tutorId = Objects.requireNonNull(tutorId, "tutorId must not be null");
         this.exceptionDate = Objects.requireNonNull(exceptionDate, "exceptionDate must not be null");
         this.kind = Objects.requireNonNull(kind, "kind must not be null");
-        this.timeRange = timeRange;
-        this.createdAt = OffsetDateTime.now();
+        this.startsAtTime = startsAtTime;
+        this.endsAtTime = endsAtTime;
+        this.createdAt = Objects.requireNonNull(now, "now must not be null");
 
         validateInvariants();
     }
 
     private void validateInvariants() {
-        // ADD always requires a specific time window
         if (this.kind == ExceptionKind.ADD) {
-            if (this.timeRange == null || this.timeRange.startsAtTime() == null || this.timeRange.endsAtTime() == null) {
-                throw new IllegalStateException("An 'ADD' exception must specify starts_at_time and ends_at_time");
+            if (this.startsAtTime == null || this.endsAtTime == null) {
+                throw new IllegalStateException("An ADD exception requires starts_at_time and ends_at_time");
+            }
+        }
+        if (this.startsAtTime != null && this.endsAtTime != null) {
+            if (!this.endsAtTime.isAfter(this.startsAtTime)) {
+                throw new IllegalArgumentException("ends_at_time must be strictly after starts_at_time");
             }
         }
     }
@@ -89,9 +101,12 @@ public class AvailabilityException {
             UUID id,
             String tenantId,
             UUID tutorId,
-            LocalDate exceptionDate
+            LocalDate exceptionDate,
+            Instant now
     ) {
-        return new AvailabilityException(id, tenantId, tutorId, exceptionDate, null, ExceptionKind.REMOVE);
+        return new AvailabilityException(
+                id, tenantId, tutorId, exceptionDate, null, null, ExceptionKind.REMOVE, now
+        );
     }
 
     // Factory method for removing a specific time window
@@ -100,9 +115,13 @@ public class AvailabilityException {
             String tenantId,
             UUID tutorId,
             LocalDate exceptionDate,
-            TimeRange timeRange
+            LocalTime startsAtTime,
+            LocalTime endsAtTime,
+            Instant now
     ) {
-        return new AvailabilityException(id, tenantId, tutorId, exceptionDate, timeRange, ExceptionKind.REMOVE);
+        return new AvailabilityException(
+                id, tenantId, tutorId, exceptionDate, startsAtTime, endsAtTime, ExceptionKind.REMOVE, now
+        );
     }
 
     // Factory method for adding an extra availability slot
@@ -111,40 +130,23 @@ public class AvailabilityException {
             String tenantId,
             UUID tutorId,
             LocalDate exceptionDate,
-            TimeRange timeRange
+            LocalTime startsAtTime,
+            LocalTime endsAtTime,
+            Instant now
     ) {
-        return new AvailabilityException(id, tenantId, tutorId, exceptionDate, timeRange, ExceptionKind.ADD);
+        return new AvailabilityException(
+                id, tenantId, tutorId, exceptionDate, startsAtTime, endsAtTime, ExceptionKind.ADD, now
+        );
     }
 
 
-    public UUID getId() {
-        return id;
-    }
-
-    public String getTenantId() {
-        return tenantId;
-    }
-
-    public UUID getTutorId() {
-        return tutorId;
-    }
-
-    public LocalDate getExceptionDate() {
-        return exceptionDate;
-    }
-
-    public TimeRange getTimeRange() {
-        return timeRange;
-    }
-
-    public ExceptionKind getKind() {
-        return kind;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-
+    public UUID getId() { return id; }
+    public String getTenantId() { return tenantId; }
+    public UUID getTutorId() { return tutorId; }
+    public LocalDate getExceptionDate() { return exceptionDate; }
+    public LocalTime getStartsAtTime() { return startsAtTime; }
+    public LocalTime getEndsAtTime() { return endsAtTime; }
+    public ExceptionKind getKind() { return kind; }
+    public Instant getCreatedAt() { return createdAt; }
 
 }
