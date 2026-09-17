@@ -2,12 +2,10 @@ package pe.ayni.booking.domain.model.entities;
 
 import jakarta.persistence.*;
 import pe.ayni.booking.domain.model.valueobjects.ExceptionKind;
-import pe.ayni.booking.domain.model.valueobjects.TimeRange;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
