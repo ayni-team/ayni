@@ -1,0 +1,24 @@
+@startuml state-hour-block
+title HourBlock state diagram
+hide empty description
+
+[*] --> AVAILABLE : HoursGenerated\n[weekly pattern published and tutor has an enabled skill]
+
+AVAILABLE --> HELD : student selects the hour\n/ heldBy = student, heldUntil = now + 5 min
+HELD --> AVAILABLE : hold expires [now > heldUntil]\n/ scheduled job releases it
+HELD --> AVAILABLE : student leaves the confirmation
+HELD --> BOOKED : ConfirmBooking [credits charged]\n/ bookingId = booking.id
+
+AVAILABLE --> RELEASED : tutor removes availability or pauses\n/ HoursWithdrawn
+BOOKED --> AVAILABLE : student cancels\n/ BookingCancelled
+BOOKED --> RELEASED : tutor cancels or removes availability\n/ BookingCancelled, incident recorded if late
+
+BOOKED --> [*] : scheduled hour is reached
+RELEASED --> [*]
+
+note right of HELD
+  Two students confirming the same hour:
+  the version column makes one update fail
+  (optimistic locking).
+end note
+@enduml

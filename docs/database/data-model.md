@@ -487,10 +487,10 @@ room_name           varchar(120)  NOT NULL UNIQUE
 started_at          timestamptz
 ended_at            timestamptz
 status              varchar(24)   NOT NULL   -- SCHEDULED | IN_PROGRESS | COMPLETED |
-                                             -- UNVERIFIED | ABANDONED
+                                             -- UNVERIFIED | ABANDONED | CANCELLED
 created_at          timestamptz   NOT NULL DEFAULT now()
 
-CHECK (status IN ('SCHEDULED','IN_PROGRESS','COMPLETED','UNVERIFIED','ABANDONED'))
+CHECK (status IN ('SCHEDULED','IN_PROGRESS','COMPLETED','UNVERIFIED','ABANDONED','CANCELLED'))
 INDEX (tenant_id, scheduled_start)
 ```
 
@@ -498,6 +498,8 @@ INDEX (tenant_id, scheduled_start)
 link cannot walk in.
 
 `UNVERIFIED` is the state of a session that took place but failed the presence check below.
+`CANCELLED` is the state of a session whose booking was cancelled before it started, so that the
+history shows what happened instead of an empty workspace (US12).
 
 ### `sessions.participations`
 
