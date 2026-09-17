@@ -1,0 +1,122 @@
+@startuml class-booking-matching
+title Class diagram: booking and matching bounded contexts
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "booking" {
+  class AvailabilityPattern <<Aggregate Root>> {
+    - id: UUID
+    - tutorId: UUID
+    - dayOfWeek: DayOfWeek
+    - startsAtTime: LocalTime
+    - endsAtTime: LocalTime
+    - validFrom: LocalDate
+    - validUntil: LocalDate
+    + overlaps(other: AvailabilityPattern): boolean
+  }
+  class AvailabilityException <<Entity>> {
+    - exceptionDate: LocalDate
+    - startsAtTime: LocalTime
+    - endsAtTime: LocalTime
+    - kind: ExceptionKind
+  }
+  class AvailabilityPause <<Entity>> {
+    - startsOn: LocalDate
+    - endsOn: LocalDate
+  }
+  class BlockGenerator <<Domain Service>> {
+    + generate(patterns, exceptions, pauses, from: LocalDate, to: LocalDate, zone: ZoneId): List<HourBlock>
+  }
+  class HourBlock <<Aggregate Root>> {
+    - id: UUID
+    - tutorId: UUID
+    - startsAt: Instant
+    - endsAt: Instant
+    - status: HourBlockStatus
+    - heldBy: UUID
+    - heldUntil: Instant
+    - bookingId: UUID
+    - version: long
+    + hold(studentId: UUID, now: Instant): void
+    + releaseHold(now: Instant): void
+    + book(bookingId: UUID): void
+    + release(): void
+  }
+  class Booking <<Aggregate Root>> {
+    - id: UUID
+    - studentId: UUID
+    - tutorId: UUID
+    - catalogItemId: UUID
+    - startsAt: Instant
+    - endsAt: Instant
+    - hours: int
+    - creditsCharged: Credits
+    - needDescription: String
+    - status: BookingStatus
+    - cancelledBy: CancelledBy
+    - cancelledAt: Instant
+    - cancelledLate: boolean
+    - cancellationReason: String
+    + {static} confirm(student: UUID, blocks: List<HourBlock>, item: UUID, need: String): Booking
+    + cancel(by: CancelledBy, reason: String, now: Instant): void
+    + isLateCancellation(now: Instant): boolean
+    + complete(): void
+    + markNoShow(): void
+  }
+  class ReliabilityIncident <<Entity>> {
+    - tutorId: UUID
+    - bookingId: UUID
+    - kind: IncidentKind
+    - occurredAt: Instant
+  }
+  enum HourBlockStatus {
+    AVAILABLE
+    HELD
+    BOOKED
+    RELEASED
+  }
+  enum BookingStatus {
+    CONFIRMED
+    CANCELLED
+    COMPLETED
+    NO_SHOW
+  }
+}
+
+package "matching" {
+  class AvailableOffer <<Read Model>> {
+    - blockId: UUID
+    - tutorId: UUID
+    - catalogItemId: UUID
+    - startsAt: Instant
+    - tutorName: String
+    - averageStars: BigDecimal
+    - ratingsCount: int
+    - sessionsTaught: int
+  }
+  class OfferProjectionUpdater <<Event Listener>> {
+    + on(event: HoursGenerated): void
+    + on(event: HoursWithdrawn): void
+    + on(event: BookingConfirmed): void
+    + on(event: BookingCancelled): void
+    + on(event: SkillEnabled): void
+    + on(event: SkillWithdrawn): void
+    + on(event: SessionRated): void
+  }
+  class SearchOffers <<Query>> {
+    + search(catalogItemId: UUID, from: Instant, to: Instant): List<AvailableOffer>
+  }
+}
+
+AvailabilityPattern "1" -- "0..*" HourBlock : generates >
+BlockGenerator ..> AvailabilityPattern
+BlockGenerator ..> AvailabilityException
+BlockGenerator ..> AvailabilityPause
+BlockGenerator ..> HourBlock
+Booking "1" -- "1..*" HourBlock : takes >
+Booking "1" -- "0..2" ReliabilityIncident
+HourBlock --> HourBlockStatus
+Booking --> BookingStatus
+OfferProjectionUpdater ..> AvailableOffer : updates
+SearchOffers ..> AvailableOffer : reads
+@enduml

@@ -1,0 +1,25 @@
+@startuml state-session
+title Session state diagram
+hide empty description
+
+[*] --> SCHEDULED : BookingConfirmed\n/ private room created
+
+SCHEDULED --> IN_PROGRESS : first participant joins\n[from 15 min before the start]\n/ SessionStarted
+SCHEDULED --> CANCELLED : BookingCancelled
+SCHEDULED --> ABANDONED : scheduled end reached\n[nobody joined]
+
+IN_PROGRESS --> IN_PROGRESS : 5 min after start\n/ PresenceCodeIssued to each participant
+IN_PROGRESS --> COMPLETED : EndSession\n[every participant confirmed presence]\n/ SessionCompleted
+IN_PROGRESS --> UNVERIFIED : EndSession or code expired\n[a participant did not confirm]\n/ SessionUnverified
+
+COMPLETED --> [*]
+UNVERIFIED --> [*]
+ABANDONED --> [*]
+CANCELLED --> [*]
+
+note right of UNVERIFIED
+  The tutor earns no credits,
+  the student is refunded
+  and audit records the failure.
+end note
+@enduml

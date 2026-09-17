@@ -1,0 +1,20 @@
+@startuml state-offered-skill
+title OfferedSkill state diagram
+hide empty description
+
+[*] --> ENABLED : OfferSkill [university course and grade >= threshold]\n/ path = ACADEMIC_RECORD, SkillEnabled
+[*] --> PENDING : RequestSkillValidation [global tool]\n/ evidence submitted
+
+PENDING --> ENABLED : coordinator approves\n/ path = REVIEWED_EVIDENCE, SkillEnabled
+PENDING --> REJECTED : coordinator rejects with a reason\n/ ValidationResolved
+REJECTED --> PENDING : student submits new evidence
+
+ENABLED --> WITHDRAWN : tutor withdraws the skill\n/ SkillWithdrawn, confirmed bookings stand
+WITHDRAWN --> ENABLED : tutor offers it again\n[accreditation still valid]\n/ SkillEnabled
+
+note left of ENABLED
+  A course below the threshold
+  is not offered at all:
+  no record is created.
+end note
+@enduml

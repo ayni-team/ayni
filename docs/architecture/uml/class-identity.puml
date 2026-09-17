@@ -1,0 +1,114 @@
+@startuml class-identity
+title Class diagram: identity bounded context
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "identity" {
+  class Tenant <<Aggregate Root>> {
+    - id: UUID
+    - code: String
+    - name: String
+    - emailDomains: List<String>
+    - minimumTeachingGrade: BigDecimal
+    - timezone: ZoneId
+    - status: TenantStatus
+    + claims(email: String): boolean
+    + suspend(): void
+  }
+  class CreditPolicy <<Entity>> {
+    - id: UUID
+    - kind: PolicyKind
+    - amount: Credits
+    - validityDays: int
+    - validFrom: LocalDate
+    - supersededAt: Instant
+    + expiryFrom(grantedAt: Instant): Instant
+    + supersede(now: Instant): void
+  }
+  class User <<Aggregate Root>> {
+    - id: UUID
+    - tenantId: String
+    - role: UserRole
+    - email: String
+    - studentCode: String
+    - fullName: String
+    - career: String
+    - currentTerm: String
+    - photoUrl: String
+    - bio: String
+    - status: UserStatus
+    - onboardingStep: String
+    + activate(profile: AcademicProfile, now: Instant): void
+    + completeProfile(photoUrl: String, bio: String): void
+    + advanceOnboarding(step: String): void
+  }
+  class AcademicRecord <<Entity>> {
+    - courseCode: String
+    - courseName: String
+    - grade: BigDecimal
+    - term: String
+  }
+  class AccessLink <<Aggregate Root>> {
+    - id: UUID
+    - email: String
+    - purpose: AccessPurpose
+    - tokenHash: String
+    - expiresAt: Instant
+    - consumedAt: Instant
+    + consume(token: String, now: Instant): void
+    + isUsable(now: Instant): boolean
+  }
+  class UserSession <<Entity>> {
+    - id: UUID
+    - tokenHash: String
+    - expiresAt: Instant
+    - revokedAt: Instant
+    + revoke(now: Instant): void
+  }
+  class PlatformAdmin <<Aggregate Root>> {
+    - id: UUID
+    - email: String
+    - fullName: String
+    - status: AdminStatus
+  }
+  interface AcademicSystemPort <<Port>> {
+    + fetchProfile(tenantId: String, studentCode: String): AcademicProfile
+  }
+  class AcademicProfile <<Value Object>> {
+    + fullName: String
+    + career: String
+    + currentTerm: String
+    + approvedCourses: List<AcademicRecord>
+  }
+  enum UserRole {
+    STUDENT
+    COORDINATOR
+  }
+  enum UserStatus {
+    PENDING
+    ACTIVE
+    RESTRICTED
+  }
+  enum AccessPurpose {
+    ACTIVATION
+    LOGIN
+    COORDINATOR_INVITE
+  }
+  enum PolicyKind {
+    BASELINE
+    TARGETED
+  }
+}
+
+Tenant "1" *-- "0..*" CreditPolicy
+Tenant "1" -- "0..*" User : belongs to <
+User "1" *-- "0..*" AcademicRecord
+User "1" -- "0..*" UserSession
+PlatformAdmin "1" -- "0..*" UserSession
+AcademicSystemPort ..> AcademicProfile
+User ..> AcademicProfile
+User --> UserRole
+User --> UserStatus
+AccessLink --> AccessPurpose
+CreditPolicy --> PolicyKind
+@enduml

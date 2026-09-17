@@ -1,0 +1,21 @@
+@startuml state-booking
+title Booking state diagram
+hide empty description
+
+[*] --> CONFIRMED : ConfirmBooking\n[tutor enabled, contiguous hours held, credits charged]\n/ BookingConfirmed
+
+CONFIRMED --> CANCELLED : student or tutor cancels\n/ refund, BookingCancelled\n/ late = starts in less than 12 h
+CONFIRMED --> CANCELLED : SessionUnverified\n/ cancelledBy = SYSTEM, refund
+CONFIRMED --> COMPLETED : SessionCompleted
+CONFIRMED --> NO_SHOW : session abandoned\n/ incident recorded
+
+CANCELLED --> [*]
+COMPLETED --> [*]
+NO_SHOW --> [*]
+
+note right of CANCELLED
+  Cancelling always refunds the student.
+  A late cancellation is recorded
+  against whoever cancelled.
+end note
+@enduml
