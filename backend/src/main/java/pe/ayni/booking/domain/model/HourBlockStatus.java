@@ -1,4 +1,4 @@
-package pe.ayni.booking.domain.model.valueobjects;
+package pe.ayni.booking.domain.model;
 
 public enum HourBlockStatus {
     AVAILABLE,

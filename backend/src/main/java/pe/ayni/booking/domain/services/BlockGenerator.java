@@ -1,11 +1,10 @@
 package pe.ayni.booking.domain.services;
 
-import pe.ayni.booking.domain.model.*;
-import pe.ayni.booking.domain.model.aggregates.AvailabilityPattern;
-import pe.ayni.booking.domain.model.aggregates.HourBlock;
-import pe.ayni.booking.domain.model.entities.AvailabilityException;
-import pe.ayni.booking.domain.model.entities.AvailabilityPause;
-import pe.ayni.booking.domain.model.valueobjects.ExceptionKind;
+import pe.ayni.booking.domain.model.AvailabilityPattern;
+import pe.ayni.booking.domain.model.HourBlock;
+import pe.ayni.booking.domain.model.AvailabilityException;
+import pe.ayni.booking.domain.model.AvailabilityPause;
+import pe.ayni.booking.domain.model.ExceptionKind;
 
 import java.time.*;
 import java.util.*;
