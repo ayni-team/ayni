@@ -1,7 +1,6 @@
-package pe.ayni.booking.domain.model.entities;
+package pe.ayni.booking.domain.model;
 
 import jakarta.persistence.*;
-import pe.ayni.booking.domain.model.valueobjects.ExceptionKind;
 
 import java.time.Instant;
 import java.time.LocalDate;

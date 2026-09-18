@@ -1,4 +1,4 @@
-package pe.ayni.booking.domain.model.aggregates;
+package pe.ayni.booking.domain.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

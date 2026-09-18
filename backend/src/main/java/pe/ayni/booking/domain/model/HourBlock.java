@@ -1,7 +1,6 @@
-package pe.ayni.booking.domain.model.aggregates;
+package pe.ayni.booking.domain.model;
 
 import jakarta.persistence.*;
-import pe.ayni.booking.domain.model.valueobjects.HourBlockStatus;
 
 import java.time.Duration;
 import java.time.Instant;
