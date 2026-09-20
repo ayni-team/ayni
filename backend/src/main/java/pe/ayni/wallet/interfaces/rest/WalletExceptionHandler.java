@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.shared.tenancy.MissingTenantException;
+import pe.ayni.shared.tenancy.MissingUserException;
 import pe.ayni.wallet.InsufficientCreditsException;
+import pe.ayni.wallet.domain.model.CreditRuleViolation;
 
 /**
  * Turns the exceptions of this module into answers.
@@ -46,6 +48,13 @@ class WalletExceptionHandler {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
   }
 
+  /** No student on the request: the header is missing, or not a readable identifier. */
+  @ExceptionHandler(MissingUserException.class)
+  ResponseEntity<ApiError> handleMissingUser(
+      MissingUserException exception, HttpServletRequest request) {
+    return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
   /** A header the endpoint needs was not sent. */
   @ExceptionHandler(MissingRequestHeaderException.class)
   ResponseEntity<ApiError> handleMissingHeader(
@@ -73,10 +82,16 @@ class WalletExceptionHandler {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
   }
 
-  /** A rule of the domain refusing what was asked, such as a charge of zero credits. */
-  @ExceptionHandler(IllegalArgumentException.class)
-  ResponseEntity<ApiError> handleIllegalArgument(
-      IllegalArgumentException exception, HttpServletRequest request) {
+  /**
+   * A rule of this module refusing what was asked, such as a charge of zero credits.
+   *
+   * <p>Only wallet's own refusals are answered here. {@code IllegalArgumentException} used to be
+   * mapped instead, which turned every programming mistake below the controller into a 400 and hid
+   * it: a bug that answers "bad request" is a bug nobody reports.
+   */
+  @ExceptionHandler(CreditRuleViolation.class)
+  ResponseEntity<ApiError> handleCreditRuleViolation(
+      CreditRuleViolation exception, HttpServletRequest request) {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
   }
 
