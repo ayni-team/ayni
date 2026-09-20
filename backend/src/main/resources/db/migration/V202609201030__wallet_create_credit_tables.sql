@@ -10,8 +10,8 @@
 -- two truths that drift apart on the first failed transaction, and the one that
 -- can be recomputed is the one that has to go.
 --
--- Taken from docs/database/ddl/05-wallet.sql, which was checked against
--- PostgreSQL 16. The schema itself is created by V1.
+-- Column for column as docs/database/data-model.md specifies them, checked
+-- against PostgreSQL 16. The schema itself is created by V1.
 -- =============================================================================
 
 CREATE TABLE wallet.credit_accounts (
