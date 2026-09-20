@@ -1,5 +1,7 @@
 package pe.ayni.wallet.infrastructure;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +18,7 @@ public interface CreditAccountRepository extends JpaRepository<CreditAccount, UU
   Optional<CreditAccount> findByTenantIdAndUserId(String tenantId, UUID userId);
 
   boolean existsByTenantIdAndUserId(String tenantId, UUID userId);
+
+  /** The given accounts, for turning account identifiers back into students. */
+  List<CreditAccount> findByTenantIdAndIdIn(String tenantId, Collection<UUID> ids);
 }
