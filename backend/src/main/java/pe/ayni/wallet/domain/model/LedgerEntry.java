@@ -131,11 +131,14 @@ public class LedgerEntry {
   /**
    * Recomputes the hash from the fields as they stand now.
    *
-   * <p>An entry whose stored hash no longer equals this was changed outside the application.
+   * <p>An entry whose stored hash no longer equals this was changed outside the application. Every
+   * column the entry owns goes in, {@code id} included: a row whose identifier was swapped for
+   * another is as tampered with as one whose amount was.
    */
   public String computeHash() {
     String canonical =
         Stream.of(
+                id,
                 tenantId,
                 accountId,
                 lotId,
