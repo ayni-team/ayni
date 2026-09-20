@@ -18,7 +18,7 @@ import pe.ayni.wallet.infrastructure.CreditLotRepository;
  * run in between.
  */
 @Service
-class WalletBalanceQuery {
+public class WalletBalanceQuery {
 
   private final Accounts accounts;
   private final CreditLotRepository lots;
@@ -37,7 +37,7 @@ class WalletBalanceQuery {
    * shown a balance of zero and how to obtain credits, which is what US23 asks for.
    */
   @Transactional(readOnly = true)
-  Balance of(UUID userId) {
+  public Balance of(UUID userId) {
     String tenantId = TenantContext.require();
     return accounts
         .find(userId)
@@ -53,7 +53,7 @@ class WalletBalanceQuery {
    * that happened, and spending those credits afterwards does not undo it.
    */
   @Transactional(readOnly = true)
-  Credits earnedTotal(UUID userId) {
+  public Credits earnedTotal(UUID userId) {
     String tenantId = TenantContext.require();
     return accounts
         .find(userId)

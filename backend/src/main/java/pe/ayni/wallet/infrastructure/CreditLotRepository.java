@@ -24,6 +24,9 @@ public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
   /** Every group of an account, spent or not, expired or not: the history needs all of them. */
   List<CreditLot> findByTenantIdAndAccountId(String tenantId, UUID accountId);
 
+  /** The given groups, for a read that is not about to change them. */
+  List<CreditLot> findByTenantIdAndIdIn(String tenantId, Collection<UUID> ids);
+
   /** The given groups, locked, for a refund that is about to put credits back in them. */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
