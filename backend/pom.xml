@@ -24,6 +24,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-modulith.version>1.3.1</spring-modulith.version>
     <springdoc.version>2.7.0</springdoc.version>
+    <!--
+      Newer than the version Spring Boot pins: the Docker client bundled with that one speaks an
+      API version that Docker Engine 29 no longer accepts.
+    -->
+    <testcontainers.version>1.21.3</testcontainers.version>
+    <docker-java.version>3.5.1</docker-java.version>
   </properties>
 
   <dependencyManagement>
@@ -148,6 +154,21 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <!--
+              The Docker API version the Testcontainers client speaks. Without it the client
+              offers 1.32, which Docker Engine 29 refuses, and every test that needs a database
+              fails before it starts. 1.41 is understood by every engine from 20.10 onwards.
+            -->
+            <api.version>1.41</api.version>
+          </systemPropertyVariables>
+        </configuration>
       </plugin>
     </plugins>
   </build>

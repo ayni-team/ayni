@@ -96,6 +96,18 @@ public class LedgerEntry {
    */
   public static LedgerEntry following(
       LedgerEntry previous, long sequenceNumber, Movement movement, Instant occurredAt) {
+    return followingHash(
+        previous == null ? null : previous.entryHash(), sequenceNumber, movement, occurredAt);
+  }
+
+  /**
+   * The same, when all that is known of the previous entry is its hash.
+   *
+   * <p>That is the case when appending: the tail of the chain is read as two columns under a lock,
+   * and loading the whole entry to take one field off it would buy nothing.
+   */
+  public static LedgerEntry followingHash(
+      String previousHash, long sequenceNumber, Movement movement, Instant occurredAt) {
 
     LedgerEntry entry = new LedgerEntry();
     entry.id = UUID.randomUUID();
@@ -108,7 +120,7 @@ public class LedgerEntry {
     entry.reason = movement.reason();
     entry.referenceType = movement.referenceType();
     entry.referenceId = movement.referenceId();
-    entry.previousHash = previous == null ? null : previous.entryHash();
+    entry.previousHash = previousHash;
     // PostgreSQL keeps microseconds, so an instant with more precision would come back different
     // from what was hashed and break the chain on the first verification after a restart.
     entry.occurredAt = occurredAt.truncatedTo(ChronoUnit.MICROS);

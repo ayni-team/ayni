@@ -5,10 +5,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 import pe.ayni.wallet.domain.model.LedgerEntry;
 import pe.ayni.wallet.domain.model.Movement;
 import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
+import pe.ayni.wallet.infrastructure.LedgerEntryRepository.ChainTail;
 
 /**
  * Appends movements to a university's ledger.
@@ -55,18 +57,19 @@ class LedgerWriter {
 
     // Locks the tail of this university's chain until the transaction ends, so that two
     // simultaneous charges append one after the other instead of both claiming the same place.
-    LedgerEntry previous =
-        entries.findFirstByTenantIdOrderBySequenceNumberDesc(tenantId).orElse(null);
-    long nextSequence = previous == null ? 1 : previous.sequenceNumber() + 1;
+    Optional<LedgerEntryRepository.ChainTail> tail = entries.lockChainTail(tenantId);
+    long nextSequence = tail.map(ChainTail::getSequenceNumber).orElse(0L) + 1;
+    String previousHash = tail.map(ChainTail::getEntryHash).orElse(null);
 
     List<LedgerEntry> appended = new ArrayList<>(movements.size());
     for (Movement movement : movements) {
-      LedgerEntry entry = LedgerEntry.following(previous, nextSequence++, movement, now);
+      LedgerEntry entry =
+          LedgerEntry.followingHash(previousHash, nextSequence++, movement, now);
       // persist, not save: an entry is only ever inserted, and merge would ask the database
       // whether this one already exists before inserting it anyway.
       entityManager.persist(entry);
       appended.add(entry);
-      previous = entry;
+      previousHash = entry.entryHash();
     }
     return appended;
   }
