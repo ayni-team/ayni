@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-16
+- **Amended:** 2026-09-20, after implementing `wallet`
 
 ## Context
 
@@ -56,3 +57,22 @@ way.
   `0004-start-simple-add-quality-attributes-per-iteration.md`.
 - Until then, anything that must not be lost, such as charging or refunding credits, is a
   synchronous call inside the same transaction, not an event.
+
+## Amendment, 2026-09-20: the refund travels both ways
+
+Implementing `wallet` made a contradiction visible. The rule above says a refund is a synchronous
+call. `backend-guide.md` says `wallet` listens to `BookingCancelled`. Both are true on purpose, and
+the order between them matters.
+
+`booking` calls `WalletApi.refund(bookingId)` inside the transaction that cancels the booking. That
+call **is** the refund: if it fails, the cancellation fails with it, which is the property this
+record was written to protect.
+
+`wallet` also listens to `BookingCancelled`, and that listener is a net rather than a second
+payment. A refund reads from the ledger what the booking took and subtracts what has already been
+given back, so a cancellation that arrives twice returns nothing the second time. The net therefore
+catches a cancellation published by something that did not call the interface, and cannot pay
+twice if nothing went wrong.
+
+Belt and braces is free here only because the operation is idempotent. A consequence that were not
+idempotent would still have to choose one mechanism, and by this record it would choose the call.

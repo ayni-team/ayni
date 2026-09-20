@@ -156,6 +156,10 @@ public interface WalletApi {
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
 
+A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
+transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
+The reasoning is in ADR 0005.
+
 ---
 
 ## booking
