@@ -14,10 +14,10 @@ import java.time.Instant;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.wallet.application.MovementHistoryQuery;
 import pe.ayni.wallet.application.WalletBalanceQuery;
 import pe.ayni.wallet.domain.model.LedgerReason;
@@ -28,21 +28,16 @@ import pe.ayni.wallet.domain.model.LedgerReason;
  * <p>The controller does exactly two things: it reads the request and it calls a use case. It never
  * touches an entity or a repository, and it holds no transaction, so the rules stay where they can
  * be tested without HTTP.
+ *
+ * <p>Both endpoints answer about the student making the request, read from {@link CurrentUser}, and
+ * neither takes a student as a parameter. That is deliberate: until sign in exists, an endpoint
+ * that could name another student could be pointed at one.
  */
 @RestController
 @RequestMapping("/api/v1/wallet")
 @Validated
 @Tag(name = "Wallet", description = "Credits: balance, origin, expiry and history")
 class WalletController {
-
-  /**
-   * Who is asking.
-   *
-   * <p>Temporary, and the only thing that changes when identity arrives: the student will come from
-   * the access token, the same way the university already comes from a header today and will come
-   * from a claim tomorrow. Until then the header keeps both endpoints usable from Swagger.
-   */
-  static final String USER_HEADER = "X-User-Id";
 
   private final WalletBalanceQuery balance;
   private final MovementHistoryQuery movements;
@@ -73,6 +68,13 @@ class WalletController {
       required = true,
       description = "University the request belongs to. Read by TenantFilter",
       schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "11111111-1111-4111-8111-111111111111"))
   @ApiResponse(
       responseCode = "200",
       description = "The balance, broken down by origin",
@@ -114,14 +116,9 @@ class WalletController {
                             "guidance": null
                           }
                           """)))
-  WalletBalanceResponse balance(
-      @Parameter(
-              description = "Student asking about their own wallet",
-              required = true,
-              example = "11111111-1111-4111-8111-111111111111")
-          @RequestHeader(USER_HEADER)
-          UUID userId) {
+  WalletBalanceResponse balance() {
 
+    UUID userId = CurrentUser.require();
     return WalletBalanceResponse.of(userId, balance.of(userId), balance.earnedTotal(userId));
   }
 
@@ -142,6 +139,13 @@ class WalletController {
       required = true,
       description = "University the request belongs to. Read by TenantFilter",
       schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "11111111-1111-4111-8111-111111111111"))
   @ApiResponse(
       responseCode = "200",
       description = "One page of the history",
@@ -185,12 +189,6 @@ class WalletController {
                           }
                           """)))
   MovementsPage movements(
-      @Parameter(
-              description = "Student asking about their own wallet",
-              required = true,
-              example = "11111111-1111-4111-8111-111111111111")
-          @RequestHeader(USER_HEADER)
-          UUID userId,
       @Parameter(description = "First moment included, ISO 8601 UTC") @RequestParam(required = false)
           Instant from,
       @Parameter(description = "First moment excluded, ISO 8601 UTC") @RequestParam(required = false)
@@ -204,6 +202,7 @@ class WalletController {
           @Max(100)
           int size) {
 
+    UUID userId = CurrentUser.require();
     return MovementsPage.of(movements.of(userId, from, to, reason, page, size));
   }
 }
