@@ -134,18 +134,13 @@ public class BlockGenerator {
   /**
    * Whether a REMOVE of that date takes this hour away.
    *
-   * <p>Overlapping is enough: a tutor who removes half past ten to half past eleven has said they
-   * are not available then, and an hour that runs through the middle of that cannot be offered.
-   * Removing a little more than was asked is the safe direction to be wrong in.
+   * <p>Whole day removals were already dealt with before we got here, so only the timed ones are
+   * asked, and each one answers for itself.
    */
   private static boolean isRemoved(List<AvailabilityException> thatDay, int blockStartMinute) {
-    int blockEndMinute = blockStartMinute + MINUTES_IN_AN_HOUR;
     return thatDay.stream()
         .filter(e -> e.getKind() == ExceptionKind.REMOVE && e.coversAWindow())
-        .anyMatch(
-            e ->
-                minutesOf(e.getStartsAtTime()) < blockEndMinute
-                    && blockStartMinute < minutesOf(e.getEndsAtTime()));
+        .anyMatch(e -> e.affects(blockStartMinute, blockStartMinute + MINUTES_IN_AN_HOUR));
   }
 
   private static void collect(

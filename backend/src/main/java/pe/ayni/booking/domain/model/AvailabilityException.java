@@ -102,6 +102,28 @@ public class AvailabilityException {
     }
   }
 
+  /**
+   * Whether this exception runs through the given block.
+   *
+   * <p>Both sides are half open ranges of minutes past midnight, not {@link LocalTime}: a block
+   * starting at 23:00 ends at 24:00, and there is no LocalTime for that.
+   *
+   * <p>Overlapping is enough. A tutor who removes half ten to half eleven has said they cannot be
+   * there then, and an hour running through the middle of that cannot be offered. An exception
+   * covering the whole day affects everything.
+   */
+  public boolean affects(int blockStartMinute, int blockEndMinute) {
+    if (!coversAWindow()) {
+      return true;
+    }
+    return minutesOf(startsAtTime) < blockEndMinute
+        && blockStartMinute < minutesOf(endsAtTime);
+  }
+
+  private static int minutesOf(LocalTime time) {
+    return time.getHour() * 60 + time.getMinute();
+  }
+
   /** Whether this exception is about a window of the day rather than the whole of it. */
   public boolean coversAWindow() {
     return this.startsAtTime != null && this.endsAtTime != null;
