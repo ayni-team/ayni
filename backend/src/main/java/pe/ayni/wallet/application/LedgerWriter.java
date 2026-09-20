@@ -17,7 +17,8 @@ import pe.ayni.wallet.infrastructure.LedgerEntryRepository.ChainTail;
  *
  * <p>Everything that moves credits goes through here, which is what keeps the two properties of the
  * ledger true: the entries of a university are numbered without gaps, and each one carries the hash
- * of the one before it.
+ * of the one before it. Both depend on appending one writer at a time, which is why the first thing
+ * this does is take the university's turn.
  *
  * <p>It has no transaction of its own on purpose. It runs inside the transaction of the use case
  * that called it, so the entries and the groups they describe are written together or not at all.
@@ -55,9 +56,11 @@ class LedgerWriter {
     String tenantId = movements.getFirst().tenantId();
     Instant now = clock.instant();
 
-    // Locks the tail of this university's chain until the transaction ends, so that two
-    // simultaneous charges append one after the other instead of both claiming the same place.
-    Optional<LedgerEntryRepository.ChainTail> tail = entries.lockChainTail(tenantId);
+    // Takes this university's turn to append, held until the transaction ends. Two simultaneous
+    // charges queue here instead of both reading the same tail and claiming the same place.
+    entries.lockLedgerOf(tenantId);
+
+    Optional<LedgerEntryRepository.ChainTail> tail = entries.chainTailOf(tenantId);
     long nextSequence = tail.map(ChainTail::getSequenceNumber).orElse(0L) + 1;
     String previousHash = tail.map(ChainTail::getEntryHash).orElse(null);
 

@@ -5,8 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +33,10 @@ import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
 /**
  * The promises the ledger makes, checked against the database that has to keep them.
  *
- * <p>These three cannot be tested anywhere else: the trigger belongs to PostgreSQL, the agreement
- * between the balance and the history is about rows that were really written, and the chain of
- * hashes only proves anything after the entries have been through the database and come back.
+ * <p>None of these can be tested anywhere else: the trigger belongs to PostgreSQL, the agreement
+ * between the balance and the history is about rows that were really written, the chain of hashes
+ * only proves anything after the entries have been through the database and come back, and
+ * appending from two requests at once needs two real connections to be anything more than a hope.
  */
 @SpringBootTest
 class WalletLedgerTest {
@@ -114,6 +122,56 @@ class WalletLedgerTest {
     assertThat(ledger).isNotEmpty();
     assertThat(LedgerChain.firstTamperedEntry(ledger)).isEmpty();
     assertThat(ledger.getFirst().previousHash()).isNull();
+  }
+
+  @Test
+  @DisplayName("appending from several requests at once numbers the entries without gaps")
+  void simultaneousAppendsQueueBehindOneAnother() throws Exception {
+
+    // A university of its own, so the numbering starts at one and the assertion can be exact
+    // instead of relative to whatever the other tests in this class already wrote.
+    String tenant = "CONCURRENCY";
+    int writers = 8;
+
+    ExecutorService pool = Executors.newFixedThreadPool(writers);
+    CountDownLatch startTogether = new CountDownLatch(1);
+    List<Future<?>> appends = new ArrayList<>();
+
+    try {
+      for (int i = 0; i < writers; i++) {
+        UUID tutor = UUID.randomUUID();
+        appends.add(
+            pool.submit(
+                () -> {
+                  startTogether.await();
+                  TenantContext.runAs(
+                      tenant,
+                      () ->
+                          wallet.grant(
+                              tutor, Credits.of(1), CreditType.EARNED, null, UUID.randomUUID()));
+                  return null;
+                }));
+      }
+      startTogether.countDown();
+
+      // Every one of them has to get through. Locking the last row instead of the university let
+      // the second writer wake up still believing the old tail was the tail, and it was rejected
+      // by uq_ledger_entries_sequence after having done all of its work: inside a booking, that
+      // takes the whole reservation down.
+      for (Future<?> append : appends) {
+        append.get(30, TimeUnit.SECONDS);
+      }
+    } finally {
+      pool.shutdownNow();
+    }
+
+    List<LedgerEntry> ledger = entries.findByTenantIdOrderBySequenceNumberAsc(tenant);
+
+    assertThat(ledger)
+        .extracting(LedgerEntry::sequenceNumber)
+        .containsExactlyElementsOf(LongStream.rangeClosed(1, writers).boxed().toList());
+    // The other half of what the lock buys: they chained in that same order.
+    assertThat(LedgerChain.firstTamperedEntry(ledger)).isEmpty();
   }
 
   private void grant(int amount, CreditType type, Instant expiresAt) {

@@ -21,17 +21,33 @@ import pe.ayni.wallet.domain.model.ReferenceType;
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> {
 
   /**
-   * Where a university's chain currently ends, locked until the transaction ends.
+   * Takes this university's turn to append, and holds it until the transaction ends.
    *
-   * <p>Locking it is what makes the chain a chain. Two transactions appending at once would
-   * otherwise read the same previous hash and claim the same sequence number, and one of them would
-   * be rejected by {@code uq_ledger_entries_sequence} after doing all its work. The lock makes them
-   * queue instead, and the constraint stays as the guarantee of last resort, including for the very
-   * first entry of a university, when there is no row yet to lock.
+   * <p>This is what makes the chain a chain. Without it, two transactions appending at once read
+   * the same tail, claim the same sequence number, and one of them is rejected by {@code
+   * uq_ledger_entries_sequence} after having done all of its work.
    *
-   * <p>The lock is written in SQL rather than asked for with {@code @Lock}, because an entry is
-   * mapped as immutable and Hibernate refuses to lock what it believes can never change. Two
-   * columns are enough here: appending needs the number to continue from and the hash to point at.
+   * <p>Locking the last row instead is the obvious thing to do, and it does not work. PostgreSQL
+   * re-checks the row a blocked transaction was waiting on, but it does not re-run the {@code order
+   * by ... limit 1} that chose it, so the second writer wakes up still believing the old tail is the
+   * tail. An advisory lock has no row to go stale: it is held on the university itself, so the
+   * writers really do queue, and it covers the first entry of a university, when there is no row to
+   * lock at all.
+   *
+   * <p>Two universities whose codes happen to hash alike queue behind each other. That costs a
+   * little waiting and is never wrong, which is the right way round for this trade.
+   */
+  @Query(
+      value = "select 1 from (select pg_advisory_xact_lock(hashtext(:tenantId))) as ledger_lock",
+      nativeQuery = true)
+  int lockLedgerOf(@Param("tenantId") String tenantId);
+
+  /**
+   * Where a university's chain currently ends.
+   *
+   * <p>Only ever read after {@link #lockLedgerOf(String)}, which is what keeps the answer true for
+   * as long as it takes to use it. Two columns are enough: appending needs the number to continue
+   * from and the hash to point at.
    */
   @Query(
       value =
@@ -41,10 +57,9 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
           where e.tenant_id = :tenantId
           order by e.sequence_number desc
           limit 1
-          for update
           """,
       nativeQuery = true)
-  Optional<ChainTail> lockChainTail(@Param("tenantId") String tenantId);
+  Optional<ChainTail> chainTailOf(@Param("tenantId") String tenantId);
 
   /** The last link of a chain: what to continue from. */
   interface ChainTail {
