@@ -5,6 +5,7 @@ import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.domain.model.AvailabilityException;
 import pe.ayni.booking.domain.model.AvailabilityPause;
 import pe.ayni.booking.domain.model.ExceptionKind;
+import org.springframework.stereotype.Component;
 
 import java.time.*;
 import java.util.*;
@@ -13,6 +14,7 @@ import java.util.*;
  * Domain service responsible for generating concrete one-hour inventory blocks
  * by combining weekly recurring patterns, date exceptions, and pauses.
  */
+@Component
 public class BlockGenerator {
 
     public List<HourBlock> generate(
