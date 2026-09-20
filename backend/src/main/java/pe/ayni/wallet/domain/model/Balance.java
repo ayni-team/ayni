@@ -91,6 +91,11 @@ public record Balance(Credits available, List<TypeBreakdown> byType) {
         type, available, type.expires(), type.countsTowardsRecognition(), groups);
   }
 
+  /** The balance of a student who has never been granted anything. */
+  public static Balance empty() {
+    return new Balance(Credits.ZERO, List.of());
+  }
+
   /** Whether there is nothing left to spend. */
   public boolean isEmpty() {
     return available.isZero();
