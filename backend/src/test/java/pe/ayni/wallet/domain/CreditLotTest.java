@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.wallet.domain.model.CreditLot;
+import pe.ayni.wallet.domain.model.CreditRuleViolation;
 import pe.ayni.wallet.domain.model.CreditSource;
 
 /** What a group of credits does and does not allow. */
@@ -44,7 +45,7 @@ class CreditLotTest {
                     CreditSource.of(type),
                     UUID.randomUUID(),
                     NOW))
-        .isInstanceOf(IllegalArgumentException.class)
+        .isInstanceOf(CreditRuleViolation.class)
         .hasMessageContaining("never expire");
   }
 
@@ -68,7 +69,7 @@ class CreditLotTest {
                     CreditSource.of(type),
                     UUID.randomUUID(),
                     NOW))
-        .isInstanceOf(IllegalArgumentException.class)
+        .isInstanceOf(CreditRuleViolation.class)
         .hasMessageContaining("must carry an expiry date");
   }
 
@@ -130,7 +131,7 @@ class CreditLotTest {
 
     // Otherwise cancelling a booking would be a way of creating credits.
     assertThatThrownBy(() -> lot.restore(Credits.of(2)))
-        .isInstanceOf(IllegalArgumentException.class)
+        .isInstanceOf(CreditRuleViolation.class)
         .hasMessageContaining("Cannot return");
   }
 

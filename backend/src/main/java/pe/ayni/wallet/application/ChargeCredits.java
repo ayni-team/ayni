@@ -14,6 +14,7 @@ import pe.ayni.wallet.InsufficientCreditsException;
 import pe.ayni.wallet.domain.model.Allocation;
 import pe.ayni.wallet.domain.model.CreditAccount;
 import pe.ayni.wallet.domain.model.CreditLot;
+import pe.ayni.wallet.domain.model.CreditRuleViolation;
 import pe.ayni.wallet.domain.model.LedgerReason;
 import pe.ayni.wallet.domain.model.Movement;
 import pe.ayni.wallet.domain.model.ReferenceType;
@@ -52,7 +53,7 @@ class ChargeCredits {
   ChargeReceipt charge(UUID userId, Credits amount, UUID bookingId) {
 
     if (amount.isZero()) {
-      throw new IllegalArgumentException("A charge of zero credits is not a charge");
+      throw new CreditRuleViolation("A charge of zero credits is not a charge");
     }
 
     String tenantId = TenantContext.require();

@@ -13,7 +13,7 @@ public record Allocation(CreditLot lot, Credits amount) {
 
   public Allocation {
     if (amount == null || amount.isZero()) {
-      throw new IllegalArgumentException("An allocation of zero credits is not an allocation");
+      throw new CreditRuleViolation("An allocation of zero credits is not an allocation");
     }
   }
 }

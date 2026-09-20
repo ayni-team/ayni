@@ -102,8 +102,8 @@ public class CreditLot {
    * Places a new group of credits in an account.
    *
    * @param expiresAt required for the types that expire, {@code null} for the ones that do not
-   * @throws IllegalArgumentException when the amount is zero, or when the expiry does not match
-   *     what the type allows
+   * @throws CreditRuleViolation when the amount is zero, or when the expiry does not match what the
+   *     type allows
    */
   public static CreditLot granted(
       String tenantId,
@@ -116,15 +116,15 @@ public class CreditLot {
       Instant now) {
 
     if (amount.isZero()) {
-      throw new IllegalArgumentException("A group of credits cannot be empty");
+      throw new CreditRuleViolation("A group of credits cannot be empty");
     }
     // The same rule the database enforces with ck_credit_lots_expiry. It is checked here too so
     // that the failure is a readable message in a unit test and not a constraint violation.
     if (creditType.expires() && expiresAt == null) {
-      throw new IllegalArgumentException(creditType + " credits must carry an expiry date");
+      throw new CreditRuleViolation(creditType + " credits must carry an expiry date");
     }
     if (!creditType.expires() && expiresAt != null) {
-      throw new IllegalArgumentException(creditType + " credits never expire");
+      throw new CreditRuleViolation(creditType + " credits never expire");
     }
 
     return new CreditLot(
@@ -153,12 +153,12 @@ public class CreditLot {
    *
    * <p>A group can only ever give back what it gave, so a refund cannot be used to create credits.
    *
-   * @throws IllegalArgumentException when the group did not give that many away
+   * @throws CreditRuleViolation when the group did not give that many away
    */
   public void restore(Credits amount) {
     int restored = remainingAmount + amount.amount();
     if (restored > originalAmount) {
-      throw new IllegalArgumentException(
+      throw new CreditRuleViolation(
           "Cannot return "
               + amount.amount()
               + " credits to a group of "

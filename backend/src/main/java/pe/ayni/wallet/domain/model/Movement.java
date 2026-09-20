@@ -28,7 +28,7 @@ public record Movement(
   public Movement {
     if (amount == null || amount.isZero()) {
       // The ledger records what moved, and nothing moving is not a movement.
-      throw new IllegalArgumentException("A movement of zero credits is not a movement");
+      throw new CreditRuleViolation("A movement of zero credits is not a movement");
     }
   }
 
