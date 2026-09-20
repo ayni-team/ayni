@@ -129,14 +129,22 @@ A story is implemented end to end by one person: database, backend and screen.
 The database design, table by table, is in `docs/database`. It is already decided: follow it rather
 than inventing columns.
 
-### The university of each request
+### The university and the person of each request
 
-Every request carries the header `X-Tenant-Id` with the university code, for example `UPC`. In
-Postman, add it to the collection once and forget about it. Read it in code with
-`TenantContext.require()` and filter your queries by it.
+Every request carries two headers:
 
-This is temporary: when sign in is added, the same value will come from the access token and only
-`TenantFilter` changes.
+| Header | Holds | Read it in code with |
+|---|---|---|
+| `X-Tenant-Id` | the university code, for example `UPC` | `TenantContext.require()` |
+| `X-User-Id` | who is asking, as a UUID | `CurrentUser.require()` |
+
+In Postman, add both to the collection once and forget about them. Filter every query by the
+university.
+
+This is temporary: when sign in is added both values come from the access token, and only
+`TenantFilter` and `CurrentUserFilter` change. Until then anyone can claim to be anybody, which is
+why an endpoint that answers about a person reads them from `CurrentUser` instead of taking them as
+a parameter: an endpoint with no way to name another student cannot be pointed at one.
 
 ---
 

@@ -37,6 +37,10 @@ services:
       AYNI_DB_URL: jdbc:postgresql://postgres:5432/ayni
       AYNI_DB_USER: ayni
       AYNI_DB_PASSWORD: ayni
+      # Development profile: modules whose data would otherwise come from a module
+      # that does not exist yet fill a couple of examples at startup, so the
+      # endpoints answer something in Swagger. Never set in a deployment.
+      SPRING_PROFILES_ACTIVE: dev
     ports:
       - "8080:8080"
     volumes:
