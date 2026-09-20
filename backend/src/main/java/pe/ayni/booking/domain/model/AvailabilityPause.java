@@ -73,6 +73,14 @@ public class AvailabilityPause {
         return !date.isBefore(startsOn) && !date.isAfter(endsOn);
     }
 
+    /** Returns whether this pause intersects another inclusive calendar date range. */
+    public boolean overlaps(LocalDate otherStartsOn, LocalDate otherEndsOn) {
+        Objects.requireNonNull(otherStartsOn, "otherStartsOn must not be null");
+        Objects.requireNonNull(otherEndsOn, "otherEndsOn must not be null");
+
+        return !startsOn.isAfter(otherEndsOn) && !otherStartsOn.isAfter(endsOn);
+    }
+
     public UUID getId() {
         return id;
     }

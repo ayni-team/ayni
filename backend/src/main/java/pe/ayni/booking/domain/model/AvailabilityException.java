@@ -146,4 +146,17 @@ public class AvailabilityException {
     public ExceptionKind getKind() { return kind; }
     public Instant getCreatedAt() { return createdAt; }
 
+    /**
+     * Returns whether this timed exception intersects a concrete availability block.
+     */
+    public boolean affects(LocalTime blockStart, LocalTime blockEnd) {
+        Objects.requireNonNull(blockStart, "blockStart must not be null");
+        Objects.requireNonNull(blockEnd, "blockEnd must not be null");
+
+        if (startsAtTime == null || endsAtTime == null) {
+            return true;
+        }
+
+        return blockStart.isBefore(endsAtTime) && startsAtTime.isBefore(blockEnd);
+    }
 }

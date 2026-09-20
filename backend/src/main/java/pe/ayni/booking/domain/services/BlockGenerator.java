@@ -83,9 +83,7 @@ public class BlockGenerator {
                     // Check if this specific block was canceled by a REMOVE exception.
                     boolean isSlotRemoved = dateExceptions.stream()
                             .anyMatch(e -> e.getKind() == ExceptionKind.REMOVE
-                                    && e.getStartsAtTime() != null
-                                    && !blockStart.isBefore(e.getStartsAtTime())
-                                    && !blockEnd.isAfter(e.getEndsAtTime()));
+                                    && e.affects(blockStart, blockEnd));
 
                     if (!isSlotRemoved) {
                         Instant startInstant = ZonedDateTime.of(date, blockStart, zone).toInstant();
