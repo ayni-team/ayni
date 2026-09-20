@@ -3,6 +3,7 @@ package pe.ayni.wallet.infrastructure;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +74,16 @@ class DemoWalletData implements ApplicationRunner {
     TenantContext.runAs(TENANT, this::fillWallets);
   }
 
+  /**
+   * A whole day away, at midnight UTC.
+   *
+   * <p>A credit policy expires on a date, not at whatever time of day the container happened to
+   * start, and a round date is easier to read in Swagger.
+   */
+  private static Instant inDays(Instant now, int days) {
+    return now.plus(Duration.ofDays(days)).truncatedTo(ChronoUnit.DAYS);
+  }
+
   private void fillWallets() {
     if (accounts.existsByTenantIdAndUserId(TENANT, ANA)) {
       return;
@@ -81,11 +92,10 @@ class DemoWalletData implements ApplicationRunner {
     Instant now = clock.instant();
 
     // Ana. The university's initial grant, and a targeted allocation on top of it.
-    wallet.grant(ANA, Credits.of(8), CreditType.SEED, now.plus(Duration.ofDays(30)), CREDIT_POLICY);
-    wallet.grant(
-        ANA, Credits.of(4), CreditType.ALLOCATED, now.plus(Duration.ofDays(90)), CREDIT_POLICY);
+    wallet.grant(ANA, Credits.of(8), CreditType.SEED, inDays(now, 30), CREDIT_POLICY);
+    wallet.grant(ANA, Credits.of(4), CreditType.ALLOCATED, inDays(now, 90), CREDIT_POLICY);
     // A grant from last term that nobody spent. It is already dead; the expiry below records it.
-    wallet.grant(ANA, Credits.of(3), CreditType.SEED, now.minus(Duration.ofDays(5)), CREDIT_POLICY);
+    wallet.grant(ANA, Credits.of(3), CreditType.SEED, inDays(now, -5), CREDIT_POLICY);
 
     // Two bookings, one of them cancelled. The refund goes back to the group it came from.
     wallet.charge(ANA, Credits.of(2), CANCELLED_BOOKING);
@@ -98,8 +108,7 @@ class DemoWalletData implements ApplicationRunner {
     wallet.grant(ANA, Credits.of(2), CreditType.PURCHASED, null, PURCHASE);
 
     // Bruno. One grant, which expired before he used any of it.
-    wallet.grant(
-        BRUNO, Credits.of(5), CreditType.SEED, now.minus(Duration.ofDays(10)), CREDIT_POLICY);
+    wallet.grant(BRUNO, Credits.of(5), CreditType.SEED, inDays(now, -10), CREDIT_POLICY);
 
     // The real nightly job, run once by hand, so the expired grants leave the balance and appear
     // in the history as the entries that took them away.
