@@ -15,7 +15,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  *
  * <p>When nothing falls inside the range, the closest blocks outside it are returned instead of an
  * empty list (US01, scenario 3): a search that finds nothing to compare against is worse than one
- * that finds something slightly off.
+ * that finds something slightly off. {@link Result#exactMatch()} tells the caller which case
+ * happened, so the presentation layer can tell the student their exact slot was empty.
  */
 @Service
 public class SearchAvailableOffersUseCase {
@@ -32,8 +33,11 @@ public class SearchAvailableOffersUseCase {
         this.offers = offers;
     }
 
+    /** The offers found, and whether they fell inside the range that was asked for. */
+    public record Result(List<AvailableOfferView> offers, boolean exactMatch) {}
+
     /** Searches within [from, to), both in UTC. */
-    public List<AvailableOfferView> execute(UUID courseId, Instant from, Instant to) {
+    public Result execute(UUID courseId, Instant from, Instant to) {
         String tenantId = TenantContext.require();
 
         List<AvailableOffer> withinRange =
@@ -41,10 +45,10 @@ public class SearchAvailableOffersUseCase {
                         tenantId, courseId, from, to);
 
         if (!withinRange.isEmpty()) {
-            return withinRange.stream().map(AvailableOfferView::from).toList();
+            return new Result(withinRange.stream().map(AvailableOfferView::from).toList(), true);
         }
 
-        return nearestOutsideRange(tenantId, courseId, from, to);
+        return new Result(nearestOutsideRange(tenantId, courseId, from, to), false);
     }
 
     private List<AvailableOfferView> nearestOutsideRange(
