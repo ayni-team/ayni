@@ -46,3 +46,9 @@ springdoc:
 logging:
   level:
     pe.ayni: DEBUG
+
+
+ayni:
+  identity:
+    access-link-ttl: PT10M
+    access-link-base-url: http://localhost:5173/access/confirm
