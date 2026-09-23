@@ -38,6 +38,12 @@ Feature: Offering a university course the tutor already passed
     When the tutor asks what they could offer
     Then the suggestions do not include course "1ASI0625"
 
+  Scenario: A course below the threshold is not suggested
+    Given the tutor's academic record reports course "1MAT0101" approved with grade 11.00
+    And the catalogue has course "1MAT0101" as a university item
+    When the tutor asks what they could offer
+    Then the suggestions do not include course "1MAT0101"
+
   Scenario: Skills that are not courses
     Given the catalogue has a global tool with no course code
     When the tutor offers that catalogue item

@@ -17,7 +17,7 @@ public record ApiError(
     @Schema(example = "400") int status,
     @Schema(example = "Bad Request") String error,
     @Schema(example = "grade 12.00 does not reach the university's threshold 13.00") String message,
-    @Schema(example = "/api/v1/skills/offers") String path) {
+    @Schema(example = "/api/v1/tutor/skills") String path) {
 
   static ApiError of(HttpStatus status, String message, HttpServletRequest request, Instant now) {
     return new ApiError(

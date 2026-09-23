@@ -3,15 +3,23 @@ package pe.ayni.skills.application;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.shared.tenancy.TenantContext;
+import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.LearningInterest;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.LearningInterestRepository;
 
 /**
@@ -26,19 +34,29 @@ import pe.ayni.skills.infrastructure.LearningInterestRepository;
 public class DeclareInterestsUseCase {
 
   private final LearningInterestRepository learningInterests;
+  private final CatalogItemRepository catalogItems;
   private final OfferApprovedCourseUseCase offerApprovedCourse;
   private final Clock clock;
 
   DeclareInterestsUseCase(
       LearningInterestRepository learningInterests,
+      CatalogItemRepository catalogItems,
       OfferApprovedCourseUseCase offerApprovedCourse,
       Clock clock) {
     this.learningInterests = learningInterests;
+    this.catalogItems = catalogItems;
     this.offerApprovedCourse = offerApprovedCourse;
     this.clock = clock;
   }
 
-  /** Registers the items as courses the student needs help with. Repeats are harmless. */
+  /**
+   * Registers the items as courses the student needs help with. Repeats are harmless.
+   *
+   * <p>Every item must be visible to the student's university: the foreign key only proves the item
+   * exists, and would accept a course of another university.
+   *
+   * @throws NoSuchElementException when an item does not exist or belongs to another university
+   */
   @Transactional
   public List<LearningInterest> declareLearningInterests(UUID studentId, List<UUID> catalogItemIds) {
     Objects.requireNonNull(studentId, "studentId must not be null");
@@ -46,16 +64,32 @@ public class DeclareInterestsUseCase {
 
     String tenantId = TenantContext.require();
     Instant now = clock.instant();
+    Set<UUID> requested = new LinkedHashSet<>(catalogItemIds);
 
-    List<LearningInterest> result = new ArrayList<>(catalogItemIds.size());
-    for (UUID catalogItemId : catalogItemIds) {
-      LearningInterest interest =
-          learningInterests
-              .findByTenantIdAndStudentIdAndCatalogItemId(tenantId, studentId, catalogItemId)
-              .orElseGet(
-                  () ->
-                      learningInterests.save(
-                          new LearningInterest(UUID.randomUUID(), tenantId, studentId, catalogItemId, now)));
+    Set<UUID> visible =
+        catalogItems.findAllById(requested).stream()
+            .filter(item -> item.isVisibleTo(tenantId))
+            .map(CatalogItem::getId)
+            .collect(Collectors.toSet());
+    for (UUID catalogItemId : requested) {
+      if (!visible.contains(catalogItemId)) {
+        throw new NoSuchElementException("catalog item %s not found".formatted(catalogItemId));
+      }
+    }
+
+    // One read of what the student already declared, instead of one per item.
+    Map<UUID, LearningInterest> declared =
+        learningInterests.findByTenantIdAndStudentId(tenantId, studentId).stream()
+            .collect(Collectors.toMap(LearningInterest::getCatalogItemId, Function.identity()));
+
+    List<LearningInterest> result = new ArrayList<>(requested.size());
+    for (UUID catalogItemId : requested) {
+      LearningInterest interest = declared.get(catalogItemId);
+      if (interest == null) {
+        interest =
+            learningInterests.save(
+                new LearningInterest(UUID.randomUUID(), tenantId, studentId, catalogItemId, now));
+      }
       result.add(interest);
     }
     return result;

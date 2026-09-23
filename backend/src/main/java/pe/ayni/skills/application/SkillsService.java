@@ -47,7 +47,7 @@ public class SkillsService implements SkillsApi {
   @Override
   public List<UUID> enabledSkillsOf(UUID tutorId) {
     String tenantId = TenantContext.require();
-    return offeredSkills.findCatalogItemIdByTenantIdAndTutorIdAndStatus(
+    return offeredSkills.findCatalogItemIds(
         tenantId, tutorId, OfferedSkillStatus.ENABLED);
   }
 

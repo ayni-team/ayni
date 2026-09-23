@@ -1,6 +1,7 @@
 package pe.ayni.skills.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -59,7 +61,8 @@ class DeclareInterestsUseCaseTest {
           mock(ApplicationEventPublisher.class),
           Clock.fixed(NOW, ZoneOffset.UTC));
   private final DeclareInterestsUseCase useCase =
-      new DeclareInterestsUseCase(learningInterests, offerApprovedCourse, Clock.fixed(NOW, ZoneOffset.UTC));
+      new DeclareInterestsUseCase(
+          learningInterests, catalogItems, offerApprovedCourse, Clock.fixed(NOW, ZoneOffset.UTC));
 
   private <T> T asUpc(java.util.function.Supplier<T> work) {
     Object[] result = new Object[1];
@@ -89,8 +92,8 @@ class DeclareInterestsUseCaseTest {
   @Test
   @DisplayName("a new interest is saved")
   void aNewInterestIsSaved() {
-    when(learningInterests.findByTenantIdAndStudentIdAndCatalogItemId(UPC, STUDENT, ITEM_A))
-        .thenReturn(Optional.empty());
+    when(catalogItems.findAllById(any())).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
+    when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of());
     when(learningInterests.save(any())).thenAnswer(call -> call.getArgument(0));
 
     List<LearningInterest> result =
@@ -104,13 +107,28 @@ class DeclareInterestsUseCaseTest {
   @DisplayName("declaring the same interest twice does not insert a second row")
   void declaringTheSameInterestTwiceDoesNotInsertASecondRow() {
     LearningInterest existing = new LearningInterest(UUID.randomUUID(), UPC, STUDENT, ITEM_A, NOW);
-    when(learningInterests.findByTenantIdAndStudentIdAndCatalogItemId(UPC, STUDENT, ITEM_A))
-        .thenReturn(Optional.of(existing));
+    when(catalogItems.findAllById(any())).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
+    when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of(existing));
 
     List<LearningInterest> result =
         asUpc(() -> useCase.declareLearningInterests(STUDENT, List.of(ITEM_A)));
 
     assertThat(result).containsExactly(existing);
+    verify(learningInterests, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("an interest in another university's course is refused and nothing is saved")
+  void anInterestInAnotherUniversitysCourseIsRefused() {
+    CatalogItem foreign =
+        new CatalogItem(
+            ITEM_B, CatalogScope.UNIVERSITY, "UTEC", UUID.randomUUID(), "Course", null, "UT100", NOW);
+    when(catalogItems.findAllById(any()))
+        .thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657"), foreign));
+
+    assertThatThrownBy(
+            () -> asUpc(() -> useCase.declareLearningInterests(STUDENT, List.of(ITEM_A, ITEM_B))))
+        .isInstanceOf(NoSuchElementException.class);
     verify(learningInterests, never()).save(any());
   }
 

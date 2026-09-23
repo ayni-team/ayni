@@ -54,7 +54,7 @@ class SkillsServiceTest {
           Clock.fixed(NOW, ZoneOffset.UTC));
   private final DeclareInterestsUseCase declareInterests =
       new DeclareInterestsUseCase(
-          learningInterests, offerApprovedCourse, Clock.fixed(NOW, ZoneOffset.UTC));
+          learningInterests, catalogItems, offerApprovedCourse, Clock.fixed(NOW, ZoneOffset.UTC));
   private final SkillsService service = new SkillsService(offeredSkills, catalogItems, declareInterests);
 
   private <T> T asUpc(java.util.function.Supplier<T> work) {
@@ -78,7 +78,7 @@ class SkillsServiceTest {
   @Test
   @DisplayName("enabledSkillsOf reads only this tutor's enabled items")
   void enabledSkillsOfReadsOnlyThisTutorsEnabledItems() {
-    when(offeredSkills.findCatalogItemIdByTenantIdAndTutorIdAndStatus(
+    when(offeredSkills.findCatalogItemIds(
             UPC, TUTOR, OfferedSkillStatus.ENABLED))
         .thenReturn(List.of(CATALOG_ITEM_ID));
 
@@ -119,8 +119,13 @@ class SkillsServiceTest {
   @Test
   @DisplayName("declareLearningInterests registers a new interest")
   void declareLearningInterestsRegistersANewInterest() {
-    when(learningInterests.findByTenantIdAndStudentIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
-        .thenReturn(Optional.empty());
+    when(catalogItems.findAllById(any()))
+        .thenReturn(
+            List.of(
+                new CatalogItem(
+                    CATALOG_ITEM_ID, CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Course",
+                    null, "1ASI0657", NOW)));
+    when(learningInterests.findByTenantIdAndStudentId(UPC, TUTOR)).thenReturn(List.of());
     when(learningInterests.save(any())).thenAnswer(call -> call.getArgument(0));
 
     TenantContext.runAs(UPC, () -> service.declareLearningInterests(TUTOR, List.of(CATALOG_ITEM_ID)));

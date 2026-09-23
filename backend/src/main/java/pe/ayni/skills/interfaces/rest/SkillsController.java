@@ -9,6 +9,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -36,7 +40,7 @@ import pe.ayni.skills.application.SuggestedCoursesQuery;
  * tutor could be pointed at one.
  */
 @RestController
-@RequestMapping("/api/v1/skills")
+@RequestMapping("/api/v1")
 @Validated
 @Tag(name = "Skills", description = "Catalogue, offered skills and their accreditation")
 class SkillsController {
@@ -60,7 +64,8 @@ class SkillsController {
       description =
           """
           Every active item a student of this university may see: the global tools that ship with \
-          Ayni, plus the courses that belong to their own university.
+          Ayni, plus the courses that belong to their own university. Sorted by name, and \
+          narrowed by category or by part of the name when asked.
           """)
   @Parameter(
       in = ParameterIn.HEADER,
@@ -70,13 +75,25 @@ class SkillsController {
       schema = @Schema(type = "string", example = "UPC"))
   @ApiResponse(
       responseCode = "200",
-      description = "The visible catalogue",
-      content = @Content(array = @ArraySchema(schema = @Schema(implementation = CatalogItemResponse.class))))
-  List<CatalogItemResponse> catalog() {
-    return catalog.visibleItems().stream().map(CatalogItemResponse::of).toList();
+      description = "One page of the visible catalogue",
+      content = @Content(schema = @Schema(implementation = CatalogPage.class)))
+  CatalogPage catalog(
+      @Parameter(description = "Keep only items of this category") @RequestParam(required = false)
+          UUID category,
+      @Parameter(description = "Part of the name, ignoring case", example = "python")
+          @RequestParam(required = false)
+          @Size(max = 80)
+          String q,
+      @Parameter(description = "Page number, starting at zero") @RequestParam(defaultValue = "0")
+          @Min(0)
+          int page,
+      @Parameter(description = "Items per page") @RequestParam(defaultValue = "20") @Min(1)
+          @Max(100)
+          int size) {
+    return CatalogPage.of(catalog.visibleItems(category, q, page, size));
   }
 
-  @GetMapping("/offers/suggestions")
+  @GetMapping("/tutor/skills/suggestions")
   @Operation(
       summary = "Courses the tutor could offer without searching for them",
       description =
@@ -108,7 +125,7 @@ class SkillsController {
     return suggestions.forTutor(tutorId).stream().map(SuggestedCourseResponse::of).toList();
   }
 
-  @PostMapping("/offers")
+  @PostMapping("/tutor/skills")
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(
       summary = "Offers a university course the tutor already passed",

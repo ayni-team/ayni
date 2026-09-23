@@ -1,6 +1,10 @@
 package pe.ayni.skills.application;
 
-import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -18,9 +22,34 @@ public class CatalogQuery {
     this.catalogItems = catalogItems;
   }
 
+  /**
+   * One page of the active items visible to the current university, sorted by name.
+   *
+   * @param categoryId {@code null} for every category
+   * @param text part of the name, ignoring case; {@code null} or blank for every name
+   */
   @Transactional(readOnly = true)
-  public List<CatalogItem> visibleItems() {
+  public Page<CatalogItem> visibleItems(UUID categoryId, String text, int page, int size) {
     String tenantId = TenantContext.require();
-    return catalogItems.findByTenantVisibilityAndStatus(tenantId, CatalogItemStatus.ACTIVE);
+    return catalogItems.searchVisible(
+        tenantId,
+        CatalogItemStatus.ACTIVE,
+        categoryId,
+        namePattern(text),
+        PageRequest.of(page, size, Sort.by("name", "id")));
+  }
+
+  /** A {@code LIKE} pattern that treats the student's text literally, wildcards included. */
+  private static String namePattern(String text) {
+    if (text == null || text.isBlank()) {
+      return null;
+    }
+    String literal =
+        text.strip()
+            .toLowerCase(Locale.ROOT)
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_");
+    return "%" + literal + "%";
   }
 }
