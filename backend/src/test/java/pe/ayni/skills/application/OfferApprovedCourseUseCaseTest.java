@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -63,6 +64,27 @@ class OfferApprovedCourseUseCaseTest {
     OfferedSkill[] result = new OfferedSkill[1];
     TenantContext.runAs(UPC, () -> result[0] = useCase.execute(TUTOR, CATALOG_ITEM_ID));
     return result[0];
+  }
+
+  @BeforeEach
+  void tutorHasNoExistingOfferByDefault() {
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(Optional.empty());
+  }
+
+  @Test
+  @DisplayName("a tutor that already offers the item is refused")
+  void aTutorThatAlreadyOffersTheItemIsRefused() {
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(
+            Optional.of(
+                OfferedSkill.enableByAcademicRecord(
+                    UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, THRESHOLD, THRESHOLD, NOW)));
+
+    assertThatThrownBy(this::execute).isInstanceOf(SkillsRuleViolation.class);
+
+    verify(catalogItems, never()).findByIdAndTenantVisibility(any(), any());
+    verify(offeredSkills, never()).save(any());
   }
 
   @Test
