@@ -108,8 +108,14 @@ public interface SkillsApi {
   boolean isTutorEnabledFor(UUID tutorId, UUID catalogItemId);
   List<UUID> enabledSkillsOf(UUID tutorId);
   CatalogItemView requireItem(UUID catalogItemId);
+  void declareLearningInterests(UUID studentId, List<UUID> catalogItemIds);   // US40 onboarding
+  List<UUID> declareTeachingInterests(UUID studentId, List<UUID> catalogItemIds);  // US40 onboarding
 }
 ```
+
+The two `declare…` methods are the skills half of US40's initial configuration. Teaching interests
+go through the same academic record path as `POST /api/v1/tutor/skills`: items that do not qualify
+are skipped, not refused, and the answer lists the ones that ended up enabled.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
