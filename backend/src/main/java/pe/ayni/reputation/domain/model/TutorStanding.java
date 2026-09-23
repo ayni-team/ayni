@@ -10,6 +10,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * A tutor's standing in one skill: a projection rebuilt from completed sessions and ratings.
+ *
+ * <p>Per skill and never overall, because being good at Calculus says nothing about teaching
+ * Photoshop. Below {@link #RATINGS_BEFORE_AVERAGE} ratings the average is not shown and the tutor
+ * appears as new: two opinions are not a reputation.
+ */
 @Entity
 @IdClass(TutorStandingId.class)
 @Table(schema = "reputation", name = "tutor_standing")
@@ -57,6 +64,19 @@ public class TutorStanding {
                 0,
                 null,
                 occurredOn);
+    }
+
+    /** Ratings a tutor needs in a skill before their average is shown. */
+    public static final int RATINGS_BEFORE_AVERAGE = 3;
+
+    /** Whether the tutor still has too few ratings in this skill to show an average. */
+    public boolean isNew() {
+        return ratingsCount < RATINGS_BEFORE_AVERAGE;
+    }
+
+    /** The average others may see: {@code null} while the tutor {@linkplain #isNew() is new}. */
+    public BigDecimal visibleAverageStars() {
+        return isNew() ? null : averageStars;
     }
 
     public void recordCompletedSession(Instant occurredOn) {
