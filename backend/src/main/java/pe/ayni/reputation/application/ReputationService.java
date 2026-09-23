@@ -40,8 +40,6 @@ public class ReputationService implements ReputationApi {
                                         standing.catalogItemId(),
                                         standing.sessionsTaught(),
                                         standing.ratingsCount(),
-                                        standing.ratingsCount() < 3
-                                                ? null
-                                                : standing.averageStars()));
+                                        standing.visibleAverageStars()));
     }
 }
