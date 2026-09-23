@@ -2,6 +2,7 @@ package pe.ayni.skills;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.identity.ApprovedCourseView;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.Category;
@@ -110,6 +113,40 @@ class SkillsApiDatabaseTest {
 
     assertThat(asUpc(() -> skills.isTutorEnabledFor(tutor, item.getId()))).isTrue();
     assertThat(asUpc(() -> skills.isTutorEnabledFor(tutor, course(UPC).getId()))).isFalse();
+  }
+
+  @Test
+  void declaringTeachingInterestsSkipsWhatDoesNotQualifyAndKeepsTheRest() {
+    CatalogItem approved = course(UPC);
+    CatalogItem notApproved = course(UPC);
+    when(identity.approvedCourses(tutor))
+        .thenReturn(
+            List.of(
+                new ApprovedCourseView(
+                    approved.getCourseCode(), approved.getName(), GRADE, "2026-1")));
+    when(identity.requireTenant(UPC))
+        .thenReturn(new TenantView(UPC, "UPC", "America/Lima", THRESHOLD, true));
+
+    List<UUID> enabled =
+        asUpc(
+            () ->
+                skills.declareTeachingInterests(
+                    tutor, List.of(notApproved.getId(), approved.getId())));
+
+    assertThat(enabled).containsExactly(approved.getId());
+    assertThat(asUpc(() -> skills.isTutorEnabledFor(tutor, approved.getId()))).isTrue();
+  }
+
+  @Test
+  void aLearningInterestCannotPointAtAnotherUniversitysCourse() {
+    CatalogItem foreign = course(UTEC);
+
+    assertThatThrownBy(
+            () -> asUpc(() -> {
+              skills.declareLearningInterests(tutor, List.of(foreign.getId()));
+              return null;
+            }))
+        .isInstanceOf(NoSuchElementException.class);
   }
 
   @Test

@@ -63,7 +63,11 @@ public class OfferApprovedCourseUseCase {
    *     record has no matching approved course, the grade does not reach the university's
    *     threshold, or the tutor already offers it
    */
-  @Transactional
+  // Every refusal is decided before anything is written, so a refusal leaves nothing to undo. Not
+  // rolling back for it lets a caller in the same transaction, such as US40's onboarding, skip the
+  // item and go on: otherwise Spring marks the whole transaction rollback-only and the caller's
+  // commit fails even though it caught the refusal.
+  @Transactional(noRollbackFor = SkillsRuleViolation.class)
   public OfferedSkill execute(UUID tutorId, UUID catalogItemId) {
     Objects.requireNonNull(tutorId, "tutorId must not be null");
     Objects.requireNonNull(catalogItemId, "catalogItemId must not be null");
