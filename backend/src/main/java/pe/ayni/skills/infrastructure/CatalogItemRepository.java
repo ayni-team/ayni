@@ -1,5 +1,6 @@
 package pe.ayni.skills.infrastructure;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +42,7 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
   Optional<CatalogItem> findByIdAndTenantVisibility(
       @Param("id") UUID id, @Param("tenantId") String tenantId);
 
-  /** The university course that matches a code the academic system reports as approved. */
-  Optional<CatalogItem> findByTenantIdAndCourseCode(String tenantId, String courseCode);
+  /** The university's courses in the given status among the codes the academic system reports. */
+  List<CatalogItem> findByTenantIdAndCourseCodeInAndStatus(
+      String tenantId, Collection<String> courseCodes, CatalogItemStatus status);
 }

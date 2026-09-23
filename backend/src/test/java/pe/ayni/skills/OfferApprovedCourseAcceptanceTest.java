@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,6 +101,12 @@ class OfferApprovedCourseAcceptanceTest {
     return catalogItems.save(item);
   }
 
+  /** Background: the university's minimum teaching grade is 13.00, for every scenario. */
+  @BeforeEach
+  void theUniversityAsksForThirteen() {
+    when(identity.requireTenant(UPC)).thenReturn(tenant());
+  }
+
   @Test
   @DisplayName("Automatic enablement by academic record")
   void automaticEnablementByAcademicRecord() throws Exception {
@@ -110,7 +117,6 @@ class OfferApprovedCourseAcceptanceTest {
             List.of(
                 new ApprovedCourseView(
                     course.getCourseCode(), course.getName(), new BigDecimal("15.50"), "2026-1")));
-    when(identity.requireTenant(UPC)).thenReturn(tenant());
 
     mockMvc
         .perform(
@@ -161,7 +167,6 @@ class OfferApprovedCourseAcceptanceTest {
             List.of(
                 new ApprovedCourseView(
                     course.getCourseCode(), course.getName(), new BigDecimal("11.00"), "2026-1")));
-    when(identity.requireTenant(UPC)).thenReturn(tenant());
 
     mockMvc
         .perform(
@@ -180,6 +185,32 @@ class OfferApprovedCourseAcceptanceTest {
 
     CatalogItem course = seedCourse("1ASI0625-" + uniqueSuffix());
     when(identity.approvedCourses(tutor)).thenReturn(List.of());
+
+    String body =
+        mockMvc
+            .perform(
+                get("/api/v1/tutor/skills/suggestions")
+                    .header("X-Tenant-Id", UPC)
+                    .header("X-User-Id", tutor))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    List<String> suggestedCourseCodes = JsonPath.read(body, "$[*].item.courseCode");
+    assertThat(suggestedCourseCodes).doesNotContain(course.getCourseCode());
+  }
+
+  @Test
+  @DisplayName("A course below the threshold is not suggested")
+  void aCourseBelowTheThresholdIsNotSuggested() throws Exception {
+
+    CatalogItem course = seedCourse("1MAT0101-" + uniqueSuffix());
+    when(identity.approvedCourses(tutor))
+        .thenReturn(
+            List.of(
+                new ApprovedCourseView(
+                    course.getCourseCode(), course.getName(), new BigDecimal("11.00"), "2026-1")));
 
     String body =
         mockMvc

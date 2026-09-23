@@ -148,6 +148,22 @@ class OfferApprovedCourseUseCaseTest {
   }
 
   @Test
+  @DisplayName("a retired course is refused before consulting the academic record")
+  void aRetiredCourseIsRefused() {
+    CatalogItem retired = universityCourse("1ASI0657");
+    retired.retire();
+    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+        .thenReturn(Optional.of(retired));
+
+    assertThatThrownBy(this::execute)
+        .isInstanceOf(SkillsRuleViolation.class)
+        .hasMessageContaining("retired");
+
+    verify(identity, never()).approvedCourses(any());
+    verify(offeredSkills, never()).save(any());
+  }
+
+  @Test
   @DisplayName("an unknown catalog item is refused")
   void anUnknownCatalogItemIsRefused() {
     when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.empty());

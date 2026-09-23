@@ -59,9 +59,9 @@ public class OfferApprovedCourseUseCase {
 
   /**
    * @throws NoSuchElementException when the item does not exist or is not visible to this tenant
-   * @throws SkillsRuleViolation when the item is not a university course, the tutor's record has
-   *     no matching approved course, the grade does not reach the university's threshold, or the
-   *     tutor already offers it
+   * @throws SkillsRuleViolation when the item is retired or not a university course, the tutor's
+   *     record has no matching approved course, the grade does not reach the university's
+   *     threshold, or the tutor already offers it
    */
   @Transactional
   public OfferedSkill execute(UUID tutorId, UUID catalogItemId) {
@@ -81,6 +81,10 @@ public class OfferApprovedCourseUseCase {
             .findByIdAndTenantVisibility(catalogItemId, tenantId)
             .orElseThrow(
                 () -> new NoSuchElementException("catalog item %s not found".formatted(catalogItemId)));
+
+    if (!item.isActive()) {
+      throw new SkillsRuleViolation("this catalogue item is retired and can no longer be offered");
+    }
 
     if (item.getScope() != CatalogScope.UNIVERSITY) {
       throw new SkillsRuleViolation(

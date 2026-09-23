@@ -40,4 +40,14 @@ public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID
       @Param("tenantId") String tenantId,
       @Param("tutorId") UUID tutorId,
       @Param("status") OfferedSkillStatus status);
+
+  /** Every catalogue item the tutor ever offered, whatever became of the offer. */
+  @Query(
+      """
+      select skill.catalogItemId from OfferedSkill skill
+      where skill.tenantId = :tenantId
+        and skill.tutorId = :tutorId
+      """)
+  List<UUID> findAllCatalogItemIds(
+      @Param("tenantId") String tenantId, @Param("tutorId") UUID tutorId);
 }
