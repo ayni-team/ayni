@@ -8,6 +8,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogItemView;
 import pe.ayni.skills.SkillsApi;
 import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
@@ -25,10 +26,15 @@ public class SkillsService implements SkillsApi {
 
   private final OfferedSkillRepository offeredSkills;
   private final CatalogItemRepository catalogItems;
+  private final DeclareInterestsUseCase declareInterests;
 
-  SkillsService(OfferedSkillRepository offeredSkills, CatalogItemRepository catalogItems) {
+  SkillsService(
+      OfferedSkillRepository offeredSkills,
+      CatalogItemRepository catalogItems,
+      DeclareInterestsUseCase declareInterests) {
     this.offeredSkills = offeredSkills;
     this.catalogItems = catalogItems;
+    this.declareInterests = declareInterests;
   }
 
   @Override
@@ -56,5 +62,17 @@ public class SkillsService implements SkillsApi {
                     new NoSuchElementException(
                         "catalog item %s not found".formatted(catalogItemId)));
     return new CatalogItemView(item.getId(), item.getScope(), item.getName(), item.getCourseCode());
+  }
+
+  @Override
+  public void declareLearningInterests(UUID studentId, List<UUID> catalogItemIds) {
+    declareInterests.declareLearningInterests(studentId, catalogItemIds);
+  }
+
+  @Override
+  public List<UUID> declareTeachingInterests(UUID studentId, List<UUID> catalogItemIds) {
+    return declareInterests.declareTeachingInterests(studentId, catalogItemIds).stream()
+        .map(OfferedSkill::getCatalogItemId)
+        .toList();
   }
 }
