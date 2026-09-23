@@ -13,7 +13,7 @@ import pe.ayni.skills.domain.model.CatalogItem;
 public record CatalogItemResponse(
     @Schema(example = "b0000000-0000-4000-8000-000000000101") UUID id,
     @Schema(example = "UNIVERSITY") String scope,
-    @Schema(example = "Fundamentos de Arquitectura de Software") String name,
+    @Schema(example = "Software Architecture Fundamentals") String name,
     @Schema(nullable = true) String description,
     @Schema(nullable = true, example = "1ASI0657") String courseCode) {
 
