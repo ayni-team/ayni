@@ -53,7 +53,7 @@ class SkillsServiceTest {
   @Test
   @DisplayName("enabledSkillsOf reads only this tutor's enabled items")
   void enabledSkillsOfReadsOnlyThisTutorsEnabledItems() {
-    when(offeredSkills.findCatalogItemIdByTenantIdAndTutorIdAndStatus(
+    when(offeredSkills.findCatalogItemIds(
             UPC, TUTOR, OfferedSkillStatus.ENABLED))
         .thenReturn(List.of(CATALOG_ITEM_ID));
 
