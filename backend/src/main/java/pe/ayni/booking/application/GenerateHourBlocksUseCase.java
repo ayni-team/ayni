@@ -23,6 +23,7 @@ import pe.ayni.booking.infrastructure.AvailabilityExceptionRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPatternRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPauseRepository;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
+import pe.ayni.skills.SkillsApi;
 import pe.ayni.shared.events.HoursGenerated;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -46,6 +47,7 @@ public class GenerateHourBlocksUseCase {
   private final BlockGenerator generator;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final SkillsApi skills;
 
   GenerateHourBlocksUseCase(
       AvailabilityPatternRepository patterns,
@@ -54,7 +56,8 @@ public class GenerateHourBlocksUseCase {
       HourBlockRepository blocks,
       BlockGenerator generator,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      SkillsApi skills) {
     this.patterns = patterns;
     this.exceptions = exceptions;
     this.pauses = pauses;
@@ -62,6 +65,7 @@ public class GenerateHourBlocksUseCase {
     this.generator = generator;
     this.events = events;
     this.clock = clock;
+    this.skills = skills;
   }
 
   /** Generates the hours of a tutor between two dates, both included. */
@@ -70,6 +74,11 @@ public class GenerateHourBlocksUseCase {
 
     String tenantId = TenantContext.require();
     Instant now = clock.instant();
+
+    // A tutor without an enabled skill cannot publish bookable tutoring hours.
+    if (skills.enabledSkillsOf(tutorId).isEmpty()) {
+      return;
+    }
 
     List<AvailabilityPattern> active =
         patterns.findActiveInHorizon(tenantId, tutorId, from, to);

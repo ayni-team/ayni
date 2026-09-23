@@ -28,6 +28,7 @@ import pe.ayni.booking.infrastructure.AvailabilityExceptionRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPatternRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPauseRepository;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
+import pe.ayni.skills.SkillsApi;
 import pe.ayni.shared.events.HoursGenerated;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -52,6 +53,7 @@ class GenerateHourBlocksUseCaseTest {
   private final AvailabilityPauseRepository pauses = mock(AvailabilityPauseRepository.class);
   private final HourBlockRepository blocks = mock(HourBlockRepository.class);
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+  private final SkillsApi skills = mock(SkillsApi.class);
 
   private final GenerateHourBlocksUseCase useCase =
       new GenerateHourBlocksUseCase(
@@ -61,9 +63,11 @@ class GenerateHourBlocksUseCaseTest {
           blocks,
           new BlockGenerator(),
           events,
-          Clock.fixed(NOW, ZoneOffset.UTC));
+          Clock.fixed(NOW, ZoneOffset.UTC),
+          skills);
 
   private void givenAMorningPattern() {
+    when(skills.enabledSkillsOf(TUTOR)).thenReturn(List.of(UUID.randomUUID()));
     when(patterns.findActiveInHorizon(any(), any(), any(), any()))
         .thenReturn(
             List.of(
@@ -107,6 +111,19 @@ class GenerateHourBlocksUseCaseTest {
     verify(events).publishEvent(published.capture());
     assertThat(published.getValue().blocks()).hasSize(3);
     assertThat(published.getValue().tenantId()).isEqualTo(UPC);
+  }
+
+  @Test
+  @DisplayName("a tutor without enabled skills publishes no hours")
+  void doesNotGenerateHoursWithoutEnabledSkills() {
+
+    when(skills.enabledSkillsOf(TUTOR)).thenReturn(List.of());
+
+    generate();
+
+    verify(patterns, never()).findActiveInHorizon(any(), any(), any(), any());
+    verify(blocks, never()).saveAll(anyList());
+    verify(events, never()).publishEvent(any(HoursGenerated.class));
   }
 
   @Test
