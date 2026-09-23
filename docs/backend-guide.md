@@ -117,8 +117,9 @@ public interface SkillsApi {
 
 | Method | Path | Who | Does |
 |---|---|---|---|
-| GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text |
+| GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
+| GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
 | DELETE | `/api/v1/tutor/skills/{id}` | student | withdraws it. Confirmed bookings stand |
 | POST | `/api/v1/tutor/skills/{id}/validation` | student | submits evidence for a global tool |

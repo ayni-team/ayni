@@ -114,7 +114,7 @@ class OfferApprovedCourseAcceptanceTest {
 
     mockMvc
         .perform(
-            post("/api/v1/skills/offers")
+            post("/api/v1/tutor/skills")
                 .header("X-Tenant-Id", UPC)
                 .header("X-User-Id", tutor)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -139,7 +139,7 @@ class OfferApprovedCourseAcceptanceTest {
     String body =
         mockMvc
             .perform(
-                get("/api/v1/skills/offers/suggestions")
+                get("/api/v1/tutor/skills/suggestions")
                     .header("X-Tenant-Id", UPC)
                     .header("X-User-Id", tutor))
             .andExpect(status().isOk())
@@ -165,7 +165,7 @@ class OfferApprovedCourseAcceptanceTest {
 
     mockMvc
         .perform(
-            post("/api/v1/skills/offers")
+            post("/api/v1/tutor/skills")
                 .header("X-Tenant-Id", UPC)
                 .header("X-User-Id", tutor)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -184,7 +184,7 @@ class OfferApprovedCourseAcceptanceTest {
     String body =
         mockMvc
             .perform(
-                get("/api/v1/skills/offers/suggestions")
+                get("/api/v1/tutor/skills/suggestions")
                     .header("X-Tenant-Id", UPC)
                     .header("X-User-Id", tutor))
             .andExpect(status().isOk())
@@ -204,7 +204,7 @@ class OfferApprovedCourseAcceptanceTest {
 
     mockMvc
         .perform(
-            post("/api/v1/skills/offers")
+            post("/api/v1/tutor/skills")
                 .header("X-Tenant-Id", UPC)
                 .header("X-User-Id", tutor)
                 .contentType(MediaType.APPLICATION_JSON)
