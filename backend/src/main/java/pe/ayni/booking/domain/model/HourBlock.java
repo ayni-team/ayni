@@ -34,10 +34,18 @@ public class HourBlock {
   /**
    * How long an hour stays out of circulation while a student fills in the confirmation.
    *
-   * <p>Long enough to write what you need help with, short enough that an abandoned screen does not
-   * keep an hour hidden for the afternoon.
+   * <p>Five minutes, as US03 and the hour block state diagram say: long enough to write what you
+   * need help with, short enough that an abandoned screen gives the hour back quickly.
    */
-  public static final Duration DEFAULT_HOLD_DURATION = Duration.ofMinutes(15);
+  public static final Duration HOLD_DURATION = Duration.ofMinutes(5);
+
+  private static final String STARTED = "This hour has already started and can no longer be booked";
+  private static final String HELD_BY_ANOTHER =
+      "Another student is holding this hour. Choose another one or try again in a few minutes";
+  private static final String ALREADY_BOOKED = "This hour is already booked";
+  private static final String NO_LONGER_OFFERED = "This hour is no longer offered";
+  private static final String NOT_HELD =
+      "You are no longer holding this hour: a hold lasts five minutes. Choose it again";
 
   @Id
   @Column(name = "id", nullable = false, updatable = false)
@@ -121,19 +129,60 @@ public class HourBlock {
    * <p>An expired hold can be taken over without waiting for the job that cleans them up, which is
    * what keeps an abandoned screen from blocking an hour until the next sweep.
    *
-   * @throws BookingRuleViolation when the hour is not free and its hold has not run out
+   * <p>Holding an hour the student already holds changes nothing, and in particular does not extend
+   * it: otherwise a hold could be kept alive for as long as somebody kept asking.
+   *
+   * @throws HourUnavailable when the hour has started, is booked or withdrawn, or somebody else's
+   *     hold on it has not run out
    */
   public void hold(UUID studentId, Instant now) {
     Objects.requireNonNull(studentId, "studentId must not be null");
     Objects.requireNonNull(now, "now must not be null");
 
-    if (this.status != HourBlockStatus.AVAILABLE && !isHoldExpired(now)) {
-      throw new BookingRuleViolation("Cannot hold a block that is currently " + this.status);
+    if (hasStartedAt(now)) {
+      throw new HourUnavailable(STARTED);
+    }
+    if (isHeldBy(studentId, now)) {
+      return;
+    }
+    switch (this.status) {
+      case BOOKED -> throw new HourUnavailable(ALREADY_BOOKED);
+      case RELEASED -> throw new HourUnavailable(NO_LONGER_OFFERED);
+      case HELD -> {
+        if (!isHoldExpired(now)) {
+          throw new HourUnavailable(HELD_BY_ANOTHER);
+        }
+      }
+      case AVAILABLE -> {
+        // Free: nothing stands in the way.
+      }
     }
 
     this.status = HourBlockStatus.HELD;
     this.heldBy = studentId;
-    this.heldUntil = now.plus(DEFAULT_HOLD_DURATION);
+    this.heldUntil = now.plus(HOLD_DURATION);
+  }
+
+  /**
+   * Gives the hour back when the student holding it leaves the confirmation, or when their
+   * confirmation failed.
+   *
+   * <p>Only the student's own hold, alive or not. Somebody else's hold, a booked hour and a free one
+   * are left as they are, which makes asking twice harmless.
+   *
+   * @return whether the hour went back to circulation
+   */
+  public boolean releaseHoldOf(UUID studentId) {
+    Objects.requireNonNull(studentId, "studentId must not be null");
+
+    if (this.status != HourBlockStatus.HELD || !studentId.equals(this.heldBy)) {
+      return false;
+    }
+
+    this.status = HourBlockStatus.AVAILABLE;
+    this.heldBy = null;
+    this.heldUntil = null;
+    return true;
   }
 
   /**
@@ -161,16 +210,50 @@ public class HourBlock {
   }
 
   /**
-   * Confirms the hour against a booking.
+   * Whether this student may confirm this hour now.
    *
-   * @throws BookingRuleViolation when the hour is already booked or out of circulation
+   * <p>Confirming turns the student's hold into a booking, so it needs a hold that belongs to them
+   * and has not run out. A free hour is not enough: without the hold nothing guaranteed the student
+   * that the hour was still theirs while they were writing.
+   *
+   * @throws HourUnavailable when the hour has started, is booked or withdrawn, or another student
+   *     holds it
+   * @throws HoldExpired when the student does not hold it, or held it and ran out of time
    */
-  public void book(UUID bookingId) {
+  public void checkBookableBy(UUID studentId, Instant now) {
+    Objects.requireNonNull(studentId, "studentId must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+
+    if (hasStartedAt(now)) {
+      throw new HourUnavailable(STARTED);
+    }
+    if (isHeldBy(studentId, now)) {
+      return;
+    }
+    switch (this.status) {
+      case BOOKED -> throw new HourUnavailable(ALREADY_BOOKED);
+      case RELEASED -> throw new HourUnavailable(NO_LONGER_OFFERED);
+      case HELD -> {
+        if (!isHoldExpired(now)) {
+          throw new HourUnavailable(HELD_BY_ANOTHER);
+        }
+        throw new HoldExpired(NOT_HELD);
+      }
+      case AVAILABLE -> throw new HoldExpired(NOT_HELD);
+    }
+  }
+
+  /**
+   * Confirms the hour against a booking, turning the student's hold into it.
+   *
+   * @throws HourUnavailable when the hour cannot be taken any more
+   * @throws HoldExpired when the student is not holding it
+   * @see #checkBookableBy(UUID, Instant)
+   */
+  public void book(UUID bookingId, UUID studentId, Instant now) {
     Objects.requireNonNull(bookingId, "bookingId must not be null");
 
-    if (this.status != HourBlockStatus.HELD && this.status != HourBlockStatus.AVAILABLE) {
-      throw new BookingRuleViolation("A block cannot be booked from status " + this.status);
-    }
+    checkBookableBy(studentId, now);
 
     this.status = HourBlockStatus.BOOKED;
     this.bookingId = bookingId;
@@ -199,6 +282,18 @@ public class HourBlock {
     return this.status == HourBlockStatus.HELD
         && this.heldUntil != null
         && now.isAfter(this.heldUntil);
+  }
+
+  /** Whether this student holds the hour and their hold has not run out. */
+  public boolean isHeldBy(UUID studentId, Instant now) {
+    return this.status == HourBlockStatus.HELD
+        && studentId.equals(this.heldBy)
+        && !isHoldExpired(now);
+  }
+
+  /** Whether the hour has begun: from that moment it can no longer be held or booked. */
+  public boolean hasStartedAt(Instant now) {
+    return !now.isBefore(this.startsAt);
   }
 
   public UUID getId() {
