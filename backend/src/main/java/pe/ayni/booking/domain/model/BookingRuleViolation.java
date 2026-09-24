@@ -18,4 +18,9 @@ public class BookingRuleViolation extends RuntimeException {
   public BookingRuleViolation(String message) {
     super(message);
   }
+
+  /** For a refusal that is the translation of something lower down, such as a lost race. */
+  protected BookingRuleViolation(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

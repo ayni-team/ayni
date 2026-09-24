@@ -39,4 +39,22 @@ public interface HourBlockRepository extends JpaRepository<HourBlock, UUID> {
       @Param("tutorId") UUID tutorId,
       @Param("from") Instant from,
       @Param("to") Instant to);
+
+  /**
+   * The holds of a university whose time ran out, for the job that returns them to circulation.
+   *
+   * <p>Strictly before {@code now}, the same comparison {@link HourBlock#isHoldExpired} makes: a
+   * hold is still alive at the very instant it ends. The partial index on {@code held_until} where
+   * the status is HELD is what keeps this cheap.
+   */
+  @Query(
+      """
+      select block from HourBlock block
+      where block.tenantId = :tenantId
+        and block.status = pe.ayni.booking.domain.model.HourBlockStatus.HELD
+        and block.heldUntil < :now
+      order by block.heldUntil
+      """)
+  List<HourBlock> findExpiredHolds(
+      @Param("tenantId") String tenantId, @Param("now") Instant now);
 }
