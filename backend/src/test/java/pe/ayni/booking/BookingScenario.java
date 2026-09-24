@@ -192,6 +192,15 @@ public abstract class BookingScenario {
         student);
   }
 
+  /** Sessions scheduled for this student, read as rows: sessions is another module. */
+  protected int sessionsOf(UUID student) {
+    return jdbc.queryForObject(
+        "select count(*) from sessions.sessions where tenant_id = ? and student_id = ?",
+        Integer.class,
+        UPC,
+        student);
+  }
+
   protected int bookingsOf(UUID student) {
     return jdbc.queryForObject(
         "select count(*) from booking.bookings where tenant_id = ? and student_id = ?",

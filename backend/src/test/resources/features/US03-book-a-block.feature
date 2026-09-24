@@ -18,10 +18,10 @@
 #                                        ExpiredHoldsJobTest.freesTheExpiredHoldsOfEveryUniversity
 #   Failure during the booking           BookABlockAcceptanceTest.aFailureDuringTheBookingLeavesNothingBehind
 #                                        BookingConfirmationDatabaseTest.aFailureAfterEverythingWasWrittenLeavesNothingBehind
-#   Need description, booking            BookABlockAcceptanceTest.theNeedDescriptionTravelsWithTheBooking
+#   The booking creates the session      BookABlockAcceptanceTest.successfulBooking
+#                                        SessionOnBookingConfirmedTest (sessions module)
+#   Need description, booking & session  BookABlockAcceptanceTest.theNeedDescriptionTravelsWithTheBooking
 #   Leaving the confirmation             BookABlockAcceptanceTest.leavingTheConfirmationGivesTheHoursBack
-#
-# The session is created by sessions when it hears BookingConfirmed (US03-T5).
 
 Feature: Booking a block of tutoring
 
@@ -39,7 +39,6 @@ Feature: Booking a block of tutoring
     And BookingConfirmed is published with both blocks
     And booking the same hours again is refused without charging anything
 
-  @pending
   Scenario: The booking creates the session
     Given Ana confirmed a booking
     Then a scheduled session exists for that booking, with a room nobody can guess
@@ -98,7 +97,6 @@ Feature: Booking a block of tutoring
     Then the booking carries that description
     And other modules read it through BookingApi
 
-  @pending
   Scenario: The session of the booking reaches the need description
     Given Ana confirmed a booking describing "Normal forms before Friday's exam"
     Then the session of the booking points at the booking that carries the description

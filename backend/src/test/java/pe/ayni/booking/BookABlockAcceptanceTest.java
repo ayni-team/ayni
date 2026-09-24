@@ -13,9 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -210,6 +212,22 @@ class BookABlockAcceptanceTest extends BookingScenario {
     assertThat(confirmed.getFirst().creditsCharged()).isEqualTo(Credits.of(2));
     assertThat(confirmed.getFirst().blockIds())
         .containsExactly(blockAt(tomorrowAt(9)).getId(), blockAt(tomorrowAt(10)).getId());
+
+    // Sessions heard it and created the session, with a room nobody can guess.
+    Map<String, Object> session =
+        jdbc.queryForMap(
+            """
+            select status, room_name, student_id, tutor_id, scheduled_start, scheduled_end
+            from sessions.sessions where tenant_id = ? and booking_id = ?
+            """,
+            UPC,
+            bookingId);
+    assertThat(session.get("status")).isEqualTo("SCHEDULED");
+    assertThat(session.get("student_id")).isEqualTo(ana);
+    assertThat(session.get("tutor_id")).isEqualTo(tutor);
+    assertThat((String) session.get("room_name")).matches("ayni-[0-9a-f]{32}");
+    assertThat(((Timestamp) session.get("scheduled_start")).toInstant()).isEqualTo(tomorrowAt(9));
+    assertThat(((Timestamp) session.get("scheduled_end")).toInstant()).isEqualTo(tomorrowAt(11));
   }
 
   @Test
@@ -337,6 +355,8 @@ class BookABlockAcceptanceTest extends BookingScenario {
     assertThat(balanceOf(ana)).isEqualTo(3);
     assertThat(chargesOf(ana)).isZero();
     assertThat(bookingsOf(ana)).isZero();
+    // The booking was never announced, so no session was created for it.
+    assertThat(sessionsOf(ana)).isZero();
     HourBlock block = blockAt(tomorrowAt(9));
     assertThat(block.getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
     assertThat(block.getHeldBy()).isNull();
@@ -361,6 +381,19 @@ class BookABlockAcceptanceTest extends BookingScenario {
     TenantContext.runAs(UPC, () -> seenByOthers.set(bookingApi.requireBooking(bookingId)));
     assertThat(seenByOthers.get().needDescription()).isEqualTo("Normal forms before Friday's exam");
     assertThat(seenByOthers.get().status()).isEqualTo(BookingStatus.CONFIRMED);
+
+    // The session keeps the booking's id, and through it reaches the description.
+    UUID sessionsBooking =
+        jdbc.queryForObject(
+            "select booking_id from sessions.sessions where tenant_id = ? and student_id = ?",
+            UUID.class,
+            UPC,
+            ana);
+    AtomicReference<BookingView> seenFromTheSession = new AtomicReference<>();
+    TenantContext.runAs(
+        UPC, () -> seenFromTheSession.set(bookingApi.requireBooking(sessionsBooking)));
+    assertThat(seenFromTheSession.get().needDescription())
+        .isEqualTo("Normal forms before Friday's exam");
   }
 
   @Test
