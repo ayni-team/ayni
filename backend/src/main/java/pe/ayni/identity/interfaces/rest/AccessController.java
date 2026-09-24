@@ -15,16 +15,29 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.identity.application.RequestAccessUseCase;
-
+import pe.ayni.identity.application.ConfirmAccessUseCase;
 @RestController
 @RequestMapping("/api/v1/access")
 @Tag(name = "Access", description = "Signing in with the institutional email, without passwords")
 public class AccessController {
 
     private final RequestAccessUseCase requestAccess;
+    private final ConfirmAccessUseCase confirmAccess;
+    public AccessController(
+            RequestAccessUseCase requestAccess,
+            ConfirmAccessUseCase confirmAccess) {
 
-    public AccessController(RequestAccessUseCase requestAccess) {
         this.requestAccess = requestAccess;
+        this.confirmAccess = confirmAccess;
+    }
+    @PostMapping("/confirm")
+    public ConfirmAccessResponse confirmAccess(
+            @Valid @RequestBody ConfirmAccessRequest request) {
+
+        return ConfirmAccessResponse.from(
+                confirmAccess.execute(
+                        request.tenantId(),
+                        request.token()));
     }
 
     @PostMapping("/request")
