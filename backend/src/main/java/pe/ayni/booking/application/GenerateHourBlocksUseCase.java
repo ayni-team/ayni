@@ -70,14 +70,14 @@ public class GenerateHourBlocksUseCase {
 
   /** Generates the hours of a tutor between two dates, both included. */
   @Transactional
-  public void execute(UUID tutorId, LocalDate from, LocalDate to, ZoneId zone) {
+  public HoursGeneration execute(UUID tutorId, LocalDate from, LocalDate to, ZoneId zone) {
 
     String tenantId = TenantContext.require();
     Instant now = clock.instant();
 
     // A tutor without an enabled skill cannot publish bookable tutoring hours.
     if (skills.enabledSkillsOf(tutorId).isEmpty()) {
-      return;
+      return HoursGeneration.tutorWithoutSkills();
     }
 
     List<AvailabilityPattern> active =
@@ -90,7 +90,7 @@ public class GenerateHourBlocksUseCase {
         generator.generate(active, deviations, away, from, to, zone, now);
 
     if (generated.isEmpty()) {
-      return;
+      return HoursGeneration.created(0);
     }
 
     // The whole horizon in instants, from the first moment of the first day to the first moment
@@ -108,7 +108,7 @@ public class GenerateHourBlocksUseCase {
     List<HourBlock> fresh = generated.stream().filter(block -> taken.add(block.getStartsAt())).toList();
 
     if (fresh.isEmpty()) {
-      return;
+      return HoursGeneration.created(0);
     }
 
     blocks.saveAll(fresh);
@@ -122,5 +122,7 @@ public class GenerateHourBlocksUseCase {
                 .map(block -> new HoursGenerated.Block(block.getId(), block.getStartsAt()))
                 .toList(),
             now));
+
+    return HoursGeneration.created(fresh.size());
   }
 }

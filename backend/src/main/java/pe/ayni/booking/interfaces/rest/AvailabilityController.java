@@ -49,8 +49,11 @@ class AvailabilityController {
   @Operation(
       summary = "Declare weekly tutor availability",
       description =
-          "Creates a recurring availability range for the tutor making the request. "
-              + "Overlapping ranges are rejected, while adjacent ranges are allowed.")
+          "Creates a recurring availability range for the tutor making the request and "
+              + "generates its one-hour blocks for the coming weeks, in the university's time "
+              + "zone. Overlapping ranges are rejected, while adjacent ranges are allowed. A tutor "
+              + "without an enabled skill keeps the range but gets no blocks, and the answer "
+              + "carries a notice saying why.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",

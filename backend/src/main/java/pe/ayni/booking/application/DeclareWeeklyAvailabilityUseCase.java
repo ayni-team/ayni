@@ -26,19 +26,26 @@ import pe.ayni.shared.tenancy.TenantContext;
 public class DeclareWeeklyAvailabilityUseCase {
 
   private final AvailabilityPatternRepository patterns;
+  private final HourBlockHorizon horizon;
   private final Clock clock;
 
-  DeclareWeeklyAvailabilityUseCase(AvailabilityPatternRepository patterns, Clock clock) {
+  DeclareWeeklyAvailabilityUseCase(
+      AvailabilityPatternRepository patterns, HourBlockHorizon horizon, Clock clock) {
     this.patterns = patterns;
+    this.horizon = horizon;
     this.clock = clock;
   }
 
   /**
+   * Saves the window and generates its hours up to the horizon in the same transaction, so they
+   * can be found as soon as the tutor saves them (US19, scenario 1). A tutor without an enabled
+   * skill keeps the window but gets no hours, and the answer says why (scenario 5).
+   *
    * @param validUntil {@code null} for a window with no end date
    * @throws BookingRuleViolation when the window is malformed or runs into an existing one
    */
   @Transactional
-  public AvailabilityPattern execute(
+  public DeclaredAvailability execute(
       UUID tutorId,
       DayOfWeek dayOfWeek,
       LocalTime startsAtTime,
@@ -73,6 +80,7 @@ public class DeclareWeeklyAvailabilityUseCase {
       throw new BookingRuleViolation("The availability range overlaps an existing weekly pattern");
     }
 
-    return patterns.save(declared);
+    AvailabilityPattern saved = patterns.save(declared);
+    return new DeclaredAvailability(saved, horizon.fillFor(tutorId));
   }
 }

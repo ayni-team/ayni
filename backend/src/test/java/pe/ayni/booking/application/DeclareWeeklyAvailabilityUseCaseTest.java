@@ -34,16 +34,17 @@ class DeclareWeeklyAvailabilityUseCaseTest {
   private static final Instant NOW = Instant.parse("2026-09-20T12:00:00Z");
 
   private final AvailabilityPatternRepository patterns = mock(AvailabilityPatternRepository.class);
+  private final HourBlockHorizon horizon = mock(HourBlockHorizon.class);
   private final DeclareWeeklyAvailabilityUseCase useCase =
-      new DeclareWeeklyAvailabilityUseCase(patterns, Clock.fixed(NOW, ZoneOffset.UTC));
+      new DeclareWeeklyAvailabilityUseCase(patterns, horizon, Clock.fixed(NOW, ZoneOffset.UTC));
 
   private AvailabilityPattern existing(LocalTime from, LocalTime to) {
     return new AvailabilityPattern(
         UUID.randomUUID(), UPC, TUTOR, DayOfWeek.MONDAY, from, to, FROM, null, NOW);
   }
 
-  private AvailabilityPattern declare(LocalTime from, LocalTime to) {
-    final AvailabilityPattern[] saved = new AvailabilityPattern[1];
+  private DeclaredAvailability declare(LocalTime from, LocalTime to) {
+    final DeclaredAvailability[] saved = new DeclaredAvailability[1];
     TenantContext.runAs(
         UPC,
         () ->
@@ -64,6 +65,7 @@ class DeclareWeeklyAvailabilityUseCaseTest {
         .hasMessageContaining("overlaps");
 
     verify(patterns, never()).save(any());
+    verify(horizon, never()).fillFor(any());
   }
 
   @Test
@@ -73,10 +75,12 @@ class DeclareWeeklyAvailabilityUseCaseTest {
     when(patterns.findByTenantIdAndTutorIdAndDayOfWeek(eq(UPC), eq(TUTOR), anyShort()))
         .thenReturn(List.of(existing(LocalTime.of(9, 0), LocalTime.of(12, 0))));
     when(patterns.save(any())).thenAnswer(call -> call.getArgument(0));
+    when(horizon.fillFor(TUTOR)).thenReturn(new HoursGeneration(true, 8));
 
-    AvailabilityPattern declared = declare(LocalTime.of(12, 0), LocalTime.of(14, 0));
+    DeclaredAvailability declared = declare(LocalTime.of(12, 0), LocalTime.of(14, 0));
 
-    assertThat(declared.getStartsAtTime()).isEqualTo(LocalTime.of(12, 0));
+    assertThat(declared.pattern().getStartsAtTime()).isEqualTo(LocalTime.of(12, 0));
+    assertThat(declared.generation().blocksCreated()).isEqualTo(8);
     verify(patterns).save(any());
   }
 
@@ -89,6 +93,21 @@ class DeclareWeeklyAvailabilityUseCaseTest {
     when(patterns.save(any())).thenAnswer(call -> call.getArgument(0));
 
     assertThat(declare(LocalTime.of(9, 0), LocalTime.of(11, 0))).isNotNull();
+  }
+
+  @Test
+  @DisplayName("declaring a window generates its hours right away")
+  void declaringAWindowGeneratesItsHours() {
+
+    when(patterns.findByTenantIdAndTutorIdAndDayOfWeek(eq(UPC), eq(TUTOR), anyShort()))
+        .thenReturn(List.of());
+    when(patterns.save(any())).thenAnswer(call -> call.getArgument(0));
+    when(horizon.fillFor(TUTOR)).thenReturn(new HoursGeneration(false, 0));
+
+    DeclaredAvailability declared = declare(LocalTime.of(9, 0), LocalTime.of(11, 0));
+
+    verify(horizon).fillFor(TUTOR);
+    assertThat(declared.generation().tutorCanTeach()).isFalse();
   }
 
   @Test

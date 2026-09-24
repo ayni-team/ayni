@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
+import pe.ayni.booking.application.DeclaredAvailability;
 import pe.ayni.booking.domain.model.AvailabilityPattern;
 
 /** The recurring weekly availability that was created. */
@@ -34,9 +35,21 @@ public record AvailabilityPatternResponse(
     LocalDate validUntil,
     @Schema(description = "UTC timestamp when the pattern was created.",
         example = "2026-09-23T21:00:00Z")
-    Instant createdAt) {
+    Instant createdAt,
+    @Schema(description = "One-hour blocks this declaration made bookable.", example = "8")
+    int generatedHours,
+    @Schema(
+        description =
+            "Why no hours were generated, when that is the case; null when they were.",
+        example = "You have no enabled skill yet, so these hours will not appear in searches.",
+        nullable = true)
+    String notice) {
 
-  static AvailabilityPatternResponse of(AvailabilityPattern pattern) {
+  static final String NO_ENABLED_SKILL =
+      "You have no enabled skill yet, so these hours will not appear in searches.";
+
+  static AvailabilityPatternResponse of(DeclaredAvailability declared) {
+    AvailabilityPattern pattern = declared.pattern();
     return new AvailabilityPatternResponse(
         pattern.getId(),
         pattern.getTutorId(),
@@ -45,6 +58,8 @@ public record AvailabilityPatternResponse(
         pattern.getEndsAtTime(),
         pattern.getValidFrom(),
         pattern.getValidUntil(),
-        pattern.getCreatedAt());
+        pattern.getCreatedAt(),
+        declared.generation().blocksCreated(),
+        declared.generation().tutorCanTeach() ? null : NO_ENABLED_SKILL);
   }
 }
