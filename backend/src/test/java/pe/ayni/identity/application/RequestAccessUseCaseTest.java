@@ -87,8 +87,10 @@ class RequestAccessUseCaseTest {
         when(tenants.findByStatus(TenantStatus.ACTIVE))
                 .thenReturn(List.of(upc()));
 
-        when(users.existsByTenantIdAndEmailIgnoreCase(
-                "UPC", "u202612345@upc.edu.pe"))
+        when(
+                users.existsByTenantIdAndEmailIgnoreCase(
+                        "UPC",
+                        "u202612345@upc.edu.pe"))
                 .thenReturn(false);
 
         when(tokens.generate())
@@ -97,9 +99,10 @@ class RequestAccessUseCaseTest {
                                 "raw-token",
                                 "a".repeat(64)));
 
-        when(links.build("raw-token"))
+        when(links.build("UPC", "raw-token"))
                 .thenReturn(
-                        "https://example.test/access/confirm?token=raw-token");
+                        "https://example.test/access/confirm"
+                                + "?tenant=UPC&token=raw-token");
 
         when(accessLinks.save(any()))
                 .thenAnswer(call -> call.getArgument(0));
@@ -128,13 +131,25 @@ class RequestAccessUseCaseTest {
         ArgumentCaptor<AccessRequested> published =
                 ArgumentCaptor.forClass(AccessRequested.class);
 
-        verify(events).publishEvent(published.capture());
+        verify(events)
+                .publishEvent(published.capture());
 
         assertThat(published.getValue().tenantId())
                 .isEqualTo("UPC");
 
         assertThat(published.getValue().purpose())
                 .isEqualTo("ACTIVATION");
+
+        assertThat(published.getValue().accessLink())
+                .isEqualTo(
+                        "https://example.test/access/confirm"
+                                + "?tenant=UPC&token=raw-token");
+
+        assertThat(published.getValue().expiresAt())
+                .isEqualTo(NOW.plus(TTL));
+
+        assertThat(published.getValue().occurredOn())
+                .isEqualTo(NOW);
     }
 
     @Test
@@ -143,8 +158,10 @@ class RequestAccessUseCaseTest {
         when(tenants.findByStatus(TenantStatus.ACTIVE))
                 .thenReturn(List.of(upc()));
 
-        when(users.existsByTenantIdAndEmailIgnoreCase(
-                "UPC", "u202612345@upc.edu.pe"))
+        when(
+                users.existsByTenantIdAndEmailIgnoreCase(
+                        "UPC",
+                        "u202612345@upc.edu.pe"))
                 .thenReturn(true);
 
         when(tokens.generate())
@@ -153,20 +170,49 @@ class RequestAccessUseCaseTest {
                                 "raw-token",
                                 "b".repeat(64)));
 
-        when(links.build("raw-token"))
-                .thenReturn("https://example.test/access");
+        when(links.build("UPC", "raw-token"))
+                .thenReturn(
+                        "https://example.test/access/confirm"
+                                + "?tenant=UPC&token=raw-token");
+
+        when(accessLinks.save(any()))
+                .thenAnswer(call -> call.getArgument(0));
 
         useCase.execute(
                 "u202612345@upc.edu.pe",
                 null);
 
+        ArgumentCaptor<AccessLink> saved =
+                ArgumentCaptor.forClass(AccessLink.class);
+
+        verify(accessLinks)
+                .save(saved.capture());
+
+        assertThat(saved.getValue().getPurpose().name())
+                .isEqualTo("LOGIN");
+
+        assertThat(saved.getValue().getTenantId())
+                .isEqualTo("UPC");
+
+        assertThat(saved.getValue().getEmail())
+                .isEqualTo("u202612345@upc.edu.pe");
+
         ArgumentCaptor<AccessRequested> published =
                 ArgumentCaptor.forClass(AccessRequested.class);
 
-        verify(events).publishEvent(published.capture());
+        verify(events)
+                .publishEvent(published.capture());
+
+        assertThat(published.getValue().tenantId())
+                .isEqualTo("UPC");
 
         assertThat(published.getValue().purpose())
                 .isEqualTo("LOGIN");
+
+        assertThat(published.getValue().accessLink())
+                .isEqualTo(
+                        "https://example.test/access/confirm"
+                                + "?tenant=UPC&token=raw-token");
     }
 
     @Test
@@ -183,8 +229,13 @@ class RequestAccessUseCaseTest {
                 .isInstanceOf(IdentityRuleViolation.class)
                 .hasMessageContaining("not affiliated");
 
-        verify(tokens, never()).generate();
-        verify(accessLinks, never()).save(any());
-        verify(events, never()).publishEvent(any());
+        verify(tokens, never())
+                .generate();
+
+        verify(accessLinks, never())
+                .save(any());
+
+        verify(events, never())
+                .publishEvent(any());
     }
 }

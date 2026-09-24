@@ -3,12 +3,12 @@ package pe.ayni.identity.infrastructure;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
-import pe.ayni.identity.domain.model.AccessLink;
+import pe.ayni.identity.domain.model.UserSession;
 
-public interface AccessLinkRepository
-        extends JpaRepository<AccessLink, UUID> {
+public interface UserSessionRepository
+        extends JpaRepository<UserSession, UUID> {
 
-    Optional<AccessLink> findByTenantIdAndTokenHash(
+    Optional<UserSession> findByTenantIdAndTokenHash(
             String tenantId,
             String tokenHash);
 }

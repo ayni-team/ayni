@@ -19,12 +19,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.RequestAccessUseCase;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
-
+import pe.ayni.identity.application.ConfirmAccessUseCase;
 class AccessControllerTest {
 
     private RequestAccessUseCase requestAccess;
     private MockMvc mvc;
-
+    private ConfirmAccessUseCase confirmAccess;
     @BeforeEach
     void setUp() {
         requestAccess = mock(RequestAccessUseCase.class);
@@ -35,7 +35,9 @@ class AccessControllerTest {
                         ZoneOffset.UTC);
 
         AccessController controller =
-                new AccessController(requestAccess);
+                new AccessController(
+                        requestAccess,
+                        confirmAccess);
 
         IdentityExceptionHandler handler =
                 new IdentityExceptionHandler(clock);
@@ -45,6 +47,7 @@ class AccessControllerTest {
                         .standaloneSetup(controller)
                         .setControllerAdvice(handler)
                         .build();
+        confirmAccess = mock(ConfirmAccessUseCase.class);
     }
 
     @Test
