@@ -19,6 +19,12 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        type:
+          # LocalTime and LocalDate reach the driver as they are, with no zone involved. Without
+          # this a LocalTime goes through java.sql.Time and time_zone above shifts it by the JVM's
+          # offset: 18:00 declared from a laptop in Lima was stored as 23:00. Instant is not
+          # affected by this setting.
+          java_time_use_direct_jdbc: true
         format_sql: true
 
   flyway:
