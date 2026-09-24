@@ -23,6 +23,7 @@ import pe.ayni.booking.infrastructure.AvailabilityExceptionRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPatternRepository;
 import pe.ayni.booking.infrastructure.AvailabilityPauseRepository;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
+import pe.ayni.skills.SkillsApi;
 import pe.ayni.shared.events.HoursGenerated;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -46,6 +47,7 @@ public class GenerateHourBlocksUseCase {
   private final BlockGenerator generator;
   private final ApplicationEventPublisher events;
   private final Clock clock;
+  private final SkillsApi skills;
 
   GenerateHourBlocksUseCase(
       AvailabilityPatternRepository patterns,
@@ -54,7 +56,8 @@ public class GenerateHourBlocksUseCase {
       HourBlockRepository blocks,
       BlockGenerator generator,
       ApplicationEventPublisher events,
-      Clock clock) {
+      Clock clock,
+      SkillsApi skills) {
     this.patterns = patterns;
     this.exceptions = exceptions;
     this.pauses = pauses;
@@ -62,14 +65,20 @@ public class GenerateHourBlocksUseCase {
     this.generator = generator;
     this.events = events;
     this.clock = clock;
+    this.skills = skills;
   }
 
   /** Generates the hours of a tutor between two dates, both included. */
   @Transactional
-  public void execute(UUID tutorId, LocalDate from, LocalDate to, ZoneId zone) {
+  public HoursGeneration execute(UUID tutorId, LocalDate from, LocalDate to, ZoneId zone) {
 
     String tenantId = TenantContext.require();
     Instant now = clock.instant();
+
+    // A tutor without an enabled skill cannot publish bookable tutoring hours.
+    if (skills.enabledSkillsOf(tutorId).isEmpty()) {
+      return HoursGeneration.tutorWithoutSkills();
+    }
 
     List<AvailabilityPattern> active =
         patterns.findActiveInHorizon(tenantId, tutorId, from, to);
@@ -81,7 +90,7 @@ public class GenerateHourBlocksUseCase {
         generator.generate(active, deviations, away, from, to, zone, now);
 
     if (generated.isEmpty()) {
-      return;
+      return HoursGeneration.created(0);
     }
 
     // The whole horizon in instants, from the first moment of the first day to the first moment
@@ -99,7 +108,7 @@ public class GenerateHourBlocksUseCase {
     List<HourBlock> fresh = generated.stream().filter(block -> taken.add(block.getStartsAt())).toList();
 
     if (fresh.isEmpty()) {
-      return;
+      return HoursGeneration.created(0);
     }
 
     blocks.saveAll(fresh);
@@ -113,5 +122,7 @@ public class GenerateHourBlocksUseCase {
                 .map(block -> new HoursGenerated.Block(block.getId(), block.getStartsAt()))
                 .toList(),
             now));
+
+    return HoursGeneration.created(fresh.size());
   }
 }

@@ -89,6 +89,7 @@ public interface IdentityApi {
 | POST | `/api/v1/access/confirm` | anyone | consumes the token, opens the session, returns the profile |
 | GET | `/api/v1/me` | signed in | own profile |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
+| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |
@@ -108,8 +109,14 @@ public interface SkillsApi {
   boolean isTutorEnabledFor(UUID tutorId, UUID catalogItemId);
   List<UUID> enabledSkillsOf(UUID tutorId);
   CatalogItemView requireItem(UUID catalogItemId);
+  void declareLearningInterests(UUID studentId, List<UUID> catalogItemIds);   // US40 onboarding
+  List<UUID> declareTeachingInterests(UUID studentId, List<UUID> catalogItemIds);  // US40 onboarding
 }
 ```
+
+The two `declare…` methods are the skills half of US40's initial configuration. Teaching interests
+go through the same academic record path as `POST /api/v1/tutor/skills`: items that do not qualify
+are skipped, not refused, and the answer lists the ones that ended up enabled.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
@@ -117,8 +124,9 @@ public interface SkillsApi {
 
 | Method | Path | Who | Does |
 |---|---|---|---|
-| GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text |
+| GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
+| GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
 | DELETE | `/api/v1/tutor/skills/{id}` | student | withdraws it. Confirmed bookings stand |
 | POST | `/api/v1/tutor/skills/{id}/validation` | student | submits evidence for a global tool |
@@ -178,6 +186,8 @@ public interface BookingApi {
 
 | Method | Path | Who | Does |
 |---|---|---|---|
+| POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written |
+| DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history |
 | DELETE | `/api/v1/bookings/{id}` | student or tutor | cancels, always refunds |
@@ -189,6 +199,22 @@ public interface BookingApi {
 **The confirmation, in order, inside one transaction:** the tutor is enabled → the hours are
 contiguous and free → charge the credits → mark the hours → save the booking → publish
 `BookingConfirmed`. If anything fails, nothing happened.
+
+**The hold.** Choosing hours takes them out of circulation for five minutes before the student
+confirms, so nobody takes them while the need is being written (`data-model.md`, and the hour block
+state diagram). Confirming requires a live hold of the same student on every hour: that is what
+"the hours are free" means in the order above. Holding again what one already holds does not extend
+it. Every minute a scheduled job returns expired holds to `AVAILABLE`, one university at a time
+(`ayni.booking.hold-release-delay`); before it runs, anybody may already take over an expired
+hold. Both hold endpoints were added by US03: the contract only listed `POST /api/v1/bookings`,
+while the data model describes a hold with no way to take it.
+
+**When the confirmation fails.** The transaction rolls back whole, so the balance is as it was, and
+then a second transaction gives back the student's holds on those hours, so they return to the
+search at once. The second step cannot happen inside the first: wallet's refusal has already marked
+it for rollback. A refusal answers 409 with the reason (the hour was taken, the hold ran out, the
+tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
+nothing was charged.
 
 **Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
 cancelled. A tutor removing availability over a confirmed booking is cancelling that session.

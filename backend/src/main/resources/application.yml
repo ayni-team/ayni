@@ -19,6 +19,12 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        type:
+          # LocalTime and LocalDate reach the driver as they are, with no zone involved. Without
+          # this a LocalTime goes through java.sql.Time and time_zone above shifts it by the JVM's
+          # offset: 18:00 declared from a laptop in Lima was stored as 23:00. Instant is not
+          # affected by this setting.
+          java_time_use_direct_jdbc: true
         format_sql: true
 
   flyway:
@@ -46,3 +52,16 @@ springdoc:
 logging:
   level:
     pe.ayni: DEBUG
+
+
+ayni:
+  booking:
+    # How many weeks ahead a tutor's hours exist, and when the nightly job moves that horizon.
+    generation-weeks: 4
+    generation-cron: "0 0 2 * * *"
+    # How often expired holds (five minutes without confirming) go back to AVAILABLE. An expired
+    # hold can already be taken over before this runs; the sweep makes it read as free again.
+    hold-release-delay: PT1M
+  identity:
+    access-link-ttl: PT10M
+    access-link-base-url: http://localhost:5173/access/confirm

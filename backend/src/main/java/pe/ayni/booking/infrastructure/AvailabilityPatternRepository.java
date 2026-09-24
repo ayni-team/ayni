@@ -49,6 +49,16 @@ public interface AvailabilityPatternRepository extends JpaRepository<Availabilit
    *
    * @param dayOfWeek 1 for Monday, as the column stores it
    */
+  /** Tutors with a weekly window still valid on or after a date, for the nightly generation. */
+  @Query(
+      """
+      select distinct pattern.tutorId from AvailabilityPattern pattern
+      where pattern.tenantId = :tenantId
+        and (pattern.validUntil is null or pattern.validUntil >= :from)
+      """)
+  List<UUID> findTutorsWithAvailabilityFrom(
+      @Param("tenantId") String tenantId, @Param("from") LocalDate from);
+
   List<AvailabilityPattern> findByTenantIdAndTutorIdAndDayOfWeek(
       String tenantId, UUID tutorId, short dayOfWeek);
 }
