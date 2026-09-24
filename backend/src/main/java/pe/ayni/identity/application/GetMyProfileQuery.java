@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -17,9 +18,8 @@ public class GetMyProfileQuery {
         this.users = users;
     }
 
-    public MyProfileView execute(
-            String tenantId,
-            UUID userId) {
+    public MyProfileView execute(UUID userId) {
+        String tenantId = TenantContext.require();
 
         User user =
                 users.findByTenantIdAndId(tenantId, userId)

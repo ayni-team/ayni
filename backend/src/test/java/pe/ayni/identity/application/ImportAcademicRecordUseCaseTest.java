@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
@@ -72,7 +73,7 @@ class ImportAcademicRecordUseCaseTest {
                         Clock.fixed(NOW, ZoneOffset.UTC));
 
         assertThatThrownBy(
-                () -> useCase.execute("UPC", userId))
+                () -> TenantContext.runAs("UPC", () -> useCase.execute(userId)))
                 .isInstanceOf(IdentityRuleViolation.class)
                 .hasMessageContaining("profile step");
     }
@@ -128,7 +129,7 @@ class ImportAcademicRecordUseCaseTest {
                         academicSystem,
                         Clock.fixed(NOW, ZoneOffset.UTC));
 
-        useCase.execute("UPC", userId);
+        TenantContext.runAs("UPC", () -> useCase.execute(userId));
 
         verify(records)
                 .deleteByTenantIdAndUserId("UPC", userId);

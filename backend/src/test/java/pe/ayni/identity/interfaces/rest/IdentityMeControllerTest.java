@@ -45,6 +45,6 @@ class IdentityMeControllerTest {
         controller.importAcademicRecord();
 
         verify(importAcademicRecord)
-                .execute("UPC", userId);
+                .execute(userId);
     }
 }

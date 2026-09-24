@@ -15,7 +15,6 @@ import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.application.MyProfileView;
 import pe.ayni.identity.application.UpdateMyProfileUseCase;
 import pe.ayni.shared.tenancy.CurrentUser;
-import pe.ayni.shared.tenancy.TenantContext;
 
 @RestController
 @RequestMapping("/api/v1/me")
@@ -38,21 +37,18 @@ public class IdentityMeController {
     @Operation(summary = "Get my profile")
     @GetMapping
     public MyProfileView getMyProfile() {
-        return getMyProfile.execute(
-                TenantContext.require(),
-                CurrentUser.require());
+        return getMyProfile.execute(CurrentUser.require());
     }
 
     @Operation(
             summary = "Update my profile",
             description =
                     "Updates only fields controlled by the student. Academic data is read-only.")
-    @PutMapping
+    @PutMapping("/profile")
     public MyProfileView updateMyProfile(
             @Valid @RequestBody UpdateMyProfileRequest request) {
 
         return updateMyProfile.execute(
-                TenantContext.require(),
                 CurrentUser.require(),
                 request.photoUrl(),
                 request.bio());
@@ -66,8 +62,6 @@ public class IdentityMeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void importAcademicRecord() {
 
-        importAcademicRecord.execute(
-                TenantContext.require(),
-                CurrentUser.require());
+        importAcademicRecord.execute(CurrentUser.require());
     }
 }
