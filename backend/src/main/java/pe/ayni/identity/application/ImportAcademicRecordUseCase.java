@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -33,9 +34,8 @@ public class ImportAcademicRecordUseCase {
     }
 
     @Transactional
-    public void execute(
-            String tenantId,
-            UUID userId) {
+    public void execute(UUID userId) {
+        String tenantId = TenantContext.require();
 
         User user =
                 users.findByTenantIdAndId(tenantId, userId)

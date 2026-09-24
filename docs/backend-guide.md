@@ -89,6 +89,7 @@ public interface IdentityApi {
 | POST | `/api/v1/access/confirm` | anyone | consumes the token, opens the session, returns the profile |
 | GET | `/api/v1/me` | signed in | own profile |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
+| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |

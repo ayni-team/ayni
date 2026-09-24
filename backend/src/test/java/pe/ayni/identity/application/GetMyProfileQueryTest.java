@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -48,8 +49,9 @@ class GetMyProfileQueryTest {
         GetMyProfileQuery query =
                 new GetMyProfileQuery(users);
 
-        MyProfileView result =
-                query.execute("UPC", userId);
+        MyProfileView[] holder = new MyProfileView[1];
+        TenantContext.runAs("UPC", () -> holder[0] = query.execute(userId));
+        MyProfileView result = holder[0];
 
         assertThat(result.id()).isEqualTo(userId);
         assertThat(result.tenantId()).isEqualTo("UPC");

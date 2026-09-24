@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import java.time.Clock;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -24,11 +25,11 @@ public class UpdateMyProfileUseCase {
 
     @Transactional
     public MyProfileView execute(
-            String tenantId,
             UUID userId,
             String photoUrl,
             String bio) {
 
+        String tenantId = TenantContext.require();
         User user =
                 users.findByTenantIdAndId(tenantId, userId)
                         .orElseThrow(

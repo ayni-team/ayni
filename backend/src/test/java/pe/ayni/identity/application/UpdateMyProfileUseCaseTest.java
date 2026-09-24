@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import pe.ayni.shared.tenancy.TenantContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -56,12 +57,16 @@ class UpdateMyProfileUseCaseTest {
                         users,
                         Clock.fixed(NOW, ZoneOffset.UTC));
 
-        MyProfileView result =
-                useCase.execute(
-                        "UPC",
-                        userId,
-                        "https://example.test/photo.jpg",
-                        "Software Engineering student");
+        MyProfileView[] holder = new MyProfileView[1];
+        TenantContext.runAs(
+                "UPC",
+                () ->
+                        holder[0] =
+                                useCase.execute(
+                                        userId,
+                                        "https://example.test/photo.jpg",
+                                        "Software Engineering student"));
+        MyProfileView result = holder[0];
 
         assertThat(result.photoUrl())
                 .isEqualTo("https://example.test/photo.jpg");
