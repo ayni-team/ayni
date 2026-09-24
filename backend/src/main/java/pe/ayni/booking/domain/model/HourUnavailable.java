@@ -12,6 +12,10 @@ public class HourUnavailable extends BookingRuleViolation {
 
   private static final long serialVersionUID = 1L;
 
+  /** What a student is told when another one confirmed the same hour first. */
+  public static final String TAKEN_WHILE_CONFIRMING =
+      "This hour was just taken by another student. Nothing was charged; choose another one";
+
   public HourUnavailable(String message) {
     super(message);
   }

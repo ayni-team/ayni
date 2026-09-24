@@ -16,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,16 +26,24 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.BookingTestConfig.FailingConfirmation;
 import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.TenantView;
+import pe.ayni.shared.domain.CreditType;
+import pe.ayni.shared.domain.Credits;
+import pe.ayni.shared.tenancy.TenantContext;
+import pe.ayni.skills.CatalogItemView;
+import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.SkillsApi;
+import pe.ayni.wallet.WalletApi;
 
 /**
  * The world every US03 scenario starts from, against a real PostgreSQL: a tutor of UPC who is free
@@ -71,8 +80,12 @@ public abstract class BookingScenario {
   @Autowired protected MutableClock clock;
   @Autowired protected JdbcTemplate jdbc;
   @Autowired protected ApplicationEvents events;
+  @Autowired protected FailingConfirmation failingConfirmation;
   @MockitoBean protected IdentityApi identity;
   @MockitoBean protected SkillsApi skills;
+
+  /** The real wallet, watched: a scenario can pause a charge to stage a race. */
+  @MockitoSpyBean protected WalletApi wallet;
 
   @BeforeEach
   void aTutorFreeTomorrowMorning() throws Exception {
@@ -83,6 +96,9 @@ public abstract class BookingScenario {
     when(identity.isActive(any())).thenReturn(true);
     when(identity.activeTenantCodes()).thenReturn(List.of(UPC));
     when(skills.enabledSkillsOf(tutor)).thenReturn(List.of(subject));
+    when(skills.isTutorEnabledFor(tutor, subject)).thenReturn(true);
+    when(skills.requireItem(subject))
+        .thenReturn(new CatalogItemView(subject, CatalogScope.UNIVERSITY, "Databases I", "1ASI0616"));
 
     String weekday = today().plusDays(1).getDayOfWeek().name();
     mockMvc
@@ -129,6 +145,59 @@ public abstract class BookingScenario {
                 {"tutorId":"%s","start":"%s","hours":%d}
                 """
                     .formatted(tutor, start, hours)));
+  }
+
+  protected ResultActions book(UUID student, Instant start, int hours, String need)
+      throws Exception {
+    return mockMvc.perform(
+        post("/api/v1/bookings")
+            .header("X-Tenant-Id", UPC)
+            .header("X-User-Id", student)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(
+                """
+                {"tutorId":"%s","catalogItemId":"%s","start":"%s","hours":%d,
+                 "needDescription":"%s"}
+                """
+                    .formatted(tutor, subject, start, hours, need)));
+  }
+
+  /** Credits that never expire, which is all most scenarios care about. */
+  protected void grant(UUID student, int credits) {
+    grant(student, credits, CreditType.EARNED, null);
+  }
+
+  protected void grant(UUID student, int credits, CreditType type, Instant expiresAt) {
+    TenantContext.runAs(
+        UPC, () -> wallet.grant(student, Credits.of(credits), type, expiresAt, UUID.randomUUID()));
+  }
+
+  protected int balanceOf(UUID student) {
+    AtomicInteger balance = new AtomicInteger();
+    TenantContext.runAs(
+        UPC, () -> balance.set(wallet.balanceOf(student).available().amount()));
+    return balance.get();
+  }
+
+  /** Ledger entries that charged this student for a booking. The ledger is append only. */
+  protected int chargesOf(UUID student) {
+    return jdbc.queryForObject(
+        """
+        select count(*) from wallet.ledger_entries entry
+        join wallet.credit_accounts account on account.id = entry.account_id
+        where account.tenant_id = ? and account.user_id = ? and entry.reason = 'BOOKING_CHARGE'
+        """,
+        Integer.class,
+        UPC,
+        student);
+  }
+
+  protected int bookingsOf(UUID student) {
+    return jdbc.queryForObject(
+        "select count(*) from booking.bookings where tenant_id = ? and student_id = ?",
+        Integer.class,
+        UPC,
+        student);
   }
 
   protected ResultActions release(UUID student, Instant start, int hours) throws Exception {

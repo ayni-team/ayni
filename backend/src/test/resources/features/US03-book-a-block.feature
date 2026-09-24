@@ -1,16 +1,27 @@
 # US03 - As a student, I want to book a block of tutoring with a tutor, so that I get help with a
 # subject at an hour that suits us both, paying for it with my credits.
 #
-# Every scenario names the test that runs it, over HTTP against a real PostgreSQL. A scenario
-# nobody runs yet is tagged @pending and says why.
+# Every scenario names the test that runs it, against a real PostgreSQL. A scenario nobody runs yet
+# is tagged @pending and says why.
 #
-#   Block taken seconds earlier (hold)   BookABlockAcceptanceTest.anHourAnotherStudentHoldsCannotBeTaken
+#   Successful booking                   BookABlockAcceptanceTest.successfulBooking
+#                                        BookABlockAcceptanceTest.aSecondAttemptIsRefused
+#   Credits closest to expiring first    BookABlockAcceptanceTest.creditsClosestToExpiringAreSpentFirst
+#   Insufficient credits                 BookABlockAcceptanceTest.insufficientCreditsSayHowManyAreMissing
+#                                        BookingConfirmationDatabaseTest.walletsRefusalIsNotAnUnexpectedRollback
+#   Block taken, while choosing          BookABlockAcceptanceTest.anHourAnotherStudentHoldsCannotBeTaken
 #                                        HoldRaceTest.exactlyOneStudentHoldsTheHour
+#   Block taken, while confirming        BookABlockAcceptanceTest.confirmingAnHourAnotherStudentHoldsChargesNothing
+#                                        BookingConfirmationDatabaseTest.theVersionColumnDecidesARaceAtConfirmation
 #   Temporary hold expiry                BookABlockAcceptanceTest.anUnconfirmedHoldExpiresAfterFiveMinutes
+#                                        BookABlockAcceptanceTest.confirmingAnExpiredHoldIsRefused
 #                                        ExpiredHoldsJobTest.freesTheExpiredHoldsOfEveryUniversity
+#   Failure during the booking           BookABlockAcceptanceTest.aFailureDuringTheBookingLeavesNothingBehind
+#                                        BookingConfirmationDatabaseTest.aFailureAfterEverythingWasWrittenLeavesNothingBehind
+#   Need description, booking            BookABlockAcceptanceTest.theNeedDescriptionTravelsWithTheBooking
 #   Leaving the confirmation             BookABlockAcceptanceTest.leavingTheConfirmationGivesTheHoursBack
 #
-# The scenarios about confirming the booking arrive with POST /api/v1/bookings (US03-T4).
+# The session is created by sessions when it hears BookingConfirmed (US03-T5).
 
 Feature: Booking a block of tutoring
 
@@ -19,13 +30,14 @@ Feature: Booking a block of tutoring
     And the tutor is free tomorrow from 09:00 to 12:00, Lima time
     And the students Ana and Bruno
 
-  @pending
   Scenario: Successful booking
-    Given Ana holds tomorrow's hours from 09:00 to 11:00
+    Given Ana has 5 credits
+    And Ana holds tomorrow's hours from 09:00 to 11:00
     When Ana confirms the booking describing what she needs
     Then two credits are deducted from her balance
     And both hours are booked and nobody else can hold them
     And BookingConfirmed is published with both blocks
+    And booking the same hours again is refused without charging anything
 
   @pending
   Scenario: The booking creates the session
@@ -39,14 +51,12 @@ Feature: Booking a block of tutoring
     # Not in this story: the link is delivered by notifications, which does not exist yet, and by
     # the participant endpoints of sessions (GET /api/v1/sessions/{id}, POST .../join).
 
-  @pending
   Scenario: Credits closest to expiring are spent first
     Given Ana has 2 SEED credits expiring in 10 days, 5 ALLOCATED credits expiring in 60 days and 3 EARNED credits
     When Ana books three hours
     Then the 2 SEED credits and 1 ALLOCATED credit are spent
     And her EARNED credits are untouched
 
-  @pending
   Scenario: Insufficient credits
     Given Ana has 1 credit
     And Ana holds tomorrow's hours from 09:00 to 12:00
@@ -61,7 +71,6 @@ Feature: Booking a block of tutoring
     Then Bruno is told that another student is holding it
     And the hour is still Ana's
 
-  @pending
   Scenario: Block taken seconds earlier by another student, while confirming
     Given Ana's hold on tomorrow's hour at 10:00 is about to run out
     And Ana is confirming the booking
@@ -74,8 +83,8 @@ Feature: Booking a block of tutoring
     When five minutes pass without Ana confirming
     Then the hour is free again
     And Bruno can hold it
+    And Ana's late confirmation is refused without charging anything
 
-  @pending
   Scenario: Failure during the booking
     Given Ana holds tomorrow's hour at 09:00
     When something fails while her booking is being confirmed
@@ -83,12 +92,16 @@ Feature: Booking a block of tutoring
     And no booking exists
     And the hour is free again
 
-  @pending
-  Scenario: The need description travels with the booking and the session
+  Scenario: The need description travels with the booking
     Given Ana holds tomorrow's hour at 09:00
     When Ana confirms describing "Normal forms before Friday's exam"
     Then the booking carries that description
-    And the session of the booking reaches it through the booking
+    And other modules read it through BookingApi
+
+  @pending
+  Scenario: The session of the booking reaches the need description
+    Given Ana confirmed a booking describing "Normal forms before Friday's exam"
+    Then the session of the booking points at the booking that carries the description
 
   Scenario: Leaving the confirmation
     Given Ana holds tomorrow's hours from 09:00 to 11:00

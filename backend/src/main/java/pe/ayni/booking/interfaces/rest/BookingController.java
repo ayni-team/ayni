@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import pe.ayni.booking.application.BookHoursUseCase;
 import pe.ayni.booking.application.HoldHoursUseCase;
 import pe.ayni.booking.application.ReleaseHoldsUseCase;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -39,10 +41,87 @@ class BookingController {
 
   private final HoldHoursUseCase holdHours;
   private final ReleaseHoldsUseCase releaseHolds;
+  private final BookHoursUseCase bookHours;
 
-  BookingController(HoldHoursUseCase holdHours, ReleaseHoldsUseCase releaseHolds) {
+  BookingController(
+      HoldHoursUseCase holdHours, ReleaseHoldsUseCase releaseHolds, BookHoursUseCase bookHours) {
     this.holdHours = holdHours;
     this.releaseHolds = releaseHolds;
+    this.bookHours = bookHours;
+  }
+
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Book the hours the student is holding",
+      description =
+          "Confirms a booking of consecutive hours the student holds, in one transaction: the "
+              + "tutor is enabled for the subject, the hours are consecutive and held by the "
+              + "student, one credit per hour is charged (credits closest to expiring first), "
+              + "the hours are marked as booked, the booking is saved and BookingConfirmed is "
+              + "published. If anything fails nothing is charged and the student's holds on "
+              + "those hours are released.")
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student booking. Read by CurrentUserFilter",
+      schema = @Schema(type = "string", format = "uuid",
+          example = "11111111-1111-4111-8111-111111111111"))
+  @ApiResponse(
+      responseCode = "201",
+      description = "The booking is confirmed and the credits were charged",
+      content = @Content(schema = @Schema(implementation = BookingResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The request is invalid, the need is not described, or the student is the tutor",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The student's account is not active",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The subject does not exist for the student's university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Nothing was charged: the tutor is not enabled for the subject, the hours are not "
+              + "offered, the hold ran out, another student took the hour, or the balance does "
+              + "not cover it (the message says how many credits are missing)",
+      content =
+          @Content(
+              schema = @Schema(implementation = ApiError.class),
+              examples =
+                  @ExampleObject(
+                      name = "Insufficient credits",
+                      value =
+                          """
+                          {"timestamp":"2026-09-24T02:01:00Z","status":409,"error":"Conflict",
+                           "message":"Not enough credits: 2 more are needed to book these hours",
+                           "path":"/api/v1/bookings"}
+                          """)))
+  @ApiResponse(
+      responseCode = "500",
+      description = "The booking failed unexpectedly. Nothing was charged",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  BookingResponse book(@Valid @RequestBody BookHoursRequest request) {
+    UUID studentId = CurrentUser.require();
+    return BookingResponse.of(
+        bookHours.execute(
+            studentId,
+            request.tutorId(),
+            request.catalogItemId(),
+            request.start(),
+            request.hours(),
+            request.needDescription()));
   }
 
   @PostMapping("/holds")

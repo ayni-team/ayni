@@ -1,22 +1,35 @@
 package pe.ayni.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import pe.ayni.booking.application.ReleaseExpiredHoldsUseCase;
 import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.domain.model.HourBlockStatus;
+import pe.ayni.shared.domain.CreditType;
+import pe.ayni.shared.domain.Credits;
+import pe.ayni.shared.events.BookingConfirmed;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -26,6 +39,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 class BookABlockAcceptanceTest extends BookingScenario {
 
   @Autowired private ReleaseExpiredHoldsUseCase releaseExpiredHolds;
+  @Autowired private BookingApi bookingApi;
 
   @Test
   @DisplayName("Holding hours takes them out of circulation for five minutes")
@@ -153,6 +167,263 @@ class BookABlockAcceptanceTest extends BookingScenario {
     hold(tutor, tomorrowAt(9), 1)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message", containsString("own hours")));
+  }
+
+  @Test
+  @DisplayName("Successful booking: credits deducted, block taken for others, BookingConfirmed")
+  void successfulBooking() throws Exception {
+
+    grant(ana, 5);
+    hold(ana, tomorrowAt(9), 2).andExpect(status().isCreated());
+
+    MvcResult answer =
+        book(ana, tomorrowAt(9), 2, "Normal forms before Friday's exam")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.studentId").value(ana.toString()))
+            .andExpect(jsonPath("$.tutorId").value(tutor.toString()))
+            .andExpect(jsonPath("$.catalogItemId").value(subject.toString()))
+            .andExpect(jsonPath("$.startsAt").value(tomorrowAt(9).toString()))
+            .andExpect(jsonPath("$.endsAt").value(tomorrowAt(11).toString()))
+            .andExpect(jsonPath("$.hours").value(2))
+            .andExpect(jsonPath("$.creditsCharged").value(2))
+            .andExpect(jsonPath("$.status").value("CONFIRMED"))
+            .andExpect(jsonPath("$.blockIds", hasSize(2)))
+            .andReturn();
+    UUID bookingId = idOf(answer);
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+    for (Instant start : new Instant[] {tomorrowAt(9), tomorrowAt(10)}) {
+      HourBlock block = blockAt(start);
+      assertThat(block.getStatus()).isEqualTo(HourBlockStatus.BOOKED);
+      assertThat(block.getBookingId()).isEqualTo(bookingId);
+    }
+    hold(bruno, tomorrowAt(10), 1)
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("already booked")));
+
+    List<BookingConfirmed> confirmed =
+        events.stream(BookingConfirmed.class)
+            .filter(event -> event.bookingId().equals(bookingId))
+            .toList();
+    assertThat(confirmed).hasSize(1);
+    assertThat(confirmed.getFirst().tenantId()).isEqualTo(UPC);
+    assertThat(confirmed.getFirst().creditsCharged()).isEqualTo(Credits.of(2));
+    assertThat(confirmed.getFirst().blockIds())
+        .containsExactly(blockAt(tomorrowAt(9)).getId(), blockAt(tomorrowAt(10)).getId());
+  }
+
+  @Test
+  @DisplayName("Booking the same hours a second time is refused and charges nothing")
+  void aSecondAttemptIsRefused() throws Exception {
+
+    grant(ana, 5);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+    book(ana, tomorrowAt(9), 1, "Joins").andExpect(status().isCreated());
+
+    book(ana, tomorrowAt(9), 1, "Joins")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("already booked")));
+
+    assertThat(balanceOf(ana)).isEqualTo(4);
+    assertThat(bookingsOf(ana)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Consumption by expiry order: the credits closest to expiring are spent first")
+  void creditsClosestToExpiringAreSpentFirst() throws Exception {
+
+    Instant now = clock.instant();
+    grant(ana, 5, CreditType.ALLOCATED, now.plus(Duration.ofDays(60)));
+    grant(ana, 3, CreditType.EARNED, null);
+    grant(ana, 2, CreditType.SEED, now.plus(Duration.ofDays(10)));
+
+    hold(ana, tomorrowAt(9), 3).andExpect(status().isCreated());
+    UUID bookingId =
+        idOf(book(ana, tomorrowAt(9), 3, "Indexes").andExpect(status().isCreated()).andReturn());
+
+    // What wallet recorded for this booking: every SEED credit, then one ALLOCATED, no EARNED.
+    mockMvc
+        .perform(
+            get("/api/v1/wallet/movements")
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", ana)
+                .param("reason", "BOOKING_CHARGE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items", hasSize(2)))
+        .andExpect(jsonPath("$.items[?(@.creditType=='SEED')].amount", contains(2)))
+        .andExpect(jsonPath("$.items[?(@.creditType=='ALLOCATED')].amount", contains(1)))
+        .andExpect(jsonPath("$.items[?(@.creditType=='EARNED')]", hasSize(0)))
+        .andExpect(jsonPath("$.items[*].referenceId", everyItem(is(bookingId.toString()))));
+
+    mockMvc
+        .perform(get("/api/v1/wallet").header("X-Tenant-Id", UPC).header("X-User-Id", ana))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.available").value(7))
+        .andExpect(jsonPath("$.byType[?(@.type=='ALLOCATED')].available", contains(4)))
+        .andExpect(jsonPath("$.byType[?(@.type=='EARNED')].available", contains(3)));
+  }
+
+  @Test
+  @DisplayName("Insufficient credits: the answer says how many are missing and nothing moves")
+  void insufficientCreditsSayHowManyAreMissing() throws Exception {
+
+    grant(ana, 1);
+    hold(ana, tomorrowAt(9), 3).andExpect(status().isCreated());
+
+    book(ana, tomorrowAt(9), 3, "Transactions")
+        .andExpect(status().isConflict())
+        .andExpect(
+            jsonPath("$.message").value("Not enough credits: 2 more are needed to book these hours"))
+        .andExpect(jsonPath("$.path").value("/api/v1/bookings"));
+
+    assertThat(balanceOf(ana)).isEqualTo(1);
+    assertThat(chargesOf(ana)).isZero();
+    assertThat(bookingsOf(ana)).isZero();
+    for (int hour = 9; hour < 12; hour++) {
+      assertThat(blockAt(tomorrowAt(hour)).getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
+    }
+  }
+
+  @Test
+  @DisplayName("Block taken seconds earlier by another student: confirming it charges nothing")
+  void confirmingAnHourAnotherStudentHoldsChargesNothing() throws Exception {
+
+    grant(bruno, 3);
+    hold(ana, tomorrowAt(10), 1).andExpect(status().isCreated());
+
+    book(bruno, tomorrowAt(10), 1, "Views")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("Another student is holding this hour")));
+
+    assertThat(balanceOf(bruno)).isEqualTo(3);
+    assertThat(chargesOf(bruno)).isZero();
+    // Bruno's failed attempt gives back only what Bruno held, which is nothing.
+    assertThat(blockAt(tomorrowAt(10)).getHeldBy()).isEqualTo(ana);
+  }
+
+  @Test
+  @DisplayName("Temporary hold expiry: confirming after five minutes is refused and charges nothing")
+  void confirmingAnExpiredHoldIsRefused() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(11), 1).andExpect(status().isCreated());
+    clock.advance(Duration.ofMinutes(5).plusSeconds(1));
+
+    book(ana, tomorrowAt(11), 1, "Stored procedures")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("no longer holding")));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+    assertThat(blockAt(tomorrowAt(11)).getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
+  }
+
+  @Test
+  @DisplayName("Failure during the booking: the balance is as it was and the block is freed")
+  void aFailureDuringTheBookingLeavesNothingBehind() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+    failingConfirmation.failNextConfirmationOf(ana);
+
+    book(ana, tomorrowAt(9), 1, "Triggers")
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.status").value(500))
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "The booking could not be completed. Nothing was charged and the hours you "
+                        + "held are free again"));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+    assertThat(chargesOf(ana)).isZero();
+    assertThat(bookingsOf(ana)).isZero();
+    HourBlock block = blockAt(tomorrowAt(9));
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
+    assertThat(block.getHeldBy()).isNull();
+    assertThat(block.getBookingId()).isNull();
+  }
+
+  @Test
+  @DisplayName("Need description: it travels with the booking and is readable by other modules")
+  void theNeedDescriptionTravelsWithTheBooking() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+
+    UUID bookingId =
+        idOf(
+            book(ana, tomorrowAt(9), 1, "Normal forms before Friday's exam")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.needDescription").value("Normal forms before Friday's exam"))
+                .andReturn());
+
+    AtomicReference<BookingView> seenByOthers = new AtomicReference<>();
+    TenantContext.runAs(UPC, () -> seenByOthers.set(bookingApi.requireBooking(bookingId)));
+    assertThat(seenByOthers.get().needDescription()).isEqualTo("Normal forms before Friday's exam");
+    assertThat(seenByOthers.get().status()).isEqualTo(BookingStatus.CONFIRMED);
+  }
+
+  @Test
+  @DisplayName("A booking without a need description is refused")
+  void aBookingWithoutANeedDescriptionIsRefused() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+
+    book(ana, tomorrowAt(9), 1, "   ")
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value("needDescription must not be blank"));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("Hours cannot be booked without holding them first")
+  void hoursCannotBeBookedWithoutAHold() throws Exception {
+
+    grant(ana, 3);
+
+    book(ana, tomorrowAt(9), 1, "Anything")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("no longer holding")));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+  }
+
+  @Test
+  @DisplayName("A tutor no longer enabled for the subject cannot be booked, and the hold is freed")
+  void aTutorWhoIsNotEnabledCannotBeBooked() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+    when(skills.isTutorEnabledFor(tutor, subject)).thenReturn(false);
+
+    book(ana, tomorrowAt(9), 1, "Anything")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("not enabled")));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+    assertThat(blockAt(tomorrowAt(9)).getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
+  }
+
+  @Test
+  @DisplayName("A subject the university cannot see is not found")
+  void aSubjectOfAnotherUniversityIsNotFound() throws Exception {
+
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+    when(skills.requireItem(subject))
+        .thenThrow(new NoSuchElementException("catalog item %s not found".formatted(subject)));
+
+    book(ana, tomorrowAt(9), 1, "Anything")
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message", containsString("not found")));
+
+    assertThat(balanceOf(ana)).isEqualTo(3);
+  }
+
+  private static UUID idOf(MvcResult answer) throws Exception {
+    return UUID.fromString(JsonPath.read(answer.getResponse().getContentAsString(), "$.id"));
   }
 
   @Test

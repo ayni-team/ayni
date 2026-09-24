@@ -209,6 +209,13 @@ it. Every minute a scheduled job returns expired holds to `AVAILABLE`, one unive
 hold. Both hold endpoints were added by US03: the contract only listed `POST /api/v1/bookings`,
 while the data model describes a hold with no way to take it.
 
+**When the confirmation fails.** The transaction rolls back whole, so the balance is as it was, and
+then a second transaction gives back the student's holds on those hours, so they return to the
+search at once. The second step cannot happen inside the first: wallet's refusal has already marked
+it for rollback. A refusal answers 409 with the reason (the hour was taken, the hold ran out, the
+tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
+nothing was charged.
+
 **Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
 cancelled. A tutor removing availability over a confirmed booking is cancelling that session.
 
