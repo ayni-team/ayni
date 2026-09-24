@@ -8,8 +8,15 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import java.util.NoSuchElementException;
+import pe.ayni.shared.tenancy.MissingTenantException;
+import pe.ayni.shared.tenancy.MissingUserException;
 
-@RestControllerAdvice(assignableTypes = AccessController.class)
+@RestControllerAdvice(
+        assignableTypes = {
+                AccessController.class,
+                IdentityMeController.class
+        })
 class IdentityExceptionHandler {
 
     private final Clock clock;
@@ -57,5 +64,29 @@ class IdentityExceptionHandler {
                         message,
                         request,
                         clock.instant()));
+    }
+    @ExceptionHandler(NoSuchElementException.class)
+    ResponseEntity<ApiError> handleNotFound(
+            NoSuchElementException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler({
+            MissingTenantException.class,
+            MissingUserException.class
+    })
+    ResponseEntity<ApiError> handleMissingContext(
+            RuntimeException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
     }
 }
