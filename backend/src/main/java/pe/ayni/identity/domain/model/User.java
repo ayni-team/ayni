@@ -52,8 +52,9 @@ public class User {
     @Column(name = "status", length = 16, nullable = false)
     private UserStatus status;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "onboarding_step", length = 32)
-    private String onboardingStep;
+    private OnboardingStep onboardingStep;
 
     @Column(name = "activated_at")
     private Instant activatedAt;
@@ -80,7 +81,7 @@ public class User {
             String photoUrl,
             String bio,
             UserStatus status,
-            String onboardingStep,
+            OnboardingStep onboardingStep,
             Instant activatedAt,
             Instant createdAt,
             Instant updatedAt) {
@@ -110,6 +111,42 @@ public class User {
         return Objects.requireNonNull(email, "email must not be null")
                 .trim()
                 .toLowerCase(Locale.ROOT);
+    }
+    public void updateProfile(
+            String photoUrl,
+            String bio,
+            Instant now) {
+
+        this.photoUrl = photoUrl;
+        this.bio = bio;
+        this.updatedAt =
+                Objects.requireNonNull(now, "now must not be null");
+    }
+
+    public void markProfileCompleted(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (onboardingStep == null
+                || onboardingStep == OnboardingStep.PROFILE) {
+
+            onboardingStep = OnboardingStep.ACADEMIC_RECORD;
+            updatedAt = now;
+        }
+    }
+
+    public void markAcademicRecordImported(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (onboardingStep == null
+                || onboardingStep == OnboardingStep.PROFILE) {
+            throw new IdentityRuleViolation(
+                    "The profile step must be completed before importing the academic record");
+        }
+
+        if (onboardingStep == OnboardingStep.ACADEMIC_RECORD) {
+            onboardingStep = OnboardingStep.LEARNING_INTERESTS;
+            updatedAt = now;
+        }
     }
 
     public UUID getId() {
@@ -156,7 +193,7 @@ public class User {
         return status;
     }
 
-    public String getOnboardingStep() {
+    public OnboardingStep getOnboardingStep() {
         return onboardingStep;
     }
 
