@@ -355,6 +355,14 @@ Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCo
 The row is written before the email leaves, and a failure is recorded. Two things depend on delivery
 working: getting in, and confirming presence.
 
+**Built so far:** `AccessRequested`, the email with the access link (US38). The notice is committed
+before the email leaves and then marked sent or failed. Its payload records what the link was for and
+when it expires, never the link: identity keeps only the token's hash and the email is the only
+copy. A failed access link is not retried, because there is nothing stored to retry it with and it
+expires in minutes; asking again issues a new one. Email goes over SMTP (`spring.mail.*`): to Mailpit
+under `docker compose`, which shows it at http://localhost:8025, and to a real relay in a deployment.
+The rest of the events above, and `GET /api/v1/notifications`, are still to do.
+
 ---
 
 ## audit
