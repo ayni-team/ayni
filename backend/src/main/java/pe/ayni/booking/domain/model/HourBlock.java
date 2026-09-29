@@ -277,6 +277,28 @@ public class HourBlock {
     this.heldUntil = null;
   }
 
+  /**
+   * Takes an hour out of circulation for good because the tutor is no longer free then: they paused
+   * or removed that time.
+   *
+   * <p>A free hour and a held one are withdrawn. A student holding it is only choosing, and the
+   * tutor will not be there; their confirmation is refused as an hour no longer offered. A booked
+   * hour stands: a confirmed booking is only undone by cancelling it, which refunds the credits,
+   * and removing availability is not a way around that. A released hour is already out.
+   *
+   * @return whether the hour was withdrawn now
+   */
+  public boolean withdraw() {
+    if (this.status != HourBlockStatus.AVAILABLE && this.status != HourBlockStatus.HELD) {
+      return false;
+    }
+
+    this.status = HourBlockStatus.RELEASED;
+    this.heldBy = null;
+    this.heldUntil = null;
+    return true;
+  }
+
   /** Whether this block is held by somebody whose time has run out. */
   public boolean isHoldExpired(Instant now) {
     return this.status == HourBlockStatus.HELD

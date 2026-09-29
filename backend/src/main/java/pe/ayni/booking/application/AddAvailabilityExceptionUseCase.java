@@ -20,16 +20,24 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>Whether the times are allowed is the entity's business, not this one's: passing a start with
  * no end is refused where the rule lives, which is also where the database enforces it.
  *
+ * <p>The hours of that date usually exist already, so the change reaches them in the same
+ * transaction through {@link HourBlockHorizon#adjustFor}: a REMOVE withdraws the hours it takes
+ * away, and an ADD generates the ones it gives, so both can be found, or stop being found, as soon
+ * as the tutor saves them. Booked hours stand.
+ *
  * @see AvailabilityException
  */
 @Service
 public class AddAvailabilityExceptionUseCase {
 
   private final AvailabilityExceptionRepository exceptions;
+  private final HourBlockHorizon horizon;
   private final Clock clock;
 
-  AddAvailabilityExceptionUseCase(AvailabilityExceptionRepository exceptions, Clock clock) {
+  AddAvailabilityExceptionUseCase(
+      AvailabilityExceptionRepository exceptions, HourBlockHorizon horizon, Clock clock) {
     this.exceptions = exceptions;
+    this.horizon = horizon;
     this.clock = clock;
   }
 
@@ -38,7 +46,7 @@ public class AddAvailabilityExceptionUseCase {
    * @throws BookingRuleViolation when the times do not match what the kind allows
    */
   @Transactional
-  public AvailabilityException execute(
+  public DeclaredException execute(
       UUID tutorId,
       LocalDate exceptionDate,
       LocalTime startsAtTime,
@@ -56,6 +64,8 @@ public class AddAvailabilityExceptionUseCase {
             UUID.randomUUID(), tenantId, tutorId, exceptionDate, startsAtTime, endsAtTime, kind,
             now);
 
-    return exceptions.save(exception);
+    AvailabilityException saved = exceptions.save(exception);
+    return new DeclaredException(
+        saved, horizon.adjustFor(tutorId, exceptionDate, exceptionDate));
   }
 }

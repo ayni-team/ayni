@@ -28,6 +28,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 public class HourBlockHorizon {
 
   private final GenerateHourBlocksUseCase generateHourBlocks;
+  private final WithdrawUnavailableHoursUseCase withdrawUnavailableHours;
   private final AvailabilityPatternRepository patterns;
   private final IdentityApi identity;
   private final Clock clock;
@@ -35,11 +36,13 @@ public class HourBlockHorizon {
 
   HourBlockHorizon(
       GenerateHourBlocksUseCase generateHourBlocks,
+      WithdrawUnavailableHoursUseCase withdrawUnavailableHours,
       AvailabilityPatternRepository patterns,
       IdentityApi identity,
       Clock clock,
       @Value("${ayni.booking.generation-weeks:4}") int weeks) {
     this.generateHourBlocks = generateHourBlocks;
+    this.withdrawUnavailableHours = withdrawUnavailableHours;
     this.patterns = patterns;
     this.identity = identity;
     this.clock = clock;
@@ -52,6 +55,29 @@ public class HourBlockHorizon {
     ZoneId zone = universityZone();
     LocalDate today = LocalDate.now(clock.withZone(zone));
     return generateHourBlocks.execute(tutorId, today, lastDay(today), zone);
+  }
+
+  /**
+   * Brings a tutor's hours between two dates in line with their availability after it changed:
+   * withdraws the hours a pause or a removed date takes away, and generates the ones an added date
+   * gives.
+   *
+   * <p>Only the part of the range inside the horizon is touched. Days already gone have nothing to
+   * adjust, and days beyond the horizon have no hours yet: when the nightly job reaches them it
+   * generates them from the rules as they are then, pause and exceptions included.
+   */
+  @Transactional
+  public HoursAdjustment adjustFor(UUID tutorId, LocalDate from, LocalDate to) {
+    ZoneId zone = universityZone();
+    LocalDate today = LocalDate.now(clock.withZone(zone));
+    LocalDate first = from.isBefore(today) ? today : from;
+    LocalDate last = to.isAfter(lastDay(today)) ? lastDay(today) : to;
+    if (last.isBefore(first)) {
+      return HoursAdjustment.none();
+    }
+    return new HoursAdjustment(
+        withdrawUnavailableHours.execute(tutorId, first, last, zone),
+        generateHourBlocks.execute(tutorId, first, last, zone));
   }
 
   /**
