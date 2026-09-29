@@ -39,7 +39,16 @@ public record SessionResponse(
         Instant presenceCheckAt,
     @Schema(description = "The reader's own presence code, without the code; null until it is sent",
         nullable = true)
-        Presence presence) {
+        Presence presence,
+    @Schema(description = "When the reader confirmed the end; null if they have not",
+        nullable = true, example = "2026-09-30T20:58:00Z")
+        Instant endConfirmedAt,
+    @Schema(description = "When the session closed; null while it has not", nullable = true,
+        example = "2026-09-30T20:59:10Z")
+        Instant endedAt,
+    @Schema(description = "When the session closes on its own if the participants do not close "
+        + "it: fifteen minutes after the booked hour, UTC", example = "2026-09-30T21:15:00Z")
+        Instant closesAt) {
 
   /** The reader's presence code as the screen needs it. The code itself only travels by email. */
   @Schema(name = "SessionPresence")
@@ -78,6 +87,9 @@ public record SessionResponse(
         session.startedAt(),
         session.needDescription(),
         session.presenceCheckAt(),
-        Presence.of(session.presence()));
+        Presence.of(session.presence()),
+        session.endConfirmedAt(),
+        session.endedAt(),
+        session.closesAt());
   }
 }

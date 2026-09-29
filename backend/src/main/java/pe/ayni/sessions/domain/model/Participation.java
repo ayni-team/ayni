@@ -16,7 +16,7 @@ import java.util.UUID;
  * <p>Written the first time they join and never duplicated, as {@code
  * uq_participations_session_user} insists: a participant whose connection drops and comes back is
  * still one participant, and {@code joined_at} keeps the first arrival, which is what punctuality
- * is judged by.
+ * is judged by. {@code end_confirmed_at} records whether, and when, they confirmed the end.
  */
 @Entity
 @Table(schema = "sessions", name = "participations")
@@ -48,6 +48,9 @@ public class Participation {
   @Column(name = "connected_seconds", nullable = false)
   private int connectedSeconds;
 
+  @Column(name = "end_confirmed_at")
+  private Instant endConfirmedAt;
+
   protected Participation() {
     // Required by JPA
   }
@@ -63,6 +66,27 @@ public class Participation {
     participation.role = Objects.requireNonNull(role, "role must not be null");
     participation.joinedAt = Objects.requireNonNull(now, "now must not be null");
     return participation;
+  }
+
+  /**
+   * The participant says the session is over (US11).
+   *
+   * <p>Saying it again keeps the first time: it is the moment they declared the end, and a retried
+   * request must not move it.
+   *
+   * @return whether this call is the one that confirmed it
+   */
+  public boolean confirmEnd(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (endConfirmedAt != null) {
+      return false;
+    }
+    endConfirmedAt = now;
+    return true;
+  }
+
+  public boolean hasConfirmedEnd() {
+    return endConfirmedAt != null;
   }
 
   public UUID getId() {
@@ -95,5 +119,9 @@ public class Participation {
 
   public int getConnectedSeconds() {
     return connectedSeconds;
+  }
+
+  public Instant getEndConfirmedAt() {
+    return endConfirmedAt;
   }
 }

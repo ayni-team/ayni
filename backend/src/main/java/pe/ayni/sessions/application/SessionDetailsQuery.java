@@ -1,5 +1,6 @@
 package pe.ayni.sessions.application;
 
+import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -9,7 +10,9 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingView;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.Session;
+import pe.ayni.sessions.infrastructure.ParticipationRepository;
 import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -30,12 +33,17 @@ import pe.ayni.shared.tenancy.TenantContext;
 public class SessionDetailsQuery {
 
   private final SessionRepository sessions;
+  private final ParticipationRepository participations;
   private final PresenceCheckRepository presenceChecks;
   private final BookingApi booking;
 
   SessionDetailsQuery(
-      SessionRepository sessions, PresenceCheckRepository presenceChecks, BookingApi booking) {
+      SessionRepository sessions,
+      ParticipationRepository participations,
+      PresenceCheckRepository presenceChecks,
+      BookingApi booking) {
     this.sessions = sessions;
+    this.participations = participations;
     this.presenceChecks = presenceChecks;
     this.booking = booking;
   }
@@ -68,6 +76,11 @@ public class SessionDetailsQuery {
                         check.getConfirmedAt(),
                         check.attemptsLeft()))
             .orElse(null);
+    Instant endConfirmedAt =
+        participations
+            .findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId)
+            .map(Participation::getEndConfirmedAt)
+            .orElse(null);
 
     return new SessionDetails(
         session.getId(),
@@ -83,6 +96,9 @@ public class SessionDetailsQuery {
         session.getStartedAt(),
         booked.needDescription(),
         session.presenceCheckAt(),
-        presence);
+        presence,
+        endConfirmedAt,
+        session.getEndedAt(),
+        session.closesAt());
   }
 }

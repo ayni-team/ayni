@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.sessions.application.ConfirmPresenceUseCase;
+import pe.ayni.sessions.application.EndSessionUseCase;
 import pe.ayni.sessions.application.JoinSessionUseCase;
 import pe.ayni.sessions.application.SessionDetailsQuery;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -36,14 +37,17 @@ class SessionsController {
   private final SessionDetailsQuery sessionDetails;
   private final JoinSessionUseCase joinSession;
   private final ConfirmPresenceUseCase confirmPresence;
+  private final EndSessionUseCase endSession;
 
   SessionsController(
       SessionDetailsQuery sessionDetails,
       JoinSessionUseCase joinSession,
-      ConfirmPresenceUseCase confirmPresence) {
+      ConfirmPresenceUseCase confirmPresence,
+      EndSessionUseCase endSession) {
     this.sessionDetails = sessionDetails;
     this.joinSession = joinSession;
     this.confirmPresence = confirmPresence;
+    this.endSession = endSession;
   }
 
   @GetMapping("/{id}")
@@ -231,5 +235,67 @@ class SessionsController {
       @Valid @RequestBody ConfirmPresenceRequest request) {
     return PresenceResponse.of(
         confirmPresence.execute(sessionId, CurrentUser.require(), request.code()));
+  }
+
+  @PostMapping("/{id}/end")
+  @Operation(
+      summary = "Confirm the session is over",
+      description =
+          "Records that this participant confirms the end. When both have, the session closes: "
+              + "COMPLETED if both confirmed their presence with the emailed code, and the tutor "
+              + "is credited the booked hours as earned credits; UNVERIFIED otherwise, and the "
+              + "student is refunded. If only one confirms, the session closes on its own fifteen "
+              + "minutes after the booked hour, the same way. Only a participant who joined can "
+              + "confirm. Confirming again changes nothing.")
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "The student or the tutor of the session. Read by CurrentUserFilter",
+      schema = @Schema(type = "string", format = "uuid",
+          example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The end is confirmed; the status says whether the session closed",
+      content = @Content(schema = @Schema(implementation = EndedSessionResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "A header is missing or the id is not a UUID",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person is neither the student nor the tutor of the session",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The session does not exist in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The session is not in progress, or the person never joined it",
+      content =
+          @Content(
+              schema = @Schema(implementation = ApiError.class),
+              examples =
+                  @ExampleObject(
+                      name = "Already closed",
+                      value =
+                          """
+                          {"timestamp":"2026-09-30T21:20:00Z","status":409,"error":"Conflict",
+                           "message":"This session is completed: only a session in progress can be ended",
+                           "path":"/api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/end"}
+                          """)))
+  EndedSessionResponse end(
+      @Parameter(description = "Session identifier",
+              example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
+          @PathVariable("id")
+          UUID sessionId) {
+    return EndedSessionResponse.of(endSession.execute(sessionId, CurrentUser.require()));
   }
 }
