@@ -30,6 +30,7 @@
     -->
     <testcontainers.version>1.21.3</testcontainers.version>
     <docker-java.version>3.5.1</docker-java.version>
+    <greenmail.version>2.1.14</greenmail.version>
   </properties>
 
   <dependencyManagement>
@@ -61,6 +62,12 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- Sends the emails notifications delivers: the access link first of all. SMTP, so in
+         development it reaches Mailpit and in a deployment whatever relay the university allows. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
 
     <!-- Declares the module boundaries and verifies them in a test -->
@@ -137,6 +144,18 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      An SMTP server inside the test JVM. The tests that are about an email arriving read it from
+      here, the way a student would read it from their inbox, instead of trusting a mock of the
+      mail sender.
+    -->
+    <dependency>
+      <groupId>com.icegreen</groupId>
+      <artifactId>greenmail-junit5</artifactId>
+      <version>${greenmail.version}</version>
       <scope>test</scope>
     </dependency>
 
