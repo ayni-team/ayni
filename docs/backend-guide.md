@@ -283,7 +283,8 @@ public interface SessionsApi {
 were booked, one credit each, not the minutes the call lasted.
 
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `PresenceCodeIssued`.
-**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session.
+**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session;
+`IdentityApi.activeTenantCodes` — for the job that sends the presence codes.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
 | Method | Path | Who |
@@ -301,9 +302,19 @@ to join moves the session to `IN_PROGRESS` and publishes `SessionStarted`, and e
 first arrival is recorded in `sessions.participations`. The session is locked while it is joined, so
 two participants arriving at once start it once. A stranger gets 403, a room that is not open 409.
 
-**The presence check.** Five minutes after the start, a code is issued to each participant and sent
-by email. Whoever does not confirm makes the session end as `UNVERIFIED`: the tutor earns nothing,
-the student is refunded and the audit is told. The code is stored hashed, expires and caps attempts.
+**The presence check.** Five minutes after the scheduled start, a code is issued to each
+participant and sent by email. Whoever does not confirm makes the session end as `UNVERIFIED`: the
+tutor earns nothing, the student is refunded and the audit is told. The code is stored hashed,
+expires and caps attempts.
+
+**Built so far (US54):** a job runs every minute (`ayni.sessions.presence-check-delay`) and issues
+the codes of every session in progress at least five minutes past its scheduled start and not over,
+one `PresenceCodeIssued` per participant, both of them, whether they joined or not. The code is six
+digits, lasts fifteen minutes and dies after five wrong attempts; a wrong one answers 422 and still
+counts, so the transaction commits on it. `POST /sessions/{id}/presence` only accepts a participant
+who joined, while the session is in progress. `GET /sessions/{id}` tells the reader when the codes
+go out and the state of their own code, never the code. Ending as `UNVERIFIED` arrives with closing
+the session.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
 
@@ -365,6 +376,8 @@ only a new tutor mark. Standing is per skill, never overall.
 
 **No published interface, and nothing depends on it.** It only listens.
 
+**Calls:** `IdentityApi.requireUser` — for the address of the person an event names.
+
 Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCodeIssued`,
 `CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever is added later.
 
@@ -381,7 +394,9 @@ when it expires, never the link: identity keeps only the token's hash and the em
 copy. A failed access link is not retried, because there is nothing stored to retry it with and it
 expires in minutes; asking again issues a new one. Email goes over SMTP (`spring.mail.*`): to Mailpit
 under `docker compose`, which shows it at http://localhost:8025, and to a real relay in a deployment.
-The rest of the events above, and `GET /api/v1/notifications`, are still to do.
+`PresenceCodeIssued`, the email with the presence code (US54), is delivered the same way: the
+notice keeps the session and the expiry, never the code, and the address is read from identity. The
+rest of the events above, and `GET /api/v1/notifications`, are still to do.
 
 ---
 

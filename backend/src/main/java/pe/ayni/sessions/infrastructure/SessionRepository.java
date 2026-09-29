@@ -1,6 +1,7 @@
 package pe.ayni.sessions.infrastructure;
 
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,4 +40,27 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
   /** A tutor's sessions in one state, the earliest scheduled first. */
   List<Session> findByTenantIdAndTutorIdAndStatusOrderByScheduledStartAsc(
       String tenantId, UUID tutorId, SessionStatus status);
+
+  /**
+   * The sessions whose presence codes are due and not issued yet: in progress, at least {@code
+   * Session.PRESENCE_CHECK_AFTER} past their scheduled start, and not over.
+   *
+   * @param startedBy the latest scheduled start that is due, now minus the delay
+   */
+  @Query(
+      """
+      select session.id from Session session
+      where session.tenantId = :tenantId
+        and session.status = pe.ayni.sessions.SessionStatus.IN_PROGRESS
+        and session.scheduledStart <= :startedBy
+        and session.scheduledEnd > :now
+        and not exists (
+          select 1 from PresenceCheck presence
+          where presence.tenantId = :tenantId and presence.sessionId = session.id)
+      order by session.scheduledStart
+      """)
+  List<UUID> findDueForPresenceCheck(
+      @Param("tenantId") String tenantId,
+      @Param("startedBy") Instant startedBy,
+      @Param("now") Instant now);
 }

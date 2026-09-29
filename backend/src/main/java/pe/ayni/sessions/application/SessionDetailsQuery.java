@@ -10,6 +10,7 @@ import pe.ayni.booking.BookingView;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 import pe.ayni.sessions.domain.model.Session;
+import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -21,16 +22,21 @@ import pe.ayni.shared.tenancy.TenantContext;
  * already expected.
  *
  * <p>The room name is not part of the answer. It is what lets anyone into the call, so it is only
- * handed over by joining, inside the window the room is open.
+ * handed over by joining, inside the window the room is open. Nor is the presence code, which only
+ * travels by email: the answer says whether it was sent, until when it can be typed in and whether
+ * it was, for the reader alone.
  */
 @Service
 public class SessionDetailsQuery {
 
   private final SessionRepository sessions;
+  private final PresenceCheckRepository presenceChecks;
   private final BookingApi booking;
 
-  SessionDetailsQuery(SessionRepository sessions, BookingApi booking) {
+  SessionDetailsQuery(
+      SessionRepository sessions, PresenceCheckRepository presenceChecks, BookingApi booking) {
     this.sessions = sessions;
+    this.presenceChecks = presenceChecks;
     this.booking = booking;
   }
 
@@ -43,13 +49,25 @@ public class SessionDetailsQuery {
     Objects.requireNonNull(sessionId, "sessionId must not be null");
     Objects.requireNonNull(userId, "userId must not be null");
 
+    String tenantId = TenantContext.require();
     Session session =
         sessions
-            .findByTenantIdAndId(TenantContext.require(), sessionId)
+            .findByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
     // Refused before anything else is read, booking included.
     ParticipantRole role = session.roleOf(userId);
     BookingView booked = booking.requireBooking(session.getBookingId());
+    PresenceState presence =
+        presenceChecks
+            .findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId)
+            .map(
+                check ->
+                    new PresenceState(
+                        check.getIssuedAt(),
+                        check.getExpiresAt(),
+                        check.getConfirmedAt(),
+                        check.attemptsLeft()))
+            .orElse(null);
 
     return new SessionDetails(
         session.getId(),
@@ -63,6 +81,8 @@ public class SessionDetailsQuery {
         session.getScheduledEnd(),
         session.joinOpensAt(),
         session.getStartedAt(),
-        booked.needDescription());
+        booked.needDescription(),
+        session.presenceCheckAt(),
+        presence);
   }
 }

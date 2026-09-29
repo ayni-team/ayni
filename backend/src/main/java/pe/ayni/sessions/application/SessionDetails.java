@@ -12,6 +12,8 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * @param needDescription what the student wrote when booking, read from booking: the tutor reads it
  *     before the session (US07)
  * @param joinOpensAt the first moment the room can be joined
+ * @param presenceCheckAt when the presence codes are sent
+ * @param presence the reader's own presence code, {@code null} until it is sent
  */
 public record SessionDetails(
     UUID id,
@@ -25,4 +27,6 @@ public record SessionDetails(
     Instant scheduledEnd,
     Instant joinOpensAt,
     Instant startedAt,
-    String needDescription) {}
+    String needDescription,
+    Instant presenceCheckAt,
+    PresenceState presence) {}
