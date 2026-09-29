@@ -27,6 +27,10 @@ import pe.ayni.shared.tenancy.TenantContext;
  * WrongPresenceCode} for that reason: rolling it back would also roll back the attempt, and the
  * cap of five would never be reached. The code is locked while it is checked, so wrong codes sent
  * at once are counted one after the other.
+ *
+ * <p>The session is locked too, the same lock closing takes: a code typed in while the session is
+ * being closed either counts before the outcome is decided or finds the session closed, never
+ * confirmed after it was judged unconfirmed.
  */
 @Service
 public class ConfirmPresenceUseCase {
@@ -64,7 +68,7 @@ public class ConfirmPresenceUseCase {
 
     Session session =
         sessions
-            .findByTenantIdAndId(tenantId, sessionId)
+            .lockByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
     session.roleOf(userId);
     session.requireInProgressForPresence();

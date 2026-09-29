@@ -1,5 +1,6 @@
 package pe.ayni.sessions.infrastructure;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +16,6 @@ public interface ParticipationRepository extends JpaRepository<Participation, UU
 
   Optional<Participation> findByTenantIdAndSessionIdAndUserId(
       String tenantId, UUID sessionId, UUID userId);
+
+  List<Participation> findByTenantIdAndSessionId(String tenantId, UUID sessionId);
 }

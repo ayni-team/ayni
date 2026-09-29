@@ -63,4 +63,21 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
       @Param("tenantId") String tenantId,
       @Param("startedBy") Instant startedBy,
       @Param("now") Instant now);
+
+  /**
+   * The sessions still in progress whose booked hour ended at least {@code
+   * Session.CLOSES_AFTER_END} ago, which close on their own.
+   *
+   * @param endedBy the latest scheduled end that is due, now minus that delay
+   */
+  @Query(
+      """
+      select session.id from Session session
+      where session.tenantId = :tenantId
+        and session.status = pe.ayni.sessions.SessionStatus.IN_PROGRESS
+        and session.scheduledEnd <= :endedBy
+      order by session.scheduledEnd
+      """)
+  List<UUID> findDueToClose(
+      @Param("tenantId") String tenantId, @Param("endedBy") Instant endedBy);
 }

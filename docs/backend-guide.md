@@ -153,7 +153,7 @@ public interface WalletApi {
 
 **Publishes:** `CreditsGranted`, `CreditsExpiring`, `CreditsExpired`.
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
-`BookingCancelled` (refunds), `PurchaseConfirmed`.
+`BookingCancelled` and `SessionUnverified` (refund the booking), `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
@@ -313,8 +313,16 @@ one `PresenceCodeIssued` per participant, both of them, whether they joined or n
 digits, lasts fifteen minutes and dies after five wrong attempts; a wrong one answers 422 and still
 counts, so the transaction commits on it. `POST /sessions/{id}/presence` only accepts a participant
 who joined, while the session is in progress. `GET /sessions/{id}` tells the reader when the codes
-go out and the state of their own code, never the code. Ending as `UNVERIFIED` arrives with closing
-the session.
+go out and the state of their own code, never the code.
+
+**Closing (US11).** `POST /sessions/{id}/end` records that a participant who joined confirms the end.
+The second confirmation closes the session; with only one, or none, a job that runs every minute
+(`ayni.sessions.closing-delay`) closes it fifteen minutes after the booked hour, and
+`participations.end_confirmed_at` keeps who confirmed. Either way the outcome is the presence
+check's: `COMPLETED` when both confirmed their code, with `SessionCompleted` paying the tutor the
+booked hours; `UNVERIFIED` otherwise, including a session closed before any code was sent, with
+`SessionUnverified` naming who did not confirm. The session is locked while it is closed, and while
+a code is confirmed, so it closes once and its outcome is not changed after it was decided.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
 

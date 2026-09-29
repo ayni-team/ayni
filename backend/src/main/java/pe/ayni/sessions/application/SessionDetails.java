@@ -14,6 +14,9 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * @param joinOpensAt the first moment the room can be joined
  * @param presenceCheckAt when the presence codes are sent
  * @param presence the reader's own presence code, {@code null} until it is sent
+ * @param endConfirmedAt when the reader confirmed the end, {@code null} if they have not
+ * @param endedAt when the session closed, {@code null} while it has not
+ * @param closesAt when it closes on its own if the participants do not close it
  */
 public record SessionDetails(
     UUID id,
@@ -29,4 +32,7 @@ public record SessionDetails(
     Instant startedAt,
     String needDescription,
     Instant presenceCheckAt,
-    PresenceState presence) {}
+    PresenceState presence,
+    Instant endConfirmedAt,
+    Instant endedAt,
+    Instant closesAt) {}

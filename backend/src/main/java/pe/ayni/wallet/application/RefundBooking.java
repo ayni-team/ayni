@@ -22,7 +22,7 @@ import pe.ayni.wallet.infrastructure.CreditLotRepository;
 import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
 
 /**
- * Returns the credits of a cancelled booking.
+ * Returns the credits of a cancelled booking, or of one whose session ended unverified.
  *
  * <p>The credits go back to the groups they were taken from, with the expiry those groups had. A
  * booking cancelled the day before an initial grant dies gives back credits that die the next day,
@@ -30,7 +30,8 @@ import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
  * about to expire.
  *
  * <p>Cancelling always refunds, so this runs for every cancellation, including the ones booking
- * records against whoever cancelled late.
+ * records against whoever cancelled late. A session that failed the presence check refunds too: the
+ * tutor earns nothing for it, and the student is not charged for it either.
  */
 @Service
 class RefundBooking {
@@ -49,8 +50,8 @@ class RefundBooking {
    * Gives back what a booking took.
    *
    * <p>Does nothing when the booking was never charged, and nothing again when it was already
-   * refunded: cancellation arrives as an event, and an event that is delivered twice must not pay
-   * twice.
+   * refunded: cancellation and an unverified session arrive as events, and an event that is
+   * delivered twice must not pay twice.
    */
   @Transactional
   void refund(UUID bookingId) {

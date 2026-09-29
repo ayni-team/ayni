@@ -43,6 +43,12 @@ public class Session {
    */
   public static final Duration PRESENCE_CHECK_AFTER = Duration.ofMinutes(5);
 
+  /**
+   * How long after the booked hour a session still in progress closes on its own: when only one
+   * participant confirmed the end, or nobody did (US11, scenario 3).
+   */
+  public static final Duration CLOSES_AFTER_END = Duration.ofMinutes(15);
+
   @Id
   @Column(name = "id", nullable = false, updatable = false)
   private UUID id;
@@ -198,6 +204,53 @@ public class Session {
     return this.status == SessionStatus.IN_PROGRESS
         && !now.isBefore(presenceCheckAt())
         && now.isBefore(this.scheduledEnd);
+  }
+
+  /**
+   * Refuses to confirm the end of a session that is not in progress.
+   *
+   * @throws SessionNotOpen when the session has not started or is already closed
+   */
+  public void requireInProgressToEnd() {
+    if (this.status != SessionStatus.IN_PROGRESS) {
+      throw new SessionNotOpen("This session is " + this.status.name().toLowerCase(Locale.ROOT)
+          + ": only a session in progress can be ended");
+    }
+  }
+
+  /** When the session closes on its own if the participants have not closed it. */
+  public Instant closesAt() {
+    return this.scheduledEnd.plus(CLOSES_AFTER_END);
+  }
+
+  /** Whether a session still in progress has run past {@link #closesAt()}. */
+  public boolean isDueToClose(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return this.status == SessionStatus.IN_PROGRESS && !now.isBefore(closesAt());
+  }
+
+  /**
+   * Closes the session: {@code COMPLETED} when every participant proved their presence, {@code
+   * UNVERIFIED} otherwise, as the state diagram says. Which one it is decides whether the tutor is
+   * paid, so the caller has to say it; the session only makes sure it is closed once.
+   *
+   * @throws IllegalStateException when the session is not in progress
+   */
+  public void close(boolean presenceVerified, Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != SessionStatus.IN_PROGRESS) {
+      throw new IllegalStateException("Session " + id + " is " + status + " and cannot be closed");
+    }
+    this.status = presenceVerified ? SessionStatus.COMPLETED : SessionStatus.UNVERIFIED;
+    this.endedAt = now;
+  }
+
+  /**
+   * The hours that were booked, one credit each. What the tutor earns, not the minutes the call
+   * lasted.
+   */
+  public int bookedHours() {
+    return (int) Duration.between(this.scheduledStart, this.scheduledEnd).toHours();
   }
 
   /**

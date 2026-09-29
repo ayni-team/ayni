@@ -1,6 +1,5 @@
 package pe.ayni.sessions.application;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -75,6 +74,6 @@ public class SessionsService implements SessionsApi {
         session.getStudentId(),
         session.getStartedAt(),
         session.getEndedAt(),
-        (int) Duration.between(session.getScheduledStart(), session.getScheduledEnd()).toHours());
+        session.bookedHours());
   }
 }
