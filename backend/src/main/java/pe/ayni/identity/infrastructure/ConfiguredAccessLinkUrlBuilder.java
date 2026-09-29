@@ -17,10 +17,9 @@ public class ConfiguredAccessLinkUrlBuilder implements AccessLinkUrlBuilder {
     }
 
     @Override
-    public String build(String tenantId, String rawToken) {
+    public String build(String rawToken) {
         return UriComponentsBuilder
                 .fromUriString(baseUrl)
-                .queryParam("tenant", tenantId)
                 .queryParam("token", rawToken)
                 .build()
                 .encode()

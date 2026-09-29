@@ -8,6 +8,17 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * What a confirmed access link leaves behind: the key a student uses until it expires.
+ *
+ * <p>Long lived on purpose, as the data model says: if the session were short, every day would
+ * start by waiting for an email. The token is stored hashed for the same reason the link's is, so a
+ * leaked table opens nobody's account.
+ *
+ * <p>A session belongs to a student or to a platform administrator, never both, which is what
+ * {@code ck_identity_user_sessions_subject} enforces. Only students sign in today, so only that
+ * constructor exists.
+ */
 @Entity
 @Table(schema = "identity", name = "user_sessions")
 public class UserSession {
@@ -41,6 +52,7 @@ public class UserSession {
         // Required by JPA
     }
 
+    /** Opens a session for a student of a university. */
     public UserSession(
             UUID id,
             String tenantId,
@@ -57,12 +69,14 @@ public class UserSession {
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
     }
 
+    /** Whether the session still opens the door: not revoked and not expired. */
     public boolean isActive(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
 
         return revokedAt == null && now.isBefore(expiresAt);
     }
 
+    /** Closes the session before it expires, as signing out does. */
     public void revoke(Instant now) {
         this.revokedAt =
                 Objects.requireNonNull(now, "now must not be null");

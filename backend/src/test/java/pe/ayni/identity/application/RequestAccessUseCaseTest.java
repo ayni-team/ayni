@@ -99,10 +99,10 @@ class RequestAccessUseCaseTest {
                                 "raw-token",
                                 "a".repeat(64)));
 
-        when(links.build("UPC", "raw-token"))
+        when(links.build("raw-token"))
                 .thenReturn(
                         "https://example.test/access/confirm"
-                                + "?tenant=UPC&token=raw-token");
+                                + "?token=raw-token");
 
         when(accessLinks.save(any()))
                 .thenAnswer(call -> call.getArgument(0));
@@ -143,7 +143,7 @@ class RequestAccessUseCaseTest {
         assertThat(published.getValue().accessLink())
                 .isEqualTo(
                         "https://example.test/access/confirm"
-                                + "?tenant=UPC&token=raw-token");
+                                + "?token=raw-token");
 
         assertThat(published.getValue().expiresAt())
                 .isEqualTo(NOW.plus(TTL));
@@ -170,10 +170,10 @@ class RequestAccessUseCaseTest {
                                 "raw-token",
                                 "b".repeat(64)));
 
-        when(links.build("UPC", "raw-token"))
+        when(links.build("raw-token"))
                 .thenReturn(
                         "https://example.test/access/confirm"
-                                + "?tenant=UPC&token=raw-token");
+                                + "?token=raw-token");
 
         when(accessLinks.save(any()))
                 .thenAnswer(call -> call.getArgument(0));
@@ -212,7 +212,7 @@ class RequestAccessUseCaseTest {
         assertThat(published.getValue().accessLink())
                 .isEqualTo(
                         "https://example.test/access/confirm"
-                                + "?tenant=UPC&token=raw-token");
+                                + "?token=raw-token");
     }
 
     @Test

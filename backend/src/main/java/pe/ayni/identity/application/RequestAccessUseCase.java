@@ -87,7 +87,7 @@ public class RequestAccessUseCase {
                         tenant.getCode(),
                         normalizedEmail,
                         purpose.name(),
-                        links.build(tenant.getCode(), token.rawToken()),
+                        links.build(token.rawToken()),
                         expiresAt,
                         now));
     }
