@@ -9,10 +9,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pe.ayni.sessions.SessionStatus;
+import pe.ayni.sessions.domain.model.NotAParticipant;
+import pe.ayni.sessions.domain.model.ParticipantRole;
 import pe.ayni.sessions.domain.model.Session;
+import pe.ayni.sessions.domain.model.SessionNotOpen;
 import pe.ayni.sessions.domain.model.SessionRuleViolation;
 
-/** A session is born scheduled, in a room of its own. */
+/** A session is born scheduled, in a room of its own, and only its two participants get in. */
 class SessionTest {
 
   private static final Instant NOW = Instant.parse("2026-09-20T12:00:00Z");
@@ -52,5 +55,79 @@ class SessionTest {
   @DisplayName("a session that ends before it starts is refused")
   void refusesABackwardsSession() {
     assertThatThrownBy(() -> scheduled(NINE, NINE)).isInstanceOf(SessionRuleViolation.class);
+  }
+
+  private static final UUID STUDENT = UUID.randomUUID();
+  private static final UUID TUTOR = UUID.randomUUID();
+
+  private static Session aSessionAtNine() {
+    return Session.schedule(
+        UUID.randomUUID(), "UPC", UUID.randomUUID(), STUDENT, TUTOR, NINE,
+        NINE.plus(Duration.ofHours(1)), NOW);
+  }
+
+  @Test
+  @DisplayName("the student and the tutor are its participants, and nobody else is")
+  void knowsItsParticipants() {
+
+    Session session = aSessionAtNine();
+
+    assertThat(session.roleOf(STUDENT)).isEqualTo(ParticipantRole.STUDENT);
+    assertThat(session.roleOf(TUTOR)).isEqualTo(ParticipantRole.TUTOR);
+    assertThatThrownBy(() -> session.roleOf(UUID.randomUUID()))
+        .isInstanceOf(NotAParticipant.class);
+  }
+
+  @Test
+  @DisplayName("the first participant to join starts it, and joining again changes nothing")
+  void theFirstJoinStartsIt() {
+
+    Session session = aSessionAtNine();
+    Instant tenToNine = NINE.minus(Duration.ofMinutes(10));
+
+    assertThat(session.join(STUDENT, tenToNine)).isTrue();
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+    assertThat(session.getStartedAt()).isEqualTo(tenToNine);
+
+    assertThat(session.join(TUTOR, NINE)).isFalse();
+    assertThat(session.join(STUDENT, NINE.plus(Duration.ofMinutes(20)))).isFalse();
+    assertThat(session.getStartedAt()).isEqualTo(tenToNine);
+  }
+
+  @Test
+  @DisplayName("the room opens fifteen minutes before the start, not a second earlier")
+  void theRoomOpensFifteenMinutesBefore() {
+
+    Session session = aSessionAtNine();
+
+    assertThat(session.joinOpensAt()).isEqualTo(NINE.minus(Duration.ofMinutes(15)));
+    assertThatThrownBy(() -> session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)).minusSeconds(1)))
+        .isInstanceOf(SessionNotOpen.class)
+        .hasMessageContaining("opens fifteen minutes before");
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
+
+    assertThat(session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)))).isTrue();
+  }
+
+  @Test
+  @DisplayName("the room closes at the scheduled end")
+  void theRoomClosesAtTheEnd() {
+
+    Session session = aSessionAtNine();
+
+    assertThatThrownBy(() -> session.join(TUTOR, NINE.plus(Duration.ofHours(1))))
+        .isInstanceOf(SessionNotOpen.class)
+        .hasMessage("This session has already ended");
+  }
+
+  @Test
+  @DisplayName("somebody else cannot join, whenever they try")
+  void somebodyElseCannotJoin() {
+
+    Session session = aSessionAtNine();
+
+    assertThatThrownBy(() -> session.join(UUID.randomUUID(), NINE))
+        .isInstanceOf(NotAParticipant.class);
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
   }
 }
