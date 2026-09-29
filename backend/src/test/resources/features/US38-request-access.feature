@@ -7,6 +7,10 @@
 # per scenario with the same name, in ConfirmAccessAcceptanceTest, with the rules of the use case
 # in ConfirmAccessUseCaseTest.
 #
+# Delivering the link by email (US38-T3) runs in AccessLinkEmailAcceptanceTest, against a real
+# PostgreSQL and an SMTP server inside the test, with the content and the order of recording in
+# DeliverAccessLinkUseCaseTest.
+#
 # A scenario nobody runs yet is tagged @pending and says why.
 
 Feature: Requesting access with an institutional email
@@ -67,6 +71,25 @@ Feature: Requesting access with an institutional email
     When the link is opened
     Then it is refused saying creating accounts is not available yet
     And no account is created
+
+  Scenario: The sign in link arrives by email and opens a session
+    Given a student of "UPC" with the email "u202400001@upc.edu.pe"
+    When access is requested for "u202400001@upc.edu.pe"
+    Then an email arrives at that address with the link, saying it works once and expires in 10 minutes
+    And opening the link from the email opens a session for that student
+    And the notice is recorded as sent, without the link
+
+  Scenario: A new student receives an activation email
+    Given nobody with the email of a new student has an account
+    When access is requested for that email
+    Then an activation email arrives at that address
+    And the notice is recorded with no recipient account
+
+  Scenario: An email that cannot be delivered is recorded as failed
+    Given the mail server cannot be reached
+    When access is requested for "u202400001@upc.edu.pe"
+    Then the request is still accepted
+    And the notice is recorded as failed, with the reason
 
   @pending
   Scenario: First access of a new student with their academic profile

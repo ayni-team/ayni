@@ -875,10 +875,12 @@ The coordinator sees these when reviewing a recognition request, which is the mo
 
 ## `notifications`
 
+### `notifications.notifications`
+
 ```
 id             uuid          PK
 tenant_id      varchar(32)
-recipient_id   uuid          NOT NULL
+recipient_id   uuid                     -- NULL when the recipient has no account yet
 recipient_email varchar(160) NOT NULL
 kind           varchar(40)   NOT NULL   -- ACCESS_LINK | BOOKING_CONFIRMED | SESSION_REMINDER |
                                         -- PRESENCE_CODE | CREDITS_EXPIRING | REQUEST_RESOLVED …
@@ -894,6 +896,12 @@ INDEX (kind) WHERE sent_at IS NULL
 
 The row is written before the email leaves. A notice that was never sent has to be visible, because
 two things that matter depend on email arriving: getting in, and confirming presence.
+
+`recipient_id` is nullable because the first notice of all has nobody to point at: an activation
+link goes to an email with no account yet, and `AccessRequested` carries the email, not a user. The
+address is always known. `payload` never holds a secret: an access link is delivered and forgotten,
+and the notice keeps what it was for and when it expires. `CHECK (sent_at IS NULL OR failed_reason
+IS NULL)`: sent or failed, never both.
 
 ---
 
