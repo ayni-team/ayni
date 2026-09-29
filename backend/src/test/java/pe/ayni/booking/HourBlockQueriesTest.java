@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,11 +18,13 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * The hour block queries US03 relies on, against PostgreSQL: the stretch a student asks for comes
  * back in one query and only from their university, the expired holds are found for the sweep, and
- * the version column really makes a stale write lose.
+ * the version column really makes a stale write lose. Also the hours {@link BookingApi#openHoursOf}
+ * hands to matching.
  */
 @SpringBootTest
 class HourBlockQueriesTest {
@@ -38,6 +41,7 @@ class HourBlockQueriesTest {
   private final Instant tomorrowAtNine = now.plus(Duration.ofDays(1));
 
   @Autowired private HourBlockRepository blocks;
+  @Autowired private BookingApi bookingApi;
 
   private HourBlock hour(String tenantId, Instant start) {
     return new HourBlock(
@@ -120,5 +124,35 @@ class HourBlockQueriesTest {
     readByBruno.hold(UUID.randomUUID(), now);
     assertThatThrownBy(() -> blocks.save(readByBruno))
         .isInstanceOf(OptimisticLockingFailureException.class);
+  }
+
+  @Test
+  @DisplayName("open hours are the free and held ones from an instant on, only from their university")
+  void openHoursAreTheFreeAndHeldOnes() {
+
+    UUID student = UUID.randomUUID();
+
+    HourBlock started = hour(tenant, now.minus(Duration.ofMinutes(30)));
+    HourBlock free = hour(tenant, nineOClockPlus(0));
+    HourBlock held = hour(tenant, nineOClockPlus(1));
+    held.hold(student, now);
+    HourBlock booked = hour(tenant, nineOClockPlus(2));
+    booked.hold(student, now);
+    booked.book(UUID.randomUUID(), student, now);
+    HourBlock released = hour(tenant, nineOClockPlus(3));
+    released.hold(student, now);
+    released.book(UUID.randomUUID(), student, now);
+    released.release();
+    HourBlock elsewhere = hour(otherTenant, nineOClockPlus(4));
+
+    blocks.saveAll(List.of(started, free, held, booked, released, elsewhere));
+
+    AtomicReference<List<OpenHourView>> open = new AtomicReference<>();
+    TenantContext.runAs(tenant, () -> open.set(bookingApi.openHoursOf(tutor, now)));
+
+    assertThat(open.get())
+        .containsExactly(
+            new OpenHourView(free.getId(), tutor, nineOClockPlus(0), nineOClockPlus(1)),
+            new OpenHourView(held.getId(), tutor, nineOClockPlus(1), nineOClockPlus(2)));
   }
 }

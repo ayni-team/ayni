@@ -41,6 +41,30 @@ public interface HourBlockRepository extends JpaRepository<HourBlock, UUID> {
       @Param("to") Instant to);
 
   /**
+   * A tutor's hours from an instant on that can still be booked: free, or held by somebody for the
+   * few minutes a hold lasts.
+   *
+   * <p>A held hour is included on purpose. It either ends booked, which {@code BookingConfirmed}
+   * announces, or goes back to circulation without anybody saying so; leaving it out would make it
+   * vanish from the search for good in the second case.
+   */
+  @Query(
+      """
+      select block from HourBlock block
+      where block.tenantId = :tenantId
+        and block.tutorId = :tutorId
+        and block.startsAt >= :from
+        and block.status in (
+          pe.ayni.booking.domain.model.HourBlockStatus.AVAILABLE,
+          pe.ayni.booking.domain.model.HourBlockStatus.HELD)
+      order by block.startsAt
+      """)
+  List<HourBlock> findOpenFrom(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("from") Instant from);
+
+  /**
    * The holds of a university whose time ran out, for the job that returns them to circulation.
    *
    * <p>Strictly before {@code now}, the same comparison {@link HourBlock#isHoldExpired} makes: a

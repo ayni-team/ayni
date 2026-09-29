@@ -29,6 +29,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.TenantView;
+import pe.ayni.identity.UserRole;
+import pe.ayni.identity.UserView;
 import pe.ayni.shared.events.HoursGenerated;
 import pe.ayni.skills.SkillsApi;
 
@@ -65,6 +67,10 @@ class TutorAvailabilityAcceptanceTest {
   void aUniversityInLima() {
     when(identity.requireTenant(UPC))
         .thenReturn(new TenantView(UPC, "UPC", LIMA.getId(), new BigDecimal("13.00"), true));
+    // Matching hears the generated hours and copies the tutor's name into its search.
+    when(identity.requireUser(tutor))
+        .thenReturn(
+            new UserView(tutor, UPC, UserRole.STUDENT, null, null, "Tutor", null, null, null));
   }
 
   /** Tomorrow's weekday: it occurs exactly four times in the four weeks ahead, all in the future. */
