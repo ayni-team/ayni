@@ -912,6 +912,8 @@ IS NULL)`: sent or failed, never both.
 
 ## `payments`
 
+### `payments.purchases`
+
 ```
 id                  uuid          PK
 tenant_id           varchar(32)   NOT NULL
@@ -937,6 +939,8 @@ once.
 
 ## `analytics`
 
+### `analytics.daily_indicators`
+
 ```
 tenant_id             varchar(32)   NOT NULL
 day                   date          NOT NULL
@@ -949,8 +953,9 @@ requests_approved     integer       NOT NULL DEFAULT 0
 PRIMARY KEY (tenant_id, day)
 ```
 
+### `analytics.uncovered_demand`
+
 ```
--- analytics.uncovered_demand
 tenant_id          varchar(32)   NOT NULL
 catalog_item_id    uuid          NOT NULL
 day                date          NOT NULL
@@ -967,5 +972,7 @@ counts across universities without ever touching academic data.
 
 ## Counts
 
-Twelve modules, twelve schemas, thirty one tables. No table exists without a flow that needs it, and
-no flow from the session is left without tables.
+Twelve modules, twelve schemas, forty one tables. No table exists without a flow that needs it, and
+no flow from the session is left without tables. `diagrams/schema-overview.png` shows all of them on
+one page, drawn from `diagrams/schema-overview.puml`: a solid line is a foreign key inside a schema,
+a dashed one a reference by uuid, and none crosses a schema.
