@@ -19,6 +19,7 @@ import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.PurchaseConfirmed;
 import pe.ayni.shared.events.SessionCompleted;
+import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -96,6 +97,34 @@ class WalletEventListenersTest {
             Instant.now()));
 
     assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+  }
+
+  @Test
+  @DisplayName("a session that failed the presence check refunds the student and pays nobody")
+  void anUnverifiedSessionRefundsTheStudent() {
+
+    UUID booking = UUID.randomUUID();
+    TenantContext.runAs(
+        UPC,
+        () -> {
+          wallet.grant(
+              student,
+              Credits.of(6),
+              CreditType.SEED,
+              Instant.now().plus(Duration.ofDays(30)),
+              UUID.randomUUID());
+          wallet.charge(student, Credits.of(1), booking);
+        });
+    SessionUnverified unverified =
+        new SessionUnverified(
+            UPC, UUID.randomUUID(), booking, tutor, student, List.of(tutor), Instant.now());
+
+    publish(unverified);
+    // Delivered twice, refunded once.
+    publish(unverified);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+    assertThat(balanceOf(tutor)).isEqualTo(Credits.ZERO);
   }
 
   @Test

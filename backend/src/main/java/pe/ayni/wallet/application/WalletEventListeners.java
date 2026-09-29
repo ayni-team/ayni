@@ -8,6 +8,7 @@ import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.PurchaseConfirmed;
 import pe.ayni.shared.events.SessionCompleted;
+import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -70,6 +71,19 @@ class WalletEventListeners {
   void on(BookingCancelled event) {
     TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
     log.debug("Refunded booking {}", event.bookingId());
+  }
+
+  /**
+   * A session ended without every participant proving their presence: the tutor earns nothing and
+   * the student gets back what the booking took.
+   *
+   * <p>The student is not charged for an hour nobody can vouch for, whoever failed the check. Who
+   * that was is audit's business, and the event names them.
+   */
+  @ApplicationModuleListener
+  void on(SessionUnverified event) {
+    TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
+    log.debug("Refunded booking {} of unverified session {}", event.bookingId(), event.sessionId());
   }
 
   /** A purchase was confirmed: the credits are placed, and they never expire. */
