@@ -235,6 +235,10 @@ Owns nothing but the search. **No published interface:** it is read only.
 **Listens to:** `HoursGenerated`, `HoursWithdrawn`, `BookingConfirmed`, `BookingCancelled`, `SkillEnabled`,
 `SkillWithdrawn`, `SessionRated` — and keeps its own projection updated.
 
+**Calls:** `BookingApi.openHoursOf`, `SkillsApi.enabledSkillsOf`, `IdentityApi.requireUser` for
+the tutor's name, `ReputationApi.standingOf` — only while updating the projection, never to answer a
+search. `IdentityApi.requireTenant` for the university's time zone.
+
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/search/offers` | student — by skill and date range |
@@ -242,6 +246,16 @@ Owns nothing but the search. **No published interface:** it is read only.
 It answers from `matching.available_offers` alone. If the answer needs a join with another schema,
 the projection is missing a column. When several tutors are free at the same hour, it returns all of
 them with their standing, and the student chooses.
+
+The search takes `catalogItemId`, `from` and `to` (ISO 8601 UTC, `[from, to)`), `page` and `size`.
+It returns only hours that have not started, ordered by time and, at the same hour, by average with
+new tutors last; the student's own hours are left out. When nothing falls inside the window it
+returns the closest hours outside it, as one page, with `exactMatch: false`. The answer carries the
+university's `timezone`, in which the client shows the UTC instants.
+
+A hold does not remove an offer. It lasts five minutes and ends either in a booking, which
+`BookingConfirmed` removes, or back in circulation; booking checks the hour again when it is held and
+when it is booked, so a stale offer costs a refusal, never a double booking.
 
 ---
 
