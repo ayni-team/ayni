@@ -512,6 +512,7 @@ role                  varchar(8)    NOT NULL   -- STUDENT | TUTOR
 joined_at             timestamptz
 left_at               timestamptz
 connected_seconds     integer       NOT NULL DEFAULT 0
+end_confirmed_at      timestamptz
 
 UNIQUE (session_id, user_id)
 CHECK  (role IN ('STUDENT','TUTOR'))
@@ -519,6 +520,10 @@ CHECK  (role IN ('STUDENT','TUTOR'))
 
 `connected_seconds` is what the real duration is measured against, and one of the signals the audit
 looks at.
+
+`end_confirmed_at` is when the participant confirmed the session was over (US11). The session closes
+when both have, or on its own fifteen minutes after the booked hour, and this column is the record of
+who confirmed. It is not `left_at`: leaving the call is measured, confirming the end is declared.
 
 ### `sessions.presence_checks`
 
