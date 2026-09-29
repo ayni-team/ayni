@@ -8,28 +8,31 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import pe.ayni.reputation.ReputationApi;
 import pe.ayni.reputation.TutorStandingView;
+import pe.ayni.reputation.application.TutorStandingQuery;
 
+/**
+ * A tutor's standing in one course, which a student reads to choose between tutors (US02).
+ *
+ * <p>The controller only translates HTTP into the query. Whether a tutor without history is new or
+ * unknown is decided in {@link TutorStandingQuery}, and refusals are answered by {@link
+ * ReputationExceptionHandler}.
+ */
 @RestController
 @RequestMapping("/api/v1/tutors")
 @Tag(name = "Reputation", description = "Tutor reputation and teaching references")
 class TutorStandingController {
 
-    private final ReputationApi reputation;
+    private final TutorStandingQuery standing;
 
-    TutorStandingController(ReputationApi reputation) {
-        this.reputation = reputation;
+    TutorStandingController(TutorStandingQuery standing) {
+        this.standing = standing;
     }
 
     @GetMapping("/{id}/standing")
@@ -37,11 +40,15 @@ class TutorStandingController {
             summary = "Tutor standing for one skill",
             description =
                     """
-                            Returns the tutor's teaching standing for one catalogue item.
-                            The response includes completed sessions, number of ratings and the average rating.
-                            For tutors with fewer than three ratings, averageStars is null so the client can show
-                            the tutor as new.
-                            """)
+                    Returns the tutor's teaching standing for one catalogue item: completed \
+                    sessions, number of ratings and the average rating. Standing is per skill, \
+                    never overall.
+
+                    For tutors with fewer than three ratings, averageStars is null so the client \
+                    can show the tutor as new. A tutor enabled for the course who never taught it \
+                    is new too, and answers with 0 sessions, 0 ratings and no average. Only a \
+                    tutor who is not enabled for the course is not found.
+                    """)
     @Parameter(
             in = ParameterIn.HEADER,
             name = "X-Tenant-Id",
@@ -52,23 +59,43 @@ class TutorStandingController {
             responseCode = "200",
             description = "The tutor standing for the requested skill",
             content =
-            @Content(
-                    schema = @Schema(implementation = TutorStandingView.class),
-                    examples =
-                    @ExampleObject(
-                            value =
-                                    """
-                                            {
-                                              "tutorId": "11111111-1111-4111-8111-111111111111",
-                                              "catalogItemId": "22222222-2222-4222-8222-222222222222",
-                                              "sessionsTaught": 8,
-                                              "ratingsCount": 5,
-                                              "averageStars": 4.60
-                                            }
-                                            """)))
+                    @Content(
+                            schema = @Schema(implementation = TutorStandingView.class),
+                            examples = {
+                                @ExampleObject(
+                                        name = "Tutor with enough history",
+                                        value =
+                                                """
+                                                {
+                                                  "tutorId": "11111111-1111-4111-8111-111111111111",
+                                                  "catalogItemId": "22222222-2222-4222-8222-222222222222",
+                                                  "sessionsTaught": 8,
+                                                  "ratingsCount": 5,
+                                                  "averageStars": 4.60
+                                                }
+                                                """),
+                                @ExampleObject(
+                                        name = "New tutor, never taught the course",
+                                        value =
+                                                """
+                                                {
+                                                  "tutorId": "11111111-1111-4111-8111-111111111111",
+                                                  "catalogItemId": "22222222-2222-4222-8222-222222222222",
+                                                  "sessionsTaught": 0,
+                                                  "ratingsCount": 0,
+                                                  "averageStars": null
+                                                }
+                                                """)
+                            }))
+    @ApiResponse(
+            responseCode = "400",
+            description =
+                    "X-Tenant-Id is missing, catalogItemId is missing, or an id is not a UUID",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(
             responseCode = "404",
-            description = "The tutor has no standing for the requested skill")
+            description = "The tutor is not enabled to teach the course in this university",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     TutorStandingView standing(
             @Parameter(description = "Tutor identifier")
             @PathVariable("id")
@@ -77,12 +104,6 @@ class TutorStandingController {
             @RequestParam
             UUID catalogItemId) {
 
-        return reputation
-                .standingOf(tutorId, catalogItemId)
-                .orElseThrow(
-                        () ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Tutor standing not found"));
+        return standing.execute(tutorId, catalogItemId);
     }
 }
