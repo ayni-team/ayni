@@ -76,15 +76,14 @@ class SessionsServiceTest {
   @DisplayName("a completed session counts the hours that were booked, not the minutes it lasted")
   void aCompletedSessionCountsTheBookedHours() {
 
-    Session completed = mock(Session.class);
-    when(completed.getId()).thenReturn(UUID.randomUUID());
-    when(completed.getBookingId()).thenReturn(UUID.randomUUID());
-    when(completed.getStudentId()).thenReturn(UUID.randomUUID());
-    when(completed.getScheduledStart()).thenReturn(NINE);
-    when(completed.getScheduledEnd()).thenReturn(NINE.plus(Duration.ofHours(2)));
-    when(completed.getStartedAt()).thenReturn(NINE.plus(Duration.ofMinutes(3)));
+    UUID student = UUID.randomUUID();
+    Session completed =
+        Session.schedule(
+            UUID.randomUUID(), UPC, UUID.randomUUID(), student, tutor, NINE,
+            NINE.plus(Duration.ofHours(2)), NINE.minus(Duration.ofDays(1)));
+    completed.join(student, NINE.plus(Duration.ofMinutes(3)));
     // Ended ten minutes early: still the two hours the student paid for.
-    when(completed.getEndedAt()).thenReturn(NINE.plus(Duration.ofMinutes(110)));
+    completed.close(true, NINE.plus(Duration.ofMinutes(110)));
     when(repository.findByTenantIdAndTutorIdAndStatusOrderByScheduledStartAsc(
             UPC, tutor, SessionStatus.COMPLETED))
         .thenReturn(List.of(completed));

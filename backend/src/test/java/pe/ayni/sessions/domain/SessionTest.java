@@ -162,4 +162,59 @@ class SessionTest {
     assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(20)))).isTrue();
     session.requireInProgressForPresence();
   }
+
+  @Test
+  @DisplayName("a session closes completed or unverified, once, and only while in progress")
+  void closesOnce() {
+
+    Session verified = aSessionAtNine();
+    assertThatThrownBy(() -> verified.close(true, NINE))
+        .as("a session nobody joined cannot be closed")
+        .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(verified::requireInProgressToEnd).isInstanceOf(SessionNotOpen.class);
+
+    verified.join(STUDENT, NINE);
+    verified.requireInProgressToEnd();
+    verified.close(true, NINE.plus(Duration.ofMinutes(58)));
+    assertThat(verified.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+    assertThat(verified.getEndedAt()).isEqualTo(NINE.plus(Duration.ofMinutes(58)));
+    assertThatThrownBy(() -> verified.close(false, NINE.plus(Duration.ofMinutes(59))))
+        .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(verified::requireInProgressToEnd)
+        .isInstanceOf(SessionNotOpen.class)
+        .hasMessageContaining("completed");
+
+    Session unverified = aSessionAtNine();
+    unverified.join(TUTOR, NINE);
+    unverified.close(false, NINE.plus(Duration.ofMinutes(58)));
+    assertThat(unverified.getStatus()).isEqualTo(SessionStatus.UNVERIFIED);
+  }
+
+  @Test
+  @DisplayName("a session left open closes on its own fifteen minutes after the booked hour")
+  void closesOnItsOwnFifteenMinutesAfter() {
+
+    Session session = aSessionAtNine();
+    Instant quarterPast = NINE.plus(Duration.ofHours(1)).plus(Duration.ofMinutes(15));
+
+    assertThat(session.closesAt()).isEqualTo(quarterPast);
+    assertThat(session.isDueToClose(quarterPast)).as("nobody joined: nothing to close").isFalse();
+
+    session.join(STUDENT, NINE);
+    assertThat(session.isDueToClose(quarterPast.minusSeconds(1))).isFalse();
+    assertThat(session.isDueToClose(quarterPast)).isTrue();
+  }
+
+  @Test
+  @DisplayName("the tutor earns the hours that were booked")
+  void earnsTheBookedHours() {
+
+    Session twoHours =
+        Session.schedule(
+            UUID.randomUUID(), "UPC", UUID.randomUUID(), STUDENT, TUTOR, NINE,
+            NINE.plus(Duration.ofHours(2)), NOW);
+
+    assertThat(twoHours.bookedHours()).isEqualTo(2);
+    assertThat(aSessionAtNine().bookedHours()).isEqualTo(1);
+  }
 }
