@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.PresenceCheckUnavailable;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.domain.model.SessionNotOpen;
 import pe.ayni.sessions.domain.model.SessionRuleViolation;
@@ -129,5 +130,36 @@ class SessionTest {
     assertThatThrownBy(() -> session.join(UUID.randomUUID(), NINE))
         .isInstanceOf(NotAParticipant.class);
     assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
+  }
+
+  @Test
+  @DisplayName("presence codes are due five minutes after the scheduled start, however early it began")
+  void presenceCodesAreDueFiveMinutesIn() {
+
+    Session session = aSessionAtNine();
+    session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)));
+
+    assertThat(session.presenceCheckAt()).isEqualTo(NINE.plus(Duration.ofMinutes(5)));
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(4)))).isFalse();
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(5)))).isTrue();
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(59)))).isTrue();
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofHours(1)))).isFalse();
+  }
+
+  @Test
+  @DisplayName("a session nobody joined has nobody to check, and presence waits for it to start")
+  void aSessionNotStartedIsNotChecked() {
+
+    Session session = aSessionAtNine();
+
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(10)))).isFalse();
+    assertThatThrownBy(session::requireInProgressForPresence)
+        .isInstanceOf(PresenceCheckUnavailable.class)
+        .hasMessageContaining("scheduled");
+
+    session.join(TUTOR, NINE.plus(Duration.ofMinutes(20)));
+
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(20)))).isTrue();
+    session.requireInProgressForPresence();
   }
 }
