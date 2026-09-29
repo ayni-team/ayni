@@ -320,12 +320,20 @@ public interface ReputationApi {
 ```
 
 **Publishes:** `SessionRated`.
+**Calls:** `SkillsApi.isTutorEnabledFor` — to tell a new tutor from one who does not teach the skill.
 **Listens to:** `SessionCompleted` — opens the rating window.
 
 | Method | Path | Who |
 |---|---|---|
 | POST | `/api/v1/sessions/{id}/rating` | participant |
-| GET | `/api/v1/tutors/{id}/standing` | student |
+| GET | `/api/v1/tutors/{id}/standing?catalogItemId=` | student |
+
+`GET /api/v1/tutors/{id}/standing` requires `catalogItemId`, because standing is per skill. A tutor
+enabled for that skill who never taught it has no row yet and answers `200` with 0 sessions, 0
+ratings and no average: a new tutor, as matching shows them. It answers `404` only when the tutor
+has no standing and `SkillsApi.isTutorEnabledFor` says they do not teach that skill in the
+university. A missing `X-Tenant-Id`, a missing `catalogItemId` or an id that is not a UUID answer
+`400`.
 
 The student rates with stars and tags. The tutor answers three facts: punctual, connection held,
 session flowed. One rating per session and per direction. Below three ratings there is no average,
