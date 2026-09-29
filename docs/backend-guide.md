@@ -177,8 +177,15 @@ Owns availability and reservations.
 ```java
 public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
+  List<OpenHourView> openHoursOf(UUID tutorId, Instant from);   // used by matching
 }
 ```
+
+`openHoursOf` was added by US01. Matching keeps its search as a projection fed by events, and an
+event only announces hours at the moment they appear: when a tutor enables a course after their
+hours exist, or a cancellation gives hours back, matching asks here which of the tutor's hours in
+the current university have not started and can still be booked. A held hour counts as open,
+because a hold ends either in a booking, which is announced, or back in circulation, which is not.
 
 **Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
 `HoursWithdrawn`.
@@ -228,6 +235,10 @@ Owns nothing but the search. **No published interface:** it is read only.
 **Listens to:** `HoursGenerated`, `HoursWithdrawn`, `BookingConfirmed`, `BookingCancelled`, `SkillEnabled`,
 `SkillWithdrawn`, `SessionRated` — and keeps its own projection updated.
 
+**Calls:** `BookingApi.openHoursOf`, `SkillsApi.enabledSkillsOf`, `IdentityApi.requireUser` for
+the tutor's name, `ReputationApi.standingOf` — only while updating the projection, never to answer a
+search. `IdentityApi.requireTenant` for the university's time zone.
+
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/search/offers` | student — by skill and date range |
@@ -235,6 +246,16 @@ Owns nothing but the search. **No published interface:** it is read only.
 It answers from `matching.available_offers` alone. If the answer needs a join with another schema,
 the projection is missing a column. When several tutors are free at the same hour, it returns all of
 them with their standing, and the student chooses.
+
+The search takes `catalogItemId`, `from` and `to` (ISO 8601 UTC, `[from, to)`), `page` and `size`.
+It returns only hours that have not started, ordered by time and, at the same hour, by average with
+new tutors last; the student's own hours are left out. When nothing falls inside the window it
+returns the closest hours outside it, as one page, with `exactMatch: false`. The answer carries the
+university's `timezone`, in which the client shows the UTC instants.
+
+A hold does not remove an offer. It lasts five minutes and ends either in a booking, which
+`BookingConfirmed` removes, or back in circulation; booking checks the hour again when it is held and
+when it is booked, so a stale offer costs a refusal, never a double booking.
 
 ---
 

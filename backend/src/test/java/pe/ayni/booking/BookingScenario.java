@@ -37,6 +37,8 @@ import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.TenantView;
+import pe.ayni.identity.UserRole;
+import pe.ayni.identity.UserView;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -95,6 +97,10 @@ public abstract class BookingScenario {
         .thenReturn(new TenantView(UPC, "UPC", LIMA.getId(), new BigDecimal("13.00"), true));
     when(identity.isActive(any())).thenReturn(true);
     when(identity.activeTenantCodes()).thenReturn(List.of(UPC));
+    // Matching hears the hours generated below and copies the tutor's name into its search.
+    when(identity.requireUser(tutor))
+        .thenReturn(
+            new UserView(tutor, UPC, UserRole.STUDENT, null, null, "Tutor", null, null, null));
     when(skills.enabledSkillsOf(tutor)).thenReturn(List.of(subject));
     when(skills.isTutorEnabledFor(tutor, subject)).thenReturn(true);
     when(skills.requireItem(subject))
