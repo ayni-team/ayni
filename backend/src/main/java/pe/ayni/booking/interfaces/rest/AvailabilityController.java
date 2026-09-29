@@ -94,7 +94,10 @@ class AvailabilityController {
       summary = "Add a date-specific availability exception",
       description =
           "Adds extraordinary availability or removes availability for one date. "
-              + "A REMOVE without times covers the whole day.")
+              + "A REMOVE without times covers the whole day. The hours of that date follow at "
+              + "once: a REMOVE withdraws the free or held hours it covers, which leave the "
+              + "search, and an ADD generates the hours it gives. Booked hours stand: the answer "
+              + "counts them and says so.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",
@@ -110,7 +113,7 @@ class AvailabilityController {
           example = "11111111-1111-4111-8111-111111111111"))
   @ApiResponse(
       responseCode = "201",
-      description = "The availability exception was created",
+      description = "The exception was created and the hours of that date adjusted",
       content = @Content(schema = @Schema(implementation = AvailabilityExceptionResponse.class)))
   @ApiResponse(
       responseCode = "400",
@@ -134,7 +137,9 @@ class AvailabilityController {
       summary = "Pause tutor availability",
       description =
           "Pauses all availability for the tutor during the inclusive date range. "
-              + "Overlapping pauses are rejected.")
+              + "Overlapping pauses are rejected. The hours of those days that already exist, "
+              + "free or held, are withdrawn at once and leave the search. Booked hours stand: "
+              + "the answer counts them and says so.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",
@@ -150,7 +155,7 @@ class AvailabilityController {
           example = "11111111-1111-4111-8111-111111111111"))
   @ApiResponse(
       responseCode = "201",
-      description = "The availability pause was created",
+      description = "The pause was created and its hours withdrawn",
       content = @Content(schema = @Schema(implementation = AvailabilityPauseResponse.class)))
   @ApiResponse(
       responseCode = "400",

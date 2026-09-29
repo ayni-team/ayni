@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+import pe.ayni.booking.application.DeclaredPause;
+import pe.ayni.booking.application.HoursWithdrawal;
 import pe.ayni.booking.domain.model.AvailabilityPause;
 
 /** The inclusive availability pause that was created. */
@@ -23,14 +25,29 @@ public record AvailabilityPauseResponse(
     LocalDate endsOn,
     @Schema(description = "UTC timestamp when the pause was created.",
         example = "2026-09-23T21:00:00Z")
-    Instant createdAt) {
+    Instant createdAt,
+    @Schema(description = "Hours of the pause that already existed, free or held, taken out of "
+        + "circulation and out of the search.", example = "9")
+    int withdrawnHours,
+    @Schema(description = "Hours of the pause that are booked. They stand: pausing does not "
+        + "cancel a booking.", example = "1")
+    int bookedHoursKept,
+    @Schema(description = "What the tutor should know about the hours, or null when nothing.",
+        example = "1 booked hour in this period stands: changing availability does not cancel bookings.",
+        nullable = true)
+    String notice) {
 
-  static AvailabilityPauseResponse of(AvailabilityPause pause) {
+  static AvailabilityPauseResponse of(DeclaredPause declared) {
+    AvailabilityPause pause = declared.pause();
+    HoursWithdrawal withdrawal = declared.hours().withdrawal();
     return new AvailabilityPauseResponse(
         pause.getId(),
         pause.getTutorId(),
         pause.getStartsOn(),
         pause.getEndsOn(),
-        pause.getCreatedAt());
+        pause.getCreatedAt(),
+        withdrawal.withdrawn(),
+        withdrawal.bookedKept(),
+        HoursNotice.of(withdrawal));
   }
 }

@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
+import pe.ayni.booking.application.DeclaredException;
+import pe.ayni.booking.application.HoursAdjustment;
 import pe.ayni.booking.domain.model.AvailabilityException;
 import pe.ayni.booking.domain.model.ExceptionKind;
 
@@ -31,9 +33,24 @@ public record AvailabilityExceptionResponse(
     ExceptionKind kind,
     @Schema(description = "UTC timestamp when the exception was created.",
         example = "2026-09-23T21:00:00Z")
-    Instant createdAt) {
+    Instant createdAt,
+    @Schema(description = "Hours an ADD gave that did not exist yet, bookable at once.",
+        example = "0")
+    int generatedHours,
+    @Schema(description = "Hours a REMOVE took away, free or held, taken out of circulation and "
+        + "out of the search.", example = "1")
+    int withdrawnHours,
+    @Schema(description = "Hours a REMOVE covers that are booked. They stand: removing "
+        + "availability does not cancel a booking.", example = "0")
+    int bookedHoursKept,
+    @Schema(description = "What the tutor should know about the hours, or null when nothing.",
+        example = "You have no enabled skill yet, so these hours will not appear in searches.",
+        nullable = true)
+    String notice) {
 
-  static AvailabilityExceptionResponse of(AvailabilityException exception) {
+  static AvailabilityExceptionResponse of(DeclaredException declared) {
+    AvailabilityException exception = declared.exception();
+    HoursAdjustment hours = declared.hours();
     return new AvailabilityExceptionResponse(
         exception.getId(),
         exception.getTutorId(),
@@ -41,6 +58,10 @@ public record AvailabilityExceptionResponse(
         exception.getStartsAtTime(),
         exception.getEndsAtTime(),
         exception.getKind(),
-        exception.getCreatedAt());
+        exception.getCreatedAt(),
+        hours.generation().blocksCreated(),
+        hours.withdrawal().withdrawn(),
+        hours.withdrawal().bookedKept(),
+        HoursNotice.of(hours));
   }
 }

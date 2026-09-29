@@ -290,4 +290,58 @@ class HourBlockTest {
                     UUID.randomUUID(), UPC, TUTOR, NOW, NOW.minusSeconds(1), null, NOW))
         .isInstanceOf(BookingRuleViolation.class);
   }
+
+  @Test
+  @DisplayName("withdrawing a free hour takes it out of circulation for good")
+  void withdrawingAFreeHour() {
+
+    HourBlock block = freeBlock();
+
+    assertThat(block.withdraw()).isTrue();
+
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+    assertThatThrownBy(() -> block.hold(STUDENT, NOW))
+        .isInstanceOf(HourUnavailable.class)
+        .hasMessageContaining("no longer offered");
+  }
+
+  @Test
+  @DisplayName("withdrawing a held hour frees the hold and refuses its confirmation")
+  void withdrawingAHeldHour() {
+
+    HourBlock block = heldBy(STUDENT);
+
+    assertThat(block.withdraw()).isTrue();
+
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(block.getHeldBy()).isNull();
+    assertThat(block.getHeldUntil()).isNull();
+    assertThatThrownBy(() -> block.book(BOOKING, STUDENT, NOW))
+        .isInstanceOf(HourUnavailable.class)
+        .hasMessageContaining("no longer offered");
+  }
+
+  @Test
+  @DisplayName("a booked hour is not withdrawn: only cancelling undoes a booking")
+  void aBookedHourStands() {
+
+    HourBlock block = heldBy(STUDENT);
+    block.book(BOOKING, STUDENT, NOW);
+
+    assertThat(block.withdraw()).isFalse();
+
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.BOOKED);
+    assertThat(block.getBookingId()).isEqualTo(BOOKING);
+  }
+
+  @Test
+  @DisplayName("withdrawing an hour already out changes nothing")
+  void withdrawingTwiceChangesNothing() {
+
+    HourBlock block = freeBlock();
+    block.withdraw();
+
+    assertThat(block.withdraw()).isFalse();
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+  }
 }
