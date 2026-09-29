@@ -283,6 +283,7 @@ public interface SessionsApi {
 were booked, one credit each, not the minutes the call lasted.
 
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `PresenceCodeIssued`.
+**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
 | Method | Path | Who |
@@ -292,6 +293,13 @@ were booked, one credit each, not the minutes the call lasted.
 | POST | `/api/v1/sessions/{id}/presence` | participant — submits the six digit code |
 | POST | `/api/v1/sessions/{id}/end` | participant |
 | GET/PUT | `/api/v1/sessions/{id}/whiteboard` | participant |
+
+**Joining.** `GET /sessions/{id}` shows a participant the session and the student's need, read
+through `BookingApi.requireBooking`, and never the room name. `POST /sessions/{id}/join` hands the
+room name over, from fifteen minutes before the start until the scheduled end; the first participant
+to join moves the session to `IN_PROGRESS` and publishes `SessionStarted`, and each participant's
+first arrival is recorded in `sessions.participations`. The session is locked while it is joined, so
+two participants arriving at once start it once. A stranger gets 403, a room that is not open 409.
 
 **The presence check.** Five minutes after the start, a code is issued to each participant and sent
 by email. Whoever does not confirm makes the session end as `UNVERIFIED`: the tutor earns nothing,
