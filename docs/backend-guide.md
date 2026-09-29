@@ -278,6 +278,10 @@ public interface SessionsApi {
 }
 ```
 
+`completedSessionsOf` returns only `COMPLETED` sessions, the earliest scheduled first: an
+`UNVERIFIED` one earns the tutor nothing and backs no recognition. Its `hours` are the hours that
+were booked, one credit each, not the minutes the call lasted.
+
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `PresenceCodeIssued`.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
