@@ -2,9 +2,12 @@
 # email, so that I do not create or remember another password and my identity is backed by my
 # university.
 #
-# These are the scenarios of the story that requesting access covers (US38-T1). They are covered by
-# RequestAccessUseCaseTest, AccessLinkTest and AccessControllerTest. Opening the link, the first
-# sign in with the academic profile and an expired or used link arrive with the confirmation task.
+# Requesting access (US38-T1) is covered by RequestAccessUseCaseTest, AccessLinkTest and
+# AccessControllerTest. Confirming it (US38-T2) runs over HTTP against a real PostgreSQL, one test
+# per scenario with the same name, in ConfirmAccessAcceptanceTest, with the rules of the use case
+# in ConfirmAccessUseCaseTest.
+#
+# A scenario nobody runs yet is tagged @pending and says why.
 
 Feature: Requesting access with an institutional email
 
@@ -28,3 +31,47 @@ Feature: Requesting access with an institutional email
     When access is requested for "someone@gmail.com"
     Then the request is refused saying the institution is not affiliated with Ayni
     And no account is created
+
+  Scenario: Signing in with a valid link
+    Given a student of "UPC" with the email "u202400001@upc.edu.pe"
+    And a sign in link was sent to that email
+    When the link is opened
+    Then a session is opened for that student in "UPC", the university written on the link
+    And the request does not name the university
+    And only the hash of the session token is stored
+
+  Scenario: A link that was already used
+    Given the student opened a sign in link
+    When the same link is opened again
+    Then it is refused saying it has expired or was already used
+    And no other session is opened
+
+  Scenario: An expired link
+    Given a sign in link was sent ten minutes ago
+    When the link is opened
+    Then it is refused saying it has expired or was already used
+
+  Scenario: A token nobody issued
+    When a link with an invented token is opened
+    Then it is refused saying the link is not valid
+
+  Scenario: Two confirmations of the same link at the same time open one session
+    Given a sign in link was sent to the student
+    When the link is opened twice at the same moment
+    Then exactly one of them opens a session
+    And the other is refused
+
+  Scenario: An activation link of a new student is refused until activation exists
+    Given nobody with the email of a new student has an account
+    And an activation link was sent to that email
+    When the link is opened
+    Then it is refused saying creating accounts is not available yet
+    And no account is created
+
+  @pending
+  Scenario: First access of a new student with their academic profile
+    Given an activation link was sent to a new student
+    When the link is opened
+    Then the account is created with the academic profile the university reports
+    And StudentActivated is published
+    # Not in this task: creating accounts from the academic system is a decision of its own.

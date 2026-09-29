@@ -63,5 +63,7 @@ ayni:
     # hold can already be taken over before this runs; the sweep makes it read as free again.
     hold-release-delay: PT1M
   identity:
+    # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M
+    session-ttl: P7D
     access-link-base-url: http://localhost:5173/access/confirm
