@@ -7,8 +7,10 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
@@ -27,6 +29,12 @@ public class Session {
 
   /** 128 random bits: nobody finds a room by trying names. */
   private static final int ROOM_NAME_BYTES = 16;
+
+  /**
+   * How early the room opens: fifteen minutes before the start, as the backend guide says, so both
+   * can check their camera and connection without eating into the hour they paid for.
+   */
+  public static final Duration JOIN_OPENS_BEFORE = Duration.ofMinutes(15);
 
   @Id
   @Column(name = "id", nullable = false, updatable = false)
@@ -107,6 +115,63 @@ public class Session {
     byte[] bytes = new byte[ROOM_NAME_BYTES];
     RANDOM.nextBytes(bytes);
     return "ayni-" + HexFormat.of().formatHex(bytes);
+  }
+
+  /**
+   * Which participant this person is.
+   *
+   * @throws NotAParticipant when they are neither the student nor the tutor
+   */
+  public ParticipantRole roleOf(UUID userId) {
+    Objects.requireNonNull(userId, "userId must not be null");
+    if (userId.equals(this.tutorId)) {
+      return ParticipantRole.TUTOR;
+    }
+    if (userId.equals(this.studentId)) {
+      return ParticipantRole.STUDENT;
+    }
+    throw new NotAParticipant();
+  }
+
+  /**
+   * Lets a participant into the room.
+   *
+   * <p>The room opens {@link #JOIN_OPENS_BEFORE} before the start and closes at the scheduled end.
+   * The first participant to join starts the session, whoever it is: from then on it is in
+   * progress, and the start is when somebody actually arrived, not when it was scheduled. Joining a
+   * session already in progress changes nothing, so coming back after a dropped connection works.
+   *
+   * @return whether this join started the session
+   * @throws NotAParticipant when the person is neither the student nor the tutor
+   * @throws SessionNotOpen when it is too early, the session is over, or it will not take place
+   */
+  public boolean join(UUID userId, Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    roleOf(userId);
+
+    if (this.status != SessionStatus.SCHEDULED && this.status != SessionStatus.IN_PROGRESS) {
+      throw new SessionNotOpen("This session is " + this.status.name().toLowerCase(Locale.ROOT)
+          + " and can no longer be joined");
+    }
+    if (now.isBefore(joinOpensAt())) {
+      throw new SessionNotOpen(
+          "The room opens fifteen minutes before the session starts, at " + joinOpensAt());
+    }
+    if (!now.isBefore(this.scheduledEnd)) {
+      throw new SessionNotOpen("This session has already ended");
+    }
+
+    if (this.status == SessionStatus.IN_PROGRESS) {
+      return false;
+    }
+    this.status = SessionStatus.IN_PROGRESS;
+    this.startedAt = now;
+    return true;
+  }
+
+  /** The first moment a participant may join. */
+  public Instant joinOpensAt() {
+    return this.scheduledStart.minus(JOIN_OPENS_BEFORE);
   }
 
   public UUID getId() {
