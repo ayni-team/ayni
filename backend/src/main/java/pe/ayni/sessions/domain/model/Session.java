@@ -36,6 +36,13 @@ public class Session {
    */
   public static final Duration JOIN_OPENS_BEFORE = Duration.ofMinutes(15);
 
+  /**
+   * When presence codes are sent, counted from the scheduled start rather than from the first
+   * arrival: somebody joining fifteen minutes early does not move the check before the hour that
+   * was booked (US54).
+   */
+  public static final Duration PRESENCE_CHECK_AFTER = Duration.ofMinutes(5);
+
   @Id
   @Column(name = "id", nullable = false, updatable = false)
   private UUID id;
@@ -172,6 +179,38 @@ public class Session {
   /** The first moment a participant may join. */
   public Instant joinOpensAt() {
     return this.scheduledStart.minus(JOIN_OPENS_BEFORE);
+  }
+
+  /** When the presence codes are due. */
+  public Instant presenceCheckAt() {
+    return this.scheduledStart.plus(PRESENCE_CHECK_AFTER);
+  }
+
+  /**
+   * Whether the presence codes should go out now.
+   *
+   * <p>Only while the session is in progress: one nobody joined has nobody to check yet, and the
+   * codes go out as soon as somebody arrives, however late. Never after the scheduled end, when there
+   * is no session left to be present in.
+   */
+  public boolean isDueForPresenceCheck(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return this.status == SessionStatus.IN_PROGRESS
+        && !now.isBefore(presenceCheckAt())
+        && now.isBefore(this.scheduledEnd);
+  }
+
+  /**
+   * Refuses a presence confirmation when the session is not in progress.
+   *
+   * @throws PresenceCheckUnavailable when the session has not started or is already over
+   */
+  public void requireInProgressForPresence() {
+    if (this.status != SessionStatus.IN_PROGRESS) {
+      throw new PresenceCheckUnavailable("This session is "
+          + this.status.name().toLowerCase(Locale.ROOT)
+          + ": presence is confirmed while it is in progress");
+    }
   }
 
   public UUID getId() {
