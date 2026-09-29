@@ -177,8 +177,15 @@ Owns availability and reservations.
 ```java
 public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
+  List<OpenHourView> openHoursOf(UUID tutorId, Instant from);   // used by matching
 }
 ```
+
+`openHoursOf` was added by US01. Matching keeps its search as a projection fed by events, and an
+event only announces hours at the moment they appear: when a tutor enables a course after their
+hours exist, or a cancellation gives hours back, matching asks here which of the tutor's hours in
+the current university have not started and can still be booked. A held hour counts as open,
+because a hold ends either in a booking, which is announced, or back in circulation, which is not.
 
 **Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
 `HoursWithdrawn`.
