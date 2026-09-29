@@ -226,6 +226,14 @@ nothing was charged.
 **Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
 cancelled. A tutor removing availability over a confirmed booking is cancelling that session.
 
+**Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
+or a date exception usually arrives after its hours exist. Saving one adjusts them in the same
+transaction: every future hour the rules no longer give, free or held, becomes `RELEASED` and
+`HoursWithdrawn` takes it out of the search; an `ADD` generates its hours at once. Which hours the
+rules give is decided by the same `BlockGenerator` that creates them. A booked hour stands, as US19
+scenario 4 asks: until cancelling exists (US05) removing availability does not cancel, and the
+answer counts the booked hours that stand so the tutor knows.
+
 ---
 
 ## matching
