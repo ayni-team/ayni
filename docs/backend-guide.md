@@ -60,6 +60,165 @@ your module. Every error answers with the same shape: `timestamp`, `status`, `er
 **HTTP conventions.** Paths start with `/api/v1`. Dates travel in ISO 8601 UTC. Lists that can grow
 accept `page` and `size`. Every endpoint carries its `@Operation` summary so Swagger is useful.
 
+**Status codes.** Use the same meaning in every module, so the client can react without reading the
+message:
+
+| Status | When |
+|---|---|
+| 400 | The request is malformed: a missing header, a field that is not a UUID, a code that is not six digits |
+| 403 | The person is not allowed: not a participant, not the owner |
+| 404 | It does not exist **in this university**. Another university's row is a 404, never a 403 |
+| 409 | Well formed, but the current state refuses it: a room not open yet, a session already closed |
+| 422 | Well formed, but the value is wrong and the attempt counts: a wrong presence code |
+
+---
+
+## Lessons from the first iteration
+
+Each rule below comes from a mistake that reached a pull request or `develop`. They are here so the
+second iteration does not pay for them again.
+
+**Events and interfaces**
+
+- **An event needs a publisher, not only listeners.** `HoursWithdrawn`, `BookingCancelled`,
+  `SkillWithdrawn` and `SessionRated` had listeners while nothing published them; until
+  `HoursWithdrawn` was published, the search kept offering hours a tutor had paused. When you add a
+  listener, say in the pull request who publishes the event and whether that is done. When you
+  finish a story, check that every event it promises is published:
+  `grep -rn "new YourEvent(" backend/src/main`.
+- **A published interface must be implemented before anyone injects it.** `SessionsApi` existed
+  with no implementation, and the first module to inject it would have stopped the application from
+  starting. Whoever first needs an `*Api` implements it in the same pull request, or asks its owner
+  first.
+- **A projection is proven from the source event.** The first matching branch only had listeners
+  that delete offers, so the search was always empty. Test a projection by publishing the real
+  events, never by inserting rows by hand.
+- **Do not change an `*Api` or an event in `shared.events` on your own.** Other modules compile
+  against them. Propose the change in the pull request and wait for the lead.
+
+**Database**
+
+- **A migration is never edited once it is on `develop`**, and its timestamp is later than every
+  migration already there. One branch named its migration with an older timestamp; Flyway runs
+  without `outOfOrder`, so it would have broken every local database. Name it
+  `V<yyyyMMddHHmm>__<module>_<what>.sql` with the current date and time.
+- **The table is the one in `database/data-model.md`.** If it has to differ, change the data model
+  in the same pull request and say why. A table with other column names, a surrogate key the model
+  does not have, or a `UNIQUE` that forbids a valid case all came up in review.
+- **Never depend on the JVM time zone.** Store instants in UTC (`timestamptz`), and read a tutor's
+  local times with the university's zone, never `ZoneId.systemDefault()`. Declared availability
+  once depended on the zone of the machine that ran the backend.
+
+**Concurrency and transactions**
+
+- **If two requests can race, prove the fix with a test that fails without it.** Two clicks on an
+  access link could consume it twice. Without a lock, two participants joining at once would publish
+  `SessionStarted` twice, and two ending at once would never close the session. The fixes were a
+  pessimistic lock (`@Lock(PESSIMISTIC_WRITE)` on a `lockBy...` query) or a conditional
+  `UPDATE ... WHERE` that returns how many rows it changed. The test starts both requests behind a
+  `CyclicBarrier`, and the pull request says it fails when the lock is removed.
+- **A refusal that must be remembered cannot roll back.** A wrong presence code counts an attempt
+  and answers an error; a normal `@Transactional` would roll the attempt back and the cap would
+  never be reached. Use `@Transactional(noRollbackFor = TheException.class)` and test that the
+  counter moved.
+- **Money moves exactly once.** Every listener that grants, charges or refunds must be idempotent:
+  the same event delivered twice changes nothing the second time. Test it by publishing it twice.
+
+**Listeners and jobs**
+
+- **Listeners run after the publisher commits, on the same thread.** Publish the event inside the
+  use case's transaction; a rolled back use case then publishes nothing. In tests, publish inside a
+  `TransactionTemplate`, or nothing reaches the listener. Bind the university with
+  `TenantContext.runAs(event.tenantId(), ...)` before doing anything.
+- **Other modules' listeners run in your tests too.** When your test publishes an event, every
+  listener of every module reacts. Stub the published interfaces those listeners call
+  (`IdentityApi.requireUser` was the usual one), or the log fills with swallowed exceptions that
+  hide a real failure.
+- **A scheduled job runs one university at a time and one item per transaction.** Loop over
+  `IdentityApi.activeTenantCodes()`, bind each with `TenantContext.runAs`, and give each item its
+  own transaction so one failure does not hold back the rest. Its delay is a property
+  (`ayni.<module>.<job>-delay`), set to `PT24H` in `src/test/resources/config/application.properties`
+  so it never races a test; the test calls the use case the job calls.
+
+**Tests**
+
+- **Do not mock what holds the rule.** A test that mocked `Session` stopped testing anything once
+  the booked hours rule moved into the entity. Build real entities; mock only other modules' `*Api`.
+- **Each scenario of the `.feature` names the test that runs it**, with the same display name.
+  A scenario that is not built yet stays in the file tagged `@pending` and is listed in the pull
+  request under "Still pending", so nothing disappears silently.
+- **Integration tests use the module's own Testcontainers database** (`<Module>TestDatabase`, one
+  static container), and the time is read from the injected `Clock`.
+
+**Secrets and personal data**
+
+- An access link or a presence code is stored only as a hash and travels only by email. Neither it
+  nor an email address ever goes to a log, an event that is persisted, or a notice's payload.
+
+**Tooling**
+
+- Spring Modulith builds documentation from the Javadoc, and a quoted sentence that contains a comma
+  breaks its parser, which fails `ModularityTest`. Paraphrase instead of quoting.
+- Run `cd backend && ./mvnw verify` with Docker running before opening the pull request. A red CI is
+  not reviewed.
+
+---
+
+## Iteration 2
+
+The first iteration built the path a tutoring session follows: search, book, meet, prove presence,
+close and pay. This one completes the product around it and adds the two quality attributes
+[ADR 0004](adr/0004-start-simple-add-quality-attributes-per-iteration.md) deferred: access control
+and tenant isolation in the database.
+
+### Who owns what
+
+Riskier work, money and changes that cross modules, goes to whoever has shipped the most so far.
+New, isolated modules and read only endpoints go to the rest, so a mistake there cannot break a
+booking or a balance.
+
+| Owner | Modules | Stories |
+|---|---|---|
+| Rodrigo López | cross-cutting, sessions (real time) | TS03 access control, US08 video room (Jitsi), US10 + TS08 whiteboard, US12 review a past session, TS01 row level security, TS09, review of every pull request |
+| Daniel Aquino | booking, sessions (no-shows), payments | US05 cancel, US06 + US09 no-shows and `ABANDONED`, the rest of US22 and US19, US26 credits about to expire, presence code resend. Second stage: US35, US36, US37, US31, TS06 |
+| Juan Sánchez | identity, academic system mock | ADR 0006 and the mock academic system, activation (US38 scenario 3) publishing `StudentActivated`, US25 initial credits, TS10 universities, coordinator invitations, US50, US52, US39, US41 |
+| Diego Bautista | skills, recognition | US18, US16, US42, US43, US44, US51, and the recognition module: US27, US28, US29, US30 |
+| Francisco Uribe | reputation, notifications | US32, US34, US33, the remaining notices and `GET /api/v1/notifications` |
+| Luis Pillaca | audit, analytics, read only queries | audit module (US48, US47, closing US11 scenario 5 and US54 scenario 3), US53, US04, US21, US07, TS07 |
+
+The Trello card of each story says what is left of it.
+
+### Order and dependencies
+
+1. **TS03 first**, because every endpoint changes who it trusts. `CurrentUser.require()` keeps its
+   signature: controllers do not change, only where the identity comes from. Until it merges, keep
+   using `X-User-Id`.
+2. **ADR 0006 before activation.** US25 and US38 scenario 3 depend on the mock academic system, and
+   wallet's initial grant depends on `StudentActivated`.
+3. **US05 before the notices of cancellation**, US26 before the notice of expiring credits, US32
+   before anything that reads real ratings.
+4. **Audit listens to what exists.** `SessionUnverified` and `SessionCompleted` are already
+   published; audit can start today.
+5. **Recognition reads what exists.** `SessionsApi.completedSessionsOf` and `WalletApi.earnedTotal`
+   are implemented; recognition can start today.
+
+### Decisions still open
+
+- Who pays when nobody attends a session (US06 scenario 3 and `ABANDONED`). Decide before
+  building it.
+- How access works (TS03): its own ADR, written before the code.
+- The mock academic system (ADR 0006): one service for several universities, the student code taken
+  from the local part of the email, the rule configurable per university.
+
+### Guardrails
+
+- Stay inside your module. Touching another module's code, tables or published contracts is agreed
+  with its owner first.
+- A story that moves credits (charge, grant, refund) is reviewed with extra care and needs an
+  idempotency test.
+- One pull request per story, small enough to review in one sitting. A story too big for that is
+  split into tasks with the same `US` number.
+
 ---
 
 ## identity
@@ -425,9 +584,10 @@ Append only, like the ledger, and for the same reason.
 
 ## analytics and payments
 
-Not in the first sprint. `analytics` answers `/api/v1/coordinator/indicators` and
+Both arrive in the second iteration. `analytics` answers `/api/v1/coordinator/indicators` and
 `/api/v1/admin/overview`, always with aggregates. `payments` handles purchases with an idempotency
-key so a provider confirming twice credits once.
+key so a provider confirming twice credits once, and publishes `PurchaseConfirmed`, which wallet
+already listens to.
 
 ---
 
@@ -445,3 +605,9 @@ A pull request is finished when all of this is true:
 - [ ] `./mvnw verify` passes, `ModularityTest` included
 - [ ] `docker compose up` works
 - [ ] Nothing imports another module's inner packages
+- [ ] Every event the story promises is published, not only listened to
+- [ ] Two requests that can race have a test that fails without the fix
+- [ ] Every listener that moves credits is idempotent, with a test that delivers the event twice
+- [ ] Each scenario of the `.feature` names its test; what is not built is tagged `@pending` and
+      listed in the pull request
+- [ ] This guide and `database/data-model.md` say what the pull request changed
