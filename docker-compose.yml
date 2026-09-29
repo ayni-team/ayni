@@ -27,16 +27,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # Catches every email the backend sends and shows it at http://localhost:8025 instead of
+  # delivering it. The access link to sign in arrives here.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: ayni-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
   backend:
     build: ./backend
     container_name: ayni-backend
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       AYNI_DB_URL: jdbc:postgresql://postgres:5432/ayni
       AYNI_DB_USER: ayni
       AYNI_DB_PASSWORD: ayni
+      AYNI_MAIL_HOST: mailpit
+      AYNI_MAIL_PORT: 1025
       # Development profile: modules whose data would otherwise come from a module
       # that does not exist yet fill a couple of examples at startup, so the
       # endpoints answer something in Swagger. Never set in a deployment.

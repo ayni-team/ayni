@@ -24,6 +24,7 @@ The first run downloads images and dependencies and takes a few minutes. After t
 | API | http://localhost:8080 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Database | `localhost:5432`, database `ayni`, user `ayni`, password `ayni` |
+| Emails sent by the backend | http://localhost:8025 (Mailpit: nothing leaves your machine) |
 
 The home page shows whether the API is answering. If it says `UP`, everything works.
 
@@ -44,8 +45,9 @@ docker compose down           # stop everything
 docker compose down -v        # stop and erase the database
 ```
 
-If you prefer running the backend from IntelliJ, start only the database with
-`docker compose up postgres` and run `AyniApplication` from the IDE. You need Java 21 for that.
+If you prefer running the backend from IntelliJ, start only the database and the mail catcher with
+`docker compose up postgres mailpit` and run `AyniApplication` from the IDE. You need Java 21 for
+that.
 
 ---
 
