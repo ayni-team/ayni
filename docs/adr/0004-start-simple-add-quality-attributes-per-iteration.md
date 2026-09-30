@@ -66,3 +66,19 @@ rather than claiming it.
   it is the first iteration rather than the last.
 - Documentation that described the removed mechanisms was not carried over. Records describing a
   system that does not exist are worse than no records.
+
+## Amendment, 2026-09-30: two corrections
+
+Two statements above did not survive contact with the rest of the design. The original text stays as
+written, as ADR 0001 asks.
+
+**Twelve modules, not thirteen.** The list of what is kept says "thirteen application modules". The
+module map, `0003-module-map.md`, fixes twelve, and twelve is what the repository has. The thirteen
+was the count before `trust` merged into `audit`.
+
+**Row level security is not the first iteration.** The last consequence above calls it "the first
+iteration rather than the last". It arrives in the second iteration of ADD, together with
+authentication. Both lean on the structure the first iteration fixes: modules with their own schemas
+and a `tenant_id` on every scoped table. Isolation needs to know who is asking, and that is what
+authentication provides, so building them apart would mean building one of them twice. The decisions
+of that iteration are recorded in `0007-access-control-and-tenant-isolation.md`.
