@@ -206,7 +206,8 @@ The Trello card of each story says what is left of it.
 
 - Who pays when nobody attends a session (US06 scenario 3 and `ABANDONED`). Decide before
   building it.
-- How access works (TS03): its own ADR, written before the code.
+- How access works (TS03): **decided**, no longer open. See
+  `adr/0007-access-control-and-tenant-isolation.md`.
 - The mock academic system (ADR 0006): one service for several universities, the student code taken
   from the local part of the email, the rule configurable per university.
 
