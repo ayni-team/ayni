@@ -158,6 +158,20 @@ public class Booking {
     return Credits.of(creditsCharged);
   }
 
+  /** Records that the scheduled session was abandoned after a tutor no-show. */
+  public void markNoShow(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (status == BookingStatus.NO_SHOW) {
+      return;
+    }
+    if (status != BookingStatus.CONFIRMED) {
+      throw new IllegalStateException(
+          "Booking " + id + " is " + status + " and cannot be marked no-show");
+    }
+    this.status = BookingStatus.NO_SHOW;
+    this.updatedAt = now;
+  }
+
   public UUID getId() {
     return id;
   }
