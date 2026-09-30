@@ -69,6 +69,10 @@ class WalletEventListeners {
    */
   @ApplicationModuleListener
   void on(BookingCancelled event) {
+    if (event.late()) {
+      log.debug("Skipped refund for late cancellation of booking {}", event.bookingId());
+      return;
+    }
     TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
     log.debug("Refunded booking {}", event.bookingId());
   }

@@ -11,10 +11,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,7 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.booking.application.BookHoursUseCase;
+import pe.ayni.booking.application.CancelBookingUseCase;
 import pe.ayni.booking.application.HoldHoursUseCase;
+import pe.ayni.booking.application.LateCancellationConfirmation;
 import pe.ayni.booking.application.ReleaseHoldsUseCase;
 import pe.ayni.shared.tenancy.CurrentUser;
 
@@ -42,12 +47,17 @@ class BookingController {
   private final HoldHoursUseCase holdHours;
   private final ReleaseHoldsUseCase releaseHolds;
   private final BookHoursUseCase bookHours;
+  private final CancelBookingUseCase cancelBooking;
 
   BookingController(
-      HoldHoursUseCase holdHours, ReleaseHoldsUseCase releaseHolds, BookHoursUseCase bookHours) {
+      HoldHoursUseCase holdHours,
+      ReleaseHoldsUseCase releaseHolds,
+      BookHoursUseCase bookHours,
+      CancelBookingUseCase cancelBooking) {
     this.holdHours = holdHours;
     this.releaseHolds = releaseHolds;
     this.bookHours = bookHours;
+    this.cancelBooking = cancelBooking;
   }
 
   @PostMapping
@@ -122,6 +132,76 @@ class BookingController {
             request.start(),
             request.hours(),
             request.needDescription()));
+  }
+
+  @DeleteMapping("/{id}")
+  @Operation(
+      summary = "Cancel a confirmed tutoring booking",
+      description =
+          """
+          The student or tutor who is part of the booking may cancel it before the session starts.
+          A cancellation at least twelve hours before the start returns the credits to their
+          original lots and makes the student's hours available again. Inside twelve hours the
+          first request returns a warning without cancelling; repeat it with confirmLate=true to
+          proceed without a refund. A started session cannot be cancelled.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student or tutor cancelling the booking. Read by CurrentUserFilter",
+      schema =
+          @Schema(
+              type = "string",
+              format = "uuid",
+              example = "11111111-1111-4111-8111-111111111111"))
+  @ApiResponse(responseCode = "204", description = "The booking was cancelled")
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Late cancellation requires explicit confirmation, or the booking has already started",
+      content =
+          @Content(
+              schema = @Schema(implementation = LateCancellationResponse.class),
+              examples =
+                  @ExampleObject(
+                      name = "Late cancellation confirmation required",
+                      value =
+                          """
+                          {"bookingId":"d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f",
+                           "startsAt":"2026-09-29T23:00:00Z","late":true,
+                           "refundWillBeIssued":false,"confirmationRequired":true,
+                           "confirmationRequest":"DELETE /api/v1/bookings/d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f?confirmLate=true"}
+                          """)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The booking does not exist or the caller is not a participant",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The request is missing the required tenant or user context",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  ResponseEntity<?> cancel(
+      @PathVariable UUID id,
+      @Parameter(
+              description =
+                  "Set to true only after the caller accepts that a late cancellation receives no refund.",
+              example = "true")
+          @RequestParam(defaultValue = "false")
+          boolean confirmLate) {
+    Optional<LateCancellationConfirmation> confirmation =
+        cancelBooking.execute(CurrentUser.require(), id, confirmLate);
+    if (confirmation.isPresent()) {
+      return ResponseEntity.status(HttpStatus.CONFLICT)
+          .body(LateCancellationResponse.of(confirmation.orElseThrow()));
+    }
+    return ResponseEntity.noContent().build();
   }
 
   @PostMapping("/holds")

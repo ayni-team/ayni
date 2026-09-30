@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -26,6 +27,8 @@ import pe.ayni.shared.domain.Credits;
 @Entity
 @Table(schema = "booking", name = "bookings")
 public class Booking {
+
+  private static final Duration LATE_CANCELLATION_WINDOW = Duration.ofHours(12);
 
   @Id
   @Column(name = "id", nullable = false, updatable = false)
@@ -156,6 +159,34 @@ public class Booking {
   /** What this booking costs: one credit per hour. */
   public Credits price() {
     return Credits.of(creditsCharged);
+  }
+
+  /**
+   * Cancels this booking and records who cancelled it and whether it was late.
+   *
+   * <p>A cancellation is late when it occurs strictly less than twelve hours before the scheduled
+   * start. The exact twelve-hour boundary is not late.
+   */
+  public boolean cancel(CancelledBy by, String reason, Instant now) {
+    Objects.requireNonNull(by, "by must not be null");
+    Objects.requireNonNull(reason, "reason must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+
+    if (status != BookingStatus.CONFIRMED) {
+      throw new BookingRuleViolation("Only a confirmed booking can be cancelled");
+    }
+    if (!now.isBefore(startsAt)) {
+      throw new BookingRuleViolation("A tutoring session cannot be cancelled after it has started");
+    }
+
+    boolean late = Duration.between(now, startsAt).compareTo(LATE_CANCELLATION_WINDOW) < 0;
+    this.status = BookingStatus.CANCELLED;
+    this.cancelledBy = by;
+    this.cancelledAt = now;
+    this.cancelledLate = late;
+    this.cancellationReason = reason.isBlank() ? null : reason.strip();
+    this.updatedAt = now;
+    return late;
   }
 
   public UUID getId() {

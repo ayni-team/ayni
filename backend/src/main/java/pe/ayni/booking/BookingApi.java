@@ -15,6 +15,15 @@ public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
 
   /**
+   * Records that the first participant entered the session.
+   *
+   * <p>Sessions calls this synchronously so cancellation cannot race with a session that started
+   * before its scheduled time.
+   */
+  /** Whether this booking remains confirmed, read under a lock while its session is scheduled. */
+  boolean isConfirmed(UUID bookingId);
+
+  /**
    * The tutor's hours in the current university that have not started at {@code from} and can still
    * be booked, earliest first.
    *

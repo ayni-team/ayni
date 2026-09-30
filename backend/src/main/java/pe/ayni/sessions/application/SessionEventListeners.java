@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import pe.ayni.shared.events.BookingConfirmed;
+import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -23,9 +24,13 @@ class SessionEventListeners {
   private static final Logger log = LoggerFactory.getLogger(SessionEventListeners.class);
 
   private final ScheduleSessionUseCase scheduleSession;
+  private final CancelScheduledSessionUseCase cancelScheduledSession;
 
-  SessionEventListeners(ScheduleSessionUseCase scheduleSession) {
+  SessionEventListeners(
+      ScheduleSessionUseCase scheduleSession,
+      CancelScheduledSessionUseCase cancelScheduledSession) {
     this.scheduleSession = scheduleSession;
+    this.cancelScheduledSession = cancelScheduledSession;
   }
 
   @ApplicationModuleListener
@@ -42,5 +47,12 @@ class SessionEventListeners {
             log.debug("Scheduled the session of booking {}", event.bookingId());
           }
         });
+  }
+
+  @ApplicationModuleListener
+  void on(BookingCancelled event) {
+    TenantContext.runAs(
+        event.tenantId(),
+        () -> cancelScheduledSession.execute(event.bookingId(), event.occurredOn()));
   }
 }
