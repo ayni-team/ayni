@@ -1,12 +1,15 @@
 package pe.ayni.sessions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.BookingApi;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.domain.Credits;
@@ -39,6 +44,12 @@ class SessionOnBookingConfirmedTest {
   @Autowired private ApplicationEventPublisher events;
   @Autowired private TransactionTemplate transactions;
   @Autowired private SessionRepository sessions;
+  @MockitoBean private BookingApi booking;
+
+  @BeforeEach
+  void bookingIsConfirmed() {
+    when(booking.isConfirmed(any())).thenReturn(true);
+  }
 
   private BookingConfirmed aConfirmedBooking() {
     return new BookingConfirmed(
@@ -101,6 +112,18 @@ class SessionOnBookingConfirmedTest {
           events.publishEvent(confirmed);
           status.setRollbackOnly();
         });
+
+    assertThat(sessions.existsByTenantIdAndBookingId(UPC, confirmed.bookingId())).isFalse();
+  }
+
+  @Test
+  @DisplayName("a delayed confirmation for a cancelled booking does not create a session")
+  void aCancelledBookingDoesNotGetASession() {
+
+    BookingConfirmed confirmed = aConfirmedBooking();
+    when(booking.isConfirmed(confirmed.bookingId())).thenReturn(false);
+
+    transactions.executeWithoutResult(status -> events.publishEvent(confirmed));
 
     assertThat(sessions.existsByTenantIdAndBookingId(UPC, confirmed.bookingId())).isFalse();
   }

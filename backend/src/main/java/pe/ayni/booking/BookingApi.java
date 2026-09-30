@@ -14,12 +14,6 @@ public interface BookingApi {
   /** @throws java.util.NoSuchElementException when the booking does not exist in the current tenant */
   BookingView requireBooking(UUID bookingId);
 
-  /**
-   * Records that the first participant entered the session.
-   *
-   * <p>Sessions calls this synchronously so cancellation cannot race with a session that started
-   * before its scheduled time.
-   */
   /** Whether this booking remains confirmed, read under a lock while its session is scheduled. */
   boolean isConfirmed(UUID bookingId);
 

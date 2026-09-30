@@ -2,6 +2,8 @@ package pe.ayni.sessions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -11,6 +13,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +21,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.BookingApi;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.BookingConfirmed;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -47,6 +52,12 @@ class SessionsApiDatabaseTest {
   @Autowired private ApplicationEventPublisher events;
   @Autowired private TransactionTemplate transactions;
   @Autowired private JdbcTemplate jdbc;
+  @MockitoBean private BookingApi booking;
+
+  @BeforeEach
+  void confirmedBookingsAreRecognised() {
+    when(booking.isConfirmed(any())).thenReturn(true);
+  }
 
   private <T> T in(String tenantId, Supplier<T> work) {
     AtomicReference<T> result = new AtomicReference<>();
