@@ -108,7 +108,29 @@ public class MockAcademicSystemAdapter
                                 "Bruno Salas",
                                 "Software Engineering",
                                 "2026-2",
-                                courses)));
+                                courses),
+                        "U202500003",
+                        new AcademicProfile(
+                                "Carla Mendoza",
+                                "Software Engineering",
+                                "2026-2",
+                                List.of(
+                                        course(
+                                                "1ASI0657",
+                                                "Software Architecture Fundamentals",
+                                                "18.00",
+                                                "2026-1"),
+                                        course(
+                                                "1ASI0616",
+                                                "Databases I",
+                                                "16.00",
+                                                "2025-2"),
+                                        course(
+                                                "1MAT0101",
+                                                "Calculus I",
+                                                "11.00",
+                                                "2025-1")))
+                ));
     }
 
     private static UniversityAcademicData pucp() {
