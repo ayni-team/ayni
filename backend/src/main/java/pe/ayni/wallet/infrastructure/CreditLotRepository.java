@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.wallet.domain.model.CreditLot;
-
+import pe.ayni.wallet.domain.model.CreditSource;
 /**
  * Groups of credits.
  *
@@ -104,4 +104,18 @@ public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
       @Param("tenantId") String tenantId,
       @Param("accountId") UUID accountId,
       @Param("creditType") CreditType creditType);
+
+  /**
+   * Whether this account already received this exact grant.
+   *
+   * <p>The source identifier is the idempotency key. For an initial university grant it is the
+   * baseline credit-policy id, so receiving StudentActivated twice does not create credits twice.
+   */
+  boolean existsByTenantIdAndAccountIdAndCreditTypeAndSourceTypeAndSourceId(
+          String tenantId,
+          UUID accountId,
+          CreditType creditType,
+          CreditSource sourceType,
+          UUID sourceId);
+
 }
