@@ -1,10 +1,8 @@
 package pe.ayni.identity.application;
 
-import java.util.List;
-
 public interface AcademicSystemPort {
 
-    List<AcademicCourseData> findApprovedCourses(
+    AcademicProfile fetchProfile(
             String tenantId,
             String studentCode);
 }
