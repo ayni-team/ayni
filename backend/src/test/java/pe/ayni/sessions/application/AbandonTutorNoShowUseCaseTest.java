@@ -24,9 +24,10 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
 import pe.ayni.sessions.SessionStatus;
-import pe.ayni.sessions.domain.model.PresenceCheck;
+import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.Session;
-import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
+import pe.ayni.sessions.infrastructure.ParticipationRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -43,7 +44,7 @@ class AbandonTutorNoShowUseCaseTest {
   private static final UUID CATALOG_ITEM = UUID.randomUUID();
 
   private final SessionRepository sessions = mock(SessionRepository.class);
-  private final PresenceCheckRepository presenceChecks = mock(PresenceCheckRepository.class);
+  private final ParticipationRepository participations = mock(ParticipationRepository.class);
   private final BookingApi booking = mock(BookingApi.class);
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   private AbandonTutorNoShowUseCase useCase;
@@ -54,7 +55,7 @@ class AbandonTutorNoShowUseCaseTest {
     useCase =
         new AbandonTutorNoShowUseCase(
             sessions,
-            presenceChecks,
+            participations,
             booking,
             events,
             Clock.fixed(NOW, ZoneOffset.UTC));
@@ -83,13 +84,12 @@ class AbandonTutorNoShowUseCaseTest {
                 BookingStatus.CONFIRMED));
   }
 
-  private void confirmPresence(UUID participant) {
-    PresenceCheck check =
-        PresenceCheck.issue(
-            UUID.randomUUID(), TENANT, SESSION_ID, participant, "123456", NOW.minusSeconds(5));
-    check.confirm("123456", NOW);
-    when(presenceChecks.findByTenantIdAndSessionIdAndUserId(TENANT, SESSION_ID, participant))
-        .thenReturn(Optional.of(check));
+  private void checkIn(UUID participant, ParticipantRole role, Instant joinedAt) {
+    when(participations.findByTenantIdAndSessionIdAndUserId(TENANT, SESSION_ID, participant))
+        .thenReturn(
+            Optional.of(
+                Participation.arrived(
+                    UUID.randomUUID(), TENANT, SESSION_ID, participant, role, joinedAt)));
   }
 
   private boolean abandon() {
@@ -101,7 +101,7 @@ class AbandonTutorNoShowUseCaseTest {
   @Test
   @DisplayName("publishes a tutor no-show event when the student checked in")
   void publishesNoShowWithStudentAttendance() {
-    confirmPresence(STUDENT);
+    checkIn(STUDENT, ParticipantRole.STUDENT, NOW);
 
     assertThat(abandon()).isTrue();
 
@@ -127,14 +127,27 @@ class AbandonTutorNoShowUseCaseTest {
   }
 
   @Test
-  @DisplayName("a tutor who checked in is not marked absent")
-  void tutorPresencePreventsNoShow() {
-    confirmPresence(TUTOR);
+  @DisplayName("a tutor who joined by the deadline is not marked absent without a presence code")
+  void tutorCheckInWithoutConfirmedCodePreventsNoShow() {
+    checkIn(TUTOR, ParticipantRole.TUTOR, NOW);
 
     assertThat(abandon()).isFalse();
 
     assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
     verify(events, never()).publishEvent(any());
+  }
+
+  @Test
+  @DisplayName("a tutor joining after the deadline is still recorded as absent")
+  void tutorJoiningAfterDeadlineDoesNotPreventNoShow() {
+    checkIn(TUTOR, ParticipantRole.TUTOR, NOW.plusSeconds(1));
+
+    assertThat(abandon()).isTrue();
+
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+    ArgumentCaptor<SessionAbandoned> event = ArgumentCaptor.forClass(SessionAbandoned.class);
+    verify(events).publishEvent(event.capture());
+    assertThat(event.getValue().studentCheckedIn()).isFalse();
   }
 
   @Test
@@ -144,7 +157,7 @@ class AbandonTutorNoShowUseCaseTest {
     useCase =
         new AbandonTutorNoShowUseCase(
             sessions,
-            presenceChecks,
+            participations,
             booking,
             events,
             Clock.fixed(NOW.minusSeconds(1), ZoneOffset.UTC));
