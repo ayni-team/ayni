@@ -19,10 +19,9 @@ import pe.ayni.shared.tenancy.TenantContext;
 /**
  * US54, scenario 1: five minutes into a session each participant gets a six digit code.
  *
- * <p>Both participants get one, including one who has not joined: whoever is not in the session
- * cannot confirm, and that is what the check is for. Only the hash is stored; the code in clear
- * travels in {@link PresenceCodeIssued}, which notifications emails once this transaction commits,
- * so a code whose check was rolled back is never sent.
+ * <p>Both participants get one after the session has started. Only the hash is stored; the code in
+ * clear travels in {@link PresenceCodeIssued}, which notifications emails once this transaction
+ * commits, so a code whose check was rolled back is never sent.
  *
  * <p>Each session is issued in a transaction of its own, so a failure in one does not hold back the
  * codes of the others. The session is locked while it is issued, so a sweep that overlaps with

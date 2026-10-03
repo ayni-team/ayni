@@ -10,7 +10,7 @@ import pe.ayni.booking.domain.model.Booking;
 import pe.ayni.booking.infrastructure.BookingRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
-/** Marks a confirmed booking as a no-show when sessions reports an abandoned tutor no-show. */
+/** Marks a confirmed booking as a no-show when sessions reports an abandoned session. */
 @Service
 class RecordBookingNoShow {
 

@@ -100,9 +100,10 @@ class SessionsController {
       summary = "Join the session's room",
       description =
           "Lets the student or the tutor into the video call, from fifteen minutes before the "
-              + "start until the scheduled end, and answers with the room name. The first "
-              + "participant to join starts the session and SessionStarted is published. Joining "
-              + "again, after a dropped connection, changes nothing.")
+              + "start until the scheduled end, and answers with the room name and both arrival "
+              + "times. The session starts and SessionStarted is published once both participants "
+              + "check in by the ten-minute deadline. Rejoining after a dropped connection changes "
+              + "nothing.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",

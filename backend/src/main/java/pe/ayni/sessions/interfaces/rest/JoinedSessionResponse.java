@@ -15,13 +15,17 @@ public record JoinedSessionResponse(
     @Schema(description = "Room of the video call. Unguessable; keep it private",
         example = "ayni-3f9c2b7e1d4a4c0e9b8f6a2d5c7e1b3a")
         String roomName,
-    @Schema(description = "IN_PROGRESS once anybody has joined", example = "IN_PROGRESS")
+    @Schema(description = "IN_PROGRESS once both participants checked in", example = "IN_PROGRESS")
         SessionStatus status,
-    @Schema(description = "When the first participant joined, UTC",
+    @Schema(description = "When both participants checked in and the session began, UTC",
         example = "2026-09-30T19:52:10Z")
         Instant startedAt,
     @Schema(example = "2026-09-30T20:00:00Z") Instant scheduledStart,
-    @Schema(example = "2026-09-30T21:00:00Z") Instant scheduledEnd) {
+    @Schema(example = "2026-09-30T21:00:00Z") Instant scheduledEnd,
+    @Schema(description = "When the student first checked in", nullable = true)
+        Instant studentJoinedAt,
+    @Schema(description = "When the tutor first checked in", nullable = true)
+        Instant tutorJoinedAt) {
 
   static JoinedSessionResponse of(JoinedSession joined) {
     return new JoinedSessionResponse(
@@ -31,6 +35,8 @@ public record JoinedSessionResponse(
         joined.status(),
         joined.startedAt(),
         joined.scheduledStart(),
-        joined.scheduledEnd());
+        joined.scheduledEnd(),
+        joined.studentJoinedAt(),
+        joined.tutorJoinedAt());
   }
 }
