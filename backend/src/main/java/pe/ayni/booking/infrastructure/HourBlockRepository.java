@@ -19,6 +19,8 @@ public interface HourBlockRepository extends JpaRepository<HourBlock, UUID> {
 
   Optional<HourBlock> findByTenantIdAndId(String tenantId, UUID id);
 
+  List<HourBlock> findByTenantIdAndBookingIdOrderByStartsAtAsc(String tenantId, UUID bookingId);
+
   /**
    * A tutor's hours in a window, from the first moment included to the first moment excluded.
    *

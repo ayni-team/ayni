@@ -95,6 +95,7 @@ class JoinSessionAcceptanceTest {
 
   @BeforeEach
   void bookingKnowsTheNeed() {
+    when(booking.isConfirmed(any())).thenReturn(true);
     when(booking.requireBooking(any()))
         .thenAnswer(
             call ->

@@ -36,7 +36,6 @@ public class JoinSessionUseCase {
   private final ParticipationRepository participations;
   private final ApplicationEventPublisher events;
   private final Clock clock;
-
   JoinSessionUseCase(
       SessionRepository sessions,
       ParticipationRepository participations,

@@ -278,6 +278,22 @@ public class HourBlock {
   }
 
   /**
+   * Returns a cancelled booking's hour to circulation when the student cancelled it.
+   *
+   * @throws BookingRuleViolation when the hour does not belong to a confirmed booking
+   */
+  public void returnToAvailability() {
+    if (this.status != HourBlockStatus.BOOKED) {
+      throw new BookingRuleViolation("Only booked blocks can be returned to availability");
+    }
+
+    this.status = HourBlockStatus.AVAILABLE;
+    this.bookingId = null;
+    this.heldBy = null;
+    this.heldUntil = null;
+  }
+
+  /**
    * Takes an hour out of circulation for good because the tutor is no longer free then: they paused
    * or removed that time.
    *

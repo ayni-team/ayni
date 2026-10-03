@@ -14,6 +14,9 @@ public interface BookingApi {
   /** @throws java.util.NoSuchElementException when the booking does not exist in the current tenant */
   BookingView requireBooking(UUID bookingId);
 
+  /** Whether this booking remains confirmed, read under a lock while its session is scheduled. */
+  boolean isConfirmed(UUID bookingId);
+
   /**
    * The tutor's hours in the current university that have not started at {@code from} and can still
    * be booked, earliest first.

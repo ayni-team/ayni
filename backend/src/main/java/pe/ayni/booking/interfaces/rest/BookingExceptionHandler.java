@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.booking.application.BookingFailed;
+import pe.ayni.booking.domain.model.BookingCancellationConflict;
 import pe.ayni.booking.domain.model.BookingRuleViolation;
 import pe.ayni.booking.domain.model.HoldExpired;
 import pe.ayni.booking.domain.model.HourUnavailable;
@@ -49,6 +50,12 @@ class BookingExceptionHandler {
   ResponseEntity<ApiError> handleBookingRuleViolation(
       BookingRuleViolation exception, HttpServletRequest request) {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  @ExceptionHandler(BookingCancellationConflict.class)
+  ResponseEntity<ApiError> handleBookingCancellationConflict(
+      BookingCancellationConflict exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   @ExceptionHandler({
