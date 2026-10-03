@@ -131,6 +131,57 @@ public class Tenant {
         this.status = TenantStatus.SUSPENDED;
         this.updatedAt = now;
     }
+    public void updateIdentity(
+            String logoUrl,
+            String primaryColor,
+            String secondaryColor,
+            Instant now) {
+
+        this.logoUrl =
+                normalizeOptional(
+                        logoUrl,
+                        512,
+                        "Logo URL");
+
+        this.primaryColor =
+                normalizeOptional(
+                        primaryColor,
+                        16,
+                        "Primary color");
+
+        this.secondaryColor =
+                normalizeOptional(
+                        secondaryColor,
+                        16,
+                        "Secondary color");
+
+        this.updatedAt =
+                Objects.requireNonNull(
+                        now,
+                        "now must not be null");
+    }
+
+    private String normalizeOptional(
+            String value,
+            int maxLength,
+            String field) {
+
+        if (value == null
+                || value.isBlank()) {
+
+            return null;
+        }
+
+        String normalized =
+                value.trim();
+
+        if (normalized.length() > maxLength) {
+            throw new IdentityRuleViolation(
+                    field + " exceeds the maximum length");
+        }
+
+        return normalized;
+    }
 
     public UUID getId() {
         return id;
