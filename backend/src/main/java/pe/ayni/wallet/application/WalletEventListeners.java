@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.PurchaseConfirmed;
+import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -84,6 +85,16 @@ class WalletEventListeners {
   void on(SessionUnverified event) {
     TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
     log.debug("Refunded booking {} of unverified session {}", event.bookingId(), event.sessionId());
+  }
+
+  /** A student who checked in is refunded when the tutor did not; two absences refund nobody. */
+  @ApplicationModuleListener
+  void on(SessionAbandoned event) {
+    if (!event.studentCheckedIn()) {
+      return;
+    }
+    TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
+    log.debug("Refunded booking {} after tutor no-show", event.bookingId());
   }
 
   /** A purchase was confirmed: the credits are placed, and they never expire. */

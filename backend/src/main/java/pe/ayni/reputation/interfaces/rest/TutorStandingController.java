@@ -8,13 +8,16 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.ayni.reputation.TutorNoShowView;
 import pe.ayni.reputation.TutorStandingView;
+import pe.ayni.reputation.application.TutorNoShowHistoryQuery;
 import pe.ayni.reputation.application.TutorStandingQuery;
 
 /**
@@ -30,9 +33,11 @@ import pe.ayni.reputation.application.TutorStandingQuery;
 class TutorStandingController {
 
     private final TutorStandingQuery standing;
+    private final TutorNoShowHistoryQuery noShowHistory;
 
-    TutorStandingController(TutorStandingQuery standing) {
+    TutorStandingController(TutorStandingQuery standing, TutorNoShowHistoryQuery noShowHistory) {
         this.standing = standing;
+        this.noShowHistory = noShowHistory;
     }
 
     @GetMapping("/{id}/standing")
@@ -105,5 +110,19 @@ class TutorStandingController {
             UUID catalogItemId) {
 
         return standing.execute(tutorId, catalogItemId);
+    }
+
+    @GetMapping("/{id}/no-shows")
+    @Operation(
+            summary = "Tutor compliance history",
+            description = "Returns tutor no-shows for sessions where the student checked in.")
+    @Parameter(
+            in = ParameterIn.HEADER,
+            name = "X-Tenant-Id",
+            required = true,
+            description = "University the request belongs to. Read by TenantFilter",
+            schema = @Schema(type = "string", example = "UPC"))
+    List<TutorNoShowView> noShowHistory(@PathVariable("id") UUID tutorId) {
+        return noShowHistory.execute(tutorId);
     }
 }

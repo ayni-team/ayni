@@ -4,6 +4,7 @@ import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import pe.ayni.shared.events.AccessRequested;
 import pe.ayni.shared.events.PresenceCodeIssued;
+import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -11,7 +12,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  *
  * <p>Nothing depends on this module, as the backend guide says. It reacts to events, and asks
  * identity only for the address of a person an event names. Each listener runs after the
- * publisher's transaction commits, so a link or a code whose transaction rolled back is never sent.
+ * publisher's transaction commits, so a notice for an event whose transaction rolled back is never
+ * sent.
  *
  * <p>The university is bound from the event before anything is done; it may be none, for a
  * platform administrator.
@@ -21,11 +23,15 @@ class NotificationEventListeners {
 
   private final DeliverAccessLinkUseCase deliverAccessLink;
   private final DeliverPresenceCodeUseCase deliverPresenceCode;
+  private final DeliverTutorNoShowNotice deliverTutorNoShowNotice;
 
   NotificationEventListeners(
-      DeliverAccessLinkUseCase deliverAccessLink, DeliverPresenceCodeUseCase deliverPresenceCode) {
+      DeliverAccessLinkUseCase deliverAccessLink,
+      DeliverPresenceCodeUseCase deliverPresenceCode,
+      DeliverTutorNoShowNotice deliverTutorNoShowNotice) {
     this.deliverAccessLink = deliverAccessLink;
     this.deliverPresenceCode = deliverPresenceCode;
+    this.deliverTutorNoShowNotice = deliverTutorNoShowNotice;
   }
 
   @ApplicationModuleListener
@@ -36,5 +42,12 @@ class NotificationEventListeners {
   @ApplicationModuleListener
   void on(PresenceCodeIssued event) {
     TenantContext.runAs(event.tenantId(), () -> deliverPresenceCode.execute(event));
+  }
+
+  @ApplicationModuleListener
+  void on(SessionAbandoned event) {
+    if (event.studentCheckedIn()) {
+      TenantContext.runAs(event.tenantId(), () -> deliverTutorNoShowNotice.execute(event));
+    }
   }
 }
