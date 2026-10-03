@@ -80,4 +80,22 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
       """)
   List<UUID> findDueToClose(
       @Param("tenantId") String tenantId, @Param("endedBy") Instant endedBy);
+
+  /**
+   * Open sessions whose tutor no-show deadline has passed.
+   *
+   * @param startedBy the latest scheduled start that is due, now minus the no-show delay
+   */
+  @Query(
+      """
+      select session.id from Session session
+      where session.tenantId = :tenantId
+        and session.status in (
+          pe.ayni.sessions.SessionStatus.SCHEDULED,
+          pe.ayni.sessions.SessionStatus.IN_PROGRESS)
+        and session.scheduledStart <= :startedBy
+      order by session.scheduledStart
+      """)
+  List<UUID> findDueForTutorNoShow(
+      @Param("tenantId") String tenantId, @Param("startedBy") Instant startedBy);
 }

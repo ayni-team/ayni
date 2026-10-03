@@ -91,4 +91,18 @@ class BookingTest {
                     TOMORROW_AT_NINE, 1, "Anything", NOW))
         .isInstanceOf(BookingRuleViolation.class);
   }
+
+  @Test
+  @DisplayName("a confirmed booking can be marked no-show idempotently")
+  void recordsNoShow() {
+    Booking booking = booking(STUDENT, 1, "Anything");
+    Instant occurredOn = NOW.plus(Duration.ofHours(1));
+
+    booking.markNoShow(occurredOn);
+    booking.markNoShow(occurredOn.plusSeconds(1));
+
+    assertThat(booking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+    assertThat(booking.getUpdatedAt()).isEqualTo(occurredOn);
+  }
+
 }
