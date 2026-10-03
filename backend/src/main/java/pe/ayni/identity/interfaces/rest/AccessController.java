@@ -85,8 +85,9 @@ public class AccessController {
                     the same link at the same time open one session. The session token comes back \
                     in clear only here; Ayni stores its hash.
 
-                    Only sign in links of existing students work today. A link that would activate \
-                    a new account is refused saying that creating accounts is not available yet.
+                    Sign in links open sessions for existing active users. Coordinator invitation \
+                    links activate a pending coordinator, publish CoordinatorActivated and open the \
+                    coordinator's first session. Student activation remains a separate flow.
                     """)
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content =
@@ -105,7 +106,7 @@ public class AccessController {
             responseCode = "400",
             description =
                     "The token is missing or unknown, the link expired or was already used, it"
-                            + " is not a sign in link, or the account is not active",
+                            + " the invitation is no longer valid, or the account is not active",
             content =
                     @Content(
                             schema = @Schema(implementation = ApiError.class),

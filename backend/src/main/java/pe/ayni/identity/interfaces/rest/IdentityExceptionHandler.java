@@ -15,7 +15,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
 @RestControllerAdvice(
         assignableTypes = {
                 AccessController.class,
-                IdentityMeController.class
+                IdentityMeController.class,
+                CoordinatorInvitationController.class
         })
 class IdentityExceptionHandler {
 
