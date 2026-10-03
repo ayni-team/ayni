@@ -78,9 +78,14 @@ class PresenceCodeEmailAcceptanceTest {
     new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
   }
 
-  /** Ana's session with Bruno as her tutor, ten minutes into its hour, joined by both. */
-  private UUID aSessionTenMinutesIn() throws Exception {
-    Instant start = Instant.now().minus(Duration.ofMinutes(10));
+  /**
+   * Ana's session with Bruno as her tutor, six minutes into its hour, joined by both.
+   *
+   * <p>The joins must happen before US09's ten-minute attendance deadline for the session to
+   * start; six minutes also makes US54's five-minute presence-code deadline due.
+   */
+  private UUID aSessionSixMinutesIn() throws Exception {
+    Instant start = Instant.now().minus(Duration.ofMinutes(6));
     UUID bookingId = UUID.randomUUID();
     TenantContext.runAs(
         UPC,
@@ -126,7 +131,7 @@ class PresenceCodeEmailAcceptanceTest {
   @DisplayName("Each participant receives their code by email and confirms with it")
   void theCodeArrivesAndConfirmsPresence() throws Exception {
 
-    UUID session = aSessionTenMinutesIn();
+    UUID session = aSessionSixMinutesIn();
 
     TenantContext.runAs(UPC, () -> issuePresenceCodes.issueFor(session));
 

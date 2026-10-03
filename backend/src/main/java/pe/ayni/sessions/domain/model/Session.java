@@ -43,7 +43,7 @@ public class Session {
    */
   public static final Duration PRESENCE_CHECK_AFTER = Duration.ofMinutes(5);
 
-  /** When a session with no tutor check-in is abandoned. */
+  /** The ten-minute check-in deadline for both participants. */
   public static final Duration TUTOR_NO_SHOW_AFTER = Duration.ofMinutes(10);
 
   /**
@@ -150,18 +150,14 @@ public class Session {
   }
 
   /**
-   * Lets a participant into the room.
+   * Lets a participant into the room without starting the session.
    *
-   * <p>The room opens {@link #JOIN_OPENS_BEFORE} before the start and closes at the scheduled end.
-   * The first participant to join starts the session, whoever it is: from then on it is in
-   * progress, and the start is when somebody actually arrived, not when it was scheduled. Joining a
-   * session already in progress changes nothing, so coming back after a dropped connection works.
-   *
-   * @return whether this join started the session
+   * <p>The application starts it only after both participants have checked in. Rejoining an
+   * in-progress session after a dropped connection changes nothing.
    * @throws NotAParticipant when the person is neither the student nor the tutor
    * @throws SessionNotOpen when it is too early, the session is over, or it will not take place
    */
-  public boolean join(UUID userId, Instant now) {
+  public void join(UUID userId, Instant now) {
     Objects.requireNonNull(now, "now must not be null");
     roleOf(userId);
 
@@ -177,12 +173,20 @@ public class Session {
       throw new SessionNotOpen("This session has already ended");
     }
 
-    if (this.status == SessionStatus.IN_PROGRESS) {
-      return false;
+  }
+
+  /**
+   * Starts the session after both participants have checked in.
+   *
+   * @throws IllegalStateException when the session is not scheduled
+   */
+  public void start(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != SessionStatus.SCHEDULED) {
+      throw new IllegalStateException("Session " + id + " is " + status + " and cannot be started");
     }
     this.status = SessionStatus.IN_PROGRESS;
     this.startedAt = now;
-    return true;
   }
 
   /** The first moment a participant may join. */
@@ -195,12 +199,12 @@ public class Session {
     return this.scheduledStart.plus(PRESENCE_CHECK_AFTER);
   }
 
-  /** When an unconfirmed tutor is considered absent. */
+  /** When a participant without a check-in is considered absent. */
   public Instant tutorNoShowAt() {
     return this.scheduledStart.plus(TUTOR_NO_SHOW_AFTER);
   }
 
-  /** Whether an open session has reached the point when a missing tutor is a no-show. */
+  /** Whether an open session has reached its ten-minute check-in deadline. */
   public boolean isDueForTutorNoShow(Instant now) {
     Objects.requireNonNull(now, "now must not be null");
     return (this.status == SessionStatus.SCHEDULED || this.status == SessionStatus.IN_PROGRESS)
@@ -208,7 +212,7 @@ public class Session {
   }
 
   /**
-   * Abandons a session after its tutor failed to check in by the no-show deadline.
+   * Abandons a session after either participant failed to check in by the no-show deadline.
    *
    * @throws IllegalStateException when the session is not open
    */
