@@ -82,6 +82,8 @@ class SessionsServiceTest {
             UUID.randomUUID(), UPC, UUID.randomUUID(), student, tutor, NINE,
             NINE.plus(Duration.ofHours(2)), NINE.minus(Duration.ofDays(1)));
     completed.join(student, NINE.plus(Duration.ofMinutes(3)));
+    completed.join(tutor, NINE.plus(Duration.ofMinutes(3)));
+    completed.start(NINE.plus(Duration.ofMinutes(3)));
     // Ended ten minutes early: still the two hours the student paid for.
     completed.close(true, NINE.plus(Duration.ofMinutes(110)));
     when(repository.findByTenantIdAndTutorIdAndStatusOrderByScheduledStartAsc(

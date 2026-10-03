@@ -23,12 +23,14 @@ Feature: Meeting in the session's room
     Then they are refused, whatever link they hold
     And nothing is recorded for them
 
-  Scenario: Joining opens the room and the first participant starts the session
+  Scenario: Both participants check in before the session starts
     Given the session starts in ten minutes
     When Ana joins
-    Then she gets the room name and the session is in progress from that moment
+    Then she gets the room name and the session stays scheduled
+    And Bruno can see that Ana has checked in
     When Bruno joins
-    Then he gets the same room, the start stays the moment Ana arrived
+    Then he gets the same room and the session is in progress
+    And both check-in times are visible to them
     And SessionStarted was published once
 
   Scenario: Coming back after a dropped connection

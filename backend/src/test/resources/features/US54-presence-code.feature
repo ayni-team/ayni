@@ -54,8 +54,8 @@ Feature: Proving presence with a code sent by email
     When she types it
     Then it is refused, and no attempt is spent
 
-  Scenario: Presence cannot be confirmed before the code, without joining, or by somebody else
+  Scenario: Presence cannot be confirmed before the code, before the session starts, or by a stranger
     Then a code typed before it is sent is refused
-    And Bruno cannot confirm a session he never joined
+    And a participant cannot confirm while the other participant has not joined
     And a stranger is refused
     And a code that is not six digits is refused without spending an attempt

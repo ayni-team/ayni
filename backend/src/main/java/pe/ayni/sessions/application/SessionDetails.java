@@ -1,6 +1,7 @@
 package pe.ayni.sessions.application;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.ParticipantRole;
@@ -17,6 +18,9 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * @param endConfirmedAt when the reader confirmed the end, {@code null} if they have not
  * @param endedAt when the session closed, {@code null} while it has not
  * @param closesAt when it closes on its own if the participants do not close it
+ * @param studentJoinedAt when the student first joined the room, {@code null} before check-in
+ * @param tutorJoinedAt when the tutor first joined the room, {@code null} before check-in
+ * @param absentParticipantIds participants not checked in at the ten-minute deadline
  */
 public record SessionDetails(
     UUID id,
@@ -33,6 +37,9 @@ public record SessionDetails(
     String needDescription,
     Instant presenceCheckAt,
     PresenceState presence,
+    Instant studentJoinedAt,
+    Instant tutorJoinedAt,
+    List<UUID> absentParticipantIds,
     Instant endConfirmedAt,
     Instant endedAt,
     Instant closesAt) {}
