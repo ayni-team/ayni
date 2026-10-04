@@ -1,11 +1,12 @@
 package pe.ayni.skills.application;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.ApprovedCourseView;
@@ -16,7 +17,9 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
+import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.domain.model.SkillsStateConflict;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -28,12 +31,9 @@ import pe.ayni.skills.infrastructure.OfferedSkillRepository;
  * against, and reaches {@link pe.ayni.skills.domain.model.OfferedSkillStatus#ENABLED} only through
  * reviewed evidence, which this use case does not build.
  *
- * <p>{@code identity} is injected {@code @Lazy}: identity has no implementation yet, and without
- * it a plain injection would refuse to create this bean, which would in turn stop every other
- * module's Spring context from starting, including tests that have nothing to do with skills. The
- * proxy defers that lookup to the first call of {@link #execute}, so the rest of the application
- * boots normally and only offering a skill fails until identity exists. Drop {@code @Lazy} once it
- * does.
+ * <p>A course the tutor withdrew (US18) can be offered again. The same row comes back to life,
+ * because a tutor holds one row per item, and the grade is checked once more against the threshold
+ * in force today.
  */
 @Service
 public class OfferApprovedCourseUseCase {
@@ -47,7 +47,7 @@ public class OfferApprovedCourseUseCase {
   OfferApprovedCourseUseCase(
       CatalogItemRepository catalogItems,
       OfferedSkillRepository offeredSkills,
-      @Lazy IdentityApi identity,
+      IdentityApi identity,
       ApplicationEventPublisher events,
       Clock clock) {
     this.catalogItems = catalogItems;
@@ -59,9 +59,10 @@ public class OfferApprovedCourseUseCase {
 
   /**
    * @throws NoSuchElementException when the item does not exist or is not visible to this tenant
+   * @throws SkillsStateConflict when the tutor already offers the item
    * @throws SkillsRuleViolation when the item is retired or not a university course, the tutor's
-   *     record has no matching approved course, the grade does not reach the university's
-   *     threshold, or the tutor already offers it
+   *     record has no matching approved course, or the grade does not reach the university's
+   *     threshold
    */
   // Every refusal is decided before anything is written, so a refusal leaves nothing to undo. Not
   // rolling back for it lets a caller in the same transaction, such as US40's onboarding, skip the
@@ -76,8 +77,11 @@ public class OfferApprovedCourseUseCase {
 
     // Checked before anything else reads or writes: uq_offered_skills_tutor_item would refuse the
     // insert anyway, but as a raw constraint violation instead of a message the student can act on.
-    if (offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(tenantId, tutorId, catalogItemId).isPresent()) {
-      throw new SkillsRuleViolation("this tutor already has an offer for this catalog item");
+    // A withdrawn offer is the one exception: it is offered again below.
+    Optional<OfferedSkill> existing =
+        offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(tenantId, tutorId, catalogItemId);
+    if (existing.isPresent() && existing.get().getStatus() != OfferedSkillStatus.WITHDRAWN) {
+      throw new SkillsStateConflict("this tutor already has an offer for this catalog item");
     }
 
     CatalogItem item =
@@ -106,21 +110,27 @@ public class OfferApprovedCourseUseCase {
                             .formatted(item.getCourseCode())));
 
     TenantView tenant = identity.requireTenant(tenantId);
+    Instant now = clock.instant();
 
-    OfferedSkill skill =
-        OfferedSkill.enableByAcademicRecord(
-            UUID.randomUUID(),
-            tenantId,
-            tutorId,
-            catalogItemId,
-            approved.grade(),
-            tenant.minimumTeachingGrade(),
-            clock.instant());
-
+    OfferedSkill skill;
+    if (existing.isPresent()) {
+      skill = existing.get();
+      skill.reEnableByAcademicRecord(approved.grade(), tenant.minimumTeachingGrade(), now);
+    } else {
+      skill =
+          OfferedSkill.enableByAcademicRecord(
+              UUID.randomUUID(),
+              tenantId,
+              tutorId,
+              catalogItemId,
+              approved.grade(),
+              tenant.minimumTeachingGrade(),
+              now);
+    }
     offeredSkills.save(skill);
 
     // Said out loud so that matching can pick it up, without skills knowing matching exists.
-    events.publishEvent(new SkillEnabled(tenantId, tutorId, catalogItemId, clock.instant()));
+    events.publishEvent(new SkillEnabled(tenantId, tutorId, catalogItemId, now));
 
     return skill;
   }
