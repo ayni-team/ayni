@@ -74,6 +74,7 @@ package "booking" {
     HELD
     BOOKED
     RELEASED
+    WITHDRAWN
   }
   enum BookingStatus {
     CONFIRMED

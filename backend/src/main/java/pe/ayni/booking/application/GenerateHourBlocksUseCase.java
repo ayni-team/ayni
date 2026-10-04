@@ -6,11 +6,13 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +33,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  * Materialises a tutor's availability into bookable hours.
  *
  * <p>{@link BlockGenerator} works out which hours the rules produce; this use case loads what it
- * needs, keeps the whole thing in one transaction, writes only the hours that are not there
- * already, and says what appeared.
+ * needs, keeps the whole thing in one transaction, writes new hours, restores withdrawn hours that
+ * the rules allow again, and says what appeared.
  *
  * <p>Running it twice over the same horizon is safe, which matters because availability is
  * regenerated whenever a tutor changes anything and a scheduled job walks the same days again.
@@ -98,31 +100,39 @@ public class GenerateHourBlocksUseCase {
     Instant horizonStart = ZonedDateTime.of(from, LocalTime.MIN, zone).toInstant();
     Instant horizonEnd = ZonedDateTime.of(to.plusDays(1), LocalTime.MIN, zone).toInstant();
 
-    Set<Instant> taken =
-        blocks.findWithin(tenantId, tutorId, horizonStart, horizonEnd).stream()
-            .map(HourBlock::getStartsAt)
-            .collect(Collectors.toCollection(HashSet::new));
+    Map<Instant, HourBlock> existing = new HashMap<>();
+    blocks.findWithin(tenantId, tutorId, horizonStart, horizonEnd)
+        .forEach(block -> existing.put(block.getStartsAt(), block));
 
-    // What the database does not have yet. The generator already refuses to describe an hour
-    // twice, so this is only about what earlier runs left behind.
-    List<HourBlock> fresh = generated.stream().filter(block -> taken.add(block.getStartsAt())).toList();
+    List<HourBlock> changed = new ArrayList<>();
+    Set<Instant> taken = new HashSet<>(existing.keySet());
+    for (HourBlock candidate : generated) {
+      HourBlock existingBlock = existing.get(candidate.getStartsAt());
+      if (existingBlock == null) {
+        if (taken.add(candidate.getStartsAt())) {
+          changed.add(candidate);
+        }
+      } else if (existingBlock.restore(now)) {
+        changed.add(existingBlock);
+      }
+    }
 
-    if (fresh.isEmpty()) {
+    if (changed.isEmpty()) {
       return HoursGeneration.created(0);
     }
 
-    blocks.saveAll(fresh);
+    blocks.saveAll(changed);
 
     // Matching listens for this and adds one offer per block and per skill the tutor teaches.
     events.publishEvent(
         new HoursGenerated(
             tenantId,
             tutorId,
-            fresh.stream()
+            changed.stream()
                 .map(block -> new HoursGenerated.Block(block.getId(), block.getStartsAt()))
                 .toList(),
             now));
 
-    return HoursGeneration.created(fresh.size());
+    return HoursGeneration.created(changed.size());
   }
 }

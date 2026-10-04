@@ -292,14 +292,14 @@ class HourBlockTest {
   }
 
   @Test
-  @DisplayName("withdrawing a free hour takes it out of circulation for good")
+  @DisplayName("withdrawing a free hour takes it out of circulation")
   void withdrawingAFreeHour() {
 
     HourBlock block = freeBlock();
 
     assertThat(block.withdraw()).isTrue();
 
-    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.WITHDRAWN);
     assertThatThrownBy(() -> block.hold(STUDENT, NOW))
         .isInstanceOf(HourUnavailable.class)
         .hasMessageContaining("no longer offered");
@@ -313,7 +313,7 @@ class HourBlockTest {
 
     assertThat(block.withdraw()).isTrue();
 
-    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.WITHDRAWN);
     assertThat(block.getHeldBy()).isNull();
     assertThat(block.getHeldUntil()).isNull();
     assertThatThrownBy(() -> block.book(BOOKING, STUDENT, NOW))
@@ -342,6 +342,37 @@ class HourBlockTest {
     block.withdraw();
 
     assertThat(block.withdraw()).isFalse();
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.WITHDRAWN);
+  }
+
+  @Test
+  @DisplayName("a withdrawn future hour can return when availability is restored")
+  void restoresAWithdrawnFutureHour() {
+    HourBlock block = freeBlock();
+    block.withdraw();
+
+    assertThat(block.restore(NOW)).isTrue();
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.AVAILABLE);
+  }
+
+  @Test
+  @DisplayName("a withdrawn hour that already started cannot return to circulation")
+  void doesNotRestoreAStartedHour() {
+    HourBlock block = freeBlock();
+    block.withdraw();
+
+    assertThat(block.restore(STARTS_AT)).isFalse();
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.WITHDRAWN);
+  }
+
+  @Test
+  @DisplayName("a cancelled booking is not restored when availability is regenerated")
+  void doesNotRestoreACancelledBlock() {
+    HourBlock block = heldBy(STUDENT);
+    block.book(BOOKING, STUDENT, NOW);
+    block.release();
+
+    assertThat(block.restore(NOW)).isFalse();
     assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
   }
 }

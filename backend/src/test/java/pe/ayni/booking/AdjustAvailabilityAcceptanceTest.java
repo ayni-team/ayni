@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +42,48 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
             .header("X-User-Id", tutor)
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"startsOn\":\"%s\",\"endsOn\":\"%s\"}".formatted(from, to)));
+  }
+
+  private ResultActions pauseStatus() throws Exception {
+    return mockMvc.perform(
+        get("/api/v1/tutor/availability/pauses/current")
+            .header("X-Tenant-Id", UPC)
+            .header("X-User-Id", tutor));
+  }
+
+  private ResultActions reactivate(UUID pauseId) throws Exception {
+    return mockMvc.perform(
+        delete("/api/v1/tutor/availability/pauses/{id}", pauseId)
+            .header("X-Tenant-Id", UPC)
+            .header("X-User-Id", tutor));
+  }
+
+  private ResultActions removePattern(UUID patternId) throws Exception {
+    return mockMvc.perform(
+        delete("/api/v1/tutor/availability/{id}", patternId)
+            .header("X-Tenant-Id", UPC)
+            .header("X-User-Id", tutor));
+  }
+
+  private UUID pauseId(LocalDate from, LocalDate to) {
+    return jdbc.queryForObject(
+        """
+        select id from booking.availability_pauses
+        where tenant_id = ? and tutor_id = ? and starts_on = ? and ends_on = ?
+        """,
+        UUID.class,
+        UPC,
+        tutor,
+        from,
+        to);
+  }
+
+  private UUID weeklyPatternId() {
+    return jdbc.queryForObject(
+        "select id from booking.availability_patterns where tenant_id = ? and tutor_id = ?",
+        UUID.class,
+        UPC,
+        tutor);
   }
 
   private ResultActions exception(String kind, LocalDate date, String from, String to)
@@ -88,7 +132,7 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
         .andExpect(jsonPath("$.notice").value(nullValue()));
 
     for (int hour = 9; hour < 12; hour++) {
-      assertThat(statusAt(hour)).isEqualTo(HourBlockStatus.RELEASED);
+      assertThat(statusAt(hour)).isEqualTo(HourBlockStatus.WITHDRAWN);
       assertThat(offersAt(hour)).as("out of the search").isZero();
     }
     assertThat(withdrawnByEvents())
@@ -135,7 +179,7 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.withdrawnHours").value(3));
 
-    assertThat(statusAt(10)).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(statusAt(10)).isEqualTo(HourBlockStatus.WITHDRAWN);
     book(ana, tomorrowAt(10), 1, "Joins")
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.message", containsString("no longer offered")));
@@ -156,6 +200,58 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
   }
 
   @Test
+  @DisplayName("A tutor can see whether availability is paused and when the pause ends")
+  void currentPauseStateIsVisible() throws Exception {
+    pause(today(), tomorrow()).andExpect(status().isCreated());
+
+    pauseStatus()
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.paused").value(true))
+        .andExpect(jsonPath("$.pauseId").value(pauseId(today(), tomorrow()).toString()))
+        .andExpect(jsonPath("$.startsOn").value(today().toString()))
+        .andExpect(jsonPath("$.endsOn").value(tomorrow().toString()));
+  }
+
+  @Test
+  @DisplayName("A tutor can reactivate early and restore the hours in the weekly pattern")
+  void reactivatingEarlyRestoresWeeklyHours() throws Exception {
+    pause(today(), tomorrow()).andExpect(status().isCreated());
+    UUID pauseId = pauseId(today(), tomorrow());
+
+    reactivate(pauseId)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pauseId").value(pauseId.toString()))
+        .andExpect(jsonPath("$.restoredHours").value(3));
+
+    pauseStatus().andExpect(status().isOk()).andExpect(jsonPath("$.paused").value(false));
+    for (int hour = 9; hour < 12; hour++) {
+      assertThat(statusAt(hour)).isEqualTo(HourBlockStatus.AVAILABLE);
+      assertThat(offersAt(hour)).as("restored to search").isEqualTo(1);
+    }
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+  }
+
+  @Test
+  @DisplayName("Removing a weekly range keeps confirmed bookings and withdraws its other hours")
+  void removingWeeklyAvailabilityKeepsConfirmedBookings() throws Exception {
+    grant(ana, 3);
+    hold(ana, tomorrowAt(9), 1).andExpect(status().isCreated());
+    book(ana, tomorrowAt(9), 1, "Normal forms").andExpect(status().isCreated());
+
+    removePattern(weeklyPatternId())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.withdrawnHours").value(11))
+        .andExpect(jsonPath("$.bookedHoursKept").value(1))
+        .andExpect(jsonPath("$.notice").isNotEmpty());
+
+    assertThat(statusAt(9)).isEqualTo(HourBlockStatus.BOOKED);
+    assertThat(statusAt(10)).isEqualTo(HourBlockStatus.WITHDRAWN);
+    assertThat(statusAt(11)).isEqualTo(HourBlockStatus.WITHDRAWN);
+    assertThat(offersAt(10)).isZero();
+    assertThat(bookingsOf(ana)).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("Removing a window withdraws only the hours it covers")
   void removingAWindowWithdrawsOnlyThoseHours() throws Exception {
 
@@ -165,7 +261,7 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
         .andExpect(jsonPath("$.generatedHours").value(0));
 
     assertThat(statusAt(9)).isEqualTo(HourBlockStatus.AVAILABLE);
-    assertThat(statusAt(10)).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(statusAt(10)).isEqualTo(HourBlockStatus.WITHDRAWN);
     assertThat(statusAt(11)).isEqualTo(HourBlockStatus.AVAILABLE);
     assertThat(offersAt(10)).isZero();
     assertThat(offersAt(9)).isEqualTo(1);
@@ -185,7 +281,7 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
         .andExpect(jsonPath("$.withdrawnHours").value(3));
 
     for (int hour = 9; hour < 12; hour++) {
-      assertThat(statusAt(hour)).isEqualTo(HourBlockStatus.RELEASED);
+      assertThat(statusAt(hour)).isEqualTo(HourBlockStatus.WITHDRAWN);
     }
   }
 
