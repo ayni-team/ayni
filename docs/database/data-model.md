@@ -618,6 +618,7 @@ credit_type        varchar(16)   NOT NULL   -- SEED | ALLOCATED | EARNED | PURCH
 original_amount    integer       NOT NULL
 remaining_amount   integer       NOT NULL
 expires_at         timestamptz              -- only for SEED and ALLOCATED
+expiry_notice_sent_at timestamptz            -- when the advance expiry notice was published
 source_type        varchar(24)   NOT NULL   -- POLICY | SESSION | PURCHASE | REFUND
 source_id          uuid
 created_at         timestamptz   NOT NULL DEFAULT now()
@@ -627,10 +628,14 @@ CHECK (original_amount > 0)
 CHECK (remaining_amount BETWEEN 0 AND original_amount)
 CHECK ((expires_at IS NULL) = (credit_type IN ('EARNED','PURCHASED')))
 INDEX (tenant_id, account_id, expires_at) WHERE remaining_amount > 0
+INDEX (tenant_id, expires_at) WHERE remaining_amount > 0 AND expiry_notice_sent_at IS NULL
 ```
 
 The last `CHECK` is the rule of the product written where it cannot be broken: only what the
 university grants expires. What you earned and what you paid for are yours.
+
+Wallet records when it publishes the one advance expiry notice for a group. This marker makes
+repeated daily job runs idempotent without changing the immutable credit movement history.
 
 Spending takes from the group closest to expiring. A refund returns the credits to the group they
 came from, with the expiry they had, which is why a refund is not simply "add credits back".

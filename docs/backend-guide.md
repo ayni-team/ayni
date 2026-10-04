@@ -324,6 +324,11 @@ public interface WalletApi {
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
 
+The daily expiry job publishes one `CreditsExpiring` event per unspent credit group within the
+configured `ayni.wallet.expiry-notice-days` window (seven days by default). Wallet stores the
+publication time on the group, so subsequent runs do not publish a duplicate notice. This job only
+publishes the event; email delivery in `notifications` is a separate responsibility.
+
 A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
 The reasoning is in ADR 0005.
