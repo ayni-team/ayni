@@ -147,6 +147,23 @@ class GenerateHourBlocksUseCaseTest {
   }
 
   @Test
+  @DisplayName("restores a withdrawn hour when the current rules offer it again")
+  void restoresAnHourThatAvailabilityOffersAgain() {
+    givenAMorningPattern();
+    HourBlock withdrawn = blockAt(LocalTime.of(9, 0));
+    withdrawn.withdraw();
+    when(blocks.findWithin(any(), any(), any(), any())).thenReturn(List.of(withdrawn));
+
+    generate();
+
+    assertThat(withdrawn.getStatus()).isEqualTo(pe.ayni.booking.domain.model.HourBlockStatus.AVAILABLE);
+    ArgumentCaptor<HoursGenerated> published = ArgumentCaptor.forClass(HoursGenerated.class);
+    verify(events).publishEvent(published.capture());
+    assertThat(published.getValue().blocks()).extracting(HoursGenerated.Block::startsAt)
+        .contains(withdrawn.getStartsAt());
+  }
+
+  @Test
   @DisplayName("only the hours that are missing are written")
   void writesOnlyWhatIsMissing() {
 

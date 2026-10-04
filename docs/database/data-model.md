@@ -384,7 +384,7 @@ tenant_id     varchar(32)   NOT NULL
 tutor_id      uuid          NOT NULL
 starts_at     timestamptz   NOT NULL
 ends_at       timestamptz   NOT NULL
-status        varchar(16)   NOT NULL   -- AVAILABLE | HELD | BOOKED | RELEASED
+status        varchar(16)   NOT NULL   -- AVAILABLE | HELD | BOOKED | RELEASED | WITHDRAWN
 held_by       uuid                     -- student holding it, while status = HELD
 held_until    timestamptz              -- when the hold expires, while status = HELD
 booking_id    uuid                     -- set while BOOKED
@@ -393,7 +393,7 @@ version       bigint        NOT NULL DEFAULT 0
 created_at    timestamptz   NOT NULL DEFAULT now()
 
 UNIQUE (tenant_id, tutor_id, starts_at)
-CHECK  (status IN ('AVAILABLE','HELD','BOOKED','RELEASED'))
+CHECK  (status IN ('AVAILABLE','HELD','BOOKED','RELEASED','WITHDRAWN'))
 CHECK  ((status = 'BOOKED') = (booking_id IS NOT NULL))
 CHECK  ((status = 'HELD') = (held_until IS NOT NULL AND held_by IS NOT NULL))
 INDEX  (tenant_id, starts_at) WHERE status = 'AVAILABLE'
@@ -414,6 +414,10 @@ booking after having written everything, which is the worst possible moment to f
 A scheduled job returns expired holds to `AVAILABLE`. It runs outside any request, so it has no
 tenant of its own: it iterates the universities and wraps each turn in `TenantContext.runAs`. The
 partial index on `held_until` is what keeps that job cheap.
+
+`RELEASED` marks an hour freed by cancelling its booking and is not automatically offered again.
+`WITHDRAWN` marks an hour removed by an availability change; it can return to `AVAILABLE` when the
+tutor's current availability rules include it again.
 
 ### `booking.bookings`
 

@@ -57,6 +57,26 @@ public class HourBlockHorizon {
     return generateHourBlocks.execute(tutorId, today, lastDay(today), zone);
   }
 
+  /** The current calendar date in the current university's time zone. */
+  public LocalDate today() {
+    return LocalDate.now(clock.withZone(universityZone()));
+  }
+
+  /** Reconciles the rest of the generated horizon after a weekly pattern is removed. */
+  @Transactional
+  public HoursAdjustment adjustFor(UUID tutorId, LocalDate from) {
+    ZoneId zone = universityZone();
+    LocalDate today = LocalDate.now(clock.withZone(zone));
+    LocalDate first = from.isBefore(today) ? today : from;
+    LocalDate last = lastDay(today);
+    if (last.isBefore(first)) {
+      return HoursAdjustment.none();
+    }
+    return new HoursAdjustment(
+        withdrawUnavailableHours.execute(tutorId, first, last, zone),
+        generateHourBlocks.execute(tutorId, first, last, zone));
+  }
+
   /**
    * Brings a tutor's hours between two dates in line with their availability after it changed:
    * withdraws the hours a pause or a removed date takes away, and generates the ones an added date

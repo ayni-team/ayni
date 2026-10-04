@@ -5,7 +5,7 @@
 # PostgreSQL. Scenario 2 is matching's to answer: booking generates one block per hour, not per
 # skill, and matching turns each block into one offer per enabled skill when it hears
 # HoursGenerated. Scenario 4 needs confirmed bookings and a way to remove a window, neither of which
-# exists yet: it is kept here as the criterion US03 and US05 must meet, tagged @pending.
+# is covered by AdjustAvailabilityAcceptanceTest along with the pause and date-exception updates.
 
 Feature: Publishing the hours a tutor is free every week
 
@@ -30,12 +30,11 @@ Feature: Publishing the hours a tutor is free every week
     Then the new availability is rejected with a message saying it overlaps
     And no duplicate blocks are generated
 
-  @pending
-  Scenario: Reducing availability with confirmed bookings
+  Scenario: Removing a weekly range keeps confirmed bookings and withdraws its other hours
     Given the tutor has a confirmed booking inside a weekly range
     When the tutor removes that range
-    Then the confirmed booking stands
-    And no new blocks are generated for that range
+    Then the confirmed booking stands and is reported
+    And its other generated hours are withdrawn from the search
 
   Scenario: A tutor without enabled skills publishes no availability
     Given the tutor has no enabled skill
