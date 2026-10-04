@@ -16,6 +16,7 @@ import pe.ayni.skills.domain.model.AccreditationPath;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.domain.model.SkillsStateConflict;
 
 /** US13: a course a tutor already passed is enabled the moment the grade clears the threshold. */
 class OfferedSkillTest {
@@ -74,6 +75,46 @@ class OfferedSkillTest {
     skill.withdraw(NOW.plusSeconds(60));
 
     assertThatThrownBy(() -> skill.withdraw(NOW.plusSeconds(120)))
+        .isInstanceOf(SkillsStateConflict.class);
+  }
+
+  @Test
+  @DisplayName("a withdrawn course is enabled again with the grade of today")
+  void aWithdrawnCourseIsEnabledAgainWithTheGradeOfToday() {
+    OfferedSkill skill = enabledSkill(catalogItemId, THRESHOLD);
+    skill.withdraw(NOW.plusSeconds(60));
+
+    skill.reEnableByAcademicRecord(new BigDecimal("17.00"), THRESHOLD, NOW.plusSeconds(120));
+
+    assertThat(skill.isEnabled()).isTrue();
+    assertThat(skill.getAccreditedGrade()).isEqualByComparingTo("17.00");
+    assertThat(skill.getEnabledAt()).isEqualTo(NOW.plusSeconds(120));
+    assertThat(skill.getUpdatedAt()).isEqualTo(NOW.plusSeconds(120));
+    assertThat(skill.getAccreditationPath()).isEqualTo(AccreditationPath.ACADEMIC_RECORD);
+  }
+
+  @Test
+  @DisplayName("a grade that no longer clears the threshold does not enable it again")
+  void aGradeThatNoLongerClearsDoesNotEnableItAgain() {
+    OfferedSkill skill = enabledSkill(catalogItemId, THRESHOLD);
+    skill.withdraw(NOW.plusSeconds(60));
+
+    assertThatThrownBy(
+            () ->
+                skill.reEnableByAcademicRecord(
+                    new BigDecimal("12.00"), THRESHOLD, NOW.plusSeconds(120)))
         .isInstanceOf(SkillsRuleViolation.class);
+
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+  }
+
+  @Test
+  @DisplayName("only a withdrawn skill can be enabled again")
+  void onlyAWithdrawnSkillCanBeEnabledAgain() {
+    OfferedSkill skill = enabledSkill(catalogItemId, THRESHOLD);
+
+    assertThatThrownBy(
+            () -> skill.reEnableByAcademicRecord(THRESHOLD, THRESHOLD, NOW.plusSeconds(60)))
+        .isInstanceOf(SkillsStateConflict.class);
   }
 }

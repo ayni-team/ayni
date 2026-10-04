@@ -10,9 +10,12 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
+import pe.ayni.skills.domain.model.NotTheOwner;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.domain.model.SkillsStateConflict;
 
 /**
  * Turns the exceptions of this module into answers.
@@ -46,6 +49,27 @@ class SkillsExceptionHandler {
   ResponseEntity<ApiError> handleSkillsRuleViolation(
       SkillsRuleViolation exception, HttpServletRequest request) {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /** The skill exists in this university but is another tutor's: not allowed, which is not 404. */
+  @ExceptionHandler(NotTheOwner.class)
+  ResponseEntity<ApiError> handleNotTheOwner(NotTheOwner exception, HttpServletRequest request) {
+    return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /** Well formed, but the state of the skill refuses it, such as withdrawing one already withdrawn. */
+  @ExceptionHandler(SkillsStateConflict.class)
+  ResponseEntity<ApiError> handleStateConflict(
+      SkillsStateConflict exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  /** A path parameter that is not an identifier. */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  ResponseEntity<ApiError> handleUnreadableParameter(
+      MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+    return answer(
+        HttpStatus.BAD_REQUEST, "The value of " + exception.getName() + " could not be read", request);
   }
 
   /** No university on the request: the header is missing. */

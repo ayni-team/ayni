@@ -1,9 +1,11 @@
 package pe.ayni.skills.infrastructure;
 
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.skills.domain.model.OfferedSkill;
@@ -41,13 +43,40 @@ public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID
       @Param("tutorId") UUID tutorId,
       @Param("status") OfferedSkillStatus status);
 
-  /** Every catalogue item the tutor ever offered, whatever became of the offer. */
+  /**
+   * The catalogue items the tutor holds in any status but the given one.
+   *
+   * <p>Used with {@code WITHDRAWN} to find what is still taken: an item the tutor withdrew can be
+   * offered again, so it is not among them.
+   */
   @Query(
       """
       select skill.catalogItemId from OfferedSkill skill
       where skill.tenantId = :tenantId
         and skill.tutorId = :tutorId
+        and skill.status <> :excluded
       """)
-  List<UUID> findAllCatalogItemIds(
-      @Param("tenantId") String tenantId, @Param("tutorId") UUID tutorId);
+  List<UUID> findCatalogItemIdsNotIn(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("excluded") OfferedSkillStatus excluded);
+
+  /** Everything the tutor offers or ever offered, whatever its status. */
+  List<OfferedSkill> findByTenantIdAndTutorId(String tenantId, UUID tutorId);
+
+  /**
+   * One offered skill, locked until the transaction ends.
+   *
+   * <p>The row carries no version column, and two requests withdrawing the same skill at once would
+   * both read it as enabled and both announce the withdrawal. The lock makes the second one wait,
+   * and then find it already withdrawn.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select skill from OfferedSkill skill
+      where skill.tenantId = :tenantId and skill.id = :id
+      """)
+  Optional<OfferedSkill> lockByTenantIdAndId(
+      @Param("tenantId") String tenantId, @Param("id") UUID id);
 }

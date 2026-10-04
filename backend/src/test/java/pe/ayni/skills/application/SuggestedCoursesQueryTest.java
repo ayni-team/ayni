@@ -25,6 +25,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.CatalogItemStatus;
+import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -70,7 +71,8 @@ class SuggestedCoursesQueryTest {
   void theUniversityAsksForThirteen() {
     when(identity.requireTenant(UPC))
         .thenReturn(new TenantView(UPC, "UPC", "America/Lima", THRESHOLD, true));
-    when(offeredSkills.findAllCatalogItemIds(UPC, TUTOR)).thenReturn(List.of());
+    when(offeredSkills.findCatalogItemIdsNotIn(UPC, TUTOR, OfferedSkillStatus.WITHDRAWN))
+        .thenReturn(List.of());
   }
 
   @Test
@@ -136,13 +138,26 @@ class SuggestedCoursesQueryTest {
   }
 
   @Test
-  @DisplayName("a course already offered, even withdrawn, is not suggested again")
-  void aCourseAlreadyOfferedEvenWithdrawnIsNotSuggestedAgain() {
+  @DisplayName("a course the tutor holds is not suggested again")
+  void aCourseTheTutorHoldsIsNotSuggestedAgain() {
     CatalogItem item = course("1ASI0657");
     when(identity.approvedCourses(TUTOR)).thenReturn(List.of(approved("1ASI0657", "15.00")));
     catalogueHas(item);
-    when(offeredSkills.findAllCatalogItemIds(UPC, TUTOR)).thenReturn(List.of(item.getId()));
+    when(offeredSkills.findCatalogItemIdsNotIn(UPC, TUTOR, OfferedSkillStatus.WITHDRAWN))
+        .thenReturn(List.of(item.getId()));
 
     assertThat(forTutor()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("a withdrawn course is not counted as taken, so it is suggested again")
+  void aWithdrawnCourseIsSuggestedAgain() {
+    CatalogItem item = course("1ASI0657");
+    when(identity.approvedCourses(TUTOR)).thenReturn(List.of(approved("1ASI0657", "15.00")));
+    catalogueHas(item);
+
+    assertThat(forTutor()).extracting(SuggestedCoursesQuery.SuggestedCourse::item).containsExactly(item);
+    // What is taken is everything but withdrawn: this is what lets a withdrawn course come back.
+    verify(offeredSkills).findCatalogItemIdsNotIn(UPC, TUTOR, OfferedSkillStatus.WITHDRAWN);
   }
 }
