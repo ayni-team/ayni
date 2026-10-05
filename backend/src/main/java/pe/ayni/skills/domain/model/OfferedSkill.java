@@ -201,6 +201,27 @@ public class OfferedSkill {
   }
 
   /**
+   * Offers again a global tool the tutor withdrew, without a new review.
+   *
+   * <p>What justified the skill was a coordinator accepting the evidence, and withdrawing it does
+   * not undo that. So unlike a course, which is checked against the grade again, nothing is
+   * checked: the evidence is still the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not withdrawn, or was not accredited by reviewed
+   *     evidence
+   */
+  public void reEnableByReviewedEvidence(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != OfferedSkillStatus.WITHDRAWN
+        || this.accreditationPath != AccreditationPath.REVIEWED_EVIDENCE) {
+      throw new SkillsStateConflict("only a withdrawn tool with accepted evidence can be offered again");
+    }
+    this.status = OfferedSkillStatus.ENABLED;
+    this.enabledAt = now;
+    this.updatedAt = now;
+  }
+
+  /**
    * Stops the tutor from offering this skill; reservations already confirmed are unaffected.
    *
    * @throws SkillsStateConflict when the skill is not enabled

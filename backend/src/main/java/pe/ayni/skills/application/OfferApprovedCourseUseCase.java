@@ -15,6 +15,7 @@ import pe.ayni.identity.TenantView;
 import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
+import pe.ayni.skills.domain.model.AccreditationPath;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
@@ -27,9 +28,10 @@ import pe.ayni.skills.infrastructure.OfferedSkillRepository;
  * US13: offers a university course a tutor already passed, enabled the moment the grade clears
  * the university's threshold.
  *
- * <p>Only university courses go through this path: a global tool has no academic record to check
- * against, and reaches {@link pe.ayni.skills.domain.model.OfferedSkillStatus#ENABLED} only through
- * reviewed evidence, which this use case does not build.
+ * <p>Only university courses are enabled here: a global tool has no academic record to check
+ * against, and reaches {@link pe.ayni.skills.domain.model.OfferedSkillStatus#ENABLED} through
+ * reviewed evidence (US16). The one thing this use case does for a tool is offer it again after
+ * the tutor withdrew it, since a coordinator already accepted the evidence.
  *
  * <p>A course the tutor withdrew (US18) can be offered again. The same row comes back to life,
  * because a tutor holds one row per item, and the grade is checked once more against the threshold
@@ -95,8 +97,7 @@ public class OfferApprovedCourseUseCase {
     }
 
     if (item.getScope() != CatalogScope.UNIVERSITY) {
-      throw new SkillsRuleViolation(
-          "global tools have no academic record; offer them through reviewed evidence instead");
+      return offerGlobalToolAgain(existing, tenantId, tutorId, catalogItemId);
     }
 
     ApprovedCourseView approved =
@@ -132,6 +133,31 @@ public class OfferApprovedCourseUseCase {
     // Said out loud so that matching can pick it up, without skills knowing matching exists.
     events.publishEvent(new SkillEnabled(tenantId, tutorId, catalogItemId, now));
 
+    return skill;
+  }
+
+  /**
+   * A global tool has no academic record to check, so it is offered here only in one case: the tutor
+   * withdrew it after a coordinator accepted their evidence, which is still valid. Any other tool
+   * goes through the submission of evidence.
+   *
+   * <p>Reached only when the tutor holds no skill for the tool, or a withdrawn one: anything else
+   * was refused before as a conflict.
+   */
+  private OfferedSkill offerGlobalToolAgain(
+      Optional<OfferedSkill> existing, String tenantId, UUID tutorId, UUID catalogItemId) {
+    OfferedSkill skill =
+        existing
+            .filter(withdrawn -> withdrawn.getAccreditationPath() == AccreditationPath.REVIEWED_EVIDENCE)
+            .orElseThrow(
+                () ->
+                    new SkillsRuleViolation(
+                        "global tools have no academic record; offer them through reviewed evidence"
+                            + " instead"));
+    Instant now = clock.instant();
+    skill.reEnableByReviewedEvidence(now);
+    offeredSkills.save(skill);
+    events.publishEvent(new SkillEnabled(tenantId, tutorId, catalogItemId, now));
     return skill;
   }
 }
