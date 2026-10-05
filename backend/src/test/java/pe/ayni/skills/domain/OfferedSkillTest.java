@@ -109,6 +109,69 @@ class OfferedSkillTest {
   }
 
   @Test
+  @DisplayName("a global tool starts pending, with no path and no grade")
+  void aGlobalToolStartsPending() {
+    OfferedSkill skill = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.PENDING);
+    assertThat(skill.isEnabled()).isFalse();
+    assertThat(skill.getAccreditationPath()).isNull();
+    assertThat(skill.getAccreditedGrade()).isNull();
+    assertThat(skill.getEnabledAt()).isNull();
+  }
+
+  @Test
+  @DisplayName("approving the evidence enables the skill by the reviewed evidence")
+  void approvingTheEvidenceEnablesTheSkill() {
+    OfferedSkill skill = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+
+    skill.approveByReviewedEvidence(NOW.plusSeconds(60));
+
+    assertThat(skill.isEnabled()).isTrue();
+    assertThat(skill.getAccreditationPath()).isEqualTo(AccreditationPath.REVIEWED_EVIDENCE);
+    assertThat(skill.getAccreditedGrade()).isNull();
+    assertThat(skill.getEnabledAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(skill.getUpdatedAt()).isEqualTo(NOW.plusSeconds(60));
+  }
+
+  @Test
+  @DisplayName("rejecting the evidence refuses the skill, and new evidence puts it back in the queue")
+  void rejectedEvidenceCanBeSubmittedAgain() {
+    OfferedSkill skill = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+
+    skill.rejectEvidence(NOW.plusSeconds(60));
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.REJECTED);
+    assertThat(skill.getUpdatedAt()).isEqualTo(NOW.plusSeconds(60));
+
+    skill.resubmitEvidence(NOW.plusSeconds(120));
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.PENDING);
+    assertThat(skill.getUpdatedAt()).isEqualTo(NOW.plusSeconds(120));
+  }
+
+  @Test
+  @DisplayName("only a pending skill can be approved or rejected")
+  void onlyAPendingSkillCanBeReviewed() {
+    OfferedSkill rejected = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+    rejected.rejectEvidence(NOW);
+    OfferedSkill enabled = enabledSkill(catalogItemId, THRESHOLD);
+
+    assertThatThrownBy(() -> rejected.approveByReviewedEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> rejected.rejectEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> enabled.rejectEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> enabled.approveByReviewedEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+  }
+
+  @Test
+  @DisplayName("only a rejected skill can be submitted again")
+  void onlyARejectedSkillCanBeSubmittedAgain() {
+    OfferedSkill pending = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+    OfferedSkill enabled = enabledSkill(catalogItemId, THRESHOLD);
+
+    assertThatThrownBy(() -> pending.resubmitEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> enabled.resubmitEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+  }
+
+  @Test
   @DisplayName("only a withdrawn skill can be enabled again")
   void onlyAWithdrawnSkillCanBeEnabledAgain() {
     OfferedSkill skill = enabledSkill(catalogItemId, THRESHOLD);
