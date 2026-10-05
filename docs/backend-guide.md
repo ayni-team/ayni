@@ -502,6 +502,8 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 | GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
 | GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
 | GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the case with its evidence, frozen as submitted, and the audit alerts (US29) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions` | coordinator — the sessions behind it: date, duration, course or skill taught; their hours add up to the total (US30) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions/{sessionId}` | coordinator — one session's evidence: attendance of both parties, presence verified, the tutor's rating (US30) |
 | POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator — approve or reject with a reason; decided once (US29) |
 
 **Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
@@ -530,6 +532,14 @@ really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where
 code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
 port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
 place says there are none.
+
+**Supporting sessions (US30).** `GET .../{id}/sessions` lists the sessions behind a request with the date,
+the duration and the course or skill taught (read through `SkillsApi.requireItem`); the hours listed
+add up to the total because both were copied at submission. `GET .../{id}/sessions/{sessionId}` opens
+one of them: the register of both participants (names through `IdentityApi`, presence verified when
+`SessionsApi.requireSession` says the session is `COMPLETED`, which is what both confirming their code
+means) and the tutor's rating as copied. A session is only reached through the request it backs. The
+per-participant arrival and confirmation times are not exposed by `SessionsApi` and are not shown.
 
 **Deciding (US29).** `POST .../decision` takes `APPROVE` or `REJECT` and a reason, required for both.
 It records who decided, when and why, publishes `RecognitionResolved` so notifications can tell the
