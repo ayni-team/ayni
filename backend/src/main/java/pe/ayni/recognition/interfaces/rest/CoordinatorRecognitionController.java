@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.recognition.application.RequestCaseQuery;
 import pe.ayni.recognition.application.RequestQueueQuery;
 import pe.ayni.recognition.application.ResolveRecognitionRequestUseCase;
+import pe.ayni.recognition.application.SessionEvidenceQuery;
 import pe.ayni.recognition.application.SupportingSessionsQuery;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -39,12 +40,15 @@ class CoordinatorRecognitionController {
   private final RequestCaseQuery requestCase;
   private final ResolveRecognitionRequestUseCase resolveRequest;
   private final SupportingSessionsQuery supportingSessions;
+  private final SessionEvidenceQuery sessionEvidence;
 
   CoordinatorRecognitionController(
       RequestQueueQuery queue,
       RequestCaseQuery requestCase,
       ResolveRecognitionRequestUseCase resolveRequest,
-      SupportingSessionsQuery supportingSessions) {
+      SupportingSessionsQuery supportingSessions,
+      SessionEvidenceQuery sessionEvidence) {
+    this.sessionEvidence = sessionEvidence;
     this.supportingSessions = supportingSessions;
     this.resolveRequest = resolveRequest;
     this.requestCase = requestCase;
@@ -180,6 +184,50 @@ class CoordinatorRecognitionController {
   SupportResponse support(@Parameter(description = "Identifier of the request") @PathVariable UUID id) {
     UUID coordinatorId = CurrentUser.require();
     return SupportResponse.of(supportingSessions.of(coordinatorId, id));
+  }
+
+  @GetMapping("/{id}/sessions/{sessionId}")
+  @Operation(
+      summary = "The evidence of one session behind a recognition request",
+      description =
+          """
+          US30: the detail of one of the sessions that support the request. The register of \
+          attendance of both participants, with whether the presence of each was verified, the \
+          rating the tutor received and what was taught.
+
+          Only sessions that back the request are found through it. The period, the hours and the \
+          rating are the ones copied when the request was submitted.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The evidence",
+      content = @Content(schema = @Schema(implementation = SessionEvidenceResponse.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator of the university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The request does not exist in this university, or the session does not back it",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  SessionEvidenceResponse sessionEvidence(
+      @Parameter(description = "Identifier of the request") @PathVariable UUID id,
+      @Parameter(description = "Identifier of the session") @PathVariable UUID sessionId) {
+    UUID coordinatorId = CurrentUser.require();
+    return SessionEvidenceResponse.of(sessionEvidence.of(coordinatorId, id, sessionId));
   }
 
   @PostMapping("/{id}/decision")
