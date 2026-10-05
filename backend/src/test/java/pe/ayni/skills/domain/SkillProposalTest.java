@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import pe.ayni.skills.domain.model.ProposalStatus;
 import pe.ayni.skills.domain.model.SkillProposal;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.domain.model.SkillsStateConflict;
 
 /** US42: what a student may propose, and the state in which a proposal is born. */
 class SkillProposalTest {
@@ -75,5 +76,120 @@ class SkillProposalTest {
     assertThatThrownBy(() -> propose("Figma", "x".repeat(501)))
         .isInstanceOf(SkillsRuleViolation.class);
     assertThat(propose("Figma", "x".repeat(500)).getDescription()).hasSize(500);
+  }
+
+  // ---- US43: how a moderator resolves it ----
+
+  private static final UUID MODERATOR = UUID.randomUUID();
+  private static final UUID ITEM = UUID.randomUUID();
+
+  @Test
+  @DisplayName("approving records who, when, and the catalogue item that was created")
+  void approvingRecordsWhoWhenAndTheItemCreated() {
+    SkillProposal proposal = propose("Figma", null);
+
+    proposal.approve(MODERATOR, ITEM, "  Widely used  ", NOW.plusSeconds(60));
+
+    assertThat(proposal.getStatus()).isEqualTo(ProposalStatus.APPROVED);
+    assertThat(proposal.isWaiting()).isFalse();
+    assertThat(proposal.getResolvedBy()).isEqualTo(MODERATOR);
+    assertThat(proposal.getResolvedAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(proposal.getCatalogItemId()).isEqualTo(ITEM);
+    assertThat(proposal.getDecisionReason()).isEqualTo("Widely used");
+  }
+
+  @Test
+  @DisplayName("a reason is optional when approving or merging, and a blank one is stored as none")
+  void aReasonIsOptionalWhenApprovingOrMerging() {
+    SkillProposal approved = propose("Figma", null);
+    approved.approve(MODERATOR, ITEM, "   ", NOW);
+    SkillProposal merged = propose("Figma", null);
+    merged.mergeInto(MODERATOR, ITEM, null, NOW);
+
+    assertThat(approved.getDecisionReason()).isNull();
+    assertThat(merged.getDecisionReason()).isNull();
+  }
+
+  @Test
+  @DisplayName("merging records the existing item, and no new one is implied")
+  void mergingRecordsTheExistingItem() {
+    SkillProposal proposal = propose("NodeJS", null);
+
+    proposal.mergeInto(MODERATOR, ITEM, "It is Node.js", NOW.plusSeconds(60));
+
+    assertThat(proposal.getStatus()).isEqualTo(ProposalStatus.MERGED);
+    assertThat(proposal.getResolvedBy()).isEqualTo(MODERATOR);
+    assertThat(proposal.getResolvedAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(proposal.getCatalogItemId()).isEqualTo(ITEM);
+    assertThat(proposal.getDecisionReason()).isEqualTo("It is Node.js");
+  }
+
+  @Test
+  @DisplayName("rejecting records who, when and the reason, and no catalogue item")
+  void rejectingRecordsWhoWhenAndTheReason() {
+    SkillProposal proposal = propose("Figma", null);
+
+    proposal.reject(MODERATOR, "  Not a tool we teach  ", NOW.plusSeconds(60));
+
+    assertThat(proposal.getStatus()).isEqualTo(ProposalStatus.REJECTED);
+    assertThat(proposal.getResolvedBy()).isEqualTo(MODERATOR);
+    assertThat(proposal.getResolvedAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(proposal.getDecisionReason()).isEqualTo("Not a tool we teach");
+    assertThat(proposal.getCatalogItemId()).isNull();
+  }
+
+  @Test
+  @DisplayName("a rejection without a reason is refused and the proposal keeps waiting")
+  void aRejectionWithoutAReasonIsRefused() {
+    SkillProposal proposal = propose("Figma", null);
+
+    assertThatThrownBy(() -> proposal.reject(MODERATOR, null, NOW)).isInstanceOf(SkillsRuleViolation.class);
+    assertThatThrownBy(() -> proposal.reject(MODERATOR, "   ", NOW)).isInstanceOf(SkillsRuleViolation.class);
+
+    assertThat(proposal.isWaiting()).isTrue();
+    assertThat(proposal.getResolvedBy()).isNull();
+  }
+
+  @Test
+  @DisplayName("a reason longer than the column holds is refused")
+  void aReasonLongerThanTheColumnHoldsIsRefused() {
+    SkillProposal proposal = propose("Figma", null);
+
+    assertThatThrownBy(() -> proposal.reject(MODERATOR, "x".repeat(501), NOW))
+        .isInstanceOf(SkillsRuleViolation.class);
+    assertThatThrownBy(() -> proposal.approve(MODERATOR, ITEM, "x".repeat(501), NOW))
+        .isInstanceOf(SkillsRuleViolation.class);
+    assertThat(proposal.isWaiting()).isTrue();
+  }
+
+  @Test
+  @DisplayName("a proposal is resolved once: any second decision is a conflict and changes nothing")
+  void aProposalIsResolvedOnce() {
+    SkillProposal proposal = propose("Figma", null);
+    proposal.approve(MODERATOR, ITEM, null, NOW);
+
+    assertThatThrownBy(() -> proposal.approve(UUID.randomUUID(), UUID.randomUUID(), null, NOW.plusSeconds(1)))
+        .isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> proposal.mergeInto(UUID.randomUUID(), UUID.randomUUID(), null, NOW.plusSeconds(1)))
+        .isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> proposal.reject(UUID.randomUUID(), "Changed my mind", NOW.plusSeconds(1)))
+        .isInstanceOf(SkillsStateConflict.class);
+
+    assertThat(proposal.getStatus()).isEqualTo(ProposalStatus.APPROVED);
+    assertThat(proposal.getResolvedBy()).isEqualTo(MODERATOR);
+    assertThat(proposal.getCatalogItemId()).isEqualTo(ITEM);
+    assertThat(proposal.getResolvedAt()).isEqualTo(NOW);
+  }
+
+  @Test
+  @DisplayName("a rejected or merged proposal cannot be resolved again either")
+  void aRejectedOrMergedProposalCannotBeResolvedAgain() {
+    SkillProposal rejected = propose("Figma", null);
+    rejected.reject(MODERATOR, "No", NOW);
+    SkillProposal merged = propose("Figma", null);
+    merged.mergeInto(MODERATOR, ITEM, null, NOW);
+
+    assertThatThrownBy(() -> rejected.approve(MODERATOR, ITEM, null, NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> merged.reject(MODERATOR, "No", NOW)).isInstanceOf(SkillsStateConflict.class);
   }
 }
