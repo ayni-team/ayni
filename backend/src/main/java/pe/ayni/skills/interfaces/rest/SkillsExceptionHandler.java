@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -15,6 +16,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
+import pe.ayni.skills.domain.model.NotACoordinator;
 import pe.ayni.skills.domain.model.NotTheOwner;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
@@ -25,7 +27,8 @@ import pe.ayni.skills.domain.model.SkillsStateConflict;
  * <p>It is declared for skills' controller alone, so each module keeps its own mapping: a refusal
  * that means one thing here should not quietly acquire a status code decided elsewhere.
  */
-@RestControllerAdvice(assignableTypes = SkillsController.class)
+@RestControllerAdvice(
+    assignableTypes = {SkillsController.class, CoordinatorValidationsController.class})
 class SkillsExceptionHandler {
 
   private final Clock clock;
@@ -51,6 +54,20 @@ class SkillsExceptionHandler {
   ResponseEntity<ApiError> handleSkillsRuleViolation(
       SkillsRuleViolation exception, HttpServletRequest request) {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /** Reviewing is for coordinators: the person is known in this university but is not one. */
+  @ExceptionHandler(NotACoordinator.class)
+  ResponseEntity<ApiError> handleNotACoordinator(
+      NotACoordinator exception, HttpServletRequest request) {
+    return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /** A body that is not JSON, or a decision that is neither APPROVE nor REJECT. */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  ResponseEntity<ApiError> handleUnreadableBody(
+      HttpMessageNotReadableException exception, HttpServletRequest request) {
+    return answer(HttpStatus.BAD_REQUEST, "the request body could not be read", request);
   }
 
   /** The skill exists in this university but is another tutor's: not allowed, which is not 404. */
