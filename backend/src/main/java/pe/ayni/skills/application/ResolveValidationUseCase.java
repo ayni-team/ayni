@@ -15,6 +15,7 @@ import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
 import pe.ayni.skills.domain.model.ValidationRequest;
+import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 import pe.ayni.skills.infrastructure.ValidationRequestRepository;
 
@@ -35,6 +36,7 @@ public class ResolveValidationUseCase {
   private final CoordinatorGuard coordinators;
   private final ValidationRequestRepository requests;
   private final OfferedSkillRepository offeredSkills;
+  private final CatalogItemRepository catalogItems;
   private final ApplicationEventPublisher events;
   private final Clock clock;
 
@@ -42,11 +44,13 @@ public class ResolveValidationUseCase {
       CoordinatorGuard coordinators,
       ValidationRequestRepository requests,
       OfferedSkillRepository offeredSkills,
+      CatalogItemRepository catalogItems,
       ApplicationEventPublisher events,
       Clock clock) {
     this.coordinators = coordinators;
     this.requests = requests;
     this.offeredSkills = offeredSkills;
+    this.catalogItems = catalogItems;
     this.events = events;
     this.clock = clock;
   }
@@ -81,6 +85,19 @@ public class ResolveValidationUseCase {
             .lockByTenantIdAndId(tenantId, request.getOfferedSkillId())
             .orElseThrow(
                 () -> new NoSuchElementException("the skill of request %s not found".formatted(requestId)));
+
+    if (approved) {
+      // A tool retired while the evidence waited cannot be enabled: that would put it back in the
+      // search. The coordinator can still reject the evidence.
+      catalogItems
+          .findById(skill.getCatalogItemId())
+          .filter(item -> !item.isActive())
+          .ifPresent(
+              retired -> {
+                throw new SkillsStateConflict(
+                    "this tool was retired from the catalogue, so its evidence can no longer be approved");
+              });
+    }
 
     Instant now = clock.instant();
     if (approved) {

@@ -94,7 +94,7 @@ public class SubmitEvidenceUseCase {
 
     CatalogItem item =
         catalogItems
-            .findByIdAndTenantVisibility(catalogItemId, tenantId)
+            .lockByIdAndTenantVisibilityForShare(catalogItemId, tenantId)
             .orElseThrow(
                 () -> new NoSuchElementException("catalog item %s not found".formatted(catalogItemId)));
     if (!item.isActive()) {

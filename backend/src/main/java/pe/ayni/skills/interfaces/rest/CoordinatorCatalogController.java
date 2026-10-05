@@ -7,14 +7,18 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogUsageQuery;
+import pe.ayni.skills.application.RetireCatalogItemUseCase;
 
 /**
  * What a coordinator does to keep the catalogue clean: see how much an item is used, retire it, join
@@ -30,9 +34,11 @@ import pe.ayni.skills.application.CatalogUsageQuery;
 class CoordinatorCatalogController {
 
   private final CatalogUsageQuery usage;
+  private final RetireCatalogItemUseCase retireItem;
 
-  CoordinatorCatalogController(CatalogUsageQuery usage) {
+  CoordinatorCatalogController(CatalogUsageQuery usage, RetireCatalogItemUseCase retireItem) {
     this.usage = usage;
+    this.retireItem = retireItem;
   }
 
   @GetMapping("/{id}/usage")
@@ -77,5 +83,61 @@ class CoordinatorCatalogController {
   CatalogUsageResponse usage(@Parameter(description = "Identifier of the item") @PathVariable UUID id) {
     UUID coordinatorId = CurrentUser.require();
     return CatalogUsageResponse.of(usage.of(coordinatorId, id));
+  }
+
+  @PostMapping("/{id}/retire")
+  @Operation(
+      summary = "Retires a catalogue item",
+      description =
+          """
+          US44: the item can no longer be offered and the search stops finding it. Every tutor who \
+          offered it has the offer withdrawn, and the sessions already booked stand.
+
+          The moderator first reads how many tutors are affected in the usage of the item, and \
+          confirms by sending that number as confirmedTutors. If it is no longer the number of \
+          tutors who offer the item, nothing is retired and the conflict says the number as it is \
+          now. Offers still waiting for a review are not counted: they can no longer be approved, \
+          and the coordinator rejects them.
+
+          A global tool is retired for every university.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The item was retired",
+      content = @Content(schema = @Schema(implementation = RetirementResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The confirmation is missing or negative, or the body cannot be read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The item does not exist, or is a course of another university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The item is already retired, or the number of tutors changed since it was read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  RetirementResponse retire(
+      @Parameter(description = "Identifier of the item") @PathVariable UUID id,
+      @Valid @RequestBody RetireCatalogItemRequest request) {
+    UUID coordinatorId = CurrentUser.require();
+    return RetirementResponse.of(retireItem.execute(coordinatorId, id, request.confirmedTutors()));
   }
 }
