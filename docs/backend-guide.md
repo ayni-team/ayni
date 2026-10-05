@@ -295,6 +295,7 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 | POST | `/api/v1/tutor/skills/{id}/validation` | student | submits evidence for a global tool |
 | GET | `/api/v1/coordinator/skill-proposals?status=` | coordinator | proposals of the university: the queue by default, the history with APPROVED, MERGED or REJECTED (US43) |
 | GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
+| POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 

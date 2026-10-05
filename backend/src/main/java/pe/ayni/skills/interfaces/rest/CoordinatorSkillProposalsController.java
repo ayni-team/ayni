@@ -7,17 +7,21 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.ModerationQuery;
+import pe.ayni.skills.application.ResolveProposalUseCase;
 import pe.ayni.skills.domain.model.ProposalStatus;
 
 /**
@@ -33,9 +37,12 @@ import pe.ayni.skills.domain.model.ProposalStatus;
 class CoordinatorSkillProposalsController {
 
   private final ModerationQuery moderation;
+  private final ResolveProposalUseCase resolveProposal;
 
-  CoordinatorSkillProposalsController(ModerationQuery moderation) {
+  CoordinatorSkillProposalsController(
+      ModerationQuery moderation, ResolveProposalUseCase resolveProposal) {
     this.moderation = moderation;
+    this.resolveProposal = resolveProposal;
   }
 
   @GetMapping
@@ -126,5 +133,66 @@ class CoordinatorSkillProposalsController {
       @Parameter(description = "Identifier of the proposal") @PathVariable UUID id) {
     UUID coordinatorId = CurrentUser.require();
     return ModerationDetailResponse.of(moderation.detail(coordinatorId, id));
+  }
+
+  @PostMapping("/{id}/decision")
+  @Operation(
+      summary = "Approves, joins or rejects a proposal",
+      description =
+          """
+          US43: APPROVE adds the tool to the catalogue as a global item, available to every \
+          university. MERGE joins the proposal to a skill the catalogue already has, given in \
+          catalogItemId, and creates nothing: the student reads that item in their proposals. \
+          REJECT needs a reason, because the student reads it. The proposal keeps who decided, \
+          when and how. A proposal is resolved once.
+
+          Approving a name the catalogue already has is refused with a conflict: join it instead.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The decision was recorded",
+      content = @Content(schema = @Schema(implementation = ProposalDecisionResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description =
+          "A rejection without a reason, a merge without an item, an item with another decision, a"
+              + " retired item, or a body that cannot be read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The proposal, or the item to join it to, is not visible in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The proposal was already resolved, or the catalogue already has that name",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  ProposalDecisionResponse decide(
+      @Parameter(description = "Identifier of the proposal") @PathVariable UUID id,
+      @Valid @RequestBody ProposalDecisionRequest request) {
+    UUID coordinatorId = CurrentUser.require();
+    return ProposalDecisionResponse.of(
+        resolveProposal.execute(
+            coordinatorId,
+            id,
+            ResolveProposalUseCase.Decision.valueOf(request.decision().name()),
+            request.catalogItemId(),
+            request.reason()));
   }
 }
