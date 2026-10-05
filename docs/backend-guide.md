@@ -501,7 +501,7 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 | POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
 | GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
 | GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
-| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
+| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the case with its evidence, frozen as submitted, and the audit alerts (US29) |
 | POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
 
 **Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
@@ -522,6 +522,14 @@ answer is a 409 with `missingHours`; with no rule in force it is a 409 too, with
 waits for its turn per student (`pg_advisory_xact_lock`), so two requests at once cannot take the
 same sessions; `RecognitionRequested` is published. The ratings come from the `SessionRatings` port:
 reputation has no rating per session to give yet, and the adapter in place says there are none.
+
+**Reviewing (US29).** The coordinator (checked in the use case through `IdentityApi.requireUser`, as
+in skills) reads the queue and then a case: the figures and the sessions of the request exactly as they
+were submitted, so reading it days later shows the same. Each session carries its date, how long it
+really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where both confirmed their
+code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
+port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
+place says there are none.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so

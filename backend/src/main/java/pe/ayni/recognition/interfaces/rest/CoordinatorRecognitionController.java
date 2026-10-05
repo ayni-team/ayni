@@ -9,9 +9,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.ayni.recognition.application.RequestCaseQuery;
 import pe.ayni.recognition.application.RequestQueueQuery;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -29,8 +31,10 @@ import pe.ayni.shared.tenancy.CurrentUser;
 class CoordinatorRecognitionController {
 
   private final RequestQueueQuery queue;
+  private final RequestCaseQuery requestCase;
 
-  CoordinatorRecognitionController(RequestQueueQuery queue) {
+  CoordinatorRecognitionController(RequestQueueQuery queue, RequestCaseQuery requestCase) {
+    this.requestCase = requestCase;
     this.queue = queue;
   }
 
@@ -78,5 +82,48 @@ class CoordinatorRecognitionController {
       @Parameter(description = "Requests per page, at most 100") @RequestParam(defaultValue = "20") int size) {
     UUID coordinatorId = CurrentUser.require();
     return QueueResponse.of(queue.of(coordinatorId, status, page, size));
+  }
+
+  @GetMapping("/{id}")
+  @Operation(
+      summary = "A recognition request with all its evidence",
+      description =
+          """
+          US29: the case to review. The sessions that back the request, each with its date, how long \
+          it really lasted, whether the presence of both participants was verified and the rating \
+          the tutor received. The alerts of the audit about those sessions appear next to them, \
+          and together in alerts.
+
+          The figures and the sessions are the ones the request was submitted with, so reading it \
+          days later shows the same: they do not change while the request is evaluated.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The case",
+      content = @Content(schema = @Schema(implementation = CaseResponse.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The request does not exist in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  CaseResponse requestCase(@Parameter(description = "Identifier of the request") @PathVariable UUID id) {
+    UUID coordinatorId = CurrentUser.require();
+    return CaseResponse.of(requestCase.of(coordinatorId, id));
   }
 }

@@ -2,6 +2,7 @@ package pe.ayni.recognition.infrastructure;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,9 @@ public interface RecognitionRequestRepository extends JpaRepository<RecognitionR
   /** The requests of the university in these states, the one that waited longest first. */
   Page<RecognitionRequest> findByTenantIdAndStatusInOrderBySubmittedAtAsc(
       String tenantId, Collection<RequestStatus> statuses, Pageable pageable);
+
+  /** A request of the university, which is how a coordinator never reaches another one's. */
+  Optional<RecognitionRequest> findByIdAndTenantId(UUID id, String tenantId);
 
   /** A student's requests, the latest first. */
   List<RecognitionRequest> findByTenantIdAndStudentIdOrderBySubmittedAtDesc(String tenantId, UUID studentId);
