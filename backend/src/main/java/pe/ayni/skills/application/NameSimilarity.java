@@ -45,6 +45,12 @@ final class NameSimilarity {
         sharedWords(a, b));
   }
 
+  /** The same name once case, accents, punctuation and spaces are ignored. */
+  static boolean isSameName(String first, String second) {
+    String a = normalise(first).replace(" ", "");
+    return !a.isEmpty() && a.equals(normalise(second).replace(" ", ""));
+  }
+
   static boolean areAlike(String first, String second) {
     return between(first, second) >= THRESHOLD;
   }
