@@ -18,6 +18,7 @@ import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
 import pe.ayni.skills.domain.model.NotACoordinator;
 import pe.ayni.skills.domain.model.NotTheOwner;
+import pe.ayni.skills.domain.model.SimilarSkillsFound;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
 
@@ -74,6 +75,14 @@ class SkillsExceptionHandler {
   @ExceptionHandler(NotTheOwner.class)
   ResponseEntity<ApiError> handleNotTheOwner(NotTheOwner exception, HttpServletRequest request) {
     return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /** A proposal that looks like what the catalogue has: a conflict that lists the similar skills. */
+  @ExceptionHandler(SimilarSkillsFound.class)
+  ResponseEntity<SimilarSkillsError> handleSimilarSkills(
+      SimilarSkillsFound exception, HttpServletRequest request) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(SimilarSkillsError.of(exception, request, clock.instant()));
   }
 
   /** Well formed, but the state of the skill refuses it, such as withdrawing one already withdrawn. */
