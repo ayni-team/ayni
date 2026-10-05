@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.recognition.application.RequestCaseQuery;
 import pe.ayni.recognition.application.RequestQueueQuery;
 import pe.ayni.recognition.application.ResolveRecognitionRequestUseCase;
+import pe.ayni.recognition.application.SupportingSessionsQuery;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.shared.tenancy.CurrentUser;
 
@@ -37,11 +38,14 @@ class CoordinatorRecognitionController {
   private final RequestQueueQuery queue;
   private final RequestCaseQuery requestCase;
   private final ResolveRecognitionRequestUseCase resolveRequest;
+  private final SupportingSessionsQuery supportingSessions;
 
   CoordinatorRecognitionController(
       RequestQueueQuery queue,
       RequestCaseQuery requestCase,
-      ResolveRecognitionRequestUseCase resolveRequest) {
+      ResolveRecognitionRequestUseCase resolveRequest,
+      SupportingSessionsQuery supportingSessions) {
+    this.supportingSessions = supportingSessions;
     this.resolveRequest = resolveRequest;
     this.requestCase = requestCase;
     this.queue = queue;
@@ -134,6 +138,48 @@ class CoordinatorRecognitionController {
   CaseResponse requestCase(@Parameter(description = "Identifier of the request") @PathVariable UUID id) {
     UUID coordinatorId = CurrentUser.require();
     return CaseResponse.of(requestCase.of(coordinatorId, id));
+  }
+
+  @GetMapping("/{id}/sessions")
+  @Operation(
+      summary = "The tutoring sessions behind a recognition request",
+      description =
+          """
+          US30: the list of sessions that support the request, each with its date, its duration and \
+          the course or skill that was taught, so the decision rests on concrete evidence and not \
+          only on a total.
+
+          The hours of the sessions listed add up to the total the student presented (listedHours \
+          and totalHours are the same): both were copied when the request was submitted.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The sessions",
+      content = @Content(schema = @Schema(implementation = SupportResponse.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator of the university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The request does not exist in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  SupportResponse support(@Parameter(description = "Identifier of the request") @PathVariable UUID id) {
+    UUID coordinatorId = CurrentUser.require();
+    return SupportResponse.of(supportingSessions.of(coordinatorId, id));
   }
 
   @PostMapping("/{id}/decision")
