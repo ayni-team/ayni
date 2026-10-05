@@ -316,6 +316,34 @@ created_at        timestamptz   NOT NULL DEFAULT now()
 UNIQUE (tenant_id, student_id, catalog_item_id)
 ```
 
+### `skills.skill_proposals`
+
+A tool a student asks to add to the catalogue because it is not there (US42). A moderator resolves
+it later (US43): approving it creates the catalogue item, rejecting it leaves a reason.
+
+```
+id               uuid          PK
+tenant_id        varchar(32)   NOT NULL
+proposed_by      uuid          NOT NULL
+category_id      uuid          NOT NULL REFERENCES skills.categories(id)
+name             varchar(160)  NOT NULL
+description      varchar(500)
+status           varchar(16)   NOT NULL   -- PROPOSED | APPROVED | REJECTED
+resolved_by      uuid
+resolved_at      timestamptz
+decision_reason  varchar(500)
+catalog_item_id  uuid          REFERENCES skills.catalog_items(id)   -- set by an approval
+created_at       timestamptz   NOT NULL DEFAULT now()
+
+CHECK  (status IN ('PROPOSED','APPROVED','REJECTED'))
+CHECK  (status = 'PROPOSED' OR (resolved_by IS NOT NULL AND resolved_at IS NOT NULL))
+UNIQUE (tenant_id, proposed_by, lower(name)) WHERE status = 'PROPOSED'
+INDEX  (tenant_id, created_at) WHERE status = 'PROPOSED'
+```
+
+A proposal is decided once, like a validation request. The unique index only holds while the
+proposal waits, so a student whose proposal was rejected can propose the name again.
+
 ---
 
 ## `booking`
