@@ -83,7 +83,7 @@ public class SubmitRecognitionRequestUseCase {
    *     are missing
    */
   @Transactional
-  public SubmittedRequest execute(UUID studentId) {
+  public RequestFile execute(UUID studentId) {
     Objects.requireNonNull(studentId, "studentId must not be null");
     identity.requireUser(studentId);
     String tenantId = TenantContext.require();
@@ -123,7 +123,7 @@ public class SubmitRecognitionRequestUseCase {
 
     events.publishEvent(
         new RecognitionRequested(tenantId, request.getId(), studentId, request.getTotalHours(), now));
-    return new SubmittedRequest(request, sessions);
+    return new RequestFile(request, sessions);
   }
 
   /** The oldest sessions, as many as it takes to reach the hours asked for. */
@@ -143,7 +143,4 @@ public class SubmitRecognitionRequestUseCase {
     }
     return backing;
   }
-
-  /** The request that was registered, with the sessions that back it. */
-  public record SubmittedRequest(RecognitionRequest request, List<RequestedSession> sessions) {}
 }

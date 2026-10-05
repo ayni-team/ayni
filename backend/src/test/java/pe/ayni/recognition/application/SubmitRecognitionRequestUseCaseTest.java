@@ -29,7 +29,6 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
 import pe.ayni.identity.IdentityApi;
-import pe.ayni.recognition.application.SubmitRecognitionRequestUseCase.SubmittedRequest;
 import pe.ayni.recognition.domain.model.InsufficientHours;
 import pe.ayni.recognition.domain.model.RecognitionRequest;
 import pe.ayni.recognition.domain.model.RecognitionRule;
@@ -94,8 +93,8 @@ class SubmitRecognitionRequestUseCaseTest {
     return new SessionSummary(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), start, start.plusSeconds(3600L * hours), hours);
   }
 
-  private SubmittedRequest submit() {
-    AtomicReference<SubmittedRequest> result = new AtomicReference<>();
+  private RequestFile submit() {
+    AtomicReference<RequestFile> result = new AtomicReference<>();
     TenantContext.runAs(UPC, () -> result.set(useCase.execute(STUDENT)));
     return result.get();
   }
@@ -107,7 +106,7 @@ class SubmitRecognitionRequestUseCaseTest {
     SessionSummary second = session(10);
     when(sessions.completedSessionsOf(STUDENT)).thenReturn(List.of(first, second));
 
-    SubmittedRequest submitted = submit();
+    RequestFile submitted = submit();
 
     RecognitionRequest request = submitted.request();
     assertThat(request.getStatus()).isEqualTo(RequestStatus.SUBMITTED);
@@ -132,7 +131,7 @@ class SubmitRecognitionRequestUseCaseTest {
     when(ratings.starsOf(List.of(first.sessionId(), second.sessionId())))
         .thenReturn(Map.of(first.sessionId(), 5, second.sessionId(), 4));
 
-    SubmittedRequest submitted = submit();
+    RequestFile submitted = submit();
 
     assertThat(submitted.request().getAverageRating()).isEqualByComparingTo(new BigDecimal("4.50"));
     assertThat(submitted.sessions()).extracting(RequestedSession::getStars).containsExactly(5, 4);
@@ -147,7 +146,7 @@ class SubmitRecognitionRequestUseCaseTest {
     SessionSummary d = session(8);
     when(sessions.completedSessionsOf(STUDENT)).thenReturn(List.of(a, b, c, d));
 
-    SubmittedRequest submitted = submit();
+    RequestFile submitted = submit();
 
     assertThat(submitted.sessions())
         .extracting(RequestedSession::getSessionId)
@@ -165,7 +164,7 @@ class SubmitRecognitionRequestUseCaseTest {
     when(requestedSessions.findClaimed(UPC, List.of(used.sessionId(), free1.sessionId(), free2.sessionId())))
         .thenReturn(List.of(used.sessionId()));
 
-    SubmittedRequest submitted = submit();
+    RequestFile submitted = submit();
 
     assertThat(submitted.sessions())
         .extracting(RequestedSession::getSessionId)
@@ -177,7 +176,7 @@ class SubmitRecognitionRequestUseCaseTest {
   void itAnnouncesTheRequest() {
     when(sessions.completedSessionsOf(STUDENT)).thenReturn(List.of(session(20)));
 
-    SubmittedRequest submitted = submit();
+    RequestFile submitted = submit();
 
     ArgumentCaptor<RecognitionRequested> event = ArgumentCaptor.forClass(RecognitionRequested.class);
     verify(events).publishEvent(event.capture());
