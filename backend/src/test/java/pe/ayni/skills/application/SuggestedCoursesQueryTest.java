@@ -26,6 +26,7 @@ import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.CatalogItemStatus;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
+import pe.ayni.skills.infrastructure.AcademicSettingsRepository;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -40,7 +41,11 @@ class SuggestedCoursesQueryTest {
   private final OfferedSkillRepository offeredSkills = mock(OfferedSkillRepository.class);
   private final IdentityApi identity = mock(IdentityApi.class);
   private final SuggestedCoursesQuery query =
-      new SuggestedCoursesQuery(catalogItems, offeredSkills, identity);
+      new SuggestedCoursesQuery(
+          catalogItems,
+          offeredSkills,
+          identity,
+          new TeachingThreshold(mock(AcademicSettingsRepository.class), identity));
 
   private static CatalogItem course(String courseCode) {
     return new CatalogItem(
