@@ -12,9 +12,13 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +29,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogQuery;
 import pe.ayni.skills.application.OfferApprovedCourseUseCase;
+import pe.ayni.skills.application.SubmitEvidenceUseCase;
 import pe.ayni.skills.application.SuggestedCoursesQuery;
 import pe.ayni.skills.application.TutorSkillsQuery;
 import pe.ayni.skills.application.WithdrawSkillUseCase;
@@ -54,18 +60,21 @@ class SkillsController {
   private final TutorSkillsQuery tutorSkills;
   private final OfferApprovedCourseUseCase offerApprovedCourse;
   private final WithdrawSkillUseCase withdrawSkill;
+  private final SubmitEvidenceUseCase submitEvidenceUseCase;
 
   SkillsController(
       CatalogQuery catalog,
       SuggestedCoursesQuery suggestions,
       TutorSkillsQuery tutorSkills,
       OfferApprovedCourseUseCase offerApprovedCourse,
-      WithdrawSkillUseCase withdrawSkill) {
+      WithdrawSkillUseCase withdrawSkill,
+      SubmitEvidenceUseCase submitEvidenceUseCase) {
     this.catalog = catalog;
     this.suggestions = suggestions;
     this.tutorSkills = tutorSkills;
     this.offerApprovedCourse = offerApprovedCourse;
     this.withdrawSkill = withdrawSkill;
+    this.submitEvidenceUseCase = submitEvidenceUseCase;
   }
 
   @GetMapping("/catalog")
@@ -250,5 +259,90 @@ class SkillsController {
   void withdraw(@PathVariable UUID id) {
     UUID tutorId = CurrentUser.require();
     withdrawSkill.execute(tutorId, id);
+  }
+
+  @PostMapping(path = "/tutor/skills/{id}/validation", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Presents evidence for a global tool",
+      description =
+          """
+          US16: a tutor who learned a tool by working attaches a portfolio or a certificate, and \
+          it waits for a coordinator of their university. The identifier in the path is the one of \
+          the catalogue item, because the skill does not exist until the first submission.
+
+          Between one and three files, each a PDF, a PNG or a JPEG of at most 5 MB. The first \
+          submission creates the skill as pending. After a rejection the same call puts it back \
+          in the queue with the new files, and the earlier submission stays as history. Courses \
+          are refused: they are enabled by the academic record.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Tutor making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "11111111-1111-4111-8111-111111111111"))
+  @ApiResponse(
+      responseCode = "201",
+      description = "The evidence was received and waits for a review",
+      content = @Content(schema = @Schema(implementation = EvidenceSubmissionResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "No files, too many, too big, not a PDF or an image, or the item is a course",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The catalogue item does not exist, or is not visible to this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The evidence already waits for a review, or the tool is already enabled",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  EvidenceSubmissionResponse submitEvidence(
+      @Parameter(description = "Identifier of the catalogue item, a global tool") @PathVariable UUID id,
+      @Parameter(description = "Anything the reviewer should know, at most 1000 characters")
+          @RequestParam(required = false)
+          String note,
+      @Parameter(description = "The portfolio or certificate: one to three PDF, PNG or JPEG files")
+          @RequestParam("files")
+          List<MultipartFile> files)
+      throws IOException {
+    UUID tutorId = CurrentUser.require();
+
+    List<InputStream> opened = new ArrayList<>(files.size());
+    try {
+      List<SubmitEvidenceUseCase.EvidenceFileInput> inputs = new ArrayList<>(files.size());
+      for (MultipartFile file : files) {
+        InputStream stream = file.getInputStream();
+        opened.add(stream);
+        inputs.add(
+            new SubmitEvidenceUseCase.EvidenceFileInput(
+                plainName(file.getOriginalFilename()), file.getContentType(), file.getSize(), stream));
+      }
+      return EvidenceSubmissionResponse.of(submitEvidenceUseCase.execute(tutorId, id, note, inputs));
+    } finally {
+      for (InputStream stream : opened) {
+        try {
+          stream.close();
+        } catch (IOException ignored) {
+          // Nothing left to read from it, and the answer is already decided.
+        }
+      }
+    }
+  }
+
+  /** The name without the folders some browsers send along with it. */
+  private static String plainName(String original) {
+    if (original == null) {
+      return "";
+    }
+    return original.substring(Math.max(original.lastIndexOf('/'), original.lastIndexOf('\\')) + 1);
   }
 }

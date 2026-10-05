@@ -8,9 +8,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
 import pe.ayni.skills.domain.model.NotTheOwner;
@@ -62,6 +64,15 @@ class SkillsExceptionHandler {
   ResponseEntity<ApiError> handleStateConflict(
       SkillsStateConflict exception, HttpServletRequest request) {
     return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  /** The files of a submission were not sent at all. */
+  @ExceptionHandler({
+    MissingServletRequestPartException.class,
+    MissingServletRequestParameterException.class
+  })
+  ResponseEntity<ApiError> handleMissingPart(Exception exception, HttpServletRequest request) {
+    return answer(HttpStatus.BAD_REQUEST, "attach at least one file: a portfolio or a certificate", request);
   }
 
   /** A path parameter that is not an identifier. */
