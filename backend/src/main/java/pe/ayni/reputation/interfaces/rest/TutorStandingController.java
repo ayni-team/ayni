@@ -1,5 +1,6 @@
 package pe.ayni.reputation.interfaces.rest;
 
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -16,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.reputation.TutorStandingView;
 import pe.ayni.reputation.application.TutorStandingQuery;
+import pe.ayni.reputation.application.RateSessionUseCase;
+import pe.ayni.shared.tenancy.CurrentUser;
+
 
 /**
  * A tutor's standing in one course, which a student reads to choose between tutors (US02).

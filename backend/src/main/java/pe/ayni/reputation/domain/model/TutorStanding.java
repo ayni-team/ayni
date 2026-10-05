@@ -7,8 +7,10 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.UUID;
+
 
 /**
  * A tutor's standing in one skill: a projection rebuilt from completed sessions and ratings.
@@ -82,6 +84,26 @@ public class TutorStanding {
     public void recordCompletedSession(Instant occurredOn) {
         this.sessionsTaught++;
         this.updatedAt = occurredOn;
+
+    }
+    public void recordRating(int stars, Instant occurredOn) {
+        if (stars < 1 || stars > 5) {
+            throw new IllegalArgumentException("Stars must be between 1 and 5");
+        }
+
+        BigDecimal previousTotal =
+                averageStars == null
+                        ? BigDecimal.ZERO
+                        : averageStars.multiply(BigDecimal.valueOf(ratingsCount));
+
+        ratingsCount++;
+
+        averageStars =
+                previousTotal
+                        .add(BigDecimal.valueOf(stars))
+                        .divide(BigDecimal.valueOf(ratingsCount), 2, RoundingMode.HALF_UP);
+
+        updatedAt = occurredOn;
     }
 
     public TutorStanding(

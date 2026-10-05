@@ -12,45 +12,74 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import pe.ayni.reputation.domain.model.RatingWindow;
 import pe.ayni.reputation.domain.model.TutorStanding;
+import pe.ayni.reputation.infrastructure.RatingWindowRepository;
 import pe.ayni.reputation.infrastructure.TutorStandingRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
 class RecordCompletedSessionTest {
 
     @Test
-    void createsStandingOnFirstCompletedSession() {
+    void createsStandingAndRatingWindowOnFirstCompletedSession() {
         String tenantId = "upc";
+        UUID sessionId = UUID.randomUUID();
         UUID tutorId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
         UUID catalogItemId = UUID.randomUUID();
         Instant occurredOn = Instant.parse("2026-09-22T20:00:00Z");
 
         TutorStandingRepository standings = mock(TutorStandingRepository.class);
+        RatingWindowRepository ratingWindows = mock(RatingWindowRepository.class);
 
         when(
                 standings.findByTenantIdAndTutorIdAndCatalogItemId(
                         tenantId, tutorId, catalogItemId))
                 .thenReturn(Optional.empty());
 
-        RecordCompletedSession useCase = new RecordCompletedSession(standings);
+        when(ratingWindows.findByTenantIdAndSessionId(tenantId, sessionId))
+                .thenReturn(Optional.empty());
+
+        RecordCompletedSession useCase =
+                new RecordCompletedSession(standings, ratingWindows);
 
         TenantContext.runAs(
                 tenantId,
-                () -> useCase.record(tutorId, catalogItemId, occurredOn));
+                () ->
+                        useCase.record(
+                                sessionId,
+                                tutorId,
+                                studentId,
+                                catalogItemId,
+                                occurredOn));
 
-        ArgumentCaptor<TutorStanding> captor =
+        ArgumentCaptor<TutorStanding> standingCaptor =
                 ArgumentCaptor.forClass(TutorStanding.class);
 
-        verify(standings).save(captor.capture());
+        verify(standings).save(standingCaptor.capture());
 
-        TutorStanding saved = captor.getValue();
+        TutorStanding savedStanding = standingCaptor.getValue();
 
-        assertEquals(tenantId, saved.tenantId());
-        assertEquals(tutorId, saved.tutorId());
-        assertEquals(catalogItemId, saved.catalogItemId());
-        assertEquals(1, saved.sessionsTaught());
-        assertEquals(0, saved.ratingsCount());
-        assertNull(saved.averageStars());
-        assertEquals(occurredOn, saved.updatedAt());
+        assertEquals(tenantId, savedStanding.tenantId());
+        assertEquals(tutorId, savedStanding.tutorId());
+        assertEquals(catalogItemId, savedStanding.catalogItemId());
+        assertEquals(1, savedStanding.sessionsTaught());
+        assertEquals(0, savedStanding.ratingsCount());
+        assertNull(savedStanding.averageStars());
+        assertEquals(occurredOn, savedStanding.updatedAt());
+
+        ArgumentCaptor<RatingWindow> windowCaptor =
+                ArgumentCaptor.forClass(RatingWindow.class);
+
+        verify(ratingWindows).save(windowCaptor.capture());
+
+        RatingWindow savedWindow = windowCaptor.getValue();
+
+        assertEquals(tenantId, savedWindow.tenantId());
+        assertEquals(sessionId, savedWindow.sessionId());
+        assertEquals(tutorId, savedWindow.tutorId());
+        assertEquals(studentId, savedWindow.studentId());
+        assertEquals(catalogItemId, savedWindow.catalogItemId());
+        assertEquals(occurredOn, savedWindow.openedAt());
     }
 }
