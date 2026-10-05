@@ -11,8 +11,20 @@ import org.springframework.data.repository.query.Param;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 
-/** Every method takes the university: no query here may cross into another one's tutors. */
+/**
+ * Every method takes the university: no query here may cross into another one's tutors. The one
+ * exception is {@link #countByCatalogItemIdAndStatus}, which only counts.
+ */
 public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID> {
+
+  /**
+   * How many tutors hold the item in the given status, in every university.
+   *
+   * <p>A tutor holds one row per item, and belongs to one university, so this is a count of tutors.
+   * It takes no university because a global tool is offered in all of them and a moderator who
+   * retires it must see how many are affected. It returns a number and never a row about a person.
+   */
+  long countByCatalogItemIdAndStatus(UUID catalogItemId, OfferedSkillStatus status);
 
   Optional<OfferedSkill> findByTenantIdAndTutorIdAndCatalogItemId(
       String tenantId, UUID tutorId, UUID catalogItemId);
