@@ -500,7 +500,7 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 | GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
 | POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
 | GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
-| GET | `/api/v1/coordinator/recognition/requests` | coordinator — queue with audit flags |
+| GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
 | GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
 | POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
 
