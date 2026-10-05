@@ -8,11 +8,13 @@ import org.springframework.stereotype.Component;
 import pe.ayni.notifications.application.Email;
 import pe.ayni.notifications.application.EmailDelivery;
 import pe.ayni.notifications.application.EmailNotDelivered;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Sends email over SMTP, to whichever server {@code spring.mail.*} names: Mailpit under {@code
  * docker compose}, the university's relay in a deployment.
  */
+@Profile("!dev")
 @Component
 class SmtpEmailDelivery implements EmailDelivery {
 
