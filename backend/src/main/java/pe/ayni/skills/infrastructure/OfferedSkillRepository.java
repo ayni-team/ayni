@@ -13,7 +13,8 @@ import pe.ayni.skills.domain.model.OfferedSkillStatus;
 
 /**
  * Every method takes the university: no query here may cross into another one's tutors. The one
- * exceptions are {@link #countByCatalogItemIdAndStatus} and {@link #lockByCatalogItemIdAndStatus},
+ * exceptions are {@link #countByCatalogItemIdAndStatus}, {@link #lockByCatalogItemIdAndStatus} and
+ * {@link #lockByCatalogItemId},
  * which serve the moderator who retires or joins an item that every university may hold.
  */
 public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID> {
@@ -40,6 +41,14 @@ public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID
       """)
   List<OfferedSkill> lockByCatalogItemIdAndStatus(
       @Param("catalogItemId") UUID catalogItemId, @Param("status") OfferedSkillStatus status);
+
+  /**
+   * Every offer of the item, whatever its status, in every university, locked until the transaction
+   * ends. Only for joining two items, which moves what every tutor holds on one to the other.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select skill from OfferedSkill skill where skill.catalogItemId = :catalogItemId")
+  List<OfferedSkill> lockByCatalogItemId(@Param("catalogItemId") UUID catalogItemId);
 
   Optional<OfferedSkill> findByTenantIdAndTutorIdAndCatalogItemId(
       String tenantId, UUID tutorId, UUID catalogItemId);

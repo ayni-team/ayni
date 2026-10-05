@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogUsageQuery;
+import pe.ayni.skills.application.MergeCatalogItemsUseCase;
 import pe.ayni.skills.application.RetireCatalogItemUseCase;
 
 /**
@@ -35,10 +36,15 @@ class CoordinatorCatalogController {
 
   private final CatalogUsageQuery usage;
   private final RetireCatalogItemUseCase retireItem;
+  private final MergeCatalogItemsUseCase mergeItems;
 
-  CoordinatorCatalogController(CatalogUsageQuery usage, RetireCatalogItemUseCase retireItem) {
+  CoordinatorCatalogController(
+      CatalogUsageQuery usage,
+      RetireCatalogItemUseCase retireItem,
+      MergeCatalogItemsUseCase mergeItems) {
     this.usage = usage;
     this.retireItem = retireItem;
+    this.mergeItems = mergeItems;
   }
 
   @GetMapping("/{id}/usage")
@@ -139,5 +145,58 @@ class CoordinatorCatalogController {
       @Valid @RequestBody RetireCatalogItemRequest request) {
     UUID coordinatorId = CurrentUser.require();
     return RetirementResponse.of(retireItem.execute(coordinatorId, id, request.confirmedTutors()));
+  }
+
+  @PostMapping("/{id}/merge")
+  @Operation(
+      summary = "Joins a duplicate item to the one that stays",
+      description =
+          """
+          US44: two items that are the same skill become one. The item in the path is the duplicate           and is retired; intoCatalogItemId is the one that stays.
+
+          Everything the duplicate had moves to the one that stays: the offers and accreditations of           its tutors keep their status, and an enabled tutor keeps being found in the search. A tutor           who already held both keeps the one on the item that stays and has the other withdrawn. The           learning interests, the proposals that ended in the duplicate and the sessions counted on           it follow. The sessions already booked stand.
+
+          The two must be the same kind of thing: two global tools, or two courses of the           university. A course is never joined to a tool.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The items were joined",
+      content = @Content(schema = @Schema(implementation = MergeResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description =
+          "The same item twice, a course with a tool, the item that would stay is retired, or the body"
+              + " cannot be read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "An item does not exist, or is a course of another university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The duplicate is already retired",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  MergeResponse merge(
+      @Parameter(description = "Identifier of the duplicate, which is retired") @PathVariable UUID id,
+      @Valid @RequestBody MergeCatalogItemsRequest request) {
+    UUID coordinatorId = CurrentUser.require();
+    return MergeResponse.of(mergeItems.execute(coordinatorId, id, request.intoCatalogItemId()));
   }
 }

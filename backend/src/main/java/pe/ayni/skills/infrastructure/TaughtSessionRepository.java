@@ -21,6 +21,19 @@ public interface TaughtSessionRepository extends JpaRepository<TaughtSession, UU
   long countByCatalogItemId(UUID catalogItemId);
 
   /**
+   * Counts the sessions taught on {@code source} as taught on {@code target}, because the two items
+   * were joined and what was taught on one was taught on the skill that stays.
+   *
+   * @return how many sessions moved
+   */
+  @Transactional
+  @Modifying
+  @Query(
+      value = "update skills.taught_sessions set catalog_item_id = :target where catalog_item_id = :source",
+      nativeQuery = true)
+  int carryOver(@Param("source") UUID source, @Param("target") UUID target);
+
+  /**
    * Records that the session was taught on the item, unless it already is.
    *
    * <p>An announcement can reach a listener more than once, and the count must not grow with it.

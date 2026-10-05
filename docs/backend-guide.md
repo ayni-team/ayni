@@ -301,6 +301,7 @@ already depends on skills, and the modules would depend on each other.
 | POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
 | GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it; counts only, every university for a global tool (US44) |
 | POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires an item and withdraws every offer of it; the body confirms the number of tutors affected (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate item to the one that stays: offers, interests, proposals and counted sessions follow, the duplicate is retired (US44) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
