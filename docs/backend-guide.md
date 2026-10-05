@@ -497,12 +497,21 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/v1/recognition/progress` | student — hours so far against what is required |
+| GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
 | POST | `/api/v1/recognition/requests` | student |
 | GET | `/api/v1/recognition/requests/mine` | student |
 | GET | `/api/v1/coordinator/recognition/requests` | coordinator — queue with audit flags |
 | GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
 | POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
+
+**Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
+`COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the
+`minimum_hours` of the rule in force of the university (`recognition.rules`, the latest one started
+and not superseded). It does not call `WalletApi.earnedTotal`: wallet credits the tutor from a
+listener, after the session, and keep counting after a request used the session, while the sessions
+are what the request is made of. Credits assigned by the university or bought are never in the figure
+since no session stands behind them. A university with no rule has not opened recognition: the
+required and missing hours are absent and `canRequest` is false.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
