@@ -13,7 +13,6 @@ import pe.ayni.recognition.domain.model.RecognitionProgress;
 import pe.ayni.recognition.domain.model.RecognitionRule;
 import pe.ayni.recognition.infrastructure.RecognitionRuleRepository;
 import pe.ayni.sessions.SessionSummary;
-import pe.ayni.sessions.SessionsApi;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -21,22 +20,26 @@ import pe.ayni.shared.tenancy.TenantContext;
  * missing.
  *
  * <p>The hours come from the verified sessions the student taught, read from sessions at the moment
- * of asking. Nothing is kept in between, so a session that just completed is counted on the next
- * read: there is no figure that could be late. Credits the university assigned and credits the
- * student bought are not counted, since no session stands behind them.
+ * of asking, leaving out the ones a request already used. Nothing is kept in between, so a session
+ * that just completed is counted on the next read: there is no figure that could be late. Credits
+ * the university assigned and credits the student bought are not counted, since no session stands
+ * behind them.
  */
 @Service
 public class ProgressQuery {
 
   private final IdentityApi identity;
-  private final SessionsApi sessions;
+  private final UnclaimedSessions unclaimed;
   private final RecognitionRuleRepository rules;
   private final Clock clock;
 
   ProgressQuery(
-      IdentityApi identity, SessionsApi sessions, RecognitionRuleRepository rules, Clock clock) {
+      IdentityApi identity,
+      UnclaimedSessions unclaimed,
+      RecognitionRuleRepository rules,
+      Clock clock) {
     this.identity = identity;
-    this.sessions = sessions;
+    this.unclaimed = unclaimed;
     this.rules = rules;
     this.clock = clock;
   }
@@ -50,7 +53,7 @@ public class ProgressQuery {
     identity.requireUser(studentId);
     String tenantId = TenantContext.require();
 
-    List<SessionSummary> taught = sessions.completedSessionsOf(studentId);
+    List<SessionSummary> taught = unclaimed.of(studentId);
     int hours = taught.stream().mapToInt(SessionSummary::hours).sum();
     Integer required =
         rules
