@@ -153,8 +153,10 @@ class SkillsController {
           US13: enabled the moment the grade the academic system reports clears the university's \
           threshold, with no further steps.
 
-          Only university courses go through here. A global tool has no academic record to check \
-          against, and is refused with a message pointing at reviewed evidence instead.
+          Only university courses are enabled here. A global tool has no academic record to check \
+          against, and is refused with a message pointing at reviewed evidence instead, with one \
+          exception: a tool the tutor withdrew after a coordinator accepted their evidence is \
+          enabled again without a new review.
           """)
   @Parameter(
       in = ParameterIn.HEADER,

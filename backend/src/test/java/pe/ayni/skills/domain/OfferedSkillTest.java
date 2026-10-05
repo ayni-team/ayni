@@ -172,6 +172,36 @@ class OfferedSkillTest {
   }
 
   @Test
+  @DisplayName("a withdrawn tool with accepted evidence is offered again without a new review")
+  void aWithdrawnToolIsOfferedAgainWithoutANewReview() {
+    OfferedSkill skill = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+    skill.approveByReviewedEvidence(NOW.plusSeconds(60));
+    skill.withdraw(NOW.plusSeconds(120));
+
+    skill.reEnableByReviewedEvidence(NOW.plusSeconds(180));
+
+    assertThat(skill.isEnabled()).isTrue();
+    assertThat(skill.getAccreditationPath()).isEqualTo(AccreditationPath.REVIEWED_EVIDENCE);
+    assertThat(skill.getEnabledAt()).isEqualTo(NOW.plusSeconds(180));
+    assertThat(skill.getUpdatedAt()).isEqualTo(NOW.plusSeconds(180));
+  }
+
+  @Test
+  @DisplayName("only a withdrawn tool accredited by evidence is offered again this way")
+  void onlyAWithdrawnToolAccreditedByEvidenceIsOfferedAgain() {
+    OfferedSkill enabledTool = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+    enabledTool.approveByReviewedEvidence(NOW);
+    OfferedSkill withdrawnCourse = enabledSkill(catalogItemId, THRESHOLD);
+    withdrawnCourse.withdraw(NOW);
+    OfferedSkill rejectedTool = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, catalogItemId, NOW);
+    rejectedTool.rejectEvidence(NOW);
+
+    assertThatThrownBy(() -> enabledTool.reEnableByReviewedEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> withdrawnCourse.reEnableByReviewedEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+    assertThatThrownBy(() -> rejectedTool.reEnableByReviewedEvidence(NOW)).isInstanceOf(SkillsStateConflict.class);
+  }
+
+  @Test
   @DisplayName("only a withdrawn skill can be enabled again")
   void onlyAWithdrawnSkillCanBeEnabledAgain() {
     OfferedSkill skill = enabledSkill(catalogItemId, THRESHOLD);

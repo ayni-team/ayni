@@ -168,7 +168,8 @@ public class SubmitEvidenceUseCase {
       case ENABLED -> throw new SkillsStateConflict("you already offer this tool");
       case WITHDRAWN ->
           throw new SkillsStateConflict(
-              "you withdrew this tool and its evidence was already accepted, so it needs no new submission");
+              "you withdrew this tool and its evidence was already accepted: offer it again, no new"
+                  + " submission is needed");
     }
     return skill;
   }
