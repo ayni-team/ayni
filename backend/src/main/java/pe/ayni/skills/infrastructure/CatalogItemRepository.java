@@ -33,6 +33,16 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
       @Param("namePattern") String namePattern,
       Pageable pageable);
 
+  /** Every item in the given status visible to the university, to compare a name against all. */
+  @Query(
+      """
+      select item from CatalogItem item
+      where item.status = :status
+        and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
+      """)
+  List<CatalogItem> findVisible(
+      @Param("tenantId") String tenantId, @Param("status") CatalogItemStatus status);
+
   @Query(
       """
       select item from CatalogItem item
