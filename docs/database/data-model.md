@@ -339,6 +339,23 @@ is read without a university on purpose: a global tool is taught in all of them,
 who retires it must see all of them. It starts empty, so the sessions completed before it existed
 are not counted.
 
+### `skills.academic_settings`
+
+What a university decides about its courses (US51). Today only the minimum grade a student needs in a
+course to teach it. One row per university, created the first time a coordinator sets it.
+
+```
+tenant_id               varchar(32)   PK
+minimum_teaching_grade  numeric(4,2)  NOT NULL CHECK (0 to 20)
+updated_by              uuid          NOT NULL
+updated_at              timestamptz   NOT NULL
+```
+
+A university with no row keeps the `identity.tenants.minimum_teaching_grade` it was registered with:
+skills reads the row first and falls back to identity, so the two never disagree about which grade is
+in force. Changing it never touches an offer already enabled, which keeps the grade it was enabled with
+in `offered_skills.accredited_grade`.
+
 ### `skills.skill_proposals`
 
 A tool a student asks to add to the catalogue because it is not there (US42). A moderator resolves

@@ -107,6 +107,20 @@ public class CatalogItem {
     this.status = CatalogItemStatus.RETIRED;
   }
 
+  /**
+   * Brings a retired course back, which is what a university does when it lists it in its curriculum
+   * again. The offers that were withdrawn when it was retired stay withdrawn: tutors offer it anew.
+   */
+  public void reinstate() {
+    this.status = CatalogItemStatus.ACTIVE;
+  }
+
+  /** What the university calls the course and how it describes it. Its code never changes. */
+  public void describe(String name, String description) {
+    this.name = requireNonBlank(name, "name");
+    this.description = description;
+  }
+
   public boolean isActive() {
     return this.status == CatalogItemStatus.ACTIVE;
   }

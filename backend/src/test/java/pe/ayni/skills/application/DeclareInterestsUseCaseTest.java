@@ -27,6 +27,7 @@ import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.LearningInterest;
 import pe.ayni.skills.domain.model.OfferedSkill;
+import pe.ayni.skills.infrastructure.AcademicSettingsRepository;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.LearningInterestRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
@@ -58,6 +59,7 @@ class DeclareInterestsUseCaseTest {
           catalogItems,
           offeredSkills,
           identity,
+          new TeachingThreshold(mock(AcademicSettingsRepository.class), identity),
           mock(ApplicationEventPublisher.class),
           Clock.fixed(NOW, ZoneOffset.UTC));
   private final DeclareInterestsUseCase useCase =

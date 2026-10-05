@@ -26,6 +26,7 @@ import pe.ayni.skills.CatalogItemView;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
+import pe.ayni.skills.infrastructure.AcademicSettingsRepository;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.LearningInterestRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
@@ -50,6 +51,7 @@ class SkillsServiceTest {
           catalogItems,
           offeredSkills,
           identity,
+          new TeachingThreshold(mock(AcademicSettingsRepository.class), identity),
           mock(ApplicationEventPublisher.class),
           Clock.fixed(NOW, ZoneOffset.UTC));
   private final DeclareInterestsUseCase declareInterests =

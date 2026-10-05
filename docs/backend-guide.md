@@ -301,6 +301,11 @@ already depends on skills, and the modules would depend on each other.
 | POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
 | GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it; counts only, every university for a global tool (US44) |
 | POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires an item and withdraws every offer of it; the body confirms the number of tutors affected (US44) |
+| GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses/{id}/retire` | coordinator | takes a course of the university out: same effect and confirmation as retiring an item; a global tool is not found here (US51) |
+| GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
+| PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
 | POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate item to the one that stays: offers, interests, proposals and counted sessions follow, the duplicate is retired (US44) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
