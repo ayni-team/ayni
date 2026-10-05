@@ -16,8 +16,10 @@ import java.util.UUID;
  *
  * <p>A university course reaches {@link OfferedSkillStatus#ENABLED} on its own when the grade
  * clears the university's threshold ({@link #enableByAcademicRecord}, US13). A global tool can
- * only reach it through reviewed evidence, because no academic record can vouch for it; that path
- * is not built by this class yet.
+ * only reach it through reviewed evidence, because no academic record can vouch for it (US16): it
+ * is born {@link OfferedSkillStatus#PENDING} by {@link #requestValidation}, and a coordinator
+ * either enables it with {@link #approveByReviewedEvidence} or sends it to {@link
+ * OfferedSkillStatus#REJECTED}, from where the tutor submits again with {@link #resubmitEvidence}.
  */
 @Entity
 @Table(schema = "skills", name = "offered_skills")
@@ -114,6 +116,60 @@ public class OfferedSkill {
         grade,
         now,
         now);
+  }
+
+  /**
+   * Starts the offer of a global tool: waiting for a coordinator to review the evidence.
+   *
+   * <p>No accreditation path yet, and nothing to copy: the path is decided by whoever enables it.
+   */
+  public static OfferedSkill requestValidation(
+      UUID id, String tenantId, UUID tutorId, UUID catalogItemId, Instant now) {
+    return new OfferedSkill(
+        id, tenantId, tutorId, catalogItemId, OfferedSkillStatus.PENDING, null, null, null, now);
+  }
+
+  /**
+   * Puts a rejected skill back in the queue, because the tutor submitted new evidence.
+   *
+   * @throws SkillsStateConflict when the skill was not rejected
+   */
+  public void resubmitEvidence(Instant now) {
+    if (this.status != OfferedSkillStatus.REJECTED) {
+      throw new SkillsStateConflict("only a rejected skill can be submitted again");
+    }
+    this.status = OfferedSkillStatus.PENDING;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  /**
+   * Enables the skill because a coordinator accepted the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not waiting for a review
+   */
+  public void approveByReviewedEvidence(Instant now) {
+    requirePending("approved");
+    this.status = OfferedSkillStatus.ENABLED;
+    this.accreditationPath = AccreditationPath.REVIEWED_EVIDENCE;
+    this.enabledAt = Objects.requireNonNull(now, "now must not be null");
+    this.updatedAt = now;
+  }
+
+  /**
+   * Refuses the skill because a coordinator rejected the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not waiting for a review
+   */
+  public void rejectEvidence(Instant now) {
+    requirePending("rejected");
+    this.status = OfferedSkillStatus.REJECTED;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  private void requirePending(String outcome) {
+    if (this.status != OfferedSkillStatus.PENDING) {
+      throw new SkillsStateConflict("only a pending skill can be " + outcome);
+    }
   }
 
   /**
