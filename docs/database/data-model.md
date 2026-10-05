@@ -727,10 +727,17 @@ request_id    uuid          NOT NULL REFERENCES recognition.requests(id)
 session_id    uuid          NOT NULL
 tenant_id     varchar(32)   NOT NULL
 hours         smallint      NOT NULL
+catalog_item_id  uuid       NOT NULL   -- the skill taught, as it was at submission
+started_at    timestamptz   NOT NULL   -- when the session began and ended
+ended_at      timestamptz   NOT NULL
+stars         smallint                 -- rating the tutor had received for it, if any
 
 PRIMARY KEY (request_id, session_id)
 UNIQUE (tenant_id, session_id)
 ```
+
+The skill, the period and the rating are copied for the same reason the totals are: the file a
+coordinator reads is what the student presented, even days later.
 
 `UNIQUE (tenant_id, session_id)` is the whole mechanism: a session can appear in **one** request and
 never again. Credits are untouched and remain spendable, which is what you asked for: nobody is
