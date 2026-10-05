@@ -316,6 +316,29 @@ created_at        timestamptz   NOT NULL DEFAULT now()
 UNIQUE (tenant_id, student_id, catalog_item_id)
 ```
 
+### `skills.taught_sessions`
+
+The sessions that were taught on each catalogue item, so a moderator can review the catalogue by use
+(US44). A projection of `SessionCompleted`, written only by that listener.
+
+```
+session_id       uuid          PK
+tenant_id        varchar(32)   NOT NULL
+catalog_item_id  uuid          NOT NULL
+tutor_id         uuid          NOT NULL
+completed_at     timestamptz   NOT NULL
+
+INDEX (catalog_item_id)
+```
+
+Keyed by the session, so an announcement delivered twice counts once. `catalog_item_id` has no
+foreign key: the row records what another module announced, and a listener that failed on an item it
+does not know would leave the announcement unprocessed. Skills keeps it because it
+cannot ask reputation, which has `sessions_taught`: reputation already depends on skills. The count
+is read without a university on purpose: a global tool is taught in all of them, and the moderator
+who retires it must see all of them. It starts empty, so the sessions completed before it existed
+are not counted.
+
 ### `skills.skill_proposals`
 
 A tool a student asks to add to the catalogue because it is not there (US42). A moderator resolves

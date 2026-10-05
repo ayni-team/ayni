@@ -32,7 +32,8 @@ import pe.ayni.skills.domain.model.SkillsStateConflict;
     assignableTypes = {
       SkillsController.class,
       CoordinatorValidationsController.class,
-      CoordinatorSkillProposalsController.class
+      CoordinatorSkillProposalsController.class,
+      CoordinatorCatalogController.class
     })
 class SkillsExceptionHandler {
 

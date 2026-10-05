@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.skills.domain.model.ProposalStatus;
@@ -33,6 +34,16 @@ public interface SkillProposalRepository extends JpaRepository<SkillProposal, UU
       """)
   Optional<SkillProposal> lockByTenantIdAndId(
       @Param("tenantId") String tenantId, @Param("id") UUID id);
+
+  /**
+   * Points the proposals that ended in {@code source} at {@code target}, so the students who proposed
+   * a tool read the item that stays when it was joined to another.
+   *
+   * @return how many proposals were pointed at {@code target}
+   */
+  @Modifying(flushAutomatically = true)
+  @Query("update SkillProposal proposal set proposal.catalogItemId = :target where proposal.catalogItemId = :source")
+  int repoint(@Param("source") UUID source, @Param("target") UUID target);
 
   /** What a student has proposed, newest first. */
   List<SkillProposal> findByTenantIdAndProposedByOrderByCreatedAtDesc(

@@ -140,7 +140,7 @@ class SkillsServiceTest {
         new CatalogItem(
             CATALOG_ITEM_ID, CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Fundamentos", null,
             "1ASI0657", NOW);
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.of(course));
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.of(course));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
         .thenReturn(Optional.empty());
     when(offeredSkills.save(any())).thenAnswer(call -> call.getArgument(0));

@@ -35,7 +35,7 @@ public class OfferedSkill {
   @Column(name = "tutor_id", nullable = false, updatable = false)
   private UUID tutorId;
 
-  @Column(name = "catalog_item_id", nullable = false, updatable = false)
+  @Column(name = "catalog_item_id", nullable = false)
   private UUID catalogItemId;
 
   @Enumerated(EnumType.STRING)
@@ -231,6 +231,17 @@ public class OfferedSkill {
       throw new SkillsStateConflict("only an enabled skill can be withdrawn");
     }
     this.status = OfferedSkillStatus.WITHDRAWN;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  /**
+   * Moves the skill to another catalogue item, keeping its status and how it was accredited.
+   *
+   * <p>For when two items turn out to be the same skill and are joined: what the tutor earned on one
+   * holds on the one that stays. The caller makes sure the tutor does not already hold the other.
+   */
+  public void moveTo(UUID newCatalogItemId, Instant now) {
+    this.catalogItemId = Objects.requireNonNull(newCatalogItemId, "newCatalogItemId must not be null");
     this.updatedAt = Objects.requireNonNull(now, "now must not be null");
   }
 
