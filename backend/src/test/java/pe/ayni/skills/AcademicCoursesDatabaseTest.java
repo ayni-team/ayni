@@ -225,6 +225,51 @@ class AcademicCoursesDatabaseTest {
     }
   }
 
+  private ResultActions retire(UUID courseId, String json) throws Exception {
+    return mockMvc.perform(
+        post("/api/v1/coordinator/academic-catalog/courses/" + courseId + "/retire")
+            .header("X-Tenant-Id", tenant)
+            .header("X-User-Id", coordinator.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(json));
+  }
+
+  @Test
+  @DisplayName("a retired course stays in the list as retired and is no longer found; retiring twice is a 409")
+  void aRetiredCourseStaysListedAsRetired() throws Exception {
+    String name = "Compilers " + suffix;
+    String answer = body(load("{\"courses\":[" + course("CMP", name) + "]}").andExpect(status().isOk()));
+    UUID id = UUID.fromString(JsonPath.read(answer, "$.courses[0].course.id"));
+
+    retire(id, "{\"confirmedTutors\":0}").andExpect(status().isOk());
+
+    assertThat(JsonPath.<List<String>>read(courses(), "$[*].status")).containsExactly("RETIRED");
+    String found =
+        body(mockMvc.perform(get("/api/v1/catalog").header("X-Tenant-Id", tenant).param("q", name)).andExpect(status().isOk()));
+    assertThat(JsonPath.<List<String>>read(found, "$.items[*].name")).isEmpty();
+    retire(id, "{\"confirmedTutors\":0}").andExpect(status().isConflict());
+  }
+
+  @Test
+  @DisplayName("a global tool and a course that does not exist are not found when retiring a course")
+  void onlyCoursesCanBeRetiredHere() throws Exception {
+    UUID category = UUID.randomUUID();
+    jdbc.update("insert into skills.categories (id, name, sort_order) values (?, ?, 0)", category, "Cat " + suffix);
+    UUID tool = UUID.randomUUID();
+    jdbc.update(
+        "insert into skills.catalog_items (id, scope, tenant_id, category_id, name, status, created_at)"
+            + " values (?, 'GLOBAL', null, ?, ?, 'ACTIVE', now())",
+        tool,
+        category,
+        "Tool " + suffix);
+
+    retire(tool, "{\"confirmedTutors\":0}").andExpect(status().isNotFound());
+    retire(UUID.randomUUID(), "{\"confirmedTutors\":0}").andExpect(status().isNotFound());
+    retire(tool, "{}").andExpect(status().isBadRequest());
+
+    assertThat(catalogItems.findById(tool).orElseThrow().isActive()).isTrue();
+  }
+
   private int loadTogether(CyclicBarrier together, String list) throws Exception {
     together.await();
     return load(list).andReturn().getResponse().getStatus();

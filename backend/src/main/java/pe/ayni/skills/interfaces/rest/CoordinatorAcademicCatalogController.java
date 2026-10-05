@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,7 @@ import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.AcademicCoursesQuery;
 import pe.ayni.skills.application.LoadAcademicCatalogUseCase;
 import pe.ayni.skills.application.MinimumGradeQuery;
+import pe.ayni.skills.application.RetireCourseUseCase;
 import pe.ayni.skills.application.SetMinimumGradeUseCase;
 
 /**
@@ -42,16 +44,19 @@ class CoordinatorAcademicCatalogController {
   private final AcademicCoursesQuery courses;
   private final LoadAcademicCatalogUseCase loadCourses;
   private final MinimumGradeQuery minimumGrade;
+  private final RetireCourseUseCase retireCourse;
   private final SetMinimumGradeUseCase setMinimumGrade;
 
   CoordinatorAcademicCatalogController(
       AcademicCoursesQuery courses,
       LoadAcademicCatalogUseCase loadCourses,
       MinimumGradeQuery minimumGrade,
+      RetireCourseUseCase retireCourse,
       SetMinimumGradeUseCase setMinimumGrade) {
     this.courses = courses;
     this.loadCourses = loadCourses;
     this.minimumGrade = minimumGrade;
+    this.retireCourse = retireCourse;
     this.setMinimumGrade = setMinimumGrade;
   }
 
@@ -133,6 +138,61 @@ class CoordinatorAcademicCatalogController {
   LoadCoursesResponse loadCourses(@Valid @RequestBody LoadCoursesRequest request) {
     UUID coordinatorId = CurrentUser.require();
     return LoadCoursesResponse.of(loadCourses.execute(coordinatorId, request.toCourses()));
+  }
+
+  @PostMapping("/courses/{id}/retire")
+  @Operation(
+      summary = "Takes a course out of the curriculum",
+      description =
+          """
+          US51: the course can no longer be offered and the search stops finding it. The tutors who \
+          offered it have the offer withdrawn, and the sessions already booked stand.
+
+          The coordinator first reads how many tutors are affected in the usage of the course \
+          (GET /api/v1/coordinator/catalog/{id}/usage) and confirms by sending that number as \
+          confirmedTutors. If it is no longer the number of tutors who offer the course, nothing is \
+          retired and the conflict says the number as it is now.
+
+          Only the courses of the university: a global tool is not found here.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The course was retired",
+      content = @Content(schema = @Schema(implementation = RetirementResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The confirmation is missing or negative, or the body cannot be read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "It is not a course of this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The course is already retired, or the number of tutors changed since it was read",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  RetirementResponse retireCourse(
+      @Parameter(description = "Identifier of the course") @PathVariable UUID id,
+      @Valid @RequestBody RetireCatalogItemRequest request) {
+    UUID coordinatorId = CurrentUser.require();
+    return RetirementResponse.of(retireCourse.execute(coordinatorId, id, request.confirmedTutors()));
   }
 
   @GetMapping("/minimum-grade")
