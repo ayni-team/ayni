@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.recognition.domain.model.InsufficientHours;
 import pe.ayni.recognition.domain.model.NotACoordinator;
+import pe.ayni.recognition.domain.model.RecognitionRuleViolation;
 import pe.ayni.recognition.domain.model.RecognitionStateConflict;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
@@ -52,6 +53,13 @@ class RecognitionExceptionHandler {
   ResponseEntity<ApiError> handleStateConflict(
       RecognitionStateConflict exception, HttpServletRequest request) {
     return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  /** A rule of recognition refusing what was asked, such as a decision without a reason. */
+  @ExceptionHandler(RecognitionRuleViolation.class)
+  ResponseEntity<ApiError> handleRuleViolation(
+      RecognitionRuleViolation exception, HttpServletRequest request) {
+    return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
   }
 
   /** Reviewing is for coordinators: the person is known in this university but is not one. */

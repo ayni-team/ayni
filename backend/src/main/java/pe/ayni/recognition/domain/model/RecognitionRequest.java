@@ -112,6 +112,45 @@ public class RecognitionRequest {
     return new RecognitionRequest(id, tenantId, studentId, hours, sessions.size(), average, now);
   }
 
+  /**
+   * The university recognises the hours. Ayni certifies nothing by itself: this only records what
+   * the coordinator decided, and why.
+   *
+   * @throws RecognitionRuleViolation when the reason is blank or longer than 1000 characters
+   * @throws RecognitionStateConflict when the request was already decided
+   */
+  public void approve(UUID coordinatorId, String reason, Instant now) {
+    resolve(RequestStatus.APPROVED, coordinatorId, reason, now);
+  }
+
+  /**
+   * The university does not recognise the hours, and says why.
+   *
+   * @throws RecognitionRuleViolation when the reason is blank or longer than 1000 characters
+   * @throws RecognitionStateConflict when the request was already decided
+   */
+  public void reject(UUID coordinatorId, String reason, Instant now) {
+    resolve(RequestStatus.REJECTED, coordinatorId, reason, now);
+  }
+
+  private void resolve(RequestStatus decision, UUID coordinatorId, String reason, Instant now) {
+    Objects.requireNonNull(coordinatorId, "coordinatorId must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+    if (reason == null || reason.isBlank()) {
+      throw new RecognitionRuleViolation("a decision needs a reason the student can read");
+    }
+    if (reason.strip().length() > 1000) {
+      throw new RecognitionRuleViolation("the reason takes at most 1000 characters");
+    }
+    if (status.isResolved()) {
+      throw new RecognitionStateConflict("this request was already %s".formatted(status.name().toLowerCase()));
+    }
+    this.status = decision;
+    this.reviewedBy = coordinatorId;
+    this.reviewedAt = now;
+    this.decisionReason = reason.strip();
+  }
+
   public UUID getId() {
     return id;
   }

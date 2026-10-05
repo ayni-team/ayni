@@ -1,5 +1,6 @@
 package pe.ayni.recognition.infrastructure;
 
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -7,6 +8,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.recognition.domain.model.RecognitionRequest;
@@ -20,6 +22,15 @@ public interface RecognitionRequestRepository extends JpaRepository<RecognitionR
 
   /** A request of the university, which is how a coordinator never reaches another one's. */
   Optional<RecognitionRequest> findByIdAndTenantId(UUID id, String tenantId);
+
+  /**
+   * A request of the university, locked for writing until the transaction ends. Whoever decides takes
+   * this lock first, so two coordinators deciding at once do not both succeed: the second one finds it
+   * already decided.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select request from RecognitionRequest request where request.id = :id and request.tenantId = :tenantId")
+  Optional<RecognitionRequest> lockByIdAndTenantId(@Param("id") UUID id, @Param("tenantId") String tenantId);
 
   /** A student's requests, the latest first. */
   List<RecognitionRequest> findByTenantIdAndStudentIdOrderBySubmittedAtDesc(String tenantId, UUID studentId);

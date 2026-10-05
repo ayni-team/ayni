@@ -7,14 +7,18 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.recognition.application.RequestCaseQuery;
 import pe.ayni.recognition.application.RequestQueueQuery;
+import pe.ayni.recognition.application.ResolveRecognitionRequestUseCase;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.shared.tenancy.CurrentUser;
 
@@ -32,8 +36,13 @@ class CoordinatorRecognitionController {
 
   private final RequestQueueQuery queue;
   private final RequestCaseQuery requestCase;
+  private final ResolveRecognitionRequestUseCase resolveRequest;
 
-  CoordinatorRecognitionController(RequestQueueQuery queue, RequestCaseQuery requestCase) {
+  CoordinatorRecognitionController(
+      RequestQueueQuery queue,
+      RequestCaseQuery requestCase,
+      ResolveRecognitionRequestUseCase resolveRequest) {
+    this.resolveRequest = resolveRequest;
     this.requestCase = requestCase;
     this.queue = queue;
   }
@@ -125,5 +134,58 @@ class CoordinatorRecognitionController {
   CaseResponse requestCase(@Parameter(description = "Identifier of the request") @PathVariable UUID id) {
     UUID coordinatorId = CurrentUser.require();
     return CaseResponse.of(requestCase.of(coordinatorId, id));
+  }
+
+  @PostMapping("/{id}/decision")
+  @Operation(
+      summary = "Approves or rejects a recognition request",
+      description =
+          """
+          US29: the coordinator decides after reviewing the case, and always says why. The decision \
+          is recorded with who took it, when and the reason, and the student reads it in their \
+          requests. RecognitionResolved is published so the student is told.
+
+          A request is decided once: deciding it again is a conflict, and when two coordinators \
+          decide at the same moment only one of them succeeds. Ayni certifies nothing by itself: \
+          this keeps what the university decided.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Coordinator making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "22222222-2222-4222-8222-222222222222"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The decision was recorded",
+      content = @Content(schema = @Schema(implementation = DecisionResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The decision is neither APPROVE nor REJECT, or the reason is missing or too long",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not a coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The request does not exist in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description = "The request was already decided",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  DecisionResponse decide(
+      @Parameter(description = "Identifier of the request") @PathVariable UUID id,
+      @Valid @RequestBody DecisionRequest body) {
+    UUID coordinatorId = CurrentUser.require();
+    return DecisionResponse.of(resolveRequest.execute(coordinatorId, id, body.decision(), body.reason()));
   }
 }

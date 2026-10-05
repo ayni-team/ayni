@@ -502,7 +502,7 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 | GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
 | GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
 | GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the case with its evidence, frozen as submitted, and the audit alerts (US29) |
-| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
+| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator — approve or reject with a reason; decided once (US29) |
 
 **Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
 `COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the
@@ -530,6 +530,13 @@ really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where
 code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
 port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
 place says there are none.
+
+**Deciding (US29).** `POST .../decision` takes `APPROVE` or `REJECT` and a reason, required for both.
+It records who decided, when and why, publishes `RecognitionResolved` so notifications can tell the
+student, and the student reads the decision and the reason in `requests/mine`. A request is decided
+once: the request is locked (`PESSIMISTIC_WRITE`) while it is decided, so two coordinators at once end
+with one decision and one 409. A resolved request without reviewer, date and reason is refused by the
+table too.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
