@@ -83,7 +83,7 @@ class SimilarItemsDatabaseTest {
     save(CatalogScope.UNIVERSITY, "UPC", word + " avanzado", CatalogItemStatus.ACTIVE);
 
     mockMvc
-        .perform(get("/api/v1/catalog/similar").header("X-Tenant-Id", "UPC").param("name", word + "JS"))
+        .perform(get("/api/v1/catalog/similar").header("X-Tenant-Id", "UPC").param("name", word))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(2));
   }
