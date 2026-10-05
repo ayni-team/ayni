@@ -498,7 +498,7 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
-| POST | `/api/v1/recognition/requests` | student |
+| POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
 | GET | `/api/v1/recognition/requests/mine` | student |
 | GET | `/api/v1/coordinator/recognition/requests` | coordinator — queue with audit flags |
 | GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
@@ -512,6 +512,16 @@ listener, after the session, and keep counting after a request used the session,
 are what the request is made of. Credits assigned by the university or bought are never in the figure
 since no session stands behind them. A university with no rule has not opened recognition: the
 required and missing hours are absent and `canRequest` is false.
+
+**Submitting (US28).** `POST /recognition/requests` takes the student's verified sessions that no
+request has used, the oldest first, until the hours of the rule are reached, and registers the request
+with their total, their count and the mean of the ratings they carry. Each session keeps the skill
+(read through `BookingApi.requireBooking`), the period and the rating it had. The student keeps the
+sessions beyond the requirement for the next request. With fewer hours nothing is saved and the
+answer is a 409 with `missingHours`; with no rule in force it is a 409 too, without it. Submitting
+waits for its turn per student (`pg_advisory_xact_lock`), so two requests at once cannot take the
+same sessions; `RecognitionRequested` is published. The ratings come from the `SessionRatings` port:
+reputation has no rating per session to give yet, and the adapter in place says there are none.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
