@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogQuery;
 import pe.ayni.skills.application.OfferApprovedCourseUseCase;
+import pe.ayni.skills.application.SimilarItemsQuery;
 import pe.ayni.skills.application.SubmitEvidenceUseCase;
 import pe.ayni.skills.application.SuggestedCoursesQuery;
 import pe.ayni.skills.application.TutorSkillsQuery;
@@ -56,6 +58,7 @@ import pe.ayni.skills.application.WithdrawSkillUseCase;
 class SkillsController {
 
   private final CatalogQuery catalog;
+  private final SimilarItemsQuery similarItems;
   private final SuggestedCoursesQuery suggestions;
   private final TutorSkillsQuery tutorSkills;
   private final OfferApprovedCourseUseCase offerApprovedCourse;
@@ -64,12 +67,14 @@ class SkillsController {
 
   SkillsController(
       CatalogQuery catalog,
+      SimilarItemsQuery similarItems,
       SuggestedCoursesQuery suggestions,
       TutorSkillsQuery tutorSkills,
       OfferApprovedCourseUseCase offerApprovedCourse,
       WithdrawSkillUseCase withdrawSkill,
       SubmitEvidenceUseCase submitEvidenceUseCase) {
     this.catalog = catalog;
+    this.similarItems = similarItems;
     this.suggestions = suggestions;
     this.tutorSkills = tutorSkills;
     this.offerApprovedCourse = offerApprovedCourse;
@@ -110,6 +115,40 @@ class SkillsController {
           @Max(100)
           int size) {
     return CatalogPage.of(catalog.visibleItems(category, q, page, size));
+  }
+
+  @GetMapping("/catalog/similar")
+  @Operation(
+      summary = "Catalogue items that look like a name",
+      description =
+          """
+          The items of the catalogue that look like the name a student is about to propose, the \
+          closest first and at most five. It forgives a typo, accents, case and punctuation, and \
+          finds a name inside another, so "NodeJS" shows "Node.js". It compares against every \
+          active item the student's university can see. Empty when nothing looks like it.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The items that look like the name, possibly none",
+      content =
+          @Content(array = @ArraySchema(schema = @Schema(implementation = CatalogItemResponse.class))))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The name is missing, blank or longer than 160 characters",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  List<CatalogItemResponse> similarItems(
+      @Parameter(description = "What the student would call the skill", example = "NodeJS")
+          @RequestParam
+          @NotBlank
+          @Size(max = 160)
+          String name) {
+    return similarItems.similarTo(name).stream().map(CatalogItemResponse::of).toList();
   }
 
   @GetMapping("/tutor/skills/suggestions")

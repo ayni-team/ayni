@@ -285,6 +285,7 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
+| GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
 | GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
