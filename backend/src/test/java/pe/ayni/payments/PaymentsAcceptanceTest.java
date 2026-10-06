@@ -215,6 +215,79 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
+  @DisplayName("A student can list a purchase and get its receipt and wallet movement reference")
+  void aStudentCanViewPurchaseDetailsAndReceipt() throws Exception {
+    String response =
+        purchase(student, 2, "receipt-" + UUID.randomUUID())
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    UUID purchaseId = UUID.fromString(JsonPath.read(response, "$.id"));
+
+    mockMvc
+        .perform(
+            get("/api/v1/payments/purchases")
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", student))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(purchaseId.toString()))
+        .andExpect(jsonPath("$[0].credits").value(2))
+        .andExpect(jsonPath("$[0].amount").value(10.00))
+        .andExpect(jsonPath("$[0].status").value("CONFIRMED"))
+        .andExpect(jsonPath("$[0].createdAt").exists());
+
+    mockMvc
+        .perform(
+            get("/api/v1/payments/purchases/{purchaseId}", purchaseId)
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", student))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(purchaseId.toString()))
+        .andExpect(jsonPath("$.credits").value(2))
+        .andExpect(jsonPath("$.amount").value(10.00))
+        .andExpect(jsonPath("$.currency").value("PEN"))
+        .andExpect(jsonPath("$.status").value("CONFIRMED"))
+        .andExpect(jsonPath("$.purchasedAt").exists())
+        .andExpect(jsonPath("$.confirmedAt").exists())
+        .andExpect(jsonPath("$.creditMovement.type").value("PURCHASE"))
+        .andExpect(jsonPath("$.creditMovement.referenceId").value(purchaseId.toString()))
+        .andExpect(
+            jsonPath("$.creditMovement.historyUrl")
+                .value("/api/v1/wallet/movements?reason=PURCHASE"));
+
+    mockMvc
+        .perform(
+            get("/api/v1/wallet/movements")
+                .param("reason", "PURCHASE")
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", student))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].referenceType").value("PURCHASE"))
+        .andExpect(jsonPath("$.items[0].referenceId").value(purchaseId.toString()));
+  }
+
+  @Test
+  @DisplayName("A student cannot view another student's purchase details")
+  void aStudentCannotViewAnotherStudentsPurchaseDetails() throws Exception {
+    String response =
+        purchase(student, 2, "private-receipt-" + UUID.randomUUID())
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    UUID purchaseId = UUID.fromString(JsonPath.read(response, "$.id"));
+
+    mockMvc
+        .perform(
+            get("/api/v1/payments/purchases/{purchaseId}", purchaseId)
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", UUID.randomUUID()))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.message").value("Purchase not found"));
+  }
+
+  @Test
   @DisplayName("The monthly allowance resets on the first day of the next UTC calendar month")
   void theMonthlyAllowanceResetsAtTheNextCalendarMonth() throws Exception {
     Instant previousMonth =

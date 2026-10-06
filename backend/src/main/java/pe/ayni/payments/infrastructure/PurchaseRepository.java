@@ -17,6 +17,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
   Optional<Purchase> findByTenantIdAndStudentIdAndIdempotencyKey(
       String tenantId, UUID studentId, String idempotencyKey);
 
+  Optional<Purchase> findByTenantIdAndStudentIdAndId(String tenantId, UUID studentId, UUID id);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<Purchase> findByTenantIdAndId(String tenantId, UUID id);
 
