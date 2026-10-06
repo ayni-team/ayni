@@ -585,10 +585,21 @@ Append only, like the ledger, and for the same reason.
 
 ## analytics and payments
 
-Both arrive in the second iteration. `analytics` answers `/api/v1/coordinator/indicators` and
-`/api/v1/admin/overview`, always with aggregates. `payments` handles purchases with an idempotency
-key so a provider confirming twice credits once, and publishes `PurchaseConfirmed`, which wallet
-already listens to.
+`analytics` answers `/api/v1/coordinator/indicators` and `/api/v1/admin/overview`, always with
+aggregates. `payments` owns credit purchases and exposes `POST /api/v1/payments/purchases`. The
+student comes from `X-User-Id`, the university from `X-Tenant-Id`, and each attempt requires an
+`Idempotency-Key`. A repeated key for the same student returns the original result; a new attempt
+after a rejection needs a new key.
+
+Until the universities' academic cycles are available through a public interface, the purchase
+allowance is five confirmed credits per student per UTC calendar month. Failed payments do not
+consume it. `AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT` and `AYNI_PAYMENTS_PRICE_PER_CREDIT` configure the
+allowance and price (default S/ 5.00 per credit). The simulated provider confirms by default;
+`AYNI_PAYMENTS_SIMULATED_OUTCOME=REJECTED` exercises the declined-payment path.
+
+Once the provider confirms, `payments` publishes `PurchaseConfirmed`; `wallet` handles that existing
+event and credits non-expiring `PURCHASED` credits. Payments does not write wallet tables or count
+purchased credits towards recognition.
 
 ---
 
