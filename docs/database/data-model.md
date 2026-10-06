@@ -891,7 +891,8 @@ tenant_id      varchar(32)
 recipient_id   uuid                     -- NULL when the recipient has no account yet
 recipient_email varchar(160) NOT NULL
 kind           varchar(40)   NOT NULL   -- ACCESS_LINK | BOOKING_CONFIRMED | SESSION_REMINDER |
-                                        -- PRESENCE_CODE | CREDITS_EXPIRING | REQUEST_RESOLVED …
+                                        -- PRESENCE_CODE | CREDITS_EXPIRING | PURCHASE_CONFIRMED |
+                                        -- REQUEST_RESOLVED …
 payload        jsonb         NOT NULL
 sent_at        timestamptz
 failed_reason  varchar(500)
@@ -904,6 +905,7 @@ INDEX (kind) WHERE sent_at IS NULL
 
 The row is written before the email leaves. A notice that was never sent has to be visible, because
 two things that matter depend on email arriving: getting in, and confirming presence.
+Purchase confirmations are also emailed after `PurchaseConfirmed` is delivered from payments.
 
 `recipient_id` is nullable because the first notice of all has nobody to point at: an activation
 link goes to an email with no account yet, and `AccessRequested` carries the email, not a user. The
@@ -928,13 +930,15 @@ status              varchar(16)   NOT NULL   -- PENDING | CONFIRMED | FAILED | E
 provider_reference  varchar(128)
 idempotency_key     varchar(64)   NOT NULL
 confirmed_at        timestamptz
-created_at          timestamptz   NOT NULL DEFAULT now()
+expires_at          timestamptz  NOT NULL
+created_at          timestamptz  NOT NULL DEFAULT now()
 
 UNIQUE (tenant_id, student_id, idempotency_key)
 CHECK (credits > 0 AND amount > 0)
 CHECK (status IN ('PENDING','CONFIRMED','FAILED','EXPIRED'))
 CHECK ((status = 'CONFIRMED') = (confirmed_at IS NOT NULL))
 INDEX (tenant_id, student_id, created_at DESC)
+PARTIAL INDEX (tenant_id, status, created_at) WHERE status = 'PENDING'
 PARTIAL INDEX (tenant_id, student_id, confirmed_at) WHERE status = 'CONFIRMED'
 ```
 
@@ -944,6 +948,9 @@ once.
 Until academic cycles are exposed through a public interface, the configured purchase allowance
 defaults to five confirmed credits per student per UTC calendar month. Failed purchases do not count
 towards it; usage is derived from confirmed rows by their `confirmed_at` timestamp.
+Pending purchases reserve allowance until they resolve. They expire after 24 hours by default
+(`AYNI_PAYMENTS_PENDING_TIMEOUT`) and a scheduled reconciliation checks pending provider outcomes
+every minute by default (`AYNI_PAYMENTS_RECONCILIATION_DELAY`).
 
 ---
 

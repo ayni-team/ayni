@@ -15,6 +15,7 @@ public record PurchaseOutcome(
     String providerReference,
     Instant createdAt,
     Instant confirmedAt,
+    Instant expiresAt,
     boolean created) {
 
   public static PurchaseOutcome of(Purchase purchase, boolean created) {
@@ -27,6 +28,21 @@ public record PurchaseOutcome(
         purchase.getProviderReference(),
         purchase.getCreatedAt(),
         purchase.getConfirmedAt(),
+        purchase.getExpiresAt(),
         created);
+  }
+
+  public PurchaseOutcome asCreated() {
+    return new PurchaseOutcome(
+        id,
+        credits,
+        amount,
+        currency,
+        status,
+        providerReference,
+        createdAt,
+        confirmedAt,
+        expiresAt,
+        true);
   }
 }
