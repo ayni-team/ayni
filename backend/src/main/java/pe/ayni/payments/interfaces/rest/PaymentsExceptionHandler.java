@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import pe.ayni.payments.application.PurchaseNotFoundException;
 import pe.ayni.payments.domain.model.PurchaseIdempotencyConflict;
 import pe.ayni.payments.domain.model.PurchaseLimitExceeded;
 import pe.ayni.payments.domain.model.PurchaseRuleViolation;
@@ -25,6 +26,12 @@ class PaymentsExceptionHandler {
 
   PaymentsExceptionHandler(Clock clock) {
     this.clock = clock;
+  }
+
+  @ExceptionHandler(PurchaseNotFoundException.class)
+  ResponseEntity<PaymentsApiError> handlePurchaseNotFound(
+      PurchaseNotFoundException exception, HttpServletRequest request) {
+    return answer(HttpStatus.NOT_FOUND, "Purchase not found", request);
   }
 
   @ExceptionHandler(PurchaseLimitExceeded.class)
