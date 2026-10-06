@@ -83,6 +83,12 @@ ayni:
     closing-delay: PT1M
   notifications:
     mail-from: ${AYNI_MAIL_FROM:Ayni <no-reply@ayni.local>}
+  payments:
+    # The first product rule uses a UTC calendar month until universities expose academic cycles.
+    monthly-credit-limit: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:5}
+    price-per-credit: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:5.00}
+    # Switch to REJECTED to exercise a declined payment in the local simulator.
+    simulated-outcome: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:CONFIRMED}
   identity:
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M

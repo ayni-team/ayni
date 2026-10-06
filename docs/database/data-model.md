@@ -926,17 +926,24 @@ amount              numeric(10,2) NOT NULL
 currency            varchar(3)    NOT NULL DEFAULT 'PEN'
 status              varchar(16)   NOT NULL   -- PENDING | CONFIRMED | FAILED | EXPIRED
 provider_reference  varchar(128)
-idempotency_key     varchar(64)   NOT NULL UNIQUE
+idempotency_key     varchar(64)   NOT NULL
 confirmed_at        timestamptz
 created_at          timestamptz   NOT NULL DEFAULT now()
 
+UNIQUE (tenant_id, student_id, idempotency_key)
 CHECK (credits > 0 AND amount > 0)
 CHECK (status IN ('PENDING','CONFIRMED','FAILED','EXPIRED'))
+CHECK ((status = 'CONFIRMED') = (confirmed_at IS NOT NULL))
 INDEX (tenant_id, student_id, created_at DESC)
+PARTIAL INDEX (tenant_id, student_id, confirmed_at) WHERE status = 'CONFIRMED'
 ```
 
 `idempotency_key` is what makes a payment provider confirming the same purchase twice credit it
 once.
+
+Until academic cycles are exposed through a public interface, the configured purchase allowance
+defaults to five confirmed credits per student per UTC calendar month. Failed purchases do not count
+towards it; usage is derived from confirmed rows by their `confirmed_at` timestamp.
 
 ---
 
