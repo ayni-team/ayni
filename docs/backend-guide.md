@@ -563,8 +563,10 @@ copy. A failed access link is not retried, because there is nothing stored to re
 expires in minutes; asking again issues a new one. Email goes over SMTP (`spring.mail.*`): to Mailpit
 under `docker compose`, which shows it at http://localhost:8025, and to a real relay in a deployment.
 `PresenceCodeIssued`, the email with the presence code (US54), is delivered the same way: the
-notice keeps the session and the expiry, never the code, and the address is read from identity. The
-rest of the events above, and `GET /api/v1/notifications`, are still to do.
+notice keeps the session and the expiry, never the code, and the address is read from identity.
+`PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice
+stores the purchase identifier and amount, not payment credentials. The other events above, and
+`GET /api/v1/notifications`, are still to do.
 
 ---
 
@@ -598,8 +600,16 @@ allowance and price (default S/ 5.00 per credit). The simulated provider confirm
 `AYNI_PAYMENTS_SIMULATED_OUTCOME=REJECTED` exercises the declined-payment path.
 
 Once the provider confirms, `payments` publishes `PurchaseConfirmed`; `wallet` handles that existing
-event and credits non-expiring `PURCHASED` credits. Payments does not write wallet tables or count
-purchased credits towards recognition.
+event and credits non-expiring `PURCHASED` credits. `notifications` also listens to that event and
+sends the student a purchase confirmation email; payments does not call notifications directly.
+`GET /api/v1/payments/purchases` lists the current student's purchase outcomes. A pending purchase
+reserves its monthly allowance, tells the student not to retry, and is checked by the scheduled
+provider reconciliation. Pending attempts expire after 24 hours by default
+(`AYNI_PAYMENTS_PENDING_TIMEOUT`); the check interval defaults to one minute
+(`AYNI_PAYMENTS_RECONCILIATION_DELAY`). A provider outage leaves the purchase pending and does not
+block other modules. The simulator can return `PENDING` or `UNAVAILABLE` for an initial charge and
+`CONFIRMED`, `REJECTED`, `PENDING`, or `UNAVAILABLE` during reconciliation using
+`AYNI_PAYMENTS_SIMULATED_OUTCOME` and `AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME`.
 
 ---
 

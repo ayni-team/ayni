@@ -87,8 +87,12 @@ ayni:
     # The first product rule uses a UTC calendar month until universities expose academic cycles.
     monthly-credit-limit: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:5}
     price-per-credit: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:5.00}
-    # Switch to REJECTED to exercise a declined payment in the local simulator.
+    pending-timeout: ${AYNI_PAYMENTS_PENDING_TIMEOUT:PT24H}
+    reconciliation-delay: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:PT1M}
+    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE for a simulated initial charge.
     simulated-outcome: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:CONFIRMED}
+    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE when reconciling an unresolved payment.
+    simulated-resolution-outcome: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:CONFIRMED}
   identity:
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M
