@@ -611,6 +611,16 @@ block other modules. The simulator can return `PENDING` or `UNAVAILABLE` for an 
 `CONFIRMED`, `REJECTED`, `PENDING`, or `UNAVAILABLE` during reconciliation using
 `AYNI_PAYMENTS_SIMULATED_OUTCOME` and `AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME`.
 
+The provider boundary is wrapped by an in-process timeout, circuit breaker, and bounded bulkhead;
+it adds no external service. Defaults are 2 seconds per provider call, three consecutive failures,
+30 seconds open, and two concurrent provider calls. Configure them with
+`AYNI_PAYMENTS_TIMEOUT`, `AYNI_PAYMENTS_FAILURE_THRESHOLD`,
+`AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION`, and `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS`. On timeout,
+provider failure, an open circuit, or saturation, the purchase stays pending and the response
+explicitly says purchases are temporarily unavailable and must not be retried. The existing
+reconciliation checks the provider later; after the open period one half-open request probes for
+recovery. Search, booking, sessions, and wallet do not depend on the payment provider.
+
 ---
 
 ## Definition of done

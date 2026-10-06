@@ -36,7 +36,7 @@ public class PurchaseCreditsUseCase {
       return applyResult.execute(purchase.id(), result).asCreated();
     } catch (PaymentProviderUnavailable unavailable) {
       log.warn("Payment provider unavailable while starting purchase {}", purchase.id());
-      return purchase;
+      return purchase.asProviderUnavailable();
     }
   }
 }
