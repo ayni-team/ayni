@@ -26,6 +26,12 @@ public enum LedgerReason {
   /** Credits bought by the student. */
   PURCHASE,
 
+  /** Earned credits exchanged for a campus benefit. */
+  CAMPUS_BENEFIT_REDEMPTION,
+
+  /** Earned credits transferred to the incoming-student pool. */
+  INCOMING_STUDENT_DONATION,
+
   /** A correction. The entry it corrects stays where it is. */
   ADJUSTMENT
 }

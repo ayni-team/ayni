@@ -319,6 +319,21 @@ public interface WalletApi {
 |---|---|---|
 | GET | `/api/v1/wallet` | student — balance broken down by origin with expiry dates |
 | GET | `/api/v1/wallet/movements` | student — history, filterable by period and type |
+| GET | `/api/v1/wallet/benefits` | student — active benefits offered by their university |
+| POST | `/api/v1/wallet/benefits` | coordinator — create a benefit and its earned-credit cost |
+| PUT | `/api/v1/wallet/benefits/{benefitId}` | coordinator — update or deactivate a benefit |
+| POST | `/api/v1/wallet/benefits/{benefitId}/redemptions` | student — redeem earned credits |
+| POST | `/api/v1/wallet/donations` | student — donate earned credits to the incoming-student pool |
+| GET | `/api/v1/wallet/donation-pool` | student — total donated credits and contribution count |
+| GET | `/api/v1/wallet/donations` | student — their own donation history |
+
+Redemptions and donations first return an irreversible-operation warning with a confirmation
+identifier. The student must send that identifier in a second request within ten minutes. Confirmed
+operations are idempotent and debit only `EARNED` credits; receipts and donations are recorded as
+immutable wallet-ledger movements. The incoming-student pool is the sum of the donation records for
+the university. Spending earned credits does not erase the teaching from recognition progress.
+Confirmation challenges are kept for ten minutes and can be used once; update
+`ayni.wallet.credit-use-confirmation-validity` to change that window.
 
 **Rules that live here and nowhere else:** spend the group closest to expiring first; a refund
 returns credits to the group they came from with the expiry they had; the ledger is append only and
