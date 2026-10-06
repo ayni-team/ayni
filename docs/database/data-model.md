@@ -648,8 +648,12 @@ sequence_number  bigint        NOT NULL
 direction        varchar(8)    NOT NULL   -- DEBIT | CREDIT
 amount           integer       NOT NULL
 reason           varchar(32)   NOT NULL   -- GRANT | BOOKING_CHARGE | BOOKING_REFUND |
-                                          -- SESSION_EARNING | EXPIRY | PURCHASE | ADJUSTMENT
-reference_type   varchar(24)              -- BOOKING | SESSION | PURCHASE | POLICY
+                                          -- SESSION_EARNING | EXPIRY | PURCHASE |
+                                          -- CAMPUS_BENEFIT_REDEMPTION |
+                                          -- INCOMING_STUDENT_DONATION | ADJUSTMENT
+reference_type   varchar(40)              -- BOOKING | SESSION | PURCHASE | POLICY |
+                                          -- CAMPUS_BENEFIT_REDEMPTION |
+                                          -- INCOMING_STUDENT_DONATION
 reference_id     uuid
 previous_hash    varchar(64)
 entry_hash       varchar(64)   NOT NULL
@@ -668,6 +672,78 @@ with reason `ADJUSTMENT`; nothing is ever edited.
 row behind the application's back breaks the chain from that point on, and a verification job finds
 it. `sequence_number` is assigned by the application inside the transaction, not by a sequence,
 because a sequence leaves gaps after a rollback and a gap looks exactly like a deleted row.
+
+### `wallet.campus_benefits`
+
+Benefits a university coordinator makes available for redemption with earned credits.
+
+```
+id             uuid          PK
+tenant_id      varchar(32)   NOT NULL
+name           varchar(120)  NOT NULL
+description    varchar(500)  NOT NULL
+credits_cost   integer       NOT NULL
+active         boolean       NOT NULL DEFAULT true
+created_at     timestamptz   NOT NULL DEFAULT now()
+updated_at     timestamptz   NOT NULL DEFAULT now()
+
+CHECK (credits_cost > 0)
+INDEX (tenant_id, name) WHERE active = true
+```
+
+A benefit is deactivated rather than deleted so past redemption receipts remain meaningful. Its
+name and cost are also copied to the credit-use record at redemption time.
+
+### `wallet.credit_uses`
+
+Confirmed redemptions and donations. The incoming-student pool is a projection of donation rows,
+not a mutable balance that could drift from its history.
+
+```
+id               uuid          PK
+tenant_id        varchar(32)   NOT NULL
+student_id       uuid          NOT NULL
+kind             varchar(32)   NOT NULL  -- CAMPUS_BENEFIT_REDEMPTION | INCOMING_STUDENT_DONATION
+benefit_id       uuid          REFERENCES wallet.campus_benefits(id)
+benefit_name     varchar(120)            -- snapshot for the redemption receipt
+credits          integer       NOT NULL
+idempotency_key  varchar(64)   NOT NULL
+created_at       timestamptz   NOT NULL DEFAULT now()
+
+UNIQUE (tenant_id, student_id, idempotency_key)
+CHECK (credits > 0)
+CHECK (redemption has benefit_id and benefit_name; donation has neither)
+INDEX (tenant_id, created_at) WHERE kind = 'INCOMING_STUDENT_DONATION'
+INDEX (tenant_id, student_id, created_at DESC)
+```
+
+Only remaining `EARNED` lots can be redeemed or donated. Each debit references this record in the
+append-only ledger, making the receipt and student history traceable. The pool balance is the sum
+of donation records for that university.
+
+### `wallet.credit_use_confirmations`
+
+Short-lived, student-scoped challenges that require an explicit second request before an
+irreversible redemption or donation is accepted.
+
+```
+id            uuid          PK
+tenant_id     varchar(32)   NOT NULL
+student_id    uuid          NOT NULL
+kind          varchar(32)   NOT NULL
+benefit_id    uuid          REFERENCES wallet.campus_benefits(id)
+benefit_name  varchar(120)             -- snapshot displayed in the warning
+credits       integer       NOT NULL
+expires_at    timestamptz   NOT NULL
+confirmed_at  timestamptz
+
+CHECK (credits > 0)
+CHECK (kind and benefit fields agree)
+INDEX (tenant_id, student_id, expires_at)
+```
+
+The confirmation identifier is returned with the warning and must be sent back by the same
+student. It expires after ten minutes and can be used once.
 
 The balance is the sum of `remaining_amount`; the history is these rows. A test asserts the two
 agree.

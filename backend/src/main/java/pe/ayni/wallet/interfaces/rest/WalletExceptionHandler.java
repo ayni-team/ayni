@@ -5,13 +5,21 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.Clock;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
+import pe.ayni.wallet.CampusBenefitNotFoundException;
+import pe.ayni.wallet.CreditUseConfirmationException;
+import pe.ayni.wallet.CreditUseIdempotencyConflict;
 import pe.ayni.wallet.InsufficientCreditsException;
+import pe.ayni.wallet.InsufficientEarnedCreditsException;
+import pe.ayni.wallet.WalletAccessDeniedException;
 import pe.ayni.wallet.domain.model.CreditRuleViolation;
 
 /**
@@ -20,13 +28,19 @@ import pe.ayni.wallet.domain.model.CreditRuleViolation;
  * <p>It is declared for wallet's controller alone, so each module keeps its own mapping: a refusal
  * that means one thing here should not quietly acquire a status code decided elsewhere.
  */
-@RestControllerAdvice(assignableTypes = WalletController.class)
+@RestControllerAdvice(assignableTypes = {WalletController.class, CampusBenefitsController.class})
 class WalletExceptionHandler {
 
   private final Clock clock;
 
   WalletExceptionHandler(Clock clock) {
     this.clock = clock;
+  }
+
+  @ExceptionHandler(InsufficientEarnedCreditsException.class)
+  ResponseEntity<ApiError> handleInsufficientEarnedCredits(
+      InsufficientEarnedCreditsException exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   /**
@@ -39,6 +53,30 @@ class WalletExceptionHandler {
   ResponseEntity<ApiError> handleInsufficientCredits(
       InsufficientCreditsException exception, HttpServletRequest request) {
     return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  @ExceptionHandler(CampusBenefitNotFoundException.class)
+  ResponseEntity<ApiError> handleMissingBenefit(
+      CampusBenefitNotFoundException exception, HttpServletRequest request) {
+    return answer(HttpStatus.NOT_FOUND, "Campus benefit not found", request);
+  }
+
+  @ExceptionHandler(CreditUseIdempotencyConflict.class)
+  ResponseEntity<ApiError> handleIdempotencyConflict(
+      CreditUseIdempotencyConflict exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  @ExceptionHandler(CreditUseConfirmationException.class)
+  ResponseEntity<ApiError> handleConfirmation(
+      CreditUseConfirmationException exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  @ExceptionHandler(WalletAccessDeniedException.class)
+  ResponseEntity<ApiError> handleAccessDenied(
+      WalletAccessDeniedException exception, HttpServletRequest request) {
+    return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
   }
 
   /** No university on the request: the header is missing. */
@@ -73,6 +111,16 @@ class WalletExceptionHandler {
         HttpStatus.BAD_REQUEST,
         "The value of " + exception.getName() + " could not be read",
         request);
+  }
+
+  @ExceptionHandler({
+    HandlerMethodValidationException.class,
+    MethodArgumentNotValidException.class,
+    HttpMessageNotReadableException.class
+  })
+  ResponseEntity<ApiError> handleInvalidRequest(
+      Exception exception, HttpServletRequest request) {
+    return answer(HttpStatus.BAD_REQUEST, "The wallet request is invalid", request);
   }
 
   /** A page or a size outside what the endpoint accepts. */

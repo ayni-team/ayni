@@ -58,6 +58,21 @@ public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
       @Param("accountId") UUID accountId,
       @Param("now") Instant now);
 
+  /** Earned credits only, locked until the redemption transaction ends. */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select lot from CreditLot lot
+      where lot.tenantId = :tenantId
+        and lot.accountId = :accountId
+        and lot.creditType = :creditType
+        and lot.remainingAmount > 0
+      """)
+  List<CreditLot> lockSpendableOfType(
+      @Param("tenantId") String tenantId,
+      @Param("accountId") UUID accountId,
+      @Param("creditType") CreditType creditType);
+
   /** The groups that have reached their expiry with credits still in them. */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
