@@ -93,6 +93,11 @@ ayni:
     simulated-outcome: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:CONFIRMED}
     # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE when reconciling an unresolved payment.
     simulated-resolution-outcome: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:CONFIRMED}
+    resilience:
+      failure-threshold: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:3}
+      open-duration: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:PT30S}
+      timeout: ${AYNI_PAYMENTS_TIMEOUT:PT2S}
+      max-concurrent-calls: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:2}
   identity:
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M

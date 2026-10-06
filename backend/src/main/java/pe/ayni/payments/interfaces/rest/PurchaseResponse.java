@@ -16,6 +16,7 @@ public record PurchaseResponse(
     Instant createdAt,
     Instant confirmedAt,
     Instant expiresAt,
+    boolean providerUnavailable,
     String guidance) {
 
   static PurchaseResponse of(PurchaseOutcome outcome) {
@@ -29,8 +30,11 @@ public record PurchaseResponse(
         outcome.createdAt(),
         outcome.confirmedAt(),
         outcome.expiresAt(),
-        outcome.status() == PurchaseStatus.PENDING
-            ? "Payment is still being processed. Do not start another purchase; check this purchase's status."
-            : null);
+        outcome.providerUnavailable(),
+        outcome.providerUnavailable()
+            ? "Credit purchases are temporarily unavailable. This attempt remains pending; do not retry. Check this purchase's status."
+            : outcome.status() == PurchaseStatus.PENDING
+                ? "Payment is still being processed. Do not start another purchase; check this purchase's status."
+                : null);
   }
 }

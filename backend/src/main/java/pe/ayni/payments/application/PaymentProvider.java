@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Boundary to the payment provider; the current adapter simulates its response. */
+/** Resilient boundary to the payment provider; the current adapter simulates its response. */
 public interface PaymentProvider {
 
   PaymentResult charge(UUID purchaseId, BigDecimal amount, String currency);
