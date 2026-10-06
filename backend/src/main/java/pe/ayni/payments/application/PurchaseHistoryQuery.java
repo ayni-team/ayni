@@ -23,4 +23,13 @@ public class PurchaseHistoryQuery {
         .map(purchase -> PurchaseOutcome.of(purchase, false))
         .toList();
   }
+
+  @Transactional(readOnly = true)
+  public PurchaseOutcome detailForStudent(UUID studentId, UUID purchaseId) {
+    String tenantId = TenantContext.require();
+    return purchases
+        .findByTenantIdAndStudentIdAndId(tenantId, studentId, purchaseId)
+        .map(purchase -> PurchaseOutcome.of(purchase, false))
+        .orElseThrow(() -> new PurchaseNotFoundException(purchaseId));
+  }
 }

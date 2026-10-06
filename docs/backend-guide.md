@@ -602,9 +602,12 @@ allowance and price (default S/ 5.00 per credit). The simulated provider confirm
 Once the provider confirms, `payments` publishes `PurchaseConfirmed`; `wallet` handles that existing
 event and credits non-expiring `PURCHASED` credits. `notifications` also listens to that event and
 sends the student a purchase confirmation email; payments does not call notifications directly.
-`GET /api/v1/payments/purchases` lists the current student's purchase outcomes. A pending purchase
-reserves its monthly allowance, tells the student not to retry, and is checked by the scheduled
-provider reconciliation. Pending attempts expire after 24 hours by default
+`GET /api/v1/payments/purchases` lists the current student's purchase outcomes, and
+`GET /api/v1/payments/purchases/{purchaseId}` returns the purchase details and receipt. A confirmed
+receipt includes its purchase reference, which matches `referenceType=PURCHASE` and `referenceId` in
+`GET /api/v1/wallet/movements?reason=PURCHASE`. A pending purchase reserves its monthly allowance,
+tells the student not to retry, and is checked by the scheduled provider reconciliation. Pending
+attempts expire after 24 hours by default
 (`AYNI_PAYMENTS_PENDING_TIMEOUT`); the check interval defaults to one minute
 (`AYNI_PAYMENTS_RECONCILIATION_DELAY`). A provider outage leaves the purchase pending and does not
 block other modules. The simulator can return `PENDING` or `UNAVAILABLE` for an initial charge and

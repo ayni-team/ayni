@@ -10,12 +10,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
-import java.util.UUID;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -67,6 +68,33 @@ class PaymentsController {
     return purchaseHistory.forStudent(CurrentUser.require()).stream()
         .map(PurchaseResponse::of)
         .toList();
+  }
+
+  @GetMapping("/purchases/{purchaseId}")
+  @Operation(
+      summary = "Get a purchase receipt",
+      description =
+          "Returns the purchase details. Confirmed purchases include a reference to the credit "
+              + "movement in the student's wallet history.")
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request",
+      schema =
+          @Schema(
+              type = "string",
+              format = "uuid",
+              example = "11111111-1111-4111-8111-111111111111"))
+  PurchaseDetailResponse purchaseDetail(@PathVariable UUID purchaseId) {
+    return PurchaseDetailResponse.of(
+        purchaseHistory.detailForStudent(CurrentUser.require(), purchaseId));
   }
 
   @PostMapping("/purchases")
