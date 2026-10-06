@@ -47,6 +47,9 @@ public class Purchase {
   @Column(name = "confirmed_at")
   private Instant confirmedAt;
 
+  @Column(name = "expires_at", nullable = false, updatable = false)
+  private Instant expiresAt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -62,6 +65,7 @@ public class Purchase {
       BigDecimal amount,
       String currency,
       String idempotencyKey,
+      Instant expiresAt,
       Instant createdAt) {
     this.id = Objects.requireNonNull(id, "id must not be null");
     this.tenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
@@ -80,6 +84,10 @@ public class Purchase {
       throw new PurchaseRuleViolation("An idempotency key must contain between 1 and 64 characters");
     }
     this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+    this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+    if (!expiresAt.isAfter(createdAt)) {
+      throw new PurchaseRuleViolation("A pending purchase must expire after it is created");
+    }
     this.status = PurchaseStatus.PENDING;
   }
 
@@ -91,22 +99,37 @@ public class Purchase {
       BigDecimal amount,
       String currency,
       String idempotencyKey,
+      Instant expiresAt,
       Instant now) {
     return new Purchase(
-        id, tenantId, studentId, credits, amount, currency, idempotencyKey, now);
+        id, tenantId, studentId, credits, amount, currency, idempotencyKey, expiresAt, now);
   }
 
   public void confirm(String providerReference, Instant now) {
     requirePending();
-    this.providerReference = requireProviderReference(providerReference);
+    this.providerReference = requireConsistentProviderReference(providerReference);
     this.confirmedAt = Objects.requireNonNull(now, "now must not be null");
     this.status = PurchaseStatus.CONFIRMED;
   }
 
   public void reject(String providerReference) {
     requirePending();
-    this.providerReference = requireProviderReference(providerReference);
+    this.providerReference = requireConsistentProviderReference(providerReference);
     this.status = PurchaseStatus.FAILED;
+  }
+
+  public void awaitProviderResult(String providerReference) {
+    requirePending();
+    this.providerReference = requireConsistentProviderReference(providerReference);
+  }
+
+  public boolean expire(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (status != PurchaseStatus.PENDING || expiresAt.isAfter(now)) {
+      return false;
+    }
+    status = PurchaseStatus.EXPIRED;
+    return true;
   }
 
   private void requirePending() {
@@ -121,6 +144,14 @@ public class Purchase {
       throw new PurchaseRuleViolation("A provider reference must contain 1 to 128 characters");
     }
     return reference;
+  }
+
+  private String requireConsistentProviderReference(String reference) {
+    String validated = requireProviderReference(reference);
+    if (providerReference != null && !providerReference.equals(validated)) {
+      throw new PurchaseRuleViolation("The provider reference does not match this purchase");
+    }
+    return validated;
   }
 
   public UUID getId() {
@@ -161,6 +192,10 @@ public class Purchase {
 
   public Instant getConfirmedAt() {
     return confirmedAt;
+  }
+
+  public Instant getExpiresAt() {
+    return expiresAt;
   }
 
   public Instant getCreatedAt() {

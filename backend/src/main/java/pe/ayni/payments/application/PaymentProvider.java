@@ -1,12 +1,15 @@
 package pe.ayni.payments.application;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Boundary to the payment provider; the current adapter simulates its response. */
 public interface PaymentProvider {
 
   PaymentResult charge(UUID purchaseId, BigDecimal amount, String currency);
+
+  Optional<PaymentResult> status(UUID purchaseId);
 
   record PaymentResult(Outcome outcome, String providerReference) {
 
@@ -21,7 +24,8 @@ public interface PaymentProvider {
 
     public enum Outcome {
       CONFIRMED,
-      REJECTED
+      REJECTED,
+      PENDING
     }
   }
 }

@@ -11,15 +11,18 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.payments.application.PurchaseCreditsUseCase;
+import pe.ayni.payments.application.PurchaseHistoryQuery;
 import pe.ayni.payments.application.PurchaseOutcome;
 import pe.ayni.shared.tenancy.CurrentUser;
 
@@ -30,9 +33,40 @@ import pe.ayni.shared.tenancy.CurrentUser;
 class PaymentsController {
 
   private final PurchaseCreditsUseCase purchaseCredits;
+  private final PurchaseHistoryQuery purchaseHistory;
 
-  PaymentsController(PurchaseCreditsUseCase purchaseCredits) {
+  PaymentsController(
+      PurchaseCreditsUseCase purchaseCredits, PurchaseHistoryQuery purchaseHistory) {
     this.purchaseCredits = purchaseCredits;
+    this.purchaseHistory = purchaseHistory;
+  }
+
+  @GetMapping("/purchases")
+  @Operation(
+      summary = "List the current student's credit purchases",
+      description =
+          "Shows pending purchases as well as their final outcome. For a pending purchase, follow "
+              + "the guidance and check this list again instead of starting another payment.")
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request",
+      schema =
+          @Schema(
+              type = "string",
+              format = "uuid",
+              example = "11111111-1111-4111-8111-111111111111"))
+  List<PurchaseResponse> purchases() {
+    return purchaseHistory.forStudent(CurrentUser.require()).stream()
+        .map(PurchaseResponse::of)
+        .toList();
   }
 
   @PostMapping("/purchases")
@@ -91,7 +125,12 @@ class PaymentsController {
                           """)))
   @ApiResponse(
       responseCode = "200",
-      description = "The same idempotent purchase attempt was already processed",
+      description = "The purchase is already pending or the same idempotent request was repeated",
+      content = @Content(schema = @Schema(implementation = PurchaseResponse.class)))
+  @ApiResponse(
+      responseCode = "202",
+      description =
+          "The provider has no final result yet. Check GET /api/v1/payments/purchases; do not retry",
       content = @Content(schema = @Schema(implementation = PurchaseResponse.class)))
   @ApiResponse(
       responseCode = "409",
@@ -117,7 +156,10 @@ class PaymentsController {
       @RequestHeader("Idempotency-Key") @Size(min = 1, max = 64) String idempotencyKey) {
     PurchaseOutcome outcome =
         purchaseCredits.execute(CurrentUser.require(), request.credits(), idempotencyKey);
-    return ResponseEntity.status(outcome.created() ? HttpStatus.CREATED : HttpStatus.OK)
-        .body(PurchaseResponse.of(outcome));
+    HttpStatus status =
+        outcome.status() == pe.ayni.payments.domain.model.PurchaseStatus.PENDING
+            ? (outcome.created() ? HttpStatus.ACCEPTED : HttpStatus.OK)
+            : (outcome.created() ? HttpStatus.CREATED : HttpStatus.OK);
+    return ResponseEntity.status(status).body(PurchaseResponse.of(outcome));
   }
 }
