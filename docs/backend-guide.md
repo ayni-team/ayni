@@ -397,8 +397,11 @@ because a hold ends either in a booking, which is announced, or back in circulat
 | DELETE | `/api/v1/bookings/{id}` | student or tutor | cancels, always refunds |
 | GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
+| DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
 | POST | `/api/v1/tutor/availability/exceptions` | tutor | add or remove a specific date |
 | POST | `/api/v1/tutor/availability/pauses` | tutor | pause a period |
+| GET | `/api/v1/tutor/availability/pauses/current` | tutor | whether the tutor is paused today and until when (US22) |
+| DELETE | `/api/v1/tutor/availability/pauses/{id}` | tutor | ends a pause early and restores the hours the weekly rules still give (US22) |
 
 **The confirmation, in order, inside one transaction:** the tutor is enabled → the hours are
 contiguous and free → charge the credits → mark the hours → save the booking → publish
@@ -425,9 +428,12 @@ cancelled. A tutor removing availability over a confirmed booking is cancelling 
 
 **Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
 or a date exception usually arrives after its hours exist. Saving one adjusts them in the same
-transaction: every future hour the rules no longer give, free or held, becomes `RELEASED` and
-`HoursWithdrawn` takes it out of the search; an `ADD` generates its hours at once. Which hours the
-rules give is decided by the same `BlockGenerator` that creates them. A booked hour stands, as US19
+transaction: every future hour the rules no longer give, free or held, becomes `WITHDRAWN` and
+`HoursWithdrawn` takes it out of the search; an `ADD` generates its hours at once. A withdrawn hour
+comes back to `AVAILABLE` when the rules give it again, a pause ended early or a range declared
+again, and `HoursGenerated` announces it. `RELEASED` is kept for an hour freed by cancelling its
+booking, which generation never restores. Which hours the rules give is decided by the same
+`BlockGenerator` that creates them. A booked hour stands, as US19
 scenario 4 asks: until cancelling exists (US05) removing availability does not cancel, and the
 answer counts the booked hours that stand so the tutor knows.
 
