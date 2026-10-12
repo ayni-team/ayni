@@ -245,7 +245,7 @@ class WalletRedemptionAcceptanceTest {
 
     mockMvc
         .perform(
-            post("/api/v1/wallet/benefits")
+            post("/api/v1/coordinator/benefits")
                 .header("X-Tenant-Id", tenant)
                 .header("X-User-Id", student)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -257,7 +257,7 @@ class WalletRedemptionAcceptanceTest {
 
     mockMvc
         .perform(
-            put("/api/v1/wallet/benefits/{benefitId}", benefitId)
+            put("/api/v1/coordinator/benefits/{benefitId}", benefitId)
                 .header("X-Tenant-Id", tenant)
                 .header("X-User-Id", coordinator)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -281,7 +281,7 @@ class WalletRedemptionAcceptanceTest {
     String response =
         mockMvc
             .perform(
-                post("/api/v1/wallet/benefits")
+                post("/api/v1/coordinator/benefits")
                     .header("X-Tenant-Id", tenant)
                     .header("X-User-Id", coordinator)
                     .contentType(MediaType.APPLICATION_JSON)
