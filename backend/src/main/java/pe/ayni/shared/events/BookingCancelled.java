@@ -7,9 +7,10 @@ import java.util.UUID;
 /**
  * Published by booking when a reservation is cancelled.
  *
- * <p>Cancelling always refunds, so wallet reacts to every one of these. {@code late} says whether it
- * happened within twelve hours of the start, which booking records against whoever cancelled.
- * Matching offers the released blocks again.
+ * <p>Wallet refunds the student for every one of these except a late cancellation by the student
+ * themselves. {@code late} says whether it happened less than twelve hours before the start, and
+ * {@code cancelledBy} says who did it: a tutor's cancellation refunds whatever the hour, and booking
+ * records a late one against the tutor. Matching offers the released blocks again.
  */
 public record BookingCancelled(
     String tenantId,

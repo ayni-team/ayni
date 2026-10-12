@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.booking.BookingApi;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -20,10 +21,12 @@ public class ScheduleSessionUseCase {
 
   private final SessionRepository sessions;
   private final Clock clock;
+  private final BookingApi booking;
 
-  ScheduleSessionUseCase(SessionRepository sessions, Clock clock) {
+  ScheduleSessionUseCase(SessionRepository sessions, Clock clock, BookingApi booking) {
     this.sessions = sessions;
     this.clock = clock;
+    this.booking = booking;
   }
 
   /** @return {@code true} when the session was created now, {@code false} when it existed */
@@ -33,6 +36,9 @@ public class ScheduleSessionUseCase {
 
     String tenantId = TenantContext.require();
 
+    if (!booking.isConfirmed(bookingId)) {
+      return false;
+    }
     if (sessions.existsByTenantIdAndBookingId(tenantId, bookingId)) {
       return false;
     }

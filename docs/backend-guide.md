@@ -253,7 +253,8 @@ public interface IdentityApi {
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
-| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the policy |
+| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
+| PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
@@ -309,6 +310,37 @@ touched.
 The link is consumed with a conditional update, so two confirmations at once activate the
 coordinator once, publish `CoordinatorActivated` once and open one session: the other one is
 answered `409`.
+
+**Credit policy (US52).** `PUT /api/v1/coordinator/credit-policy` takes `creditsAmount` and
+`validityDays`, both of at least 1. In one transaction it closes the current `BASELINE` policy of
+the university of the request (`superseded_at`) and creates the next one, authored by the
+coordinator and valid from today in the university's own zone. The previous version stays stored:
+policies are never edited. `IdentityApi.currentPolicy` answers the new one from then on, so the
+students activated afterwards are granted it; what was granted before keeps the policy that granted
+it. The body is the new policy: `id`, `kind`, `creditsAmount`, `validityDays` and `validFrom`.
+
+| Status | When |
+|---|---|
+| 200 | Replaced |
+| 400 | `creditsAmount` or `validityDays` below 1, or a missing `X-Tenant-Id` or `X-User-Id` |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
+| 409 | The university is suspended, or it has no baseline policy to replace |
+
+The university's row is locked before the current policy is read, so two coordinators replacing it
+at once are answered `200` both, one after the other, and exactly one `BASELINE` policy stays
+current, never two and never a `500`.
+
+**University identity (US50).** `PUT /api/v1/coordinator/university-identity` takes `logoUrl`,
+`primaryColor` and `secondaryColor`, each optional and replaced as a whole: a field that is missing
+or blank leaves the university with none. The university is the one of the request
+(`X-Tenant-Id`); the body has no field for it and a code that appears there is ignored. It answers
+the university's `code`, `name` and the three values as they are stored.
+
+| Status | When |
+|---|---|
+| 200 | Updated |
+| 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour), or `X-Tenant-Id` or `X-User-Id` is missing |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
 
 ---
 
@@ -382,7 +414,8 @@ public interface WalletApi {
 
 **Publishes:** `CreditsGranted`, `CreditsExpiring`, `CreditsExpired`.
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
-`BookingCancelled` and `SessionUnverified` (refund the booking), `PurchaseConfirmed`.
+`BookingCancelled` (refunds the booking, unless the student cancelled it late) and
+`SessionUnverified` (refunds the booking), `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
@@ -417,6 +450,10 @@ A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` ins
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
 The reasoning is in ADR 0005.
 
+The listener of `BookingCancelled` refunds every cancellation except one: it does nothing when the
+event is late **and** the student cancelled it themselves. A tutor's cancellation refunds whatever
+the hour, and the same event delivered twice refunds once.
+
 ---
 
 ## booking
@@ -426,6 +463,7 @@ Owns availability and reservations.
 ```java
 public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
+  boolean isConfirmed(UUID bookingId);   // used by sessions, before it schedules a session
   List<OpenHourView> openHoursOf(UUID tutorId, Instant from);   // used by matching
 }
 ```
@@ -446,7 +484,7 @@ because a hold ends either in a booking, which is announced, or back in circulat
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history |
-| DELETE | `/api/v1/bookings/{id}` | student or tutor | cancels, always refunds |
+| DELETE | `/api/v1/bookings/{id}` | student or tutor of the booking | cancels. The student is refunded unless they cancel inside twelve hours of the start; the tutor's cancellation always refunds. `confirmLate=true` confirms a cancellation inside twelve hours. 204, 400, 403, 404 and 409 |
 | GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
 | DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
@@ -475,8 +513,31 @@ it for rollback. A refusal answers 409 with the reason (the hour was taken, the 
 tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
 nothing was charged.
 
-**Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
-cancelled. A tutor removing availability over a confirmed booking is cancelling that session.
+**Cancelling.** Only the booking's student or tutor may cancel it, before the session starts; the
+booking is locked while it is cancelled, so two cancellations at once end with one refund and one
+`BookingCancelled`, and cancelling again answers `204` and changes nothing. "Late" is strictly less
+than twelve hours before the start; exactly twelve is on time.
+
+| Who cancels | Twelve hours or more ahead | Less than twelve hours ahead |
+|---|---|---|
+| Student | credits returned, hours `AVAILABLE` | warned first that nothing is returned; once confirmed, cancelled with no refund, hours `AVAILABLE` |
+| Tutor | credits returned, hours `RELEASED` | asked to confirm and warned it will be recorded; once confirmed, credits returned, hours `RELEASED` and a `LATE_CANCELLATION` incident in `booking.tutor_reliability` |
+
+The warning is the answer to the first request and cancels nothing: `409` with `late`,
+`refundWillBeIssued`, `incidentWillBeRecorded` and `confirmationRequired`. The same `DELETE` with
+`confirmLate=true` carries it out. Without the lateness, `confirmLate` changes nothing.
+
+| Status | When |
+|---|---|
+| 204 | Cancelled, or it already was |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, or a booking id that is not a UUID |
+| 403 | The caller is neither the student nor the tutor of the booking |
+| 404 | The booking does not exist in this university. Another university's booking answers the same |
+| 409 | The confirmation of a late cancellation is needed, or the session has already started |
+
+Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) and publishes
+`BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
+happened. A tutor removing availability over a confirmed booking is cancelling that session.
 
 **Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
 or a date exception usually arrives after its hours exist. Saving one adjusts them in the same

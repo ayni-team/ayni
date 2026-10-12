@@ -30,6 +30,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.domain.model.Booking;
+import pe.ayni.booking.infrastructure.BookingRepository;
 import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
@@ -66,6 +68,7 @@ class PresenceCodeEmailAcceptanceTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private BookingRepository bookings;
   @Autowired private TenantRepository tenants;
   @Autowired private UserRepository users;
   @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
@@ -84,7 +87,22 @@ class PresenceCodeEmailAcceptanceTest {
     UUID bookingId = UUID.randomUUID();
     TenantContext.runAs(
         UPC,
-        () -> scheduleSession.forBooking(bookingId, ANA, BRUNO, start, start.plus(Duration.ofHours(1))));
+        () -> {
+          bookings.save(
+              Booking.confirm(
+                  bookingId,
+                  UPC,
+                  ANA,
+                  BRUNO,
+                  UUID.randomUUID(),
+                  start,
+                  start.plus(Duration.ofHours(1)),
+                  1,
+                  "Help with calculus",
+                  Instant.now()));
+          scheduleSession.forBooking(
+              bookingId, ANA, BRUNO, start, start.plus(Duration.ofHours(1)));
+        });
     UUID session =
         jdbc.queryForObject(
             "select id from sessions.sessions where tenant_id = ? and booking_id = ?",

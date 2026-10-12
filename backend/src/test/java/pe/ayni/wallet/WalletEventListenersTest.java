@@ -110,7 +110,7 @@ class WalletEventListenersTest {
     assertThat(balanceOf(student))
             .isEqualTo(Credits.of(2));
 
-    publish(
+    BookingCancelled cancelled =
             new BookingCancelled(
                     UPC,
                     booking,
@@ -119,7 +119,53 @@ class WalletEventListenersTest {
                     List.of(UUID.randomUUID()),
                     BookingCancelled.CancelledBy.STUDENT,
                     false,
-                    Instant.now()));
+                    Instant.now());
+
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+
+    // Delivered twice, refunded once.
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+  }
+
+  @Test
+  @DisplayName(
+          "a late cancellation by the student returns nothing, however many times it is delivered")
+  void aLateCancellationByTheStudentReturnsNothing() {
+
+    UUID booking = aChargedBooking(4);
+
+    BookingCancelled cancelled =
+            cancelledBooking(booking, BookingCancelled.CancelledBy.STUDENT, true);
+
+    publish(cancelled);
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(2));
+  }
+
+  @Test
+  @DisplayName(
+          "a late cancellation by the tutor returns the credits once, even if delivered twice")
+  void aLateCancellationByTheTutorReturnsTheCreditsOnce() {
+
+    UUID booking = aChargedBooking(4);
+
+    BookingCancelled cancelled =
+            cancelledBooking(booking, BookingCancelled.CancelledBy.TUTOR, true);
+
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+
+    publish(cancelled);
 
     assertThat(balanceOf(student))
             .isEqualTo(Credits.of(6));
@@ -257,6 +303,39 @@ class WalletEventListenersTest {
   }
 
   /** Publishes as the owning module would: inside a transaction that then commits. */
+  /** The student is left with 6 credits minus what the booking took. */
+  private UUID aChargedBooking(int credits) {
+    UUID booking = UUID.randomUUID();
+
+    TenantContext.runAs(
+            UPC,
+            () -> {
+              wallet.grant(
+                      student,
+                      Credits.of(6),
+                      CreditType.SEED,
+                      Instant.now().plus(Duration.ofDays(30)),
+                      UUID.randomUUID());
+
+              wallet.charge(student, Credits.of(credits), booking);
+            });
+
+    return booking;
+  }
+
+  private BookingCancelled cancelledBooking(
+          UUID booking, BookingCancelled.CancelledBy by, boolean late) {
+    return new BookingCancelled(
+            UPC,
+            booking,
+            student,
+            tutor,
+            List.of(UUID.randomUUID()),
+            by,
+            late,
+            Instant.now());
+  }
+
   private void publish(Object event) {
     transactions.executeWithoutResult(
             status ->
