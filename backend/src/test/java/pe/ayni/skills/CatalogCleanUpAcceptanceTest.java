@@ -2,11 +2,13 @@ package pe.ayni.skills;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
@@ -22,6 +24,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,7 +69,12 @@ import pe.ayni.skills.infrastructure.TaughtSessionRepository;
  * with the same names. The identity of each person is stubbed, since identity is another module;
  * everything else is the real application.
  *
- * <p>Each test works in a university of its own and with tools of its own, and the names it asks the
+ * <p>A coordinator moderates the courses of their own university. A global tool is left to the
+ * platform administrator, a role that does not exist yet (TS03): the scenarios that only make sense
+ * with one are tagged {@code @pending} in the feature and their tests are disabled here, so none
+ * of them disappears.
+ *
+ * <p>Each test works in a university of its own and with items of its own, and the names it asks the
  * similar skills about are letters nobody else uses, because that comparison reads the whole
  * catalogue.
  */
@@ -107,9 +115,9 @@ class CatalogCleanUpAcceptanceTest {
   private CatalogItem duplicate;
   private CatalogItem kept;
 
-  /** Background: a coordinator of a university of its own, and two global tools. */
+  /** Background: a coordinator of a university of its own, and two courses of it. */
   @BeforeEach
-  void aCoordinatorAndTwoTools() {
+  void aCoordinatorAndTwoCourses() {
     tenant = "T" + UUID.randomUUID().toString().substring(0, 8);
     category = categories.save(new Category(UUID.randomUUID(), "Category " + tenant, (short) 0)).getId();
     Set<UUID> coordinators = Set.of(coordinator);
@@ -129,8 +137,8 @@ class CatalogCleanUpAcceptanceTest {
                   null,
                   null);
             });
-    duplicate = tool(uniqueName());
-    kept = tool(uniqueName());
+    duplicate = course(uniqueName());
+    kept = course(uniqueName());
   }
 
   @Test
@@ -180,7 +188,8 @@ class CatalogCleanUpAcceptanceTest {
                 .headers(headers(student))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"catalogItemId\":\"" + duplicate.getId() + "\"}"))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message").value(containsString("retired")));
     String catalogue =
         body(
             mockMvc
@@ -238,7 +247,7 @@ class CatalogCleanUpAcceptanceTest {
               tenant, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), student, duplicate.getId(), Credits.of(1), NOW);
       transactions.executeWithoutResult(status -> events.publishEvent(completed));
     }
-    await().atMost(Duration.ofSeconds(15)).until(() -> taughtSessions.countByCatalogItemId(duplicate.getId()) == 4);
+    await().atMost(Duration.ofSeconds(15)).until(() -> taughtSessions.countByTenantIdAndCatalogItemId(tenant, duplicate.getId()) == 4);
 
     String used = body(usage(coordinator, duplicate).andExpect(status().isOk()));
     String unused = body(usage(coordinator, kept).andExpect(status().isOk()));
@@ -280,47 +289,80 @@ class CatalogCleanUpAcceptanceTest {
   }
 
   @Test
+  @DisplayName("A coordinator cannot retire or join a global tool")
+  void aCoordinatorCannotRetireOrJoinAGlobalTool() throws Exception {
+
+    CatalogItem figma = globalTool(uniqueName());
+    CatalogItem penpot = globalTool(uniqueName());
+    OfferedSkill offer = enabledBy(UUID.randomUUID(), figma);
+    // Another university's tutor offers it too: the numbers the coordinator reads leave it out.
+    OfferedSkill ofAnotherUniversity =
+        offeredSkills.save(
+            approved(
+                OfferedSkill.requestValidation(
+                    UUID.randomUUID(), "O" + tenant, UUID.randomUUID(), figma.getId(), NOW)));
+
+    retire(figma, 1).andExpect(status().isForbidden());
+    merge(figma, kept).andExpect(status().isForbidden());
+    merge(kept, figma).andExpect(status().isForbidden());
+    merge(figma, penpot).andExpect(status().isForbidden());
+
+    assertThat(catalogItems.findById(figma.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(catalogItems.findById(penpot.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(catalogItems.findById(kept.getId()).orElseThrow().isActive()).isTrue();
+    OfferedSkill read = offeredSkills.findById(offer.getId()).orElseThrow();
+    assertThat(read.getCatalogItemId()).isEqualTo(figma.getId());
+    assertThat(read.isEnabled()).isTrue();
+    assertThat(offeredSkills.findById(ofAnotherUniversity.getId()).orElseThrow().isEnabled()).isTrue();
+    assertThat(applicationEvents.stream(SkillWithdrawn.class)).isEmpty();
+    assertThat(applicationEvents.stream(SkillEnabled.class)).isEmpty();
+    // It can still be looked at, and what is read is this university's own use of it.
+    String used = body(usage(coordinator, figma).andExpect(status().isOk()));
+    assertThat(JsonPath.<Integer>read(used, "$.tutorsOffering")).isEqualTo(1);
+    assertThat(JsonPath.<Integer>read(used, "$.sessionsTaught")).isZero();
+  }
+
+  // Waits for the ADMIN role (TS03). With one, a global tool can be joined and the kind of the two
+  // items matters again: a course is accredited by an academic record, so it is never joined to a
+  // tool. A coordinator is refused before that rule is reached.
+  @Disabled("Waits for the ADMIN role (TS03): only an administrator can join a global tool")
+  @Test
   @DisplayName("A course and a tool cannot be joined")
   void aCourseAndAToolCannotBeJoined() throws Exception {
 
-    CatalogItem course =
-        catalogItems.save(
-            new CatalogItem(
-                UUID.randomUUID(),
-                CatalogScope.UNIVERSITY,
-                tenant,
-                category,
-                "Course " + UUID.randomUUID(),
-                null,
-                "C" + UUID.randomUUID().toString().substring(0, 8),
-                NOW));
-    OfferedSkill offer = enabledBy(UUID.randomUUID(), course);
+    CatalogItem tool = globalTool(uniqueName());
+    OfferedSkill offer = enabledBy(UUID.randomUUID(), duplicate);
 
-    merge(course, duplicate).andExpect(status().isBadRequest());
-    merge(duplicate, course).andExpect(status().isBadRequest());
+    merge(duplicate, tool).andExpect(status().isBadRequest());
+    merge(tool, duplicate).andExpect(status().isBadRequest());
 
-    assertThat(catalogItems.findById(course.getId()).orElseThrow().isActive()).isTrue();
     assertThat(catalogItems.findById(duplicate.getId()).orElseThrow().isActive()).isTrue();
-    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().getCatalogItemId()).isEqualTo(course.getId());
+    assertThat(catalogItems.findById(tool.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().getCatalogItemId()).isEqualTo(duplicate.getId());
   }
 
+  // Waits for the ADMIN role (TS03). Evidence is only submitted for a global tool, since a course is
+  // enabled by grade, and a coordinator can no longer retire one. The protection itself stays in
+  // ResolveValidationUseCase and has its own unit test.
+  @Disabled("Waits for the ADMIN role (TS03): only an administrator can retire a global tool")
   @Test
   @DisplayName("Evidence waiting for a retired tool cannot be approved")
   void evidenceWaitingForARetiredToolCannotBeApproved() throws Exception {
 
+    CatalogItem tool = globalTool(uniqueName());
     UUID tutor = UUID.randomUUID();
     String submission =
         body(
             mockMvc
                 .perform(
-                    multipart("/api/v1/tutor/skills/{id}/validation", duplicate.getId())
+                    multipart("/api/v1/tutor/skills/{id}/validation", tool.getId())
                         .file(new MockMultipartFile("files", "portfolio.pdf", "application/pdf", PDF))
                         .param("note", "Two years of work with it")
                         .headers(headers(tutor)))
                 .andExpect(status().isCreated()));
     String requestId = JsonPath.read(submission, "$.validationRequestId");
 
-    retire(duplicate, 0).andExpect(status().isOk());
+    retire(tool, 0).andExpect(status().isOk());
 
     decide(requestId, "{\"decision\":\"APPROVE\"}").andExpect(status().isConflict());
     assertThat(JsonPath.<List<String>>read(skillsOf(tutor), "$[*].status")).containsExactly("PENDING");
@@ -392,14 +434,32 @@ class CatalogCleanUpAcceptanceTest {
     return letters.toString();
   }
 
-  private CatalogItem tool(String name) {
+  /** A course of the coordinator's university, which is what a coordinator moderates. */
+  private CatalogItem course(String name) {
+    return catalogItems.save(
+        new CatalogItem(
+            UUID.randomUUID(),
+            CatalogScope.UNIVERSITY,
+            tenant,
+            category,
+            name,
+            null,
+            "C" + UUID.randomUUID().toString().substring(0, 8),
+            NOW));
+  }
+
+  private CatalogItem globalTool(String name) {
     return catalogItems.save(new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, category, name, null, null, NOW));
   }
 
   private OfferedSkill enabledBy(UUID tutor, CatalogItem item) {
-    OfferedSkill skill = OfferedSkill.requestValidation(UUID.randomUUID(), tenant, tutor, item.getId(), NOW);
+    return offeredSkills.save(
+        approved(OfferedSkill.requestValidation(UUID.randomUUID(), tenant, tutor, item.getId(), NOW)));
+  }
+
+  private static OfferedSkill approved(OfferedSkill skill) {
     skill.approveByReviewedEvidence(NOW);
-    return offeredSkills.save(skill);
+    return skill;
   }
 
   /** A confirmed booking on the item, which booking owns: the test writes it only to see it stand. */

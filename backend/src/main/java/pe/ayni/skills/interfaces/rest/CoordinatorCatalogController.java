@@ -53,10 +53,9 @@ class CoordinatorCatalogController {
       description =
           """
           US44: how many tutors offer the item and how many sessions were taught on it, which is \
-          what a moderator reviews the catalogue by. For a global tool the numbers count every \
-          university, because retiring or joining it affects all of them; for a course they are \
-          the university's own. They are counts, never people. The number of tutors is the one a \
-          retirement will ask to confirm.
+          what a moderator reviews the catalogue by. The numbers are those of the coordinator's \
+          own university, for a global tool as well as for a course. They are counts, never \
+          people. The number of tutors is the one a retirement will ask to confirm.
 
           The sessions are counted since skills started recording them: the ones completed before \
           that are not included.
@@ -105,7 +104,9 @@ class CoordinatorCatalogController {
           now. Offers still waiting for a review are not counted: they can no longer be approved, \
           and the coordinator rejects them.
 
-          A global tool is retired for every university.
+          Only an item of the coordinator's own university can be retired: a global tool is \
+          shared by every university and is refused with 403, which leaves it to the platform \
+          administrator.
           """)
   @Parameter(
       in = ParameterIn.HEADER,
@@ -130,7 +131,7 @@ class CoordinatorCatalogController {
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "403",
-      description = "The person asking is not a coordinator",
+      description = "The person asking is not a coordinator, or the item is a global tool",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "404",
@@ -152,11 +153,17 @@ class CoordinatorCatalogController {
       summary = "Joins a duplicate item to the one that stays",
       description =
           """
-          US44: two items that are the same skill become one. The item in the path is the duplicate           and is retired; intoCatalogItemId is the one that stays.
+          US44: two items of the university that are the same skill become one. The item in the \
+          path is the duplicate and is retired; intoCatalogItemId is the one that stays.
 
-          Everything the duplicate had moves to the one that stays: the offers and accreditations of           its tutors keep their status, and an enabled tutor keeps being found in the search. A tutor           who already held both keeps the one on the item that stays and has the other withdrawn. The           learning interests, the proposals that ended in the duplicate and the sessions counted on           it follow. The sessions already booked stand.
+          Everything the duplicate had moves to the one that stays: the offers and accreditations \
+          of its tutors keep their status, and an enabled tutor keeps being found in the search. A \
+          tutor who already held both keeps the one on the item that stays and has the other \
+          withdrawn. The learning interests, the proposals that ended in the duplicate and the \
+          sessions counted on it follow. The sessions already booked stand.
 
-          The two must be the same kind of thing: two global tools, or two courses of the           university. A course is never joined to a tool.
+          Both must be courses of the coordinator's university: if either is a global tool, \
+          shared by every university, nothing changes and the answer is 403.
           """)
   @Parameter(
       in = ParameterIn.HEADER,
@@ -178,12 +185,11 @@ class CoordinatorCatalogController {
   @ApiResponse(
       responseCode = "400",
       description =
-          "The same item twice, a course with a tool, the item that would stay is retired, or the body"
-              + " cannot be read",
+          "The same item twice, the item that would stay is retired, or the body cannot be read",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "403",
-      description = "The person asking is not a coordinator",
+      description = "The person asking is not a coordinator, or either item is a global tool",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "404",

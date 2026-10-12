@@ -149,8 +149,8 @@ class CatalogUsageDatabaseTest {
   }
 
   @Test
-  @DisplayName("a global tool counts every university, because retiring it affects all of them")
-  void aGlobalToolCountsEveryUniversity() throws Exception {
+  @DisplayName("a global tool counts only the university of the coordinator")
+  void aGlobalToolCountsOnlyTheUniversityOfTheCoordinator() throws Exception {
     CatalogItem figma = tool();
     String other = "T" + UUID.randomUUID().toString().substring(0, 8);
     enabledBy(tenant, figma);
@@ -161,8 +161,8 @@ class CatalogUsageDatabaseTest {
 
     String answer = body(usage(coordinator, tenant, figma).andExpect(status().isOk()));
 
-    assertThat(JsonPath.<Integer>read(answer, "$.tutorsOffering")).isEqualTo(3);
-    assertThat(JsonPath.<Integer>read(answer, "$.sessionsTaught")).isEqualTo(2);
+    assertThat(JsonPath.<Integer>read(answer, "$.tutorsOffering")).isEqualTo(1);
+    assertThat(JsonPath.<Integer>read(answer, "$.sessionsTaught")).isEqualTo(1);
   }
 
   @Test
@@ -213,10 +213,10 @@ class CatalogUsageDatabaseTest {
     transactions.executeWithoutResult(status -> events.publishEvent(completed));
     transactions.executeWithoutResult(status -> events.publishEvent(completed));
 
-    await().atMost(Duration.ofSeconds(10)).until(() -> taughtSessions.countByCatalogItemId(figma.getId()) >= 1);
+    await().atMost(Duration.ofSeconds(10)).until(() -> taughtSessions.countByTenantIdAndCatalogItemId(tenant, figma.getId()) >= 1);
     // Give the second delivery the time it needs to do harm, if it could.
     Thread.sleep(500);
-    assertThat(taughtSessions.countByCatalogItemId(figma.getId())).isEqualTo(1);
+    assertThat(taughtSessions.countByTenantIdAndCatalogItemId(tenant, figma.getId())).isEqualTo(1);
     assertThat(JsonPath.<Integer>read(body(usage(coordinator, tenant, figma)), "$.sessionsTaught")).isEqualTo(1);
   }
 }

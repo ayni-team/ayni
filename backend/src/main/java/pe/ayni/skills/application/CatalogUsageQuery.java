@@ -16,9 +16,9 @@ import pe.ayni.skills.infrastructure.TaughtSessionRepository;
  * US44, scenario 4 and the preview of scenario 3: how much a catalogue item is used, which is what a
  * moderator reviews the catalogue by.
  *
- * <p>The numbers count every university. A global tool is offered and taught in all of them, and
- * retiring or joining it affects all of them, so the moderator must see all of them. They are
- * counts and never describe a person.
+ * <p>The numbers are those of the moderator's own university, for any item they can see, a global
+ * tool included: a coordinator reads the use of a tool in their university, not in the others. They
+ * are counts and never describe a person.
  */
 @Service
 public class CatalogUsageQuery {
@@ -64,11 +64,13 @@ public class CatalogUsageQuery {
         catalogItems
             .findByIdAndTenantVisibility(catalogItemId, tenantId)
             .orElseThrow(() -> new NoSuchElementException("catalogue item %s not found".formatted(catalogItemId)));
-    return new CatalogUsage(item, tutorsOffering(item.getId()), taughtSessions.countByCatalogItemId(item.getId()));
+    return new CatalogUsage(item, tutorsOffering(tenantId, item.getId()),
+        taughtSessions.countByTenantIdAndCatalogItemId(tenantId, item.getId()));
   }
 
   /** Also what retiring or joining the item will touch, so those use cases share the number. */
-  long tutorsOffering(UUID catalogItemId) {
-    return offeredSkills.countByCatalogItemIdAndStatus(catalogItemId, OfferedSkillStatus.ENABLED);
+  long tutorsOffering(String tenantId, UUID catalogItemId) {
+    return offeredSkills.countByTenantIdAndCatalogItemIdAndStatus(
+        tenantId, catalogItemId, OfferedSkillStatus.ENABLED);
   }
 }

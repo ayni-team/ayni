@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.shared.events.SkillWithdrawn;
 import pe.ayni.shared.tenancy.TenantContext;
+import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.GlobalCatalogItemNotModerable;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
@@ -20,7 +22,9 @@ import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
 /**
- * US44, scenarios 2 and 3: a moderator retires a catalogue item that no longer belongs.
+ * US44, scenarios 2 and 3: a moderator retires a catalogue item of their own university that no
+ * longer belongs. A global tool is not theirs to retire: it is shared by every university and is
+ * left to the platform administrator.
  *
  * <p>A retired item can no longer be offered, and the search stops finding it. Every tutor who
  * offered it has their offer withdrawn, which announces {@code SkillWithdrawn} for each one: that is
@@ -69,6 +73,7 @@ public class RetireCatalogItemUseCase {
    * @throws pe.ayni.skills.domain.model.NotACoordinator when the person is not a coordinator
    * @throws NoSuchElementException when the item does not exist, or is a course of another
    *     university
+   * @throws GlobalCatalogItemNotModerable when the item is a global tool
    * @throws SkillsStateConflict when the item is already retired, or the number of tutors is no
    *     longer the one confirmed
    * @throws SkillsRuleViolation when the confirmation is negative
@@ -90,11 +95,15 @@ public class RetireCatalogItemUseCase {
         catalogItems
             .lockByIdAndTenantVisibility(catalogItemId, tenantId)
             .orElseThrow(() -> new NoSuchElementException("catalogue item %s not found".formatted(catalogItemId)));
+    if (item.getScope() == CatalogScope.GLOBAL) {
+      throw new GlobalCatalogItemNotModerable();
+    }
     if (!item.isActive()) {
       throw new SkillsStateConflict("this catalogue item is already retired");
     }
     List<OfferedSkill> offers =
-        offeredSkills.lockByCatalogItemIdAndStatus(item.getId(), OfferedSkillStatus.ENABLED);
+        offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(
+            tenantId, item.getId(), OfferedSkillStatus.ENABLED);
     if (offers.size() != confirmedTutors) {
       throw new SkillsStateConflict(
           "%d tutors offer this skill now, not %d: review the number and confirm again"

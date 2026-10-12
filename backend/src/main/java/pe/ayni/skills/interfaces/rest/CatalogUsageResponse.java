@@ -7,9 +7,10 @@ import pe.ayni.skills.application.CatalogUsageQuery.CatalogUsage;
 /**
  * A catalogue item and how much it is used, which is what a moderator reviews the catalogue by.
  *
- * @param tutorsOffering tutors whose offer of the item is enabled right now, in every university
- *     when the item is global. It is the number a retirement affects
- * @param sessionsTaught verified sessions taught on the item since skills started counting them
+ * @param tutorsOffering tutors of the university whose offer of the item is enabled right now. It
+ *     is the number a retirement affects
+ * @param sessionsTaught verified sessions of the university taught on the item since skills started
+ *     counting them
  */
 @Schema(name = "CatalogUsage", description = "A catalogue item and how much it is used")
 public record CatalogUsageResponse(

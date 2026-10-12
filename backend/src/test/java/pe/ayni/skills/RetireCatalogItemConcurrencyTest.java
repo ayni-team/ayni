@@ -134,16 +134,16 @@ class RetireCatalogItemConcurrencyTest {
     ExecutorService pool = Executors.newFixedThreadPool(2);
     try {
       for (int round = 0; round < ROUNDS; round++) {
-        CatalogItem tool = tool();
+        CatalogItem item = course();
 
         CyclicBarrier bothReady = new CyclicBarrier(2);
         Future<Boolean> first =
             pool.submit(
-                attempt(bothReady, () -> retire.execute(coordinator, tool.getId(), 0), SkillsStateConflict.class));
+                attempt(bothReady, () -> retire.execute(coordinator, item.getId(), 0), SkillsStateConflict.class));
         Future<Boolean> second =
             pool.submit(
                 attempt(
-                    bothReady, () -> retire.execute(otherCoordinator, tool.getId(), 0), SkillsStateConflict.class));
+                    bothReady, () -> retire.execute(otherCoordinator, item.getId(), 0), SkillsStateConflict.class));
 
         assertThat(List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS)))
             .as("outcomes of round %d: one retires it, the other is told it is retired", round)
@@ -187,9 +187,4 @@ class RetireCatalogItemConcurrencyTest {
             Instant.now()));
   }
 
-  private CatalogItem tool() {
-    return catalogItems.save(
-        new CatalogItem(
-            UUID.randomUUID(), CatalogScope.GLOBAL, null, category(), "Tool " + UUID.randomUUID(), null, null, Instant.now()));
-  }
 }

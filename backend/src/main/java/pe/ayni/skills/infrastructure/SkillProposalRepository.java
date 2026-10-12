@@ -36,14 +36,19 @@ public interface SkillProposalRepository extends JpaRepository<SkillProposal, UU
       @Param("tenantId") String tenantId, @Param("id") UUID id);
 
   /**
-   * Points the proposals that ended in {@code source} at {@code target}, so the students who proposed
+   * Points the university's proposals that ended in {@code source} at {@code target}, so the students who proposed
    * a tool read the item that stays when it was joined to another.
    *
    * @return how many proposals were pointed at {@code target}
    */
   @Modifying(flushAutomatically = true)
-  @Query("update SkillProposal proposal set proposal.catalogItemId = :target where proposal.catalogItemId = :source")
-  int repoint(@Param("source") UUID source, @Param("target") UUID target);
+  @Query(
+      """
+      update SkillProposal proposal set proposal.catalogItemId = :target
+      where proposal.tenantId = :tenantId and proposal.catalogItemId = :source
+      """)
+  int repoint(
+      @Param("tenantId") String tenantId, @Param("source") UUID source, @Param("target") UUID target);
 
   /** What a student has proposed, newest first. */
   List<SkillProposal> findByTenantIdAndProposedByOrderByCreatedAtDesc(

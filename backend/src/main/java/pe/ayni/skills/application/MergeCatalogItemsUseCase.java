@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.events.SkillWithdrawn;
 import pe.ayni.shared.tenancy.TenantContext;
+import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.GlobalCatalogItemNotModerable;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
@@ -25,8 +27,10 @@ import pe.ayni.skills.infrastructure.SkillProposalRepository;
 import pe.ayni.skills.infrastructure.TaughtSessionRepository;
 
 /**
- * US44, scenario 1: a moderator finds that two catalogue items are the same skill and joins them, so
- * that students stop choosing between three versions of one thing.
+ * US44, scenario 1: a moderator finds that two catalogue items of their university are the same
+ * skill and joins them, so that students stop choosing between three versions of one thing. A
+ * global tool is not theirs to join: it is shared by every university and is left to the platform
+ * administrator.
  *
  * <p>The item that stays keeps everything the other one had:
  *
@@ -43,8 +47,8 @@ import pe.ayni.skills.infrastructure.TaughtSessionRepository;
  * <p>The other item is retired. The sessions already booked on it stand: booking is not touched, and
  * the history of ratings and bookings stays with the retired item.
  *
- * <p>The two must be the same kind of thing: two tools, or two courses of this university. A course
- * is accredited by an academic record under its code, so it is never joined to a tool.
+ * <p>The two must be courses of this university. Everything that moves is the university's own:
+ * every query below filters by it.
  */
 @Service
 public class MergeCatalogItemsUseCase {
@@ -101,8 +105,8 @@ public class MergeCatalogItemsUseCase {
    * @throws pe.ayni.skills.domain.model.NotACoordinator when the person is not a coordinator
    * @throws NoSuchElementException when either item does not exist, or is a course of another
    *     university
-   * @throws SkillsRuleViolation when they are the same item, not the same kind of thing, or the one
-   *     that would stay is retired
+   * @throws GlobalCatalogItemNotModerable when either of them is a global tool
+   * @throws SkillsRuleViolation when they are the same item, or the one that would stay is retired
    * @throws SkillsStateConflict when the one to remove is already retired
    */
   @Transactional
@@ -126,8 +130,8 @@ public class MergeCatalogItemsUseCase {
     CatalogItem removed = first.equals(removedId) ? lockedFirst : lockedSecond;
     CatalogItem kept = first.equals(removedId) ? lockedSecond : lockedFirst;
 
-    if (removed.getScope() != kept.getScope()) {
-      throw new SkillsRuleViolation("a course and a tool are not the same skill and cannot be joined");
+    if (removed.getScope() == CatalogScope.GLOBAL || kept.getScope() == CatalogScope.GLOBAL) {
+      throw new GlobalCatalogItemNotModerable();
     }
     if (!removed.isActive()) {
       throw new SkillsStateConflict("the item to remove is already retired");
@@ -137,14 +141,14 @@ public class MergeCatalogItemsUseCase {
     }
 
     Instant now = clock.instant();
-    long[] offers = moveOffers(removed, kept, now);
+    long[] offers = moveOffers(tenantId, removed, kept, now);
     removed.retire();
     catalogItems.flush();
 
-    int interestsDropped = learningInterests.deleteDuplicatesOf(removed.getId(), kept.getId());
-    int interestsMoved = learningInterests.moveInterests(removed.getId(), kept.getId());
-    int proposalsRepointed = proposals.repoint(removed.getId(), kept.getId());
-    int sessionsCarriedOver = taughtSessions.carryOver(removed.getId(), kept.getId());
+    int interestsDropped = learningInterests.deleteDuplicatesOf(tenantId, removed.getId(), kept.getId());
+    int interestsMoved = learningInterests.moveInterests(tenantId, removed.getId(), kept.getId());
+    int proposalsRepointed = proposals.repoint(tenantId, removed.getId(), kept.getId());
+    int sessionsCarriedOver = taughtSessions.carryOver(tenantId, removed.getId(), kept.getId());
 
     return new Merge(
         removed, kept, offers[0], offers[1], interestsMoved, interestsDropped, proposalsRepointed, sessionsCarriedOver);
@@ -157,10 +161,10 @@ public class MergeCatalogItemsUseCase {
   }
 
   /** @return how many offers moved and how many were withdrawn instead */
-  private long[] moveOffers(CatalogItem removed, CatalogItem kept, Instant now) {
-    List<OfferedSkill> held = offeredSkills.lockByCatalogItemId(removed.getId());
+  private long[] moveOffers(String tenantId, CatalogItem removed, CatalogItem kept, Instant now) {
+    List<OfferedSkill> held = offeredSkills.lockByTenantIdAndCatalogItemId(tenantId, removed.getId());
     Set<String> alreadyOnKept = new HashSet<>();
-    for (OfferedSkill skill : offeredSkills.lockByCatalogItemId(kept.getId())) {
+    for (OfferedSkill skill : offeredSkills.lockByTenantIdAndCatalogItemId(tenantId, kept.getId())) {
       alreadyOnKept.add(holder(skill));
     }
 

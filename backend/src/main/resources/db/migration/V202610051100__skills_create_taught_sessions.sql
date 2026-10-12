@@ -28,6 +28,6 @@ CREATE TABLE skills.taught_sessions (
   completed_at     timestamptz  NOT NULL
 );
 
--- What the moderator reads: how many sessions an item has, whatever university taught them.
+-- What the moderator reads: how many sessions an item has in their own university.
 CREATE INDEX ix_taught_sessions_item
-  ON skills.taught_sessions (catalog_item_id);
+  ON skills.taught_sessions (tenant_id, catalog_item_id);

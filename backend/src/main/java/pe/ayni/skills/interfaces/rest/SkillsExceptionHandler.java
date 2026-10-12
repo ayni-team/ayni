@@ -16,6 +16,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
+import pe.ayni.skills.domain.model.GlobalCatalogItemNotModerable;
 import pe.ayni.skills.domain.model.NotACoordinator;
 import pe.ayni.skills.domain.model.NotTheOwner;
 import pe.ayni.skills.domain.model.SimilarSkillsFound;
@@ -80,6 +81,13 @@ class SkillsExceptionHandler {
   /** The skill exists in this university but is another tutor's: not allowed, which is not 404. */
   @ExceptionHandler(NotTheOwner.class)
   ResponseEntity<ApiError> handleNotTheOwner(NotTheOwner exception, HttpServletRequest request) {
+    return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /** A global tool is not the coordinator's to retire or join: not allowed, which is not 404. */
+  @ExceptionHandler(GlobalCatalogItemNotModerable.class)
+  ResponseEntity<ApiError> handleGlobalCatalogItem(
+      GlobalCatalogItemNotModerable exception, HttpServletRequest request) {
     return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
   }
 

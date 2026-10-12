@@ -299,14 +299,14 @@ already depends on skills, and the modules would depend on each other.
 | GET | `/api/v1/coordinator/skill-proposals?status=` | coordinator | proposals of the university: the queue by default, the history with APPROVED, MERGED or REJECTED (US43) |
 | GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
 | POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
-| GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it; counts only, every university for a global tool (US44) |
-| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires an item and withdraws every offer of it; the body confirms the number of tutors affected (US44) |
+| GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it, counted in the coordinator's university only, for a global tool too; counts, never people (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the ADMIN role, which does not exist yet (TS03) (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
 | GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
 | POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
 | POST | `/api/v1/coordinator/academic-catalog/courses/{id}/retire` | coordinator | takes a course of the university out: same effect and confirmation as retiring an item; a global tool is not found here (US51) |
 | GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
 | PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
-| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate item to the one that stays: offers, interests, proposals and counted sessions follow, the duplicate is retired (US44) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
@@ -340,6 +340,11 @@ public interface WalletApi {
 **Rules that live here and nowhere else:** spend the group closest to expiring first; a refund
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
+
+The daily expiry job publishes one `CreditsExpiring` event per unspent credit group within the
+configured `ayni.wallet.expiry-notice-days` window (seven days by default). Wallet stores the
+publication time on the group, so subsequent runs do not publish a duplicate notice. This job only
+publishes the event; email delivery in `notifications` is a separate responsibility.
 
 A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.

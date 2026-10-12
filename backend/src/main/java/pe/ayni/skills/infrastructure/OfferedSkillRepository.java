@@ -11,44 +11,48 @@ import org.springframework.data.repository.query.Param;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 
-/**
- * Every method takes the university: no query here may cross into another one's tutors. The one
- * exceptions are {@link #countByCatalogItemIdAndStatus}, {@link #lockByCatalogItemIdAndStatus} and
- * {@link #lockByCatalogItemId},
- * which serve the moderator who retires or joins an item that every university may hold.
- */
+/** Every method takes the university: no query here may cross into another one's tutors. */
 public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID> {
 
   /**
-   * How many tutors hold the item in the given status, in every university.
+   * How many tutors of the university hold the item in the given status.
    *
-   * <p>A tutor holds one row per item, and belongs to one university, so this is a count of tutors.
-   * It takes no university because a global tool is offered in all of them and a moderator who
-   * retires it must see how many are affected. It returns a number and never a row about a person.
+   * <p>A tutor holds one row per item, so this is a count of tutors. It returns a number and never a
+   * row about a person.
    */
-  long countByCatalogItemIdAndStatus(UUID catalogItemId, OfferedSkillStatus status);
+  long countByTenantIdAndCatalogItemIdAndStatus(
+      String tenantId, UUID catalogItemId, OfferedSkillStatus status);
 
   /**
-   * Every offer of the item in the given status, in every university, locked until the transaction
-   * ends. Only for retiring or joining the item, which touch every tutor that holds it: the lock
-   * keeps a tutor from withdrawing the same skill at the same moment and announcing it twice.
+   * Every offer of the item in the given status in the university, locked until the transaction
+   * ends. Only for retiring the item, which touches every tutor that holds it: the lock keeps a
+   * tutor from withdrawing the same skill at the same moment and announcing it twice.
    */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
       """
       select skill from OfferedSkill skill
-      where skill.catalogItemId = :catalogItemId and skill.status = :status
+      where skill.tenantId = :tenantId
+        and skill.catalogItemId = :catalogItemId
+        and skill.status = :status
       """)
-  List<OfferedSkill> lockByCatalogItemIdAndStatus(
-      @Param("catalogItemId") UUID catalogItemId, @Param("status") OfferedSkillStatus status);
+  List<OfferedSkill> lockByTenantIdAndCatalogItemIdAndStatus(
+      @Param("tenantId") String tenantId,
+      @Param("catalogItemId") UUID catalogItemId,
+      @Param("status") OfferedSkillStatus status);
 
   /**
-   * Every offer of the item, whatever its status, in every university, locked until the transaction
+   * Every offer of the item in the university, whatever its status, locked until the transaction
    * ends. Only for joining two items, which moves what every tutor holds on one to the other.
    */
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("select skill from OfferedSkill skill where skill.catalogItemId = :catalogItemId")
-  List<OfferedSkill> lockByCatalogItemId(@Param("catalogItemId") UUID catalogItemId);
+  @Query(
+      """
+      select skill from OfferedSkill skill
+      where skill.tenantId = :tenantId and skill.catalogItemId = :catalogItemId
+      """)
+  List<OfferedSkill> lockByTenantIdAndCatalogItemId(
+      @Param("tenantId") String tenantId, @Param("catalogItemId") UUID catalogItemId);
 
   Optional<OfferedSkill> findByTenantIdAndTutorIdAndCatalogItemId(
       String tenantId, UUID tutorId, UUID catalogItemId);
