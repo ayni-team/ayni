@@ -25,6 +25,7 @@ import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.PurchaseConfirmed;
+import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.events.StudentActivated;
@@ -219,6 +220,39 @@ class WalletEventListenersTest {
   }
 
   @Test
+  @DisplayName("a tutor no-show refunds the student who was there once, even if delivered twice")
+  void aTutorNoShowRefundsTheAttendingStudentOnce() {
+
+    UUID booking = aChargedBooking(1);
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    SessionAbandoned abandoned = abandonedBooking(booking, true);
+
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+    assertThat(refundsOf(booking)).isEqualTo(1);
+    assertThat(balanceOf(tutor)).as("the tutor earns nothing").isEqualTo(Credits.ZERO);
+  }
+
+  @Test
+  @DisplayName("a session abandoned with both absent refunds nobody")
+  void aSessionAbandonedWithBothAbsentRefundsNobody() {
+
+    UUID booking = aChargedBooking(1);
+    SessionAbandoned abandoned = abandonedBooking(booking, false);
+
+    publish(abandoned);
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    assertThat(refundsOf(booking)).isZero();
+  }
+
+  @Test
   @DisplayName(
           "a confirmed purchase places credits that never expire")
   void aConfirmedPurchasePlacesCredits() {
@@ -334,6 +368,30 @@ class WalletEventListenersTest {
             by,
             late,
             Instant.now());
+  }
+
+  private SessionAbandoned abandonedBooking(UUID booking, boolean studentCheckedIn) {
+    return new SessionAbandoned(
+            UPC,
+            UUID.randomUUID(),
+            booking,
+            tutor,
+            student,
+            UUID.randomUUID(),
+            studentCheckedIn,
+            Instant.now());
+  }
+
+  private int refundsOf(UUID booking) {
+    return jdbc.queryForObject(
+            """
+            select count(*) from wallet.ledger_entries
+            where tenant_id = ? and reference_type = 'BOOKING' and reference_id = ?
+              and reason = 'BOOKING_REFUND'
+            """,
+            Integer.class,
+            UPC,
+            booking);
   }
 
   private void publish(Object event) {

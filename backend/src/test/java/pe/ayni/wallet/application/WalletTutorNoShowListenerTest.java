@@ -24,7 +24,7 @@ class WalletTutorNoShowListenerTest {
   void refundsAttendingStudent() {
     GrantCredits grant = mock(GrantCredits.class);
     RefundBooking refund = mock(RefundBooking.class);
-    WalletEventListeners listener = new WalletEventListeners(grant, refund);
+    WalletEventListeners listener = new WalletEventListeners(mock(GrantInitialCredits.class), grant, refund);
 
     TenantContext.runAs(TENANT, () -> listener.on(event(true)));
 
@@ -36,7 +36,7 @@ class WalletTutorNoShowListenerTest {
   void doesNotRefundTwoAbsences() {
     GrantCredits grant = mock(GrantCredits.class);
     RefundBooking refund = mock(RefundBooking.class);
-    WalletEventListeners listener = new WalletEventListeners(grant, refund);
+    WalletEventListeners listener = new WalletEventListeners(mock(GrantInitialCredits.class), grant, refund);
 
     TenantContext.runAs(TENANT, () -> listener.on(event(false)));
 
