@@ -316,6 +316,80 @@ created_at        timestamptz   NOT NULL DEFAULT now()
 UNIQUE (tenant_id, student_id, catalog_item_id)
 ```
 
+### `skills.taught_sessions`
+
+The sessions that were taught on each catalogue item, so a moderator can review the catalogue by use
+(US44). A projection of `SessionCompleted`, written only by that listener.
+
+```
+session_id       uuid          PK
+tenant_id        varchar(32)   NOT NULL
+catalog_item_id  uuid          NOT NULL
+tutor_id         uuid          NOT NULL
+completed_at     timestamptz   NOT NULL
+
+INDEX (tenant_id, catalog_item_id)
+```
+
+Keyed by the session, so an announcement delivered twice counts once. `catalog_item_id` has no
+foreign key: the row records what another module announced, and a listener that failed on an item it
+does not know would leave the announcement unprocessed. Skills keeps it because it
+cannot ask reputation, which has `sessions_taught`: reputation already depends on skills. The count
+is read and moved by university, like every other table: a coordinator reviews, and joins, the
+use of an item in their own university, a global tool included, and never sees another's. It
+starts empty, so the sessions completed before it existed are not counted.
+
+### `skills.academic_settings`
+
+What a university decides about its courses (US51). Today only the minimum grade a student needs in a
+course to teach it. One row per university, created the first time a coordinator sets it.
+
+```
+tenant_id               varchar(32)   PK
+minimum_teaching_grade  numeric(4,2)  NOT NULL CHECK (0 to 20)
+updated_by              uuid          NOT NULL
+updated_at              timestamptz   NOT NULL
+```
+
+A university with no row keeps the `identity.tenants.minimum_teaching_grade` it was registered with:
+skills reads the row first and falls back to identity, so the two never disagree about which grade is
+in force. Changing it never touches an offer already enabled, which keeps the grade it was enabled with
+in `offered_skills.accredited_grade`.
+
+### `skills.skill_proposals`
+
+A tool a student asks to add to the catalogue because it is not there (US42). A moderator resolves
+it later (US43), one of three ways: approving it creates a catalogue item, merging joins it to an
+item the catalogue already has, and rejecting it leaves a reason the student reads.
+
+```
+id               uuid          PK
+tenant_id        varchar(32)   NOT NULL
+proposed_by      uuid          NOT NULL
+category_id      uuid          NOT NULL REFERENCES skills.categories(id)
+name             varchar(160)  NOT NULL
+description      varchar(500)
+status           varchar(16)   NOT NULL   -- PROPOSED | APPROVED | MERGED | REJECTED
+resolved_by      uuid                     -- the moderator, a coordinator of the same university
+resolved_at      timestamptz
+decision_reason  varchar(500)
+catalog_item_id  uuid          REFERENCES skills.catalog_items(id)   -- the item it ended up in
+created_at       timestamptz   NOT NULL DEFAULT now()
+
+CHECK  (status IN ('PROPOSED','APPROVED','MERGED','REJECTED'))
+CHECK  (status = 'PROPOSED' OR (resolved_by IS NOT NULL AND resolved_at IS NOT NULL))
+CHECK  (status NOT IN ('APPROVED','MERGED') OR catalog_item_id IS NOT NULL)
+CHECK  (status <> 'REJECTED' OR decision_reason IS NOT NULL)
+UNIQUE (tenant_id, proposed_by, lower(name)) WHERE status = 'PROPOSED'
+INDEX  (tenant_id, created_at) WHERE status = 'PROPOSED'
+INDEX  (tenant_id, resolved_at DESC) WHERE status <> 'PROPOSED'
+```
+
+A proposal is decided once, like a validation request, and the row keeps who decided, when and how:
+that is the history a moderator reads. `catalog_item_id` is the item an approval created or the
+existing one a merge joined; the student reads it to offer the skill. The unique index only holds
+while the proposal waits, so a student whose proposal was rejected can propose the name again.
+
 ---
 
 ## `booking`
@@ -618,6 +692,7 @@ credit_type        varchar(16)   NOT NULL   -- SEED | ALLOCATED | EARNED | PURCH
 original_amount    integer       NOT NULL
 remaining_amount   integer       NOT NULL
 expires_at         timestamptz              -- only for SEED and ALLOCATED
+expiry_notice_sent_at timestamptz            -- when the advance expiry notice was published
 source_type        varchar(24)   NOT NULL   -- POLICY | SESSION | PURCHASE | REFUND
 source_id          uuid
 created_at         timestamptz   NOT NULL DEFAULT now()
@@ -627,10 +702,14 @@ CHECK (original_amount > 0)
 CHECK (remaining_amount BETWEEN 0 AND original_amount)
 CHECK ((expires_at IS NULL) = (credit_type IN ('EARNED','PURCHASED')))
 INDEX (tenant_id, account_id, expires_at) WHERE remaining_amount > 0
+INDEX (tenant_id, expires_at) WHERE remaining_amount > 0 AND expiry_notice_sent_at IS NULL
 ```
 
 The last `CHECK` is the rule of the product written where it cannot be broken: only what the
 university grants expires. What you earned and what you paid for are yours.
+
+Wallet records when it publishes the one advance expiry notice for a group. This marker makes
+repeated daily job runs idempotent without changing the immutable credit movement history.
 
 Spending takes from the group closest to expiring. A refund returns the credits to the group they
 came from, with the expiry they had, which is why a refund is not simply "add credits back".
@@ -648,8 +727,12 @@ sequence_number  bigint        NOT NULL
 direction        varchar(8)    NOT NULL   -- DEBIT | CREDIT
 amount           integer       NOT NULL
 reason           varchar(32)   NOT NULL   -- GRANT | BOOKING_CHARGE | BOOKING_REFUND |
-                                          -- SESSION_EARNING | EXPIRY | PURCHASE | ADJUSTMENT
-reference_type   varchar(24)              -- BOOKING | SESSION | PURCHASE | POLICY
+                                          -- SESSION_EARNING | EXPIRY | PURCHASE |
+                                          -- CAMPUS_BENEFIT_REDEMPTION |
+                                          -- INCOMING_STUDENT_DONATION | ADJUSTMENT
+reference_type   varchar(40)              -- BOOKING | SESSION | PURCHASE | POLICY |
+                                          -- CAMPUS_BENEFIT_REDEMPTION |
+                                          -- INCOMING_STUDENT_DONATION
 reference_id     uuid
 previous_hash    varchar(64)
 entry_hash       varchar(64)   NOT NULL
@@ -668,6 +751,78 @@ with reason `ADJUSTMENT`; nothing is ever edited.
 row behind the application's back breaks the chain from that point on, and a verification job finds
 it. `sequence_number` is assigned by the application inside the transaction, not by a sequence,
 because a sequence leaves gaps after a rollback and a gap looks exactly like a deleted row.
+
+### `wallet.campus_benefits`
+
+Benefits a university coordinator makes available for redemption with earned credits.
+
+```
+id             uuid          PK
+tenant_id      varchar(32)   NOT NULL
+name           varchar(120)  NOT NULL
+description    varchar(500)  NOT NULL
+credits_cost   integer       NOT NULL
+active         boolean       NOT NULL DEFAULT true
+created_at     timestamptz   NOT NULL DEFAULT now()
+updated_at     timestamptz   NOT NULL DEFAULT now()
+
+CHECK (credits_cost > 0)
+INDEX (tenant_id, name) WHERE active = true
+```
+
+A benefit is deactivated rather than deleted so past redemption receipts remain meaningful. Its
+name and cost are also copied to the credit-use record at redemption time.
+
+### `wallet.credit_uses`
+
+Confirmed redemptions and donations. The incoming-student pool is a projection of donation rows,
+not a mutable balance that could drift from its history.
+
+```
+id               uuid          PK
+tenant_id        varchar(32)   NOT NULL
+student_id       uuid          NOT NULL
+kind             varchar(32)   NOT NULL  -- CAMPUS_BENEFIT_REDEMPTION | INCOMING_STUDENT_DONATION
+benefit_id       uuid          REFERENCES wallet.campus_benefits(id)
+benefit_name     varchar(120)            -- snapshot for the redemption receipt
+credits          integer       NOT NULL
+idempotency_key  varchar(64)   NOT NULL
+created_at       timestamptz   NOT NULL DEFAULT now()
+
+UNIQUE (tenant_id, student_id, idempotency_key)
+CHECK (credits > 0)
+CHECK (redemption has benefit_id and benefit_name; donation has neither)
+INDEX (tenant_id, created_at) WHERE kind = 'INCOMING_STUDENT_DONATION'
+INDEX (tenant_id, student_id, created_at DESC)
+```
+
+Only remaining `EARNED` lots can be redeemed or donated. Each debit references this record in the
+append-only ledger, making the receipt and student history traceable. The pool balance is the sum
+of donation records for that university.
+
+### `wallet.credit_use_confirmations`
+
+Short-lived, student-scoped challenges that require an explicit second request before an
+irreversible redemption or donation is accepted.
+
+```
+id            uuid          PK
+tenant_id     varchar(32)   NOT NULL
+student_id    uuid          NOT NULL
+kind          varchar(32)   NOT NULL
+benefit_id    uuid          REFERENCES wallet.campus_benefits(id)
+benefit_name  varchar(120)             -- snapshot displayed in the warning
+credits       integer       NOT NULL
+expires_at    timestamptz   NOT NULL
+confirmed_at  timestamptz
+
+CHECK (credits > 0)
+CHECK (kind and benefit fields agree)
+INDEX (tenant_id, student_id, expires_at)
+```
+
+The confirmation identifier is returned with the warning and must be sent back by the same
+student. It expires after ten minutes and can be used once.
 
 The balance is the sum of `remaining_amount`; the history is these rows. A test asserts the two
 agree.
@@ -727,10 +882,17 @@ request_id    uuid          NOT NULL REFERENCES recognition.requests(id)
 session_id    uuid          NOT NULL
 tenant_id     varchar(32)   NOT NULL
 hours         smallint      NOT NULL
+catalog_item_id  uuid       NOT NULL   -- the skill taught, as it was at submission
+started_at    timestamptz   NOT NULL   -- when the session began and ended
+ended_at      timestamptz   NOT NULL
+stars         smallint                 -- rating the tutor had received for it, if any
 
 PRIMARY KEY (request_id, session_id)
 UNIQUE (tenant_id, session_id)
 ```
+
+The skill, the period and the rating are copied for the same reason the totals are: the file a
+coordinator reads is what the student presented, even days later.
 
 `UNIQUE (tenant_id, session_id)` is the whole mechanism: a session can appear in **one** request and
 never again. Credits are untouched and remain spendable, which is what you asked for: nobody is
@@ -775,6 +937,34 @@ tag         varchar(40)   NOT NULL
 
 PRIMARY KEY (rating_id, tag)
 ```
+
+### `reputation.rating_windows`
+
+The completed sessions that can still be rated: one row per session, opened when reputation hears
+`SessionCompleted`. It is not an opinion and nobody writes it through an endpoint.
+
+```
+tenant_id          varchar(32)   NOT NULL
+session_id         uuid          NOT NULL
+tutor_id           uuid          NOT NULL
+student_id         uuid          NOT NULL
+catalog_item_id    uuid          NOT NULL
+opened_at          timestamptz   NOT NULL
+
+PRIMARY KEY (tenant_id, session_id)
+```
+
+It exists because reputation may not ask `sessions` anything to rate: a rating arrives with a
+session id and nothing else, and four things must be known at that moment. Whether the session
+completed (no row, no rating, which is also why another university's session is a 404); who the
+tutor and the student were, to refuse a stranger and to tell which direction the caller rates; and
+which skill it was about, because a standing is per skill and the rating itself has no column for
+it. The row holds exactly that, copied from the event.
+
+It is also what makes `SessionCompleted` idempotent: the row is written in the same transaction
+that counts the session in `tutor_standing.sessions_taught`, so finding it means the session was
+already counted. Its primary key is the backstop, and whoever rates takes a lock on it so two
+ratings of one session cannot both pass the check that it was not rated.
 
 ### `reputation.tutor_standing`
 
