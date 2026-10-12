@@ -1015,10 +1015,69 @@ refused attempt to read the log, a refused attempt on the alerts is not written 
 
 ---
 
-## analytics and payments
+## analytics
 
-`analytics` answers `/api/v1/coordinator/indicators` and `/api/v1/admin/overview`, always with
-aggregates. `payments` owns credit purchases and exposes `POST /api/v1/payments/purchases`. The
+Answers how much the service is used, from its own projection. **No published interface:** nothing
+depends on it. It never asks another module to answer a question; it keeps what the events say.
+
+**Listens to** (US53), counting each fact once:
+
+| Event | Counts |
+|---|---|
+| `SessionCompleted` | one session completed, its hours (one credit is one hour) and its tutor and its student as active students of that day |
+| `StudentActivated` | one new student. The email and the student code of the event are never read or kept |
+| `RecognitionResolved` | one recognition granted, only when `approved`. A rejection counts nothing |
+
+**Calls:** `IdentityApi.requireTenant`, only while projecting, for the time zone of the university;
+`IdentityApi.requireUser` and `IdentityApi.isActive`, to know that whoever asks is an active
+coordinator. The day of a fact is the one of the university's own zone, taken from the `occurredOn`
+of the event, not the UTC one: a session that ends at 22:00 in Lima belongs to that day.
+
+**Counted once.** The same event delivered twice changes nothing the second time, and a student who
+took part in several sessions on a day is one active student of that day. Two auxiliary tables,
+described in `database/data-model.md`, hold only identifiers for this, and no endpoint returns them.
+Both are decided by a primary key, so two deliveries at the same moment count once.
+
+**Projecting never breaks the publisher.** The listeners bind the university with
+`TenantContext.runAs(event.tenantId(), ...)` and run each fact in a transaction of its own. A
+failure is caught and logged in one line with the name of the exception, without a stack and without
+the data of the event; a university whose zone cannot be read (unknown, or an interface that is
+simulated in a test) is noted at `DEBUG` only. An event lost this way is not recovered until the
+publication registry of ADR 0005 exists.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/v1/coordinator/indicators?from=&to=` | coordinator: the totals of the period and the series, one entry per day (US53) |
+| GET | `/api/v1/coordinator/indicators/export?from=&to=` | coordinator: the same figures as a CSV file (US53) |
+
+`from` and `to` are ISO 8601 dates, both included, in the university's own days. The answer has
+`from`, `to`, `totals` and `days`; `totals` and each day's `figures` carry `sessionsCompleted`,
+`hoursExchanged`, `activeStudents`, `newStudents` and `recognitionsGranted`. The `activeStudents` of
+`totals` are distinct people over the whole period, not the sum of the days. Every day of the period
+is in the series, with zeros when nothing happened. Only the university of the request is read, and
+no name or identifier of a person is ever returned.
+
+The export is `text/csv` with `Content-Disposition: attachment;
+filename="usage-indicators-<from>-<to>.csv"`. Its header is
+`day,sessions_completed,hours_exchanged,active_students,new_students,recognitions_granted`, then one
+line per day and a last line whose day is `TOTAL`.
+
+| Status | When |
+|---|---|
+| 200 | The totals and the series, or the file |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, a missing `from` or `to`, a date that is not ISO 8601, `to` before `from`, or a period of more than 366 days |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, one of another university, or somebody the university does not know |
+
+**Not built.** The uncovered demand (`analytics.uncovered_demand`) needs matching to publish its
+searches, and today it publishes nothing: it is a new shared event that the lead decides. It is
+tagged `@pending` in `US53-usage-indicators.feature`, and its table is not created. The
+`/api/v1/admin/overview` endpoint waits for the administrator role (TS03).
+
+---
+
+## payments
+
+`payments` owns credit purchases and exposes `POST /api/v1/payments/purchases`. The
 student comes from `X-User-Id`, the university from `X-Tenant-Id`, and each attempt requires an
 `Idempotency-Key`. A repeated key for the same student returns the original result; a new attempt
 after a rejection needs a new key.

@@ -1250,6 +1250,42 @@ PRIMARY KEY (tenant_id, catalog_item_id, day)
 Aggregates only, never rows describing a person. That is what lets the platform administrator read
 counts across universities without ever touching academic data.
 
+`day` is the day of the university's own time zone, not UTC. The row is written by the projection
+with an atomic increment (`INSERT ... ON CONFLICT DO UPDATE`), so two events at once both count.
+
+### `analytics.counted_events`
+
+```
+tenant_id    varchar(32)   NOT NULL
+kind         varchar(32)   NOT NULL
+source_id    uuid          NOT NULL
+counted_at   timestamptz   NOT NULL DEFAULT now()
+
+PRIMARY KEY (tenant_id, kind, source_id)
+CHECK (kind IN ('SESSION_COMPLETED','STUDENT_ACTIVATED','RECOGNITION_APPROVED'))
+```
+
+Not in the first version of the model. Events are delivered in memory and may arrive twice
+(ADR 0005), and a bare counter cannot tell a repeat from a new fact. `source_id` is the session, the
+student or the recognition request the event is about; inserting it with `ON CONFLICT DO NOTHING`
+decides, by the primary key, which delivery counts. Identifiers only, and no endpoint returns it.
+
+### `analytics.active_student_days`
+
+```
+tenant_id    varchar(32)   NOT NULL
+day          date          NOT NULL
+student_id   uuid          NOT NULL
+
+PRIMARY KEY (tenant_id, day, student_id)
+```
+
+Not in the first version either. `active_students` of a day is a count of people, so it needs to
+know whether this student already took part that day; and the active students of a period are
+distinct people, which cannot be recovered by adding the counts of its days. This table answers both
+(`COUNT(DISTINCT student_id)` over the period). Identifiers only, never returned: the endpoints
+answer counts.
+
 ---
 
 ## Counts
@@ -1257,4 +1293,5 @@ counts across universities without ever touching academic data.
 Twelve modules, twelve schemas, forty one tables. No table exists without a flow that needs it, and
 no flow from the session is left without tables. `diagrams/schema-overview.png` shows all of them on
 one page, drawn from `diagrams/schema-overview.puml`: a solid line is a foreign key inside a schema,
-a dashed one a reference by uuid, and none crosses a schema.
+a dashed one a reference by uuid, and none crosses a schema. The diagram predates the two auxiliary
+tables of `analytics` (`counted_events` and `active_student_days`), which are not counted above.
