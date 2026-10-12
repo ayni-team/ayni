@@ -110,14 +110,19 @@ class WalletEventListeners {
     log.debug("Refunded booking {} of unverified session {}", event.bookingId(), event.sessionId());
   }
 
-  /** A student who checked in is refunded when the tutor did not; two absences refund nobody. */
+  /**
+   * A session was abandoned because somebody did not check in within ten minutes.
+   *
+   * <p>The student is refunded only when they were there, which means the tutor was the one
+   * missing. A student who did not come is not refunded, whether or not the tutor did.
+   */
   @ApplicationModuleListener
   void on(SessionAbandoned event) {
     if (!event.studentCheckedIn()) {
       return;
     }
     TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
-    log.debug("Refunded booking {} after tutor no-show", event.bookingId());
+    log.debug("Refunded booking {} of a session its tutor did not come to", event.bookingId());
   }
 
   /** A purchase was confirmed: the credits are placed, and they never expire. */

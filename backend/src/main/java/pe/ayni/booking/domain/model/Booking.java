@@ -226,7 +226,7 @@ public class Booking {
     return late;
   }
 
-  /** Records that the scheduled session was abandoned after a tutor no-show. */
+  /** Records that the scheduled session was abandoned because somebody did not check in. */
   public void markNoShow(Instant now) {
     Objects.requireNonNull(now, "now must not be null");
     if (status == BookingStatus.NO_SHOW) {
