@@ -67,7 +67,7 @@ public class LedgerEntry {
   private LedgerReason reason;
 
   @Enumerated(EnumType.STRING)
-  @Column(name = "reference_type", length = 24, updatable = false)
+  @Column(name = "reference_type", length = 40, updatable = false)
   private ReferenceType referenceType;
 
   @Column(name = "reference_id", updatable = false)
