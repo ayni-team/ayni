@@ -79,16 +79,17 @@ public class AccessController {
             summary = "Opens the access link received by email and starts a session",
             description =
                     """
-                    US38: the token of the link is enough. The link is found by the hash of the \
-                    token, and the university is the one written on the link, so the request does \
-                    not name it. A link works once and expires in minutes; two confirmations of \
-                    the same link at the same time open one session. The session token comes back \
-                    in clear only here; Ayni stores its hash.
+ US38: the token of the link is enough. The link is found by the hash of the \
+ token, and the university is the one written on the link, so the request does \
+ not name it. A link works once and expires in minutes; two confirmations of \
+ the same link at the same time open one session. The session token comes back \
+ in clear only here; Ayni stores its hash.
 
-                    Sign in links open sessions for existing active users. Coordinator invitation \
-                    links activate a pending coordinator, publish CoordinatorActivated and open the \
-                    coordinator's first session. Student activation remains a separate flow.
-                    """)
+ A sign in link opens a session for an existing active student. An activation \
+ link creates the student using the academic profile reported by the university, \
+ stores the approved courses, publishes StudentActivated and opens the first \
+ session.
+ """)
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content =
                     @Content(
@@ -105,8 +106,9 @@ public class AccessController {
     @ApiResponse(
             responseCode = "400",
             description =
-                    "The token is missing or unknown, the link expired or was already used, it"
-                            + " the invitation is no longer valid, or the account is not active",
+                    "The token is missing or unknown, the link expired or was already used,"
+                            + " the academic student does not exist, the account is not active,"
+                            + " or the activation cannot be completed",
             content =
                     @Content(
                             schema = @Schema(implementation = ApiError.class),

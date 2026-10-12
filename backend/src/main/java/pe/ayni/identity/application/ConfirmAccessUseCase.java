@@ -3,6 +3,8 @@ package pe.ayni.identity.application;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,20 +13,32 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
+import pe.ayni.identity.domain.model.AcademicRecord;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
+import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
-import pe.ayni.shared.events.CoordinatorActivated;
+import pe.ayni.shared.events.StudentActivated;
 
 /**
- * Confirms a single-use access link and opens a session.
+ * US38: opening the link received by email either signs an existing student in
+ * or activates a new student using the university academic system.
  *
- * <p>The tenant always comes from the access link. The client never chooses the university during
- * confirmation.
+ * <p>The token identifies the access link. The tenant is read from that link,
+ * never supplied by the client.
+ *
+ * <p>An activation obtains the student code from the local part of the
+ * institutional email and uses the academic-system boundary to obtain the
+ * student's name, career, current term and approved courses.
+ *
+ * <p>The link is consumed with a conditional database update before account
+ * or session data is written. Therefore the same link cannot open two sessions
+ * or activate the same student twice.
  */
 @Service
 public class ConfirmAccessUseCase {
@@ -35,9 +49,8 @@ public class ConfirmAccessUseCase {
     static final String EXPIRED_OR_USED =
             "This access link has expired or was already used. Ask for a new one";
 
-    static final String ACTIVATION_PENDING =
-            "This link would create a new Ayni student account, and student activation is not"
-                    + " available in this version yet";
+    static final String INVITATION_PENDING =
+            "This link accepts a coordinator invitation, which is not available yet";
 
     static final String NO_UNIVERSITY =
             "Signing in without a university, as a platform administrator, is not available yet";
@@ -45,12 +58,14 @@ public class ConfirmAccessUseCase {
     static final String NOT_ACTIVE =
             "This account is not active";
 
-    static final String INVALID_COORDINATOR_INVITATION =
-            "This coordinator invitation is no longer valid";
+    static final String ACCOUNT_ALREADY_EXISTS =
+            "An account already exists for this email. Ask for a new sign in link";
 
     private final AccessLinkRepository accessLinks;
     private final UserRepository users;
     private final UserSessionRepository sessions;
+    private final AcademicRecordRepository academicRecords;
+    private final AcademicSystemPort academicSystem;
     private final AccessTokenGenerator tokens;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -60,15 +75,18 @@ public class ConfirmAccessUseCase {
             AccessLinkRepository accessLinks,
             UserRepository users,
             UserSessionRepository sessions,
+            AcademicRecordRepository academicRecords,
+            AcademicSystemPort academicSystem,
             AccessTokenGenerator tokens,
             ApplicationEventPublisher events,
             Clock clock,
-            @Value("${ayni.identity.session-ttl:P7D}")
-            Duration sessionTtl) {
+            @Value("${ayni.identity.session-ttl:P7D}") Duration sessionTtl) {
 
         this.accessLinks = accessLinks;
         this.users = users;
         this.sessions = sessions;
+        this.academicRecords = academicRecords;
+        this.academicSystem = academicSystem;
         this.tokens = tokens;
         this.events = events;
         this.clock = clock;
@@ -78,20 +96,16 @@ public class ConfirmAccessUseCase {
     @Transactional
     public ConfirmAccessResult execute(String rawToken) {
 
-        if (rawToken == null
-                || rawToken.isBlank()) {
-
+        if (rawToken == null || rawToken.isBlank()) {
             throw new IdentityRuleViolation(
                     "Access token must not be blank");
         }
 
-        Instant now =
-                clock.instant();
+        Instant now = clock.instant();
 
         AccessLink accessLink =
                 accessLinks
-                        .findByTokenHash(
-                                tokens.hash(rawToken))
+                        .findByTokenHash(tokens.hash(rawToken))
                         .orElseThrow(
                                 () ->
                                         new IdentityRuleViolation(
@@ -102,8 +116,7 @@ public class ConfirmAccessUseCase {
                     EXPIRED_OR_USED);
         }
 
-        String tenantId =
-                accessLink.getTenantId();
+        String tenantId = accessLink.getTenantId();
 
         if (tenantId == null) {
             throw new IdentityRuleViolation(
@@ -112,22 +125,21 @@ public class ConfirmAccessUseCase {
 
         User user =
                 switch (accessLink.getPurpose()) {
-
                     case LOGIN ->
-                            confirmLogin(
-                                    accessLink,
-                                    tenantId,
-                                    now);
-
-                    case COORDINATOR_INVITE ->
-                            activateCoordinator(
+                            confirmExistingStudent(
                                     accessLink,
                                     tenantId,
                                     now);
 
                     case ACTIVATION ->
+                            activateStudent(
+                                    accessLink,
+                                    tenantId,
+                                    now);
+
+                    case COORDINATOR_INVITE ->
                             throw new IdentityRuleViolation(
-                                    ACTIVATION_PENDING);
+                                    INVITATION_PENDING);
                 };
 
         return openSession(
@@ -136,7 +148,7 @@ public class ConfirmAccessUseCase {
                 now);
     }
 
-    private User confirmLogin(
+    private User confirmExistingStudent(
             AccessLink accessLink,
             String tenantId,
             Instant now) {
@@ -162,50 +174,92 @@ public class ConfirmAccessUseCase {
         return user;
     }
 
-    private User activateCoordinator(
+    private User activateStudent(
             AccessLink accessLink,
             String tenantId,
             Instant now) {
 
-        User coordinator =
-                users.findByTenantIdAndEmailIgnoreCase(
-                                tenantId,
-                                accessLink.getEmail())
-                        .orElseThrow(
-                                () ->
-                                        new IdentityRuleViolation(
-                                                INVALID_COORDINATOR_INVITATION));
+        String email = accessLink.getEmail();
 
-        if (coordinator.getRole()
-                != UserRole.COORDINATOR
-                || coordinator.getStatus()
-                != UserStatus.PENDING) {
+        if (users.existsByTenantIdAndEmailIgnoreCase(
+                tenantId,
+                email)) {
 
             throw new IdentityRuleViolation(
-                    INVALID_COORDINATOR_INVITATION);
+                    ACCOUNT_ALREADY_EXISTS);
         }
 
+        String studentCode =
+                studentCodeFromEmail(email);
+
+        AcademicProfile profile =
+                academicSystem.fetchProfile(
+                        tenantId,
+                        studentCode);
+
         /*
-         * Consume first. If another confirmation won the race, no user or
-         * session state is changed. Everything participates in this transaction.
+         * The potentially external academic lookup happens before the
+         * single-use write. If it fails, the link remains available.
          */
         consume(
                 accessLink,
                 now);
 
-        coordinator.activateCoordinator(
-                now);
+        User user =
+                new User(
+                        UUID.randomUUID(),
+                        tenantId,
+                        UserRole.STUDENT,
+                        email,
+                        studentCode,
+                        profile.fullName(),
+                        profile.career(),
+                        profile.currentTerm(),
+                        null,
+                        null,
+                        UserStatus.ACTIVE,
+                        OnboardingStep.PROFILE,
+                        now,
+                        now,
+                        now);
 
-        users.saveAndFlush(
-                coordinator);
+        /*
+         * Flush before publishing StudentActivated so a listener that
+         * immediately queries Identity sees the student.
+         */
+        users.saveAndFlush(user);
+
+        List<AcademicRecord> records =
+                profile.approvedCourses()
+                        .stream()
+                        .map(
+                                course ->
+                                        new AcademicRecord(
+                                                UUID.randomUUID(),
+                                                tenantId,
+                                                user.getId(),
+                                                course.courseCode(),
+                                                course.courseName(),
+                                                course.grade(),
+                                                course.term(),
+                                                now))
+                        .toList();
+
+        /*
+         * Skills reacts to StudentActivated and may immediately ask
+         * IdentityApi for the approved courses.
+         */
+        academicRecords.saveAllAndFlush(records);
 
         events.publishEvent(
-                new CoordinatorActivated(
+                new StudentActivated(
                         tenantId,
-                        coordinator.getId(),
+                        user.getId(),
+                        user.getEmail(),
+                        user.getStudentCode(),
                         now));
 
-        return coordinator;
+        return user;
     }
 
     private ConfirmAccessResult openSession(
@@ -247,5 +301,20 @@ public class ConfirmAccessUseCase {
             throw new IdentityRuleViolation(
                     EXPIRED_OR_USED);
         }
+    }
+
+    private String studentCodeFromEmail(
+            String email) {
+
+        int separator = email.indexOf('@');
+
+        if (separator <= 0) {
+            throw new IdentityRuleViolation(
+                    "Institutional email does not contain a student code");
+        }
+
+        return email
+                .substring(0, separator)
+                .toUpperCase(Locale.ROOT);
     }
 }

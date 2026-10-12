@@ -9,6 +9,7 @@ import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.PurchaseConfirmed;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.StudentActivated;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -27,12 +28,28 @@ class WalletEventListeners {
 
   private static final Logger log = LoggerFactory.getLogger(WalletEventListeners.class);
 
+  private final GrantInitialCredits initialCredits;
   private final GrantCredits grant;
   private final RefundBooking refund;
 
-  WalletEventListeners(GrantCredits grant, RefundBooking refund) {
+  WalletEventListeners(
+      GrantInitialCredits initialCredits, GrantCredits grant, RefundBooking refund) {
+    this.initialCredits = initialCredits;
     this.grant = grant;
     this.refund = refund;
+  }
+
+  /**
+   * A student entered for the first time: they receive what their university gives every student.
+   *
+   * <p>The amount and how long it lasts are the baseline policy of the university, which identity
+   * owns. {@code GrantInitialCredits} is what keeps the same activation, delivered twice, from
+   * granting twice.
+   */
+  @ApplicationModuleListener
+  void on(StudentActivated event) {
+    TenantContext.runAs(event.tenantId(), () -> initialCredits.grantFor(event));
+    log.debug("Handled the initial credits of activated student {}", event.userId());
   }
 
   /**

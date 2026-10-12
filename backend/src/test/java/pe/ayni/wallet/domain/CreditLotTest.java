@@ -146,4 +146,27 @@ class CreditLotTest {
     // The row stays, with what it originally held, so the history can still show it.
     assertThat(lot.original()).isEqualTo(Credits.of(4));
   }
+
+  @Test
+  @DisplayName("a credit group records its advance notice only once")
+  void recordsTheAdvanceNoticeOnce() {
+    CreditLot lot = seedExpiringInDays(4, 7);
+
+    lot.markExpiryNoticeSent(NOW);
+
+    assertThat(lot.expiryNoticeSentAt()).isEqualTo(NOW);
+    assertThatThrownBy(() -> lot.markExpiryNoticeSent(NOW.plusSeconds(1)))
+        .isInstanceOf(CreditRuleViolation.class)
+        .hasMessageContaining("already sent");
+  }
+
+  @Test
+  @DisplayName("credits without an expiry cannot be marked as notified")
+  void doesNotMarkCreditsThatNeverExpire() {
+    CreditLot lot = earned(4);
+
+    assertThatThrownBy(() -> lot.markExpiryNoticeSent(NOW))
+        .isInstanceOf(CreditRuleViolation.class)
+        .hasMessageContaining("without an expiry");
+  }
 }

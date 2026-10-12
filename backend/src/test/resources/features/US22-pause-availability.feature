@@ -3,8 +3,7 @@
 #
 # Every scenario names the test that runs it, against a real PostgreSQL, in
 # AdjustAvailabilityAcceptanceTest, with the same name. The pause itself is covered by
-# AvailabilityPauseTest, generating no hours inside a pause by BlockGeneratorTest, and withdrawing
-# one hour by HourBlockTest.
+# AvailabilityPauseTest and generating no hours inside a pause by BlockGeneratorTest.
 #
 # A booked hour stands through a pause, as US19 scenario 4 says of removing availability: only
 # cancelling undoes a booking, and cancelling refunds (US05).
@@ -38,3 +37,13 @@ Feature: Pausing availability
     When the tutor pauses a week two months ahead
     Then no hour is withdrawn now, because none exists yet for those days
     # When the nightly job reaches them it generates nothing for the pause: BlockGeneratorTest.
+
+  Scenario: A tutor can see whether availability is paused and when the pause ends
+    Given the tutor pauses today through tomorrow
+    When the tutor consults the current pause state
+    Then the response says availability is paused through tomorrow
+
+  Scenario: A tutor can reactivate early and restore the weekly hours
+    Given the tutor pauses today through tomorrow
+    When the tutor reactivates before the pause ends
+    Then the pause ends and the future hours from the weekly pattern return to the search
