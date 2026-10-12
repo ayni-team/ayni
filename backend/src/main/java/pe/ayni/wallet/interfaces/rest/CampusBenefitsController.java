@@ -10,7 +10,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,27 +37,6 @@ class CampusBenefitsController {
   @Operation(summary = "List active campus benefits available for earned-credit redemption")
   List<CampusBenefitResponse> benefits() {
     return benefits.available().stream().map(CampusBenefitResponse::of).toList();
-  }
-
-  @PostMapping("/benefits")
-  @Operation(summary = "Create a campus benefit (university coordinator only)")
-  CampusBenefitResponse createBenefit(@Valid @RequestBody CampusBenefitRequest request) {
-    return CampusBenefitResponse.of(
-        benefits.create(
-            request.name(), request.description(), request.creditsCost(), request.active()));
-  }
-
-  @PutMapping("/benefits/{benefitId}")
-  @Operation(summary = "Update or deactivate a campus benefit (university coordinator only)")
-  CampusBenefitResponse updateBenefit(
-      @PathVariable UUID benefitId, @Valid @RequestBody CampusBenefitRequest request) {
-    return CampusBenefitResponse.of(
-        benefits.update(
-            benefitId,
-            request.name(),
-            request.description(),
-            request.creditsCost(),
-            request.active()));
   }
 
   @PostMapping("/benefits/{benefitId}/redemptions")
