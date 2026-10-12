@@ -871,14 +871,73 @@ stores the purchase identifier and amount, not payment credentials. The other ev
 
 Records what happened and detects what does not add up.
 
-**Listens to:** everything worth keeping, plus a scheduled analysis that raises anomalies.
+**No published interface.** It listens and it answers one endpoint.
+
+**Calls:** `IdentityApi.requireUser` and `IdentityApi.isActive`, only to know who asks for the log.
+The listeners call nobody: who acted is what the event says.
+
+**Listens to** (US48), one entry per event in `audit.activity_log`:
+
+| Event | Action | Who acted | Resource |
+|---|---|---|---|
+| `BookingConfirmed` | `BOOKING_CONFIRMED` | the student | `BOOKING` |
+| `BookingCancelled` | `BOOKING_CANCELLED` | whoever `cancelledBy` says, `SYSTEM` for the system | `BOOKING` |
+| `SessionStarted` | `SESSION_STARTED` | `SYSTEM` | `SESSION` |
+| `SessionCompleted` | `SESSION_COMPLETED` | `SYSTEM` | `SESSION` |
+| `SessionUnverified` | `SESSION_UNVERIFIED` | `SYSTEM` | `SESSION` |
+| `SessionAbandoned` | `SESSION_ABANDONED` | `SYSTEM` | `SESSION` |
+| `CreditsGranted` | `CREDITS_GRANTED` | `SYSTEM` | `WALLET`, the person |
+| `CreditsExpired` | `CREDITS_EXPIRED` | `SYSTEM` | `WALLET`, the person |
+| `SkillEnabled` | `SKILL_ENABLED` | `SYSTEM` | `CATALOG_ITEM` |
+| `SkillWithdrawn` | `SKILL_WITHDRAWN` | `SYSTEM` | `CATALOG_ITEM` |
+| `ValidationResolved` | `VALIDATION_APPROVED` or `VALIDATION_REJECTED` | a coordinator, not named | `VALIDATION_REQUEST` |
+| `RecognitionRequested` | `RECOGNITION_REQUESTED` | the student | `RECOGNITION_REQUEST` |
+| `RecognitionResolved` | `RECOGNITION_APPROVED` or `RECOGNITION_REJECTED` | a coordinator, not named | `RECOGNITION_REQUEST` |
+
+**Not listened to, on purpose.** `AccessRequested` and `PresenceCodeIssued` carry the access link
+and the presence code in clear, and `StudentActivated` carries an email address: no entry holds an
+email, a link or a code. `CreditsExpiring` is a reminder of something that has not happened yet,
+`HoursGenerated`, `HoursWithdrawn` and `AvailabilityPublished` are availability and not a
+reservation, `PurchaseConfirmed` is already told by the `CreditsGranted` it causes, `SessionRated`
+belongs to reputation, and the university events say nothing about credits or recognition.
+
+The listeners use `@ApplicationModuleListener` and bind the university with
+`TenantContext.runAs(event.tenantId(), ...)`. An entry is written in a transaction of its own, and a
+failure is logged without the data of the event and swallowed: **recording is never the reason an
+operation fails.** The reason of a decision is not copied, since it is free text and stays with the
+decision.
 
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/v1/coordinator/anomalies` | coordinator |
-| POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | coordinator |
+| GET | `/api/v1/coordinator/audit-log` | coordinator: reads the log of their university (US48) |
+| GET | `/api/v1/coordinator/anomalies` | coordinator, still to do (US47) |
+| POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | coordinator, still to do (US47) |
 
-Append only, like the ledger, and for the same reason.
+**Reading the log (US48).** `GET /api/v1/coordinator/audit-log` takes the optional filters
+`actorId` (the person who acted), `resourceType` and `resourceId` (the resource), and `from` and
+`to` (ISO 8601 UTC, `[from, to)`), and `page` and `size` (20 by default, at most 100). It answers
+`items`, `page`, `size` and `total`, the most recent first. Every item carries `id`, `occurredAt`,
+`actorId`, `actorRole`, `action`, `resourceType`, `resourceId` and `details`. It always filters by
+the university of the request: another university's entries are not reachable by any filter.
+
+| Status | When |
+|---|---|
+| 200 | A page of entries, possibly empty |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, an identifier that is not a UUID, a date that is not ISO 8601, or `to` before `from` |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or somebody the university does not know. The attempt is recorded |
+
+**A refusal that is remembered.** The use case writes an `AUDIT_LOG_ACCESS_DENIED` entry for the
+person (`actorRole` is the one they have in the university, `UNKNOWN` when it does not know them,
+and `details.reason` says why) and then throws; the transaction is declared with
+`noRollbackFor = AuditAccessDenied.class`, so the entry stays. The acceptance test reads the row
+after the `403`. A request with no `X-User-Id` is malformed, answers `400` and writes nothing.
+
+**Append only.** The table refuses `UPDATE`, `DELETE` and `TRUNCATE` with triggers, described in
+`database/data-model.md`. A correction is a new entry.
+
+**Not built.** Pointing out an entry that does not fit the sequence needs the entries chained, and
+`audit.activity_log` has no columns for that. It is a decision of its own, tagged `@pending` in
+`US48-audit-log.feature`.
 
 ---
 
