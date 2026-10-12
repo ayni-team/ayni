@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
@@ -33,6 +34,17 @@ class IdentityExceptionHandler {
 
         return answer(
                 HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(UniversityAlreadyRegistered.class)
+    ResponseEntity<ApiError> handleUniversityAlreadyRegistered(
+            UniversityAlreadyRegistered exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
                 exception.getMessage(),
                 request);
     }

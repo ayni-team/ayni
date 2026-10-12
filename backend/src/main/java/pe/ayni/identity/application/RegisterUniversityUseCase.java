@@ -16,6 +16,7 @@ import pe.ayni.identity.domain.model.CreditPolicy;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.shared.events.UniversityRegistered;
@@ -60,9 +61,13 @@ public class RegisterUniversityUseCase {
         List<String> normalizedDomains =
                 normalizeDomains(emailDomains);
 
+        // Registering is rare, so one lock for all of it is enough. Without it, two requests for
+        // the same code, or for the same domain, would both find it free; the table refuses the
+        // second code with a 500, and nothing refuses the second domain at all.
+        tenants.lockUniversityRegistration();
+
         if (tenants.findByCode(normalizedCode).isPresent()) {
-            throw new IdentityRuleViolation(
-                    "A university with this code already exists");
+            throw UniversityAlreadyRegistered.code();
         }
 
         ensureDomainsAreAvailable(
@@ -136,8 +141,7 @@ public class RegisterUniversityUseCase {
                                 domains::contains);
 
         if (duplicated) {
-            throw new IdentityRuleViolation(
-                    "An institutional email domain is already registered");
+            throw UniversityAlreadyRegistered.emailDomain();
         }
     }
 

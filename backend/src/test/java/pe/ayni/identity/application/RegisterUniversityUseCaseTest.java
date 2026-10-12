@@ -3,6 +3,7 @@ package pe.ayni.identity.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,11 +17,12 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.springframework.context.ApplicationEventPublisher;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.domain.model.CreditPolicy;
-import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.Tenant;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.shared.events.UniversityRegistered;
@@ -178,7 +180,7 @@ class RegisterUniversityUseCaseTest {
                                 5,
                                 30))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        UniversityAlreadyRegistered.class)
                 .hasMessageContaining(
                         "already exists");
     }
@@ -223,8 +225,43 @@ class RegisterUniversityUseCaseTest {
                                 5,
                                 30))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        UniversityAlreadyRegistered.class)
                 .hasMessageContaining(
                         "domain");
+    }
+
+    @Test
+    void takesTheRegistrationLockBeforeLookingForTheCodeOrTheDomains() {
+
+        when(
+                tenants.findByCode("PUCP"))
+                .thenReturn(
+                        Optional.empty());
+
+        useCase.execute(
+                UUID.randomUUID(),
+                "PUCP",
+                "University",
+                null,
+                null,
+                null,
+                List.of(
+                        "pucp.edu.pe"),
+                new BigDecimal("13.00"),
+                "America/Lima",
+                5,
+                30);
+
+        InOrder order =
+                inOrder(tenants);
+
+        order.verify(tenants)
+                .lockUniversityRegistration();
+        order.verify(tenants)
+                .findByCode("PUCP");
+        order.verify(tenants)
+                .findAll();
+        order.verify(tenants)
+                .save(any(Tenant.class));
     }
 }

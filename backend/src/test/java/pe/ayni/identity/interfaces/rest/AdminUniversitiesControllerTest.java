@@ -25,6 +25,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.ListUniversitiesQuery;
 import pe.ayni.identity.application.RegisterUniversityUseCase;
 import pe.ayni.identity.application.UniversityAdminView;
+import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.shared.tenancy.CurrentUser;
 
 class AdminUniversitiesControllerTest {
@@ -175,5 +177,108 @@ class AdminUniversitiesControllerTest {
                 .andExpect(
                         jsonPath("$[0].coordinatorCount")
                                 .value(2));
+    }
+
+    private static final String REQUEST =
+            """
+            {
+              "code": "PUCP",
+              "name": "Pontificia Universidad Católica del Perú",
+              "emailDomains": ["pucp.edu.pe"],
+              "minimumTeachingGrade": 14,
+              "timezone": "America/Lima",
+              "initialCredits": 5,
+              "initialCreditValidityDays": 30
+            }
+            """;
+
+    private void registerRefusedWith(
+            RuntimeException refusal) {
+
+        when(
+                registerUniversity.execute(
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        eq(5),
+                        eq(30)))
+                .thenThrow(
+                        refusal);
+    }
+
+    @Test
+    void answersConflictWhenTheCodeIsAlreadyRegistered() throws Exception {
+
+        registerRefusedWith(
+                UniversityAlreadyRegistered.code());
+
+        mvc.perform(
+                        post(
+                                "/api/v1/admin/universities")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        REQUEST))
+                .andExpect(
+                        status().isConflict())
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(409))
+                .andExpect(
+                        jsonPath("$.error")
+                                .value("Conflict"))
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("A university with this code already exists"))
+                .andExpect(
+                        jsonPath("$.path")
+                                .value("/api/v1/admin/universities"))
+                .andExpect(
+                        jsonPath("$.timestamp")
+                                .exists());
+    }
+
+    @Test
+    void answersConflictWhenAnEmailDomainIsAlreadyRegistered() throws Exception {
+
+        registerRefusedWith(
+                UniversityAlreadyRegistered.emailDomain());
+
+        mvc.perform(
+                        post(
+                                "/api/v1/admin/universities")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        REQUEST))
+                .andExpect(
+                        status().isConflict())
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("An institutional email domain is already registered"));
+    }
+
+    @Test
+    void stillAnswersBadRequestWhenAValueIsWrong() throws Exception {
+
+        registerRefusedWith(
+                new IdentityRuleViolation(
+                        "Timezone is not valid"));
+
+        mvc.perform(
+                        post(
+                                "/api/v1/admin/universities")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        REQUEST))
+                .andExpect(
+                        status().isBadRequest());
     }
 }
