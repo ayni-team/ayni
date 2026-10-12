@@ -20,7 +20,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
                 AccessController.class,
                 IdentityMeController.class,
                 AdminUniversitiesController.class,
-                CreditPolicyController.class
+                CreditPolicyController.class,
+                UniversityIdentityController.class
         })
 class IdentityExceptionHandler {
 
