@@ -4,7 +4,7 @@
 -- One row per incident, rather than a mutable counter, so late cancellations
 -- can be audited and queried by tutor.
 
-CREATE TABLE IF NOT EXISTS booking.tutor_reliability (
+CREATE TABLE booking.tutor_reliability (
     id          uuid         PRIMARY KEY,
     tenant_id   varchar(32)  NOT NULL,
     tutor_id    uuid         NOT NULL,
@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS booking.tutor_reliability (
         UNIQUE (booking_id, kind)
 );
 
-CREATE INDEX IF NOT EXISTS idx_tutor_reliability_tenant_tutor
+CREATE INDEX idx_tutor_reliability_tenant_tutor
     ON booking.tutor_reliability (tenant_id, tutor_id);
