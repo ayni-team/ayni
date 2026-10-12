@@ -12,9 +12,9 @@ final class TutorNoShowEmail {
         """
         Hola:
 
-        El tutor no se registró en tu tutoría dentro de los primeros diez minutos.
-        La sesión fue marcada como abandonada y el sistema gestionará la devolución automática de
-        tus créditos. No necesitas presentar un reclamo.
+        El tutor no se presentó a tu tutoría dentro de los primeros diez minutos. La sesión se
+        dio por abandonada y los créditos que pagaste por ella se te devolvieron. No necesitas
+        presentar ningún reclamo.
 
         Ayni, banco de tiempo académico
         """);

@@ -86,8 +86,8 @@ class DeliverTutorNoShowNoticeTest {
     assertThat(email.getValue().subject()).contains("devolvieron tus créditos");
     assertThat(email.getValue().body())
         .contains("diez minutos")
-        .contains("devolución automática")
-        .contains("No necesitas presentar un reclamo");
+        .contains("se te devolvieron")
+        .contains("ningún reclamo");
   }
 
   @Test
