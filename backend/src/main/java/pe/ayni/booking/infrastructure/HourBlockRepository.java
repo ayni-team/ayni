@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.booking.domain.model.HourBlock;
@@ -39,6 +40,20 @@ public interface HourBlockRepository extends JpaRepository<HourBlock, UUID> {
       @Param("tutorId") UUID tutorId,
       @Param("from") Instant from,
       @Param("to") Instant to);
+
+  @Modifying
+  @Query(
+      """
+      update HourBlock block
+      set block.patternId = null
+      where block.tenantId = :tenantId
+        and block.tutorId = :tutorId
+        and block.patternId = :patternId
+      """)
+  int detachPattern(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("patternId") UUID patternId);
 
   /**
    * A tutor's hours from an instant on that can still be booked: free, or held by somebody for the

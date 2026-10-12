@@ -28,10 +28,11 @@ class ReputationEventListeners {
                 event.tenantId(),
                 () ->
                         recordCompletedSession.record(
+                                event.sessionId(),
                                 event.tutorId(),
+                                event.studentId(),
                                 event.catalogItemId(),
                                 event.occurredOn()));
-
         log.debug(
                 "Updated tutor standing after completed session {}",
                 event.sessionId());

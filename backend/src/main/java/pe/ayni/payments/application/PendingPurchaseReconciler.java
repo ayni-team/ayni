@@ -39,7 +39,13 @@ public class PendingPurchaseReconciler {
       for (Purchase purchase :
           purchases.findByTenantIdAndStatusOrderByCreatedAtAsc(
               tenantId, PurchaseStatus.PENDING)) {
-        TenantContext.runAs(tenantId, () -> reconcile(tenantId, purchase));
+        try {
+          TenantContext.runAs(tenantId, () -> reconcile(tenantId, purchase));
+        } catch (RuntimeException failure) {
+          // Kept to one purchase: the rest are still reconciled on this run.
+          log.error(
+              "Could not reconcile purchase {} for tenant {}", purchase.getId(), tenantId, failure);
+        }
       }
     }
   }
