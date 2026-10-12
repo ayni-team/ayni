@@ -11,7 +11,7 @@ dist/
 # ----- IDE -----
 .idea/
 *.iml
-temp_auto_push.bat
+.vscode/
 .settings/
 .classpath
 .project
@@ -26,5 +26,3 @@ Thumbs.db
 
 # ----- Structurizr local -----
 docs/architecture/.structurizr/
-.gitignore
-branch_structure.json
