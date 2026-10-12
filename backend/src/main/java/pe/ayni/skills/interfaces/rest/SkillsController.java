@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +33,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogQuery;
+import pe.ayni.skills.application.MyProposalsQuery;
 import pe.ayni.skills.application.OfferApprovedCourseUseCase;
+import pe.ayni.skills.application.ProposeSkillUseCase;
+import pe.ayni.skills.application.SimilarItemsQuery;
 import pe.ayni.skills.application.SubmitEvidenceUseCase;
 import pe.ayni.skills.application.SuggestedCoursesQuery;
 import pe.ayni.skills.application.TutorSkillsQuery;
@@ -56,25 +60,34 @@ import pe.ayni.skills.application.WithdrawSkillUseCase;
 class SkillsController {
 
   private final CatalogQuery catalog;
+  private final SimilarItemsQuery similarItems;
   private final SuggestedCoursesQuery suggestions;
   private final TutorSkillsQuery tutorSkills;
   private final OfferApprovedCourseUseCase offerApprovedCourse;
   private final WithdrawSkillUseCase withdrawSkill;
   private final SubmitEvidenceUseCase submitEvidenceUseCase;
+  private final ProposeSkillUseCase proposeSkill;
+  private final MyProposalsQuery myProposals;
 
   SkillsController(
       CatalogQuery catalog,
+      SimilarItemsQuery similarItems,
       SuggestedCoursesQuery suggestions,
       TutorSkillsQuery tutorSkills,
       OfferApprovedCourseUseCase offerApprovedCourse,
       WithdrawSkillUseCase withdrawSkill,
-      SubmitEvidenceUseCase submitEvidenceUseCase) {
+      SubmitEvidenceUseCase submitEvidenceUseCase,
+      ProposeSkillUseCase proposeSkill,
+      MyProposalsQuery myProposals) {
     this.catalog = catalog;
+    this.similarItems = similarItems;
     this.suggestions = suggestions;
     this.tutorSkills = tutorSkills;
     this.offerApprovedCourse = offerApprovedCourse;
     this.withdrawSkill = withdrawSkill;
     this.submitEvidenceUseCase = submitEvidenceUseCase;
+    this.proposeSkill = proposeSkill;
+    this.myProposals = myProposals;
   }
 
   @GetMapping("/catalog")
@@ -110,6 +123,129 @@ class SkillsController {
           @Max(100)
           int size) {
     return CatalogPage.of(catalog.visibleItems(category, q, page, size));
+  }
+
+  @GetMapping("/catalog/similar")
+  @Operation(
+      summary = "Catalogue items that look like a name",
+      description =
+          """
+          The items of the catalogue that look like the name a student is about to propose, the \
+          closest first and at most five. It forgives a typo, accents, case and punctuation, and \
+          finds a name inside another, so "NodeJS" shows "Node.js". It compares against every \
+          active item the student's university can see. Empty when nothing looks like it.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The items that look like the name, possibly none",
+      content =
+          @Content(array = @ArraySchema(schema = @Schema(implementation = CatalogItemResponse.class))))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The name is missing, blank or longer than 160 characters",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  List<CatalogItemResponse> similarItems(
+      @Parameter(description = "What the student would call the skill", example = "NodeJS")
+          @RequestParam
+          @NotBlank
+          @Size(max = 160)
+          String name) {
+    return similarItems.similarTo(name).stream().map(CatalogItemResponse::of).toList();
+  }
+
+  @PostMapping("/tutor/skills/proposals")
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Proposes a tool the catalogue does not have",
+      description =
+          """
+          US42: a student who masters a tool that is not in the catalogue proposes it with a name, \
+          a category and a short description. It waits for a moderator to resolve it.
+
+          Before it is recorded, the catalogue is compared with the name. If skills that look like \
+          it exist, the answer is 409 with the list, and the student sends the same request again \
+          with confirmDistinct set to true when theirs is a different one. A name the catalogue \
+          already has, or a proposal the student already has waiting, is refused whatever they \
+          confirm.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "11111111-1111-4111-8111-111111111111"))
+  @ApiResponse(
+      responseCode = "201",
+      description = "The proposal, waiting for a moderator",
+      content = @Content(schema = @Schema(implementation = SkillProposalResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The name has fewer than three characters or too many, or the description is too long",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The category does not exist",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Skills that look like it exist and it was not confirmed (with the list), the catalogue has"
+              + " that name, or the student already has it waiting",
+      content = @Content(schema = @Schema(implementation = SimilarSkillsError.class)))
+  SkillProposalResponse propose(@Valid @RequestBody ProposeSkillRequest request) {
+    UUID proposerId = CurrentUser.require();
+    return SkillProposalResponse.of(
+        proposeSkill.execute(
+            proposerId,
+            request.categoryId(),
+            request.name(),
+            request.description(),
+            request.confirmDistinct()));
+  }
+
+  @GetMapping("/tutor/skills/proposals")
+  @Operation(
+      summary = "The tools the student proposed and where each stands",
+      description =
+          """
+          US42, scenario 3: every proposal of the student, newest first, with its status and, once \
+          a moderator resolved it, the decision and the reason. An approved one carries the \
+          catalogue item it created, which the student can then offer.
+          """)
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-Tenant-Id",
+      required = true,
+      description = "University the request belongs to. Read by TenantFilter",
+      schema = @Schema(type = "string", example = "UPC"))
+  @Parameter(
+      in = ParameterIn.HEADER,
+      name = "X-User-Id",
+      required = true,
+      description = "Student making the request. Read by CurrentUserFilter",
+      schema =
+          @Schema(type = "string", format = "uuid", example = "11111111-1111-4111-8111-111111111111"))
+  @ApiResponse(
+      responseCode = "200",
+      description = "The student's proposals, possibly none",
+      content =
+          @Content(array = @ArraySchema(schema = @Schema(implementation = SkillProposalResponse.class))))
+  List<SkillProposalResponse> proposals() {
+    UUID proposerId = CurrentUser.require();
+    return myProposals.of(proposerId).stream().map(SkillProposalResponse::of).toList();
   }
 
   @GetMapping("/tutor/skills/suggestions")
