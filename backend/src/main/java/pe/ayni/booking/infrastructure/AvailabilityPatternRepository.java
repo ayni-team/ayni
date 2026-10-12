@@ -19,6 +19,9 @@ public interface AvailabilityPatternRepository extends JpaRepository<Availabilit
 
   Optional<AvailabilityPattern> findByTenantIdAndId(String tenantId, UUID id);
 
+  Optional<AvailabilityPattern> findByTenantIdAndTutorIdAndId(
+      String tenantId, UUID tutorId, UUID id);
+
   List<AvailabilityPattern> findByTenantIdAndTutorId(String tenantId, UUID tutorId);
 
   /** The patterns still valid somewhere inside a range of dates, for generating blocks. */
