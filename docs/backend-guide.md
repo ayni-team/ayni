@@ -258,6 +258,25 @@ public interface IdentityApi {
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
 
+**Registering a university (TS10).** `POST /api/v1/admin/universities` takes the code, the name, the
+colours, the email domains, the minimum teaching grade, the time zone, and the initial credits with
+their validity in days. In one transaction it creates the university as `ACTIVE`, creates its
+initial `BASELINE` credit policy with those credits, authored by the administrator and valid from
+the registration date in the university's own zone, and publishes `UniversityRegistered`. The code
+is kept in upper case and the domains in lower case. Nothing is published when it is refused.
+
+| Status | When |
+|---|---|
+| 201 | Registered. The body is the university with `studentCount` and `coordinatorCount` at 0 |
+| 400 | A field is missing or wrong: no domain, a grade outside 0 to 20, a time zone that does not exist, credits or validity below 1, a missing `X-User-Id` |
+| 409 | The code or one of the email domains already belongs to a university, whatever its case or status |
+
+Registering takes a database lock before it looks for the code and the domains, so two requests for
+the same code, or the same domain, end with one `201` and one `409`, never a `500`.
+
+`GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
+active and how many students and coordinators it has, and nothing else about its people.
+
 ---
 
 ## skills
