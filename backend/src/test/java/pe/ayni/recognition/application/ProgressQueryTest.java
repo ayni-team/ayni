@@ -23,6 +23,7 @@ import pe.ayni.identity.IdentityApi;
 import pe.ayni.recognition.domain.model.RecognitionProgress;
 import pe.ayni.recognition.domain.model.RecognitionRule;
 import pe.ayni.recognition.infrastructure.RecognitionRuleRepository;
+import pe.ayni.recognition.infrastructure.RequestedSessionRepository;
 import pe.ayni.sessions.SessionSummary;
 import pe.ayni.sessions.SessionsApi;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -37,8 +38,13 @@ class ProgressQueryTest {
   private final IdentityApi identity = mock(IdentityApi.class);
   private final SessionsApi sessions = mock(SessionsApi.class);
   private final RecognitionRuleRepository rules = mock(RecognitionRuleRepository.class);
+  private final RequestedSessionRepository requestedSessions = mock(RequestedSessionRepository.class);
   private final ProgressQuery query =
-      new ProgressQuery(identity, sessions, rules, Clock.fixed(NOW, ZoneOffset.UTC));
+      new ProgressQuery(
+          identity,
+          new UnclaimedSessions(sessions, requestedSessions),
+          rules,
+          Clock.fixed(NOW, ZoneOffset.UTC));
 
   private static SessionSummary session(int hours) {
     return new SessionSummary(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), NOW, NOW.plusSeconds(3600L * hours), hours);
@@ -98,6 +104,22 @@ class ProgressQueryTest {
     progress();
 
     verify(rules).findInForce(UPC, LocalDate.of(2026, 10, 5));
+  }
+
+  @Test
+  @DisplayName("sessions that already back a request are not counted again")
+  void claimedSessionsAreLeftOut() {
+    SessionSummary used = session(5);
+    SessionSummary free = session(2);
+    when(sessions.completedSessionsOf(STUDENT)).thenReturn(List.of(used, free));
+    when(requestedSessions.findClaimed(UPC, List.of(used.sessionId(), free.sessionId())))
+        .thenReturn(List.of(used.sessionId()));
+    when(rules.findInForce(any(), any())).thenReturn(Optional.of(ruleOf(20)));
+
+    RecognitionProgress progress = progress();
+
+    assertThat(progress.earnedHours()).isEqualTo(2);
+    assertThat(progress.sessionsCount()).isEqualTo(1);
   }
 
   @Test

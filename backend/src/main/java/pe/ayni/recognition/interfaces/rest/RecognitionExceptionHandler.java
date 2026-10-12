@@ -12,6 +12,8 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import pe.ayni.recognition.domain.model.InsufficientHours;
+import pe.ayni.recognition.domain.model.RecognitionStateConflict;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
 
@@ -34,6 +36,21 @@ class RecognitionExceptionHandler {
   @ExceptionHandler(NoSuchElementException.class)
   ResponseEntity<ApiError> handleNotFound(NoSuchElementException exception, HttpServletRequest request) {
     return answer(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+  }
+
+  /** The student has not taught enough hours: nothing is registered, and they are told how many are missing. */
+  @ExceptionHandler(InsufficientHours.class)
+  ResponseEntity<InsufficientHoursError> handleInsufficientHours(
+      InsufficientHours exception, HttpServletRequest request) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(InsufficientHoursError.of(exception, request, clock.instant()));
+  }
+
+  /** Well formed, but the state of things refuses it, such as a university that has not opened recognition. */
+  @ExceptionHandler(RecognitionStateConflict.class)
+  ResponseEntity<ApiError> handleStateConflict(
+      RecognitionStateConflict exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   /** No university on the request: the header is missing. */
