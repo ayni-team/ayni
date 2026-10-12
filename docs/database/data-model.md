@@ -1082,7 +1082,8 @@ an alteration apart is the pending scenario of US48, which needs the rows chaine
   (`RECOGNITION_APPROVED`, `RECOGNITION_REJECTED`). `AUDIT_LOG_ACCESS_DENIED` is a refused attempt
   to read the log.
 - `resource_type` and `resource_id` say what it happened to: `BOOKING`, `SESSION`, `WALLET` (the
-  account of the person), `CATALOG_ITEM`, `VALIDATION_REQUEST`, `RECOGNITION_REQUEST`, `AUDIT_LOG`.
+  account of the person), `CATALOG_ITEM`, `VALIDATION_REQUEST`, `RECOGNITION_REQUEST`, `AUDIT_LOG`,
+  `ANOMALY` (an alert, with `ANOMALY_DISMISSED` as its action).
 - `metadata` is a flat object of strings that describes the fact: the other people involved, the
   amount, whether it was late. **It never holds an email address, a link or a code, nor the free
   text of a reason.**
@@ -1101,11 +1102,32 @@ detail         jsonb
 status         varchar(16)   NOT NULL   -- OPEN | DISMISSED | CONFIRMED
 resolved_by    uuid
 resolved_at    timestamptz
+resolution_reason varchar(500)
 detected_at    timestamptz   NOT NULL DEFAULT now()
 
 CHECK (status IN ('OPEN','DISMISSED','CONFIRMED'))
+CHECK (status = 'OPEN' OR (resolved_by IS NOT NULL AND resolved_at IS NOT NULL))
+CHECK (status <> 'DISMISSED' OR resolution_reason IS NOT NULL)
 INDEX (tenant_id, status, severity)
 ```
+
+**`resolution_reason` was added in US47.** The first version of the model had `resolved_by` and
+`resolved_at` and nowhere to keep why an alert was dismissed, which is the one thing a coordinator
+is asked for when they do it. It is the free text of the decision, so it stays here and is not
+copied to the activity log, as the reason of a validation or of a recognition is not. The two extra
+checks make the table refuse what the application already does: a closed alert always says who and
+when, and a dismissed one always says why. `kind` and `severity` are checked against the values
+above too.
+
+`subject_id` is the tutor whose credits the pattern puts in question, in every kind. The other
+people involved and the figures that made it an anomaly are in `detail`, a flat object of strings
+that holds identifiers and numbers only (`tutorId`, `studentId`, `unconfirmedUserIds`, `sessions`,
+`bookedMinutes` and so on), never an address, a name or a reason.
+
+An alert raised by one session (`FAILED_PRESENCE`, `SHORT_DURATION`) has a derived `id`, a name based
+UUID of the university, the kind and the session, so the primary key is what makes one event
+delivered twice produce one alert. The ones that come from a period (`REPEATED_PAIR`) have a random
+`id`.
 
 ### `audit.anomaly_sessions`
 
@@ -1115,9 +1137,12 @@ session_id   uuid          NOT NULL
 tenant_id    varchar(32)   NOT NULL
 
 PRIMARY KEY (anomaly_id, session_id)
+INDEX (tenant_id, session_id)
 ```
 
 The coordinator sees these when reviewing a recognition request, which is the moment they matter.
+The index is not in the first version of the model: recognition asks which open alerts a set of
+sessions has, which is a lookup by session and not by anomaly.
 
 ---
 
