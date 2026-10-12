@@ -16,8 +16,10 @@ import java.util.UUID;
  *
  * <p>A university course reaches {@link OfferedSkillStatus#ENABLED} on its own when the grade
  * clears the university's threshold ({@link #enableByAcademicRecord}, US13). A global tool can
- * only reach it through reviewed evidence, because no academic record can vouch for it; that path
- * is not built by this class yet.
+ * only reach it through reviewed evidence, because no academic record can vouch for it (US16): it
+ * is born {@link OfferedSkillStatus#PENDING} by {@link #requestValidation}, and a coordinator
+ * either enables it with {@link #approveByReviewedEvidence} or sends it to {@link
+ * OfferedSkillStatus#REJECTED}, from where the tutor submits again with {@link #resubmitEvidence}.
  */
 @Entity
 @Table(schema = "skills", name = "offered_skills")
@@ -33,7 +35,7 @@ public class OfferedSkill {
   @Column(name = "tutor_id", nullable = false, updatable = false)
   private UUID tutorId;
 
-  @Column(name = "catalog_item_id", nullable = false, updatable = false)
+  @Column(name = "catalog_item_id", nullable = false)
   private UUID catalogItemId;
 
   @Enumerated(EnumType.STRING)
@@ -116,12 +118,130 @@ public class OfferedSkill {
         now);
   }
 
-  /** Stops the tutor from offering this skill; reservations already confirmed are unaffected. */
+  /**
+   * Starts the offer of a global tool: waiting for a coordinator to review the evidence.
+   *
+   * <p>No accreditation path yet, and nothing to copy: the path is decided by whoever enables it.
+   */
+  public static OfferedSkill requestValidation(
+      UUID id, String tenantId, UUID tutorId, UUID catalogItemId, Instant now) {
+    return new OfferedSkill(
+        id, tenantId, tutorId, catalogItemId, OfferedSkillStatus.PENDING, null, null, null, now);
+  }
+
+  /**
+   * Puts a rejected skill back in the queue, because the tutor submitted new evidence.
+   *
+   * @throws SkillsStateConflict when the skill was not rejected
+   */
+  public void resubmitEvidence(Instant now) {
+    if (this.status != OfferedSkillStatus.REJECTED) {
+      throw new SkillsStateConflict("only a rejected skill can be submitted again");
+    }
+    this.status = OfferedSkillStatus.PENDING;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  /**
+   * Enables the skill because a coordinator accepted the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not waiting for a review
+   */
+  public void approveByReviewedEvidence(Instant now) {
+    requirePending("approved");
+    this.status = OfferedSkillStatus.ENABLED;
+    this.accreditationPath = AccreditationPath.REVIEWED_EVIDENCE;
+    this.enabledAt = Objects.requireNonNull(now, "now must not be null");
+    this.updatedAt = now;
+  }
+
+  /**
+   * Refuses the skill because a coordinator rejected the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not waiting for a review
+   */
+  public void rejectEvidence(Instant now) {
+    requirePending("rejected");
+    this.status = OfferedSkillStatus.REJECTED;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  private void requirePending(String outcome) {
+    if (this.status != OfferedSkillStatus.PENDING) {
+      throw new SkillsStateConflict("only a pending skill can be " + outcome);
+    }
+  }
+
+  /**
+   * Offers again a course the tutor withdrew, once the academic record still clears the threshold.
+   *
+   * <p>The accreditation is not carried over: the grade is checked again against today's threshold
+   * and copied again, because the threshold may have changed since the first offer.
+   *
+   * @throws SkillsStateConflict when the skill is not withdrawn, or was not accredited by the
+   *     academic record
+   * @throws SkillsRuleViolation when the grade no longer clears the threshold
+   */
+  public void reEnableByAcademicRecord(BigDecimal grade, BigDecimal threshold, Instant now) {
+    Objects.requireNonNull(grade, "grade must not be null");
+    Objects.requireNonNull(threshold, "threshold must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != OfferedSkillStatus.WITHDRAWN
+        || this.accreditationPath != AccreditationPath.ACADEMIC_RECORD) {
+      throw new SkillsStateConflict("only a withdrawn course can be offered again");
+    }
+    if (grade.compareTo(threshold) < 0) {
+      throw new SkillsRuleViolation(
+          "grade %s does not reach the university's threshold %s".formatted(grade, threshold));
+    }
+    this.status = OfferedSkillStatus.ENABLED;
+    this.accreditedGrade = grade;
+    this.enabledAt = now;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Offers again a global tool the tutor withdrew, without a new review.
+   *
+   * <p>What justified the skill was a coordinator accepting the evidence, and withdrawing it does
+   * not undo that. So unlike a course, which is checked against the grade again, nothing is
+   * checked: the evidence is still the evidence.
+   *
+   * @throws SkillsStateConflict when the skill is not withdrawn, or was not accredited by reviewed
+   *     evidence
+   */
+  public void reEnableByReviewedEvidence(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != OfferedSkillStatus.WITHDRAWN
+        || this.accreditationPath != AccreditationPath.REVIEWED_EVIDENCE) {
+      throw new SkillsStateConflict("only a withdrawn tool with accepted evidence can be offered again");
+    }
+    this.status = OfferedSkillStatus.ENABLED;
+    this.enabledAt = now;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Stops the tutor from offering this skill; reservations already confirmed are unaffected.
+   *
+   * @throws SkillsStateConflict when the skill is not enabled
+   */
   public void withdraw(Instant now) {
     if (this.status != OfferedSkillStatus.ENABLED) {
-      throw new SkillsRuleViolation("only an enabled skill can be withdrawn");
+      throw new SkillsStateConflict("only an enabled skill can be withdrawn");
     }
     this.status = OfferedSkillStatus.WITHDRAWN;
+    this.updatedAt = Objects.requireNonNull(now, "now must not be null");
+  }
+
+  /**
+   * Moves the skill to another catalogue item, keeping its status and how it was accredited.
+   *
+   * <p>For when two items turn out to be the same skill and are joined: what the tutor earned on one
+   * holds on the one that stays. The caller makes sure the tutor does not already hold the other.
+   */
+  public void moveTo(UUID newCatalogItemId, Instant now) {
+    this.catalogItemId = Objects.requireNonNull(newCatalogItemId, "newCatalogItemId must not be null");
     this.updatedAt = Objects.requireNonNull(now, "now must not be null");
   }
 

@@ -1,6 +1,5 @@
 package pe.ayni.identity.application;
 
-import pe.ayni.shared.tenancy.TenantContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -9,9 +8,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.domain.model.AcademicRecord;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.tenancy.TenantContext;
 
 @Service
 public class ImportAcademicRecordUseCase {
@@ -50,10 +51,24 @@ public class ImportAcademicRecordUseCase {
                     "The user does not have a student code");
         }
 
-        List<AcademicCourseData> courses =
-                academicSystem.findApprovedCourses(
+        if (user.getOnboardingStep() == null
+                || user.getOnboardingStep() == OnboardingStep.PROFILE) {
+            throw new IdentityRuleViolation(
+                    "The profile step must be completed before importing the academic record");
+        }
+
+        AcademicProfile profile =
+                academicSystem.fetchProfile(
                         tenantId,
                         user.getStudentCode());
+
+        if (profile == null) {
+            throw new IdentityRuleViolation(
+                    "Academic profile was not found");
+        }
+
+        List<AcademicCourseData> courses =
+                profile.approvedCourses();
 
         Instant now = clock.instant();
 
@@ -77,6 +92,7 @@ public class ImportAcademicRecordUseCase {
                         .toList();
 
         academicRecords.saveAll(imported);
+
         user.markAcademicRecordImported(now);
     }
 }
