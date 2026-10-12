@@ -42,11 +42,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
-import pe.ayni.sessions.application.AbandonTutorNoShowUseCase;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.BookingConfirmed;
 import pe.ayni.shared.events.SessionStarted;
-import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * US08 over HTTP against a real PostgreSQL, one test per scenario of {@code
@@ -77,7 +75,6 @@ class JoinSessionAcceptanceTest {
   @Autowired private TransactionTemplate transactions;
   @Autowired private JdbcTemplate jdbc;
   @Autowired private StartedSessions started;
-  @Autowired private AbandonTutorNoShowUseCase abandonNoShow;
   @MockitoBean private BookingApi booking;
 
   /** Counts SessionStarted per session, from whichever thread published it. */
@@ -98,6 +95,7 @@ class JoinSessionAcceptanceTest {
 
   @BeforeEach
   void bookingKnowsTheNeed() {
+    when(booking.isConfirmed(any())).thenReturn(true);
     when(booking.requireBooking(any()))
         .thenAnswer(
             call ->
@@ -165,12 +163,6 @@ class JoinSessionAcceptanceTest {
         sessionId);
   }
 
-  private boolean abandon(UUID sessionId) {
-    boolean[] result = new boolean[1];
-    TenantContext.runAs(UPC, () -> result[0] = abandonNoShow.abandonFor(sessionId));
-    return result[0];
-  }
-
   @Test
   @DisplayName("The tutor reads the session and what the student needs")
   void theTutorReadsTheSessionAndTheNeed() throws Exception {
@@ -213,8 +205,8 @@ class JoinSessionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("Both participants check in before the session starts")
-  void joiningStartsTheSessionAfterBothCheckIn() throws Exception {
+  @DisplayName("Joining opens the room and the first participant starts the session")
+  void joiningStartsTheSession() throws Exception {
 
     UUID session = aSessionStartingIn(Duration.ofMinutes(10));
 
@@ -222,32 +214,24 @@ class JoinSessionAcceptanceTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.role").value("STUDENT"))
         .andExpect(jsonPath("$.roomName").value(roomOf(session)))
-        .andExpect(jsonPath("$.status").value("SCHEDULED"))
-        .andExpect(jsonPath("$.startedAt").doesNotExist())
-        .andExpect(jsonPath("$.studentJoinedAt").exists())
-        .andExpect(jsonPath("$.tutorJoinedAt").doesNotExist());
-
-    read(session, tutor)
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.studentJoinedAt").exists())
-        .andExpect(jsonPath("$.tutorJoinedAt").doesNotExist());
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("$.startedAt").exists());
+    String startedAt =
+        jdbc.queryForObject(
+            "select started_at::text from sessions.sessions where id = ?", String.class, session);
 
     join(session, tutor)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.role").value("TUTOR"))
-        .andExpect(jsonPath("$.roomName").value(roomOf(session)))
-        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
-        .andExpect(jsonPath("$.studentJoinedAt").exists())
-        .andExpect(jsonPath("$.tutorJoinedAt").exists())
-        .andExpect(jsonPath("$.startedAt").exists());
+        .andExpect(jsonPath("$.roomName").value(roomOf(session)));
 
     assertThat(started.of(session)).as("SessionStarted, once").isEqualTo(1);
     assertThat(participationsOf(session)).isEqualTo(2);
     assertThat(
             jdbc.queryForObject(
-                "select started_at from sessions.sessions where id = ?", Instant.class, session))
-        .as("the start is when the second participant checked in")
-        .isNotNull();
+                "select started_at::text from sessions.sessions where id = ?", String.class, session))
+        .as("the start is the first arrival")
+        .isEqualTo(startedAt);
   }
 
   @Test
@@ -273,7 +257,7 @@ class JoinSessionAcceptanceTest {
                 session,
                 student))
         .isEqualTo(firstArrival);
-    assertThat(started.of(session)).isZero();
+    assertThat(started.of(session)).isEqualTo(1);
   }
 
   @Test
@@ -302,34 +286,6 @@ class JoinSessionAcceptanceTest {
 
     assertThat(started.of(session)).isEqualTo(1);
     assertThat(participationsOf(session)).isEqualTo(2);
-  }
-
-  @Test
-  @DisplayName("The absent participant is recorded at the deadline and visible to both")
-  void recordsAndShowsTheAbsentParticipant() throws Exception {
-    UUID session = aSessionStartingIn(Duration.ofMinutes(-6));
-    join(session, tutor).andExpect(status().isOk());
-
-    Instant deadline = Instant.now().minus(Duration.ofMinutes(1));
-    jdbc.update(
-        "update sessions.sessions set scheduled_start = ? where id = ?",
-        java.sql.Timestamp.from(deadline.minus(Duration.ofMinutes(10))),
-        session);
-    jdbc.update(
-        "update sessions.participations set joined_at = ? where tenant_id = ? and session_id = ?",
-        java.sql.Timestamp.from(deadline.minusSeconds(1)),
-        UPC,
-        session);
-
-    assertThat(abandon(session)).isTrue();
-
-    assertThat(
-            jdbc.queryForObject(
-                "select status from sessions.sessions where id = ?", String.class, session))
-        .isEqualTo("ABANDONED");
-    read(session, student)
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.absentParticipantIds[0]").value(student.toString()));
   }
 
   @Test

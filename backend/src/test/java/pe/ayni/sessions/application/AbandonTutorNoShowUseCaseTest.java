@@ -127,15 +127,14 @@ class AbandonTutorNoShowUseCaseTest {
   }
 
   @Test
-  @DisplayName("a present tutor is not penalized when the student is absent")
-  void recordsStudentAbsenceWithoutTutorConsequences() {
+  @DisplayName("a tutor who joined by the deadline is not marked absent without a presence code")
+  void tutorCheckInWithoutConfirmedCodePreventsNoShow() {
     checkIn(TUTOR, ParticipantRole.TUTOR, NOW);
 
-    assertThat(abandon()).isTrue();
+    assertThat(abandon()).isFalse();
 
-    ArgumentCaptor<SessionAbandoned> event = ArgumentCaptor.forClass(SessionAbandoned.class);
-    verify(events).publishEvent(event.capture());
-    assertThat(event.getValue().studentCheckedIn()).isFalse();
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
+    verify(events, never()).publishEvent(any());
   }
 
   @Test

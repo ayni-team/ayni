@@ -53,7 +53,8 @@ Feature: Closing a session
     When Ana and Bruno confirm the end at the same moment
     Then the session is completed once and Bruno is credited once
 
-  Scenario: The session cannot be ended before both participants check in
+  Scenario: Only a participant who joined can end a session in progress
     Then a stranger is refused
     And nobody can end a session that has not started
+    And Bruno cannot end a session he never joined
     And nobody can end a session that is already closed

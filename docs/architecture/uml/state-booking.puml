@@ -7,15 +7,17 @@ hide empty description
 CONFIRMED --> CANCELLED : student or tutor cancels\n/ refund, BookingCancelled\n/ late = starts in less than 12 h
 CONFIRMED --> CANCELLED : SessionUnverified\n/ cancelledBy = SYSTEM, refund
 CONFIRMED --> COMPLETED : SessionCompleted
-CONFIRMED --> NO_SHOW : session abandoned\n/ incident recorded
+CONFIRMED --> NO_SHOW : SessionAbandoned\n[tutor did not join in 10 min]\n/ tutor incident recorded and student refunded\nonly if the student had joined
 
 CANCELLED --> [*]
 COMPLETED --> [*]
 NO_SHOW --> [*]
 
 note right of CANCELLED
-  Cancelling always refunds the student.
-  A late cancellation is recorded
-  against whoever cancelled.
+  The student is refunded, except when
+  they cancel inside twelve hours of the
+  start. A tutor's cancellation always
+  refunds; a late one is recorded
+  against the tutor.
 end note
 @enduml

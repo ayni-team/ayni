@@ -27,6 +27,7 @@ import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.LearningInterest;
 import pe.ayni.skills.domain.model.OfferedSkill;
+import pe.ayni.skills.infrastructure.AcademicSettingsRepository;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.LearningInterestRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
@@ -58,6 +59,7 @@ class DeclareInterestsUseCaseTest {
           catalogItems,
           offeredSkills,
           identity,
+          new TeachingThreshold(mock(AcademicSettingsRepository.class), identity),
           mock(ApplicationEventPublisher.class),
           Clock.fixed(NOW, ZoneOffset.UTC));
   private final DeclareInterestsUseCase useCase =
@@ -79,7 +81,7 @@ class DeclareInterestsUseCaseTest {
 
   /** Wires the mocks so offering {@code item} for {@code grade} succeeds through the real use case. */
   private void approvedFor(UUID itemId, String courseCode, BigDecimal grade) {
-    when(catalogItems.findByIdAndTenantVisibility(itemId, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(itemId, UPC))
         .thenReturn(Optional.of(universityCourse(itemId, courseCode)));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, STUDENT, itemId))
         .thenReturn(Optional.empty());
@@ -147,7 +149,7 @@ class DeclareInterestsUseCaseTest {
   @Test
   @DisplayName("an item already offered is skipped, not refused")
   void anItemAlreadyOfferedIsSkippedNotRefused() {
-    when(catalogItems.findByIdAndTenantVisibility(ITEM_A, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(ITEM_A, UPC))
         .thenReturn(Optional.of(universityCourse(ITEM_A, "1ASI0657")));
     OfferedSkill existing =
         OfferedSkill.enableByAcademicRecord(
@@ -162,12 +164,12 @@ class DeclareInterestsUseCaseTest {
   @DisplayName("one item failing does not stop the rest from being enabled")
   void oneItemFailingDoesNotStopTheRestFromBeingEnabled() {
     // ITEM_A: below the threshold, refused. ITEM_B: clears it, enabled.
-    when(catalogItems.findByIdAndTenantVisibility(ITEM_A, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(ITEM_A, UPC))
         .thenReturn(Optional.of(universityCourse(ITEM_A, "1MAT0101")));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, STUDENT, ITEM_A))
         .thenReturn(Optional.empty());
 
-    when(catalogItems.findByIdAndTenantVisibility(ITEM_B, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(ITEM_B, UPC))
         .thenReturn(Optional.of(universityCourse(ITEM_B, "1ASI0616")));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, STUDENT, ITEM_B))
         .thenReturn(Optional.empty());

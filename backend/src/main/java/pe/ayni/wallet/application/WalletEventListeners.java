@@ -10,6 +10,7 @@ import pe.ayni.shared.events.PurchaseConfirmed;
 import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.StudentActivated;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -28,12 +29,28 @@ class WalletEventListeners {
 
   private static final Logger log = LoggerFactory.getLogger(WalletEventListeners.class);
 
+  private final GrantInitialCredits initialCredits;
   private final GrantCredits grant;
   private final RefundBooking refund;
 
-  WalletEventListeners(GrantCredits grant, RefundBooking refund) {
+  WalletEventListeners(
+      GrantInitialCredits initialCredits, GrantCredits grant, RefundBooking refund) {
+    this.initialCredits = initialCredits;
     this.grant = grant;
     this.refund = refund;
+  }
+
+  /**
+   * A student entered for the first time: they receive what their university gives every student.
+   *
+   * <p>The amount and how long it lasts are the baseline policy of the university, which identity
+   * owns. {@code GrantInitialCredits} is what keeps the same activation, delivered twice, from
+   * granting twice.
+   */
+  @ApplicationModuleListener
+  void on(StudentActivated event) {
+    TenantContext.runAs(event.tenantId(), () -> initialCredits.grantFor(event));
+    log.debug("Handled the initial credits of activated student {}", event.userId());
   }
 
   /**
@@ -63,13 +80,19 @@ class WalletEventListeners {
   }
 
   /**
-   * A booking was cancelled: cancelling always refunds.
+   * A booking was cancelled: the student gets their credits back, except when they cancelled it
+   * themselves inside the late window.
    *
-   * <p>Whether it was late, and who it counts against, is booking's business. Wallet returns the
-   * credits either way.
+   * <p>A tutor's cancellation refunds whatever the hour, because the student did nothing. Booking
+   * already asked for the refund inside its own transaction; this listener is the net behind it, and
+   * {@code RefundBooking} gives back only once however many times the event arrives.
    */
   @ApplicationModuleListener
   void on(BookingCancelled event) {
+    if (event.late() && event.cancelledBy() == BookingCancelled.CancelledBy.STUDENT) {
+      log.debug("Skipped refund for late cancellation of booking {}", event.bookingId());
+      return;
+    }
     TenantContext.runAs(event.tenantId(), () -> refund.refund(event.bookingId()));
     log.debug("Refunded booking {}", event.bookingId());
   }

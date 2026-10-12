@@ -129,6 +129,7 @@ class CloseSessionAcceptanceTest {
 
   @BeforeEach
   void theOtherModulesAnswer() {
+    when(booking.isConfirmed(any())).thenReturn(true);
     when(booking.requireBooking(any()))
         .thenAnswer(
             call ->
@@ -157,7 +158,7 @@ class CloseSessionAcceptanceTest {
    * @return the session; its booking is {@link #bookingOf}
    */
   private UUID aSessionUnderway() throws Exception {
-    Instant start = now.minus(Duration.ofMinutes(6));
+    Instant start = now.minus(Duration.ofMinutes(10));
     UUID bookingId = UUID.randomUUID();
     TenantContext.runAs(
         UPC,
@@ -273,7 +274,7 @@ class CloseSessionAcceptanceTest {
         .andExpect(jsonPath("$.endedAt").doesNotExist())
         .andExpect(
             jsonPath("$.closesAt")
-                .value(now.plus(Duration.ofMinutes(69)).toString()));
+                .value(now.plus(Duration.ofMinutes(65)).toString()));
     assertThat(outcomes.completedOf(session)).isEmpty();
 
     end(session, student)
@@ -435,7 +436,7 @@ class CloseSessionAcceptanceTest {
     join(onlyTheStudentCame, student).andExpect(status().isOk());
     end(onlyTheStudentCame, tutor)
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message", containsString("scheduled")));
+        .andExpect(jsonPath("$.message").value("Join the session before ending it"));
 
     end(session, student).andExpect(status().isOk());
     end(session, tutor).andExpect(status().isOk());

@@ -27,9 +27,6 @@ Also, in **Settings → General → Pull Requests**, leave only **Allow squash m
 branch then lands as a single commit on `develop`, whose message is the title of the pull request.
 That keeps the history readable and is why the title follows Conventional Commits.
 
-> Replace `@rodrigo` in `.github/CODEOWNERS` with your GitHub username once the repository exists.
-> A username that does not exist makes GitHub ignore the rule silently.
-
 ## How the team works
 
 1. Move the Trello card to **In Process**.

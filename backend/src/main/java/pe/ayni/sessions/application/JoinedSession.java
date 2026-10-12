@@ -18,6 +18,4 @@ public record JoinedSession(
     SessionStatus status,
     Instant startedAt,
     Instant scheduledStart,
-    Instant scheduledEnd,
-    Instant studentJoinedAt,
-    Instant tutorJoinedAt) {}
+    Instant scheduledEnd) {}

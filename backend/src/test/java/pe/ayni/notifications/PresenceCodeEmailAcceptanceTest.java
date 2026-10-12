@@ -30,6 +30,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.domain.model.Booking;
+import pe.ayni.booking.infrastructure.BookingRepository;
 import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
@@ -66,6 +68,7 @@ class PresenceCodeEmailAcceptanceTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbc;
+  @Autowired private BookingRepository bookings;
   @Autowired private TenantRepository tenants;
   @Autowired private UserRepository users;
   @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
@@ -78,18 +81,28 @@ class PresenceCodeEmailAcceptanceTest {
     new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
   }
 
-  /**
-   * Ana's session with Bruno as her tutor, six minutes into its hour, joined by both.
-   *
-   * <p>The joins must happen before US09's ten-minute attendance deadline for the session to
-   * start; six minutes also makes US54's five-minute presence-code deadline due.
-   */
-  private UUID aSessionSixMinutesIn() throws Exception {
-    Instant start = Instant.now().minus(Duration.ofMinutes(6));
+  /** Ana's session with Bruno as her tutor, ten minutes into its hour, joined by both. */
+  private UUID aSessionTenMinutesIn() throws Exception {
+    Instant start = Instant.now().minus(Duration.ofMinutes(10));
     UUID bookingId = UUID.randomUUID();
     TenantContext.runAs(
         UPC,
-        () -> scheduleSession.forBooking(bookingId, ANA, BRUNO, start, start.plus(Duration.ofHours(1))));
+        () -> {
+          bookings.save(
+              Booking.confirm(
+                  bookingId,
+                  UPC,
+                  ANA,
+                  BRUNO,
+                  UUID.randomUUID(),
+                  start,
+                  start.plus(Duration.ofHours(1)),
+                  1,
+                  "Help with calculus",
+                  Instant.now()));
+          scheduleSession.forBooking(
+              bookingId, ANA, BRUNO, start, start.plus(Duration.ofHours(1)));
+        });
     UUID session =
         jdbc.queryForObject(
             "select id from sessions.sessions where tenant_id = ? and booking_id = ?",
@@ -131,7 +144,7 @@ class PresenceCodeEmailAcceptanceTest {
   @DisplayName("Each participant receives their code by email and confirms with it")
   void theCodeArrivesAndConfirmsPresence() throws Exception {
 
-    UUID session = aSessionSixMinutesIn();
+    UUID session = aSessionTenMinutesIn();
 
     TenantContext.runAs(UPC, () -> issuePresenceCodes.issueFor(session));
 

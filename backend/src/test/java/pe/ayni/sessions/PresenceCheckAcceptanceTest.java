@@ -101,6 +101,7 @@ class PresenceCheckAcceptanceTest {
 
   @BeforeEach
   void theOtherModulesAnswer() {
+    when(booking.isConfirmed(any())).thenReturn(true);
     when(booking.requireBooking(any()))
         .thenAnswer(
             call ->
@@ -138,9 +139,9 @@ class PresenceCheckAcceptanceTest {
         bookingId);
   }
 
-  /** A session six minutes into its hour, joined by both participants: its codes are due. */
+  /** A session ten minutes into its hour, joined by both participants: its codes are due. */
   private UUID aSessionTenMinutesIn() throws Exception {
-    UUID session = aSessionStarting(Duration.ofMinutes(-6));
+    UUID session = aSessionStarting(Duration.ofMinutes(-10));
     join(session, student).andExpect(status().isOk());
     join(session, tutor).andExpect(status().isOk());
     return session;
@@ -245,7 +246,6 @@ class PresenceCheckAcceptanceTest {
 
     UUID justStarted = aSessionStarting(Duration.ofMinutes(-2));
     join(justStarted, student).andExpect(status().isOk());
-    join(justStarted, tutor).andExpect(status().isOk());
 
     UUID nobodyCame = aSessionStarting(Duration.ofMinutes(-10));
 
@@ -410,17 +410,17 @@ class PresenceCheckAcceptanceTest {
 
     UUID notYet = aSessionStarting(Duration.ofMinutes(-2));
     join(notYet, student).andExpect(status().isOk());
-    join(notYet, tutor).andExpect(status().isOk());
     confirm(notYet, student, "123456")
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.message", containsString("has not been sent yet")));
 
-    UUID tutorAway = aSessionStarting(Duration.ofMinutes(-6));
+    UUID tutorAway = aSessionStarting(Duration.ofMinutes(-10));
     join(tutorAway, student).andExpect(status().isOk());
-    assertThat(issueFor(tutorAway)).isFalse();
-    confirm(tutorAway, tutor, "123456")
+    issueFor(tutorAway);
+    assertThat(issued.of(tutorAway)).as("the absent tutor gets a code too").containsKey(tutor);
+    confirm(tutorAway, tutor, codeOf(tutorAway, tutor))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.message", containsString("scheduled")));
+        .andExpect(jsonPath("$.message").value("Join the session before confirming your presence"));
 
     confirm(tutorAway, UUID.randomUUID(), "123456").andExpect(status().isForbidden());
 
@@ -429,21 +429,19 @@ class PresenceCheckAcceptanceTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.message", containsString("scheduled")));
 
-    UUID active = aSessionTenMinutesIn();
-    issueFor(active);
-    confirm(active, student, "12ab56")
+    confirm(tutorAway, student, "12ab56")
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("code must be six digits"));
     mockMvc
         .perform(
-            post("/api/v1/sessions/{id}/presence", active)
+            post("/api/v1/sessions/{id}/presence", tutorAway)
                 .header("X-Tenant-Id", UPC)
                 .header("X-User-Id", student)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("code is required"));
-    assertThat(((Number) checkOf(active, student).get("attempts")).intValue())
+    assertThat(((Number) checkOf(tutorAway, student).get("attempts")).intValue())
         .as("a malformed code is not an attempt")
         .isZero();
   }

@@ -204,9 +204,8 @@ The Trello card of each story says what is left of it.
 
 ### Decisions still open
 
-- Who pays when nobody attends a session (US06 scenario 3 and `ABANDONED`). Decide before
-  building it.
-- How access works (TS03): its own ADR, written before the code.
+- How access works (TS03): **decided**, no longer open. See
+  `adr/0007-access-control-and-tenant-isolation.md`.
 - The mock academic system (ADR 0006): one service for several universities, the student code taken
   from the local part of the email, the rule configurable per university.
 
@@ -251,11 +250,95 @@ public interface IdentityApi {
 | POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
-| POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |
-| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the policy |
+| POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
+| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
+| PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
+
+**Registering a university (TS10).** `POST /api/v1/admin/universities` takes the code, the name, the
+colours, the email domains, the minimum teaching grade, the time zone, and the initial credits with
+their validity in days. In one transaction it creates the university as `ACTIVE`, creates its
+initial `BASELINE` credit policy with those credits, authored by the administrator and valid from
+the registration date in the university's own zone, and publishes `UniversityRegistered`. The code
+is kept in upper case and the domains in lower case. Nothing is published when it is refused.
+
+| Status | When |
+|---|---|
+| 201 | Registered. The body is the university with `studentCount` and `coordinatorCount` at 0 |
+| 400 | A field is missing or wrong: no domain, a grade outside 0 to 20, a time zone that does not exist, credits or validity below 1, a missing `X-User-Id` |
+| 409 | The code or one of the email domains already belongs to a university, whatever its case or status |
+
+Registering takes a database lock before it looks for the code and the domains, so two requests for
+the same code, or the same domain, end with one `201` and one `409`, never a `500`.
+
+`GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
+active and how many students and coordinators it has, and nothing else about its people.
+
+**Inviting a coordinator (TS10).** `POST /api/v1/admin/universities/{code}/coordinators` takes the
+`email` and the `fullName`. In one transaction it creates the coordinator as `PENDING`, with no
+student code and no onboarding, stores a single use `COORDINATOR_INVITE` link (only its hash) and
+publishes `AccessRequested`, which notifications turns into the email. The address must belong to
+one of the university's domains. Nothing is published when it is refused.
+
+| Status | When |
+|---|---|
+| 201 | Invited. The coordinator exists as `PENDING` and the link is on its way |
+| 400 | A field is missing, the email is not one, it is not of a domain of the university, or `X-User-Id` is missing |
+| 404 | The university does not exist |
+| 409 | The university is suspended, or the address already has a user in it, pending or active |
+
+Inviting takes the university's row first, so two invitations to the same address at once end with
+one `201` and one `409`, never a `500`.
+
+**Accepting the invitation.** The link goes to `POST /api/v1/access/confirm`, as every other one.
+For a `COORDINATOR_INVITE` link it consumes the link, activates the coordinator, publishes
+`CoordinatorActivated` and opens their first session; the student activation of US38 is not
+touched.
+
+| Status | When |
+|---|---|
+| 200 | Activated, with the session |
+| 400 | The token is unknown, or the link expired |
+| 403 | The account the link points to is not a coordinator |
+| 404 | The account the link points to no longer exists |
+| 409 | The invitation was already used, also by a confirmation that arrived at the same time |
+
+The link is consumed with a conditional update, so two confirmations at once activate the
+coordinator once, publish `CoordinatorActivated` once and open one session: the other one is
+answered `409`.
+
+**Credit policy (US52).** `PUT /api/v1/coordinator/credit-policy` takes `creditsAmount` and
+`validityDays`, both of at least 1. In one transaction it closes the current `BASELINE` policy of
+the university of the request (`superseded_at`) and creates the next one, authored by the
+coordinator and valid from today in the university's own zone. The previous version stays stored:
+policies are never edited. `IdentityApi.currentPolicy` answers the new one from then on, so the
+students activated afterwards are granted it; what was granted before keeps the policy that granted
+it. The body is the new policy: `id`, `kind`, `creditsAmount`, `validityDays` and `validFrom`.
+
+| Status | When |
+|---|---|
+| 200 | Replaced |
+| 400 | `creditsAmount` or `validityDays` below 1, or a missing `X-Tenant-Id` or `X-User-Id` |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
+| 409 | The university is suspended, or it has no baseline policy to replace |
+
+The university's row is locked before the current policy is read, so two coordinators replacing it
+at once are answered `200` both, one after the other, and exactly one `BASELINE` policy stays
+current, never two and never a `500`.
+
+**University identity (US50).** `PUT /api/v1/coordinator/university-identity` takes `logoUrl`,
+`primaryColor` and `secondaryColor`, each optional and replaced as a whole: a field that is missing
+or blank leaves the university with none. The university is the one of the request
+(`X-Tenant-Id`); the body has no field for it and a code that appears there is ignored. It answers
+the university's `code`, `name` and the three values as they are stored.
+
+| Status | When |
+|---|---|
+| 200 | Updated |
+| 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour), or `X-Tenant-Id` or `X-User-Id` is missing |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
 
 ---
 
@@ -279,16 +362,33 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
-**Listens to:** `StudentActivated` — to enable the courses their grades already justify.
+**Listens to:** `StudentActivated` — to enable the courses their grades already justify;
+`SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
+catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
+already depends on skills, and the modules would depend on each other.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
+| GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
+| POST | `/api/v1/tutor/skills/proposals` | student | proposes a tool the catalogue does not have. 409 with the similar items until `confirmDistinct` is sent (US42) |
+| GET | `/api/v1/tutor/skills/proposals` | student | own proposals with their status and decision (US42) |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
 | GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
 | DELETE | `/api/v1/tutor/skills/{id}` | student | withdraws it. Confirmed bookings stand |
 | POST | `/api/v1/tutor/skills/{id}/validation` | student | submits evidence for a global tool |
+| GET | `/api/v1/coordinator/skill-proposals?status=` | coordinator | proposals of the university: the queue by default, the history with APPROVED, MERGED or REJECTED (US43) |
+| GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
+| POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
+| GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it, counted in the coordinator's university only, for a global tool too; counts, never people (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the ADMIN role, which does not exist yet (TS03) (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
+| GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses/{id}/retire` | coordinator | takes a course of the university out: same effect and confirmation as retiring an item; a global tool is not found here (US51) |
+| GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
+| PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
@@ -312,20 +412,52 @@ public interface WalletApi {
 
 **Publishes:** `CreditsGranted`, `CreditsExpiring`, `CreditsExpired`.
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
-`BookingCancelled` and `SessionUnverified` (refund the booking), `PurchaseConfirmed`.
+`BookingCancelled` (refunds the booking, unless the student cancelled it late),
+`SessionUnverified` (refunds the booking), `SessionAbandoned` (refunds the booking, but only when
+the student was present) and `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/wallet` | student — balance broken down by origin with expiry dates |
 | GET | `/api/v1/wallet/movements` | student — history, filterable by period and type |
+| GET | `/api/v1/wallet/benefits` | student — active benefits offered by their university |
+| POST | `/api/v1/coordinator/benefits` | coordinator — create a benefit and its earned-credit cost |
+| PUT | `/api/v1/coordinator/benefits/{benefitId}` | coordinator — update or deactivate a benefit |
+| POST | `/api/v1/wallet/benefits/{benefitId}/redemptions` | student — redeem earned credits |
+| POST | `/api/v1/wallet/donations` | student — donate earned credits to the incoming-student pool |
+| GET | `/api/v1/wallet/donation-pool` | student — total donated credits and contribution count |
+| GET | `/api/v1/wallet/donations` | student — their own donation history |
+
+Redemptions and donations first return an irreversible-operation warning with a confirmation
+identifier. The student must send that identifier in a second request within ten minutes. Confirmed
+operations are idempotent and debit only `EARNED` credits; receipts and donations are recorded as
+immutable wallet-ledger movements. The incoming-student pool is the sum of the donation records for
+the university. Spending earned credits does not erase the teaching from recognition progress.
+Confirmation challenges are kept for ten minutes and can be used once; update
+`ayni.wallet.credit-use-confirmation-validity` to change that window.
 
 **Rules that live here and nowhere else:** spend the group closest to expiring first; a refund
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
 
+The daily expiry job publishes one `CreditsExpiring` event per unspent credit group within the
+configured `ayni.wallet.expiry-notice-days` window (seven days by default). Wallet stores the
+publication time on the group, so subsequent runs do not publish a duplicate notice. This job only
+publishes the event; email delivery in `notifications` is a separate responsibility.
+
 A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
 The reasoning is in ADR 0005.
+
+The listener of `BookingCancelled` refunds every cancellation except one: it does nothing when the
+event is late **and** the student cancelled it themselves. A tutor's cancellation refunds whatever
+the hour, and the same event delivered twice refunds once.
+
+The listener of `SessionAbandoned` refunds the booking only when `studentCheckedIn` is true: a
+student who was in the room and whose tutor never came gets the credit back, and when nobody came
+there is nothing to return, because nobody was wronged. Delivered twice it refunds once, as every
+listener that moves credits does, and a session is never both abandoned and unverified, so the
+student cannot be refunded by the two events.
 
 ---
 
@@ -336,6 +468,7 @@ Owns availability and reservations.
 ```java
 public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
+  boolean isConfirmed(UUID bookingId);   // used by sessions, before it schedules a session
   List<OpenHourView> openHoursOf(UUID tutorId, Instant from);   // used by matching
 }
 ```
@@ -349,6 +482,8 @@ because a hold ends either in a booking, which is announced, or back in circulat
 **Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
 `HoursWithdrawn`.
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
+**Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
+records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -356,11 +491,14 @@ because a hold ends either in a booking, which is announced, or back in circulat
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history |
-| DELETE | `/api/v1/bookings/{id}` | student or tutor | cancels, always refunds |
+| DELETE | `/api/v1/bookings/{id}` | student or tutor of the booking | cancels. The student is refunded unless they cancel inside twelve hours of the start; the tutor's cancellation always refunds. `confirmLate=true` confirms a cancellation inside twelve hours. 204, 400, 403, 404 and 409 |
 | GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
+| DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
 | POST | `/api/v1/tutor/availability/exceptions` | tutor | add or remove a specific date |
 | POST | `/api/v1/tutor/availability/pauses` | tutor | pause a period |
+| GET | `/api/v1/tutor/availability/pauses/current` | tutor | whether the tutor is paused today and until when (US22) |
+| DELETE | `/api/v1/tutor/availability/pauses/{id}` | tutor | ends a pause early and restores the hours the weekly rules still give (US22) |
 
 **The confirmation, in order, inside one transaction:** the tutor is enabled → the hours are
 contiguous and free → charge the credits → mark the hours → save the booking → publish
@@ -382,14 +520,48 @@ it for rollback. A refusal answers 409 with the reason (the hour was taken, the 
 tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
 nothing was charged.
 
-**Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
-cancelled. A tutor removing availability over a confirmed booking is cancelling that session.
+**Cancelling.** Only the booking's student or tutor may cancel it, before the session starts; the
+booking is locked while it is cancelled, so two cancellations at once end with one refund and one
+`BookingCancelled`, and cancelling again answers `204` and changes nothing. "Late" is strictly less
+than twelve hours before the start; exactly twelve is on time.
+
+| Who cancels | Twelve hours or more ahead | Less than twelve hours ahead |
+|---|---|---|
+| Student | credits returned, hours `AVAILABLE` | warned first that nothing is returned; once confirmed, cancelled with no refund, hours `AVAILABLE` |
+| Tutor | credits returned, hours `RELEASED` | asked to confirm and warned it will be recorded; once confirmed, credits returned, hours `RELEASED` and a `LATE_CANCELLATION` incident in `booking.tutor_reliability` |
+
+The warning is the answer to the first request and cancels nothing: `409` with `late`,
+`refundWillBeIssued`, `incidentWillBeRecorded` and `confirmationRequired`. The same `DELETE` with
+`confirmLate=true` carries it out. Without the lateness, `confirmLate` changes nothing.
+
+| Status | When |
+|---|---|
+| 204 | Cancelled, or it already was |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, or a booking id that is not a UUID |
+| 403 | The caller is neither the student nor the tutor of the booking |
+| 404 | The booking does not exist in this university. Another university's booking answers the same |
+| 409 | The confirmation of a late cancellation is needed, or the session has already started |
+
+Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) and publishes
+`BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
+happened. A tutor removing availability over a confirmed booking is cancelling that session.
+
+**A tutor no-show (US06).** When sessions abandons a session because its tutor did not come, the
+booking becomes `NO_SHOW` in every case, and only when the student was present is a `NO_SHOW` row
+written to `booking.tutor_reliability`, next to the `LATE_CANCELLATION` ones, so a tutor's record
+lives in one table. Nothing is held against the tutor when both were absent. The booking is locked
+while it is marked and `UNIQUE (booking_id, kind)` stands behind it, so the event delivered twice
+records one incident. A booking cancelled or completed in the meantime is left as it is. Reputation
+does not hear about this: standing is built from ratings, not from absences.
 
 **Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
 or a date exception usually arrives after its hours exist. Saving one adjusts them in the same
-transaction: every future hour the rules no longer give, free or held, becomes `RELEASED` and
-`HoursWithdrawn` takes it out of the search; an `ADD` generates its hours at once. Which hours the
-rules give is decided by the same `BlockGenerator` that creates them. A booked hour stands, as US19
+transaction: every future hour the rules no longer give, free or held, becomes `WITHDRAWN` and
+`HoursWithdrawn` takes it out of the search; an `ADD` generates its hours at once. A withdrawn hour
+comes back to `AVAILABLE` when the rules give it again, a pause ended early or a range declared
+again, and `HoursGenerated` announces it. `RELEASED` is kept for an hour freed by cancelling its
+booking, which generation never restores. Which hours the rules give is decided by the same
+`BlockGenerator` that creates them. A booked hour stands, as US19
 scenario 4 asks: until cancelling exists (US05) removing availability does not cancel, and the
 answer counts the booked hours that stand so the tutor knows.
 
@@ -441,9 +613,11 @@ public interface SessionsApi {
 `UNVERIFIED` one earns the tutor nothing and backs no recognition. Its `hours` are the hours that
 were booked, one credit each, not the minutes the call lasted.
 
-**Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `PresenceCodeIssued`.
-**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session;
-`IdentityApi.activeTenantCodes` — for the job that sends the presence codes.
+**Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `SessionAbandoned`,
+`PresenceCodeIssued`.
+**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session
+and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
+that look at every university.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
 | Method | Path | Who |
@@ -483,6 +657,30 @@ booked hours; `UNVERIFIED` otherwise, including a session closed before any code
 `SessionUnverified` naming who did not confirm. The session is locked while it is closed, and while
 a code is confirmed, so it closes once and its outcome is not changed after it was decided.
 
+**A tutor no-show (US06).** A session is a tutor no-show when ten minutes have passed since its
+scheduled start and the tutor had not joined by then, whether the student did or not. It is
+abandoned: the session becomes `ABANDONED`, `ended_at` is set, and `SessionAbandoned` is published,
+naming the booking, the tutor, the student, the skill and `studentCheckedIn`, which says whether the
+student had joined by that same ten minute mark. A tutor who arrived after it finds the room closed.
+Who pays, and who is told, depends on that flag:
+
+| The student | The tutor | The session | The booking | Credits | The student is told | The tutor's record |
+|---|---|---|---|---|---|---|
+| joined | did not | `ABANDONED` | `NO_SHOW` | returned to the student | yes | a `NO_SHOW` incident |
+| did not join | did not | `ABANDONED` | `NO_SHOW` | not returned | no | nothing |
+
+When nobody attends, then, nobody is refunded and nobody is blamed: the student did not wait for
+anything and the tutor did not fail anyone. The credit stays spent, because the hour was held for
+them and taken from other students, which is also what a student cancelling late pays.
+
+A job runs every minute (`ayni.sessions.no-show-delay`, `PT24H` in the tests so it never races
+one), one university at a time and one session per transaction, and calls
+`AbandonTutorNoShowUseCase`; the tests call that same use case. The session is locked while it is
+abandoned, so two runs at once abandon it once and publish `SessionAbandoned` once. An abandoned
+session is never issued presence codes, is never closed `UNVERIFIED` by the closing job, and
+refuses to be joined or confirmed: both jobs only look at sessions in progress, and the status
+says it is over. Codes issued before the ten minutes, at the fifth, change nothing either.
+
 Only participants may read a session. Anyone else gets a refusal, link or no link.
 
 ---
@@ -496,12 +694,56 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/v1/recognition/progress` | student — hours so far against what is required |
-| POST | `/api/v1/recognition/requests` | student |
-| GET | `/api/v1/recognition/requests/mine` | student |
-| GET | `/api/v1/coordinator/recognition/requests` | coordinator — queue with audit flags |
-| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
-| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
+| GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
+| POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
+| GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
+| GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the case with its evidence, frozen as submitted, and the audit alerts (US29) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions` | coordinator — the sessions behind it: date, duration, course or skill taught; their hours add up to the total (US30) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions/{sessionId}` | coordinator — one session's evidence: attendance of both parties, presence verified, the tutor's rating (US30) |
+| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator — approve or reject with a reason; decided once (US29) |
+
+**Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
+`COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the
+`minimum_hours` of the rule in force of the university (`recognition.rules`, the latest one started
+and not superseded). It does not call `WalletApi.earnedTotal`: wallet credits the tutor from a
+listener, after the session, and keep counting after a request used the session, while the sessions
+are what the request is made of. Credits assigned by the university or bought are never in the figure
+since no session stands behind them. A university with no rule has not opened recognition: the
+required and missing hours are absent and `canRequest` is false.
+
+**Submitting (US28).** `POST /recognition/requests` takes the student's verified sessions that no
+request has used, the oldest first, until the hours of the rule are reached, and registers the request
+with their total, their count and the mean of the ratings they carry. Each session keeps the skill
+(read through `BookingApi.requireBooking`), the period and the rating it had. The student keeps the
+sessions beyond the requirement for the next request. With fewer hours nothing is saved and the
+answer is a 409 with `missingHours`; with no rule in force it is a 409 too, without it. Submitting
+waits for its turn per student (`pg_advisory_xact_lock`), so two requests at once cannot take the
+same sessions; `RecognitionRequested` is published. The ratings come from the `SessionRatings` port:
+reputation has no rating per session to give yet, and the adapter in place says there are none.
+
+**Reviewing (US29).** The coordinator (checked in the use case through `IdentityApi.requireUser`, as
+in skills) reads the queue and then a case: the figures and the sessions of the request exactly as they
+were submitted, so reading it days later shows the same. Each session carries its date, how long it
+really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where both confirmed their
+code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
+port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
+place says there are none.
+
+**Supporting sessions (US30).** `GET .../{id}/sessions` lists the sessions behind a request with the date,
+the duration and the course or skill taught (read through `SkillsApi.requireItem`); the hours listed
+add up to the total because both were copied at submission. `GET .../{id}/sessions/{sessionId}` opens
+one of them: the register of both participants (names through `IdentityApi`, presence verified when
+`SessionsApi.requireSession` says the session is `COMPLETED`, which is what both confirming their code
+means) and the tutor's rating as copied. A session is only reached through the request it backs. The
+per-participant arrival and confirmation times are not exposed by `SessionsApi` and are not shown.
+
+**Deciding (US29).** `POST .../decision` takes `APPROVE` or `REJECT` and a reason, required for both.
+It records who decided, when and why, publishes `RecognitionResolved` so notifications can tell the
+student, and the student reads the decision and the reason in `requests/mine`. A request is decided
+once: the request is locked (`PESSIMISTIC_WRITE`) while it is decided, so two coordinators at once end
+with one decision and one 409. A resolved request without reviewer, date and reason is refused by the
+table too.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
@@ -519,7 +761,7 @@ public interface ReputationApi {
 
 **Publishes:** `SessionRated`.
 **Calls:** `SkillsApi.isTutorEnabledFor` — to tell a new tutor from one who does not teach the skill.
-**Listens to:** `SessionCompleted` — opens the rating window.
+**Listens to:** `SessionCompleted` — counts the session and opens the rating window.
 
 | Method | Path | Who |
 |---|---|---|
@@ -537,6 +779,33 @@ The student rates with stars and tags. The tutor answers three facts: punctual, 
 session flowed. One rating per session and per direction. Below three ratings there is no average,
 only a new tutor mark. Standing is per skill, never overall.
 
+**`POST /api/v1/sessions/{id}/rating`** (US32 and US34). One endpoint, two directions: the caller is
+the person in `X-User-Id`, and who they are in the session decides what they send.
+
+- A **student** sends `stars` (1 to 5) and optionally `tags` and `comment`. It becomes a
+  `STUDENT_TO_TUTOR` rating and counts in the tutor's standing in the skill of the session.
+- A **tutor** sends `wasPunctual`, `connectionOk` and `sessionFlowed`, all three, and optionally
+  `comment`. It becomes a `TUTOR_TO_STUDENT` rating and does not touch any standing: it is three
+  facts about the session, not a score.
+
+**Who opens the window.** reputation does, when it hears `SessionCompleted`: it writes
+`reputation.rating_windows` (see `database/data-model.md`) and counts the session in the tutor's
+`sessions_taught`, once, however many times the event arrives. A session that never completed has no
+window and cannot be rated. A successful rating publishes `SessionRated`, which matching listens to.
+
+| Status | When |
+|---|---|
+| 201 | Registered. The body carries the id of the rating |
+| 400 | A student without `stars`, a tutor missing any of the three facts, `stars` outside 1 to 5, a missing `X-Tenant-Id` or `X-User-Id`, or a session id that is not a UUID |
+| 403 | The caller is neither the tutor nor the student of the session |
+| 404 | There is no completed session with that id in this university. Another university's session answers the same |
+| 409 | That direction of the session was already rated |
+
+**Races.** The window of the session is locked while someone rates, so two ratings of the same
+session and direction at once end with one `201` and one `409`, never a `500`. The standing is
+locked too, because the count and the average are read and written back: two students rating the same
+tutor in the same skill at once are both counted.
+
 ---
 
 ## notifications
@@ -546,7 +815,8 @@ only a new tutor mark. Standing is per skill, never overall.
 **Calls:** `IdentityApi.requireUser` — for the address of the person an event names.
 
 Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCodeIssued`,
-`CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever is added later.
+`SessionAbandoned`, `CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever
+is added later.
 
 | Method | Path | Who |
 |---|---|---|
@@ -562,8 +832,14 @@ copy. A failed access link is not retried, because there is nothing stored to re
 expires in minutes; asking again issues a new one. Email goes over SMTP (`spring.mail.*`): to Mailpit
 under `docker compose`, which shows it at http://localhost:8025, and to a real relay in a deployment.
 `PresenceCodeIssued`, the email with the presence code (US54), is delivered the same way: the
-notice keeps the session and the expiry, never the code, and the address is read from identity. The
-rest of the events above, and `GET /api/v1/notifications`, are still to do.
+notice keeps the session and the expiry, never the code, and the address is read from identity.
+`SessionAbandoned` tells the student that their tutor did not come and the credit was returned
+(US06), only when `studentCheckedIn` is true: nobody is told anything when nobody came. The notice
+is a `TUTOR_NO_SHOW`, committed before the email leaves like the others, and keeps the session and
+nothing else; neither the address nor the email goes to a log.
+`PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice
+stores the purchase identifier and amount, not payment credentials. The other events above, and
+`GET /api/v1/notifications`, are still to do.
 
 ---
 
@@ -584,10 +860,42 @@ Append only, like the ledger, and for the same reason.
 
 ## analytics and payments
 
-Both arrive in the second iteration. `analytics` answers `/api/v1/coordinator/indicators` and
-`/api/v1/admin/overview`, always with aggregates. `payments` handles purchases with an idempotency
-key so a provider confirming twice credits once, and publishes `PurchaseConfirmed`, which wallet
-already listens to.
+`analytics` answers `/api/v1/coordinator/indicators` and `/api/v1/admin/overview`, always with
+aggregates. `payments` owns credit purchases and exposes `POST /api/v1/payments/purchases`. The
+student comes from `X-User-Id`, the university from `X-Tenant-Id`, and each attempt requires an
+`Idempotency-Key`. A repeated key for the same student returns the original result; a new attempt
+after a rejection needs a new key.
+
+Until the universities' academic cycles are available through a public interface, the purchase
+allowance is five confirmed credits per student per UTC calendar month. Failed payments do not
+consume it. `AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT` and `AYNI_PAYMENTS_PRICE_PER_CREDIT` configure the
+allowance and price (default S/ 5.00 per credit). The simulated provider confirms by default;
+`AYNI_PAYMENTS_SIMULATED_OUTCOME=REJECTED` exercises the declined-payment path.
+
+Once the provider confirms, `payments` publishes `PurchaseConfirmed`; `wallet` handles that existing
+event and credits non-expiring `PURCHASED` credits. `notifications` also listens to that event and
+sends the student a purchase confirmation email; payments does not call notifications directly.
+`GET /api/v1/payments/purchases` lists the current student's purchase outcomes, and
+`GET /api/v1/payments/purchases/{purchaseId}` returns the purchase details and receipt. A confirmed
+receipt includes its purchase reference, which matches `referenceType=PURCHASE` and `referenceId` in
+`GET /api/v1/wallet/movements?reason=PURCHASE`. A pending purchase reserves its monthly allowance,
+tells the student not to retry, and is checked by the scheduled provider reconciliation. Pending
+attempts expire after 24 hours by default
+(`AYNI_PAYMENTS_PENDING_TIMEOUT`); the check interval defaults to one minute
+(`AYNI_PAYMENTS_RECONCILIATION_DELAY`). A provider outage leaves the purchase pending and does not
+block other modules. The simulator can return `PENDING` or `UNAVAILABLE` for an initial charge and
+`CONFIRMED`, `REJECTED`, `PENDING`, or `UNAVAILABLE` during reconciliation using
+`AYNI_PAYMENTS_SIMULATED_OUTCOME` and `AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME`.
+
+The provider boundary is wrapped by an in-process timeout, circuit breaker, and bounded bulkhead;
+it adds no external service. Defaults are 2 seconds per provider call, three consecutive failures,
+30 seconds open, and two concurrent provider calls. Configure them with
+`AYNI_PAYMENTS_TIMEOUT`, `AYNI_PAYMENTS_FAILURE_THRESHOLD`,
+`AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION`, and `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS`. On timeout,
+provider failure, an open circuit, or saturation, the purchase stays pending and the response
+explicitly says purchases are temporarily unavailable and must not be retried. The existing
+reconciliation checks the provider later; after the open period one half-open request probes for
+recovery. Search, booking, sessions, and wallet do not depend on the payment provider.
 
 ---
 

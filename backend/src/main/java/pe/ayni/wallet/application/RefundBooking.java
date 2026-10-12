@@ -29,9 +29,10 @@ import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
  * not fresh ones: otherwise booking and cancelling would be a way of renewing credits that were
  * about to expire.
  *
- * <p>Cancelling always refunds, so this runs for every cancellation, including the ones booking
- * records against whoever cancelled late. A session that failed the presence check refunds too: the
- * tutor earns nothing for it, and the student is not charged for it either.
+ * <p>This runs for every cancellation that refunds: all of them except a late one by the student,
+ * which booking and the listener leave out. A tutor's cancellation refunds whatever the hour. A
+ * session that failed the presence check refunds too: the tutor earns nothing for it, and the
+ * student is not charged for it either.
  */
 @Service
 class RefundBooking {

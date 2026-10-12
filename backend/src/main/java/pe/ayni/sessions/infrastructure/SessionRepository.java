@@ -24,6 +24,13 @@ public interface SessionRepository extends JpaRepository<Session, UUID> {
 
   Optional<Session> findByTenantIdAndBookingId(String tenantId, UUID bookingId);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      "select session from Session session "
+          + "where session.tenantId = :tenantId and session.bookingId = :bookingId")
+  Optional<Session> lockByTenantIdAndBookingId(
+      @Param("tenantId") String tenantId, @Param("bookingId") UUID bookingId);
+
   Optional<Session> findByTenantIdAndId(String tenantId, UUID id);
 
   /**

@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.domain.model.Booking;
 import pe.ayni.booking.domain.model.BookingRuleViolation;
+import pe.ayni.booking.domain.model.CancelledBy;
+import pe.ayni.booking.domain.model.NotBookingParticipant;
 import pe.ayni.shared.domain.Credits;
 
 /** What a booking has to be true about from the moment it exists. */
@@ -105,4 +107,39 @@ class BookingTest {
     assertThat(booking.getUpdatedAt()).isEqualTo(occurredOn);
   }
 
+  @Test
+  @DisplayName("a person is the student or the tutor of a booking, or neither")
+  void knowsWhichSideAPersonIs() {
+    Booking booking = booking(STUDENT, 1, "Anything");
+
+    assertThat(booking.participantRole(STUDENT)).isEqualTo(CancelledBy.STUDENT);
+    assertThat(booking.participantRole(TUTOR)).isEqualTo(CancelledBy.TUTOR);
+    assertThatThrownBy(() -> booking.participantRole(UUID.randomUUID()))
+        .isInstanceOf(NotBookingParticipant.class);
+  }
+
+  @Test
+  @DisplayName("twelve hours before the start is on time and one second less is late")
+  void lateIsStrictlyLessThanTwelveHours() {
+    Booking booking = booking(STUDENT, 1, "Anything");
+
+    assertThat(booking.isLateToCancelAt(TOMORROW_AT_NINE.minus(Duration.ofHours(12)))).isFalse();
+    assertThat(
+            booking.isLateToCancelAt(
+                TOMORROW_AT_NINE.minus(Duration.ofHours(12)).plusSeconds(1)))
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("the student is refunded unless they cancel late, the tutor's cancellation always")
+  void refundsFollowTheCancellationRule() {
+    Booking booking = booking(STUDENT, 1, "Anything");
+    Instant onTime = TOMORROW_AT_NINE.minus(Duration.ofHours(13));
+    Instant late = TOMORROW_AT_NINE.minus(Duration.ofHours(2));
+
+    assertThat(booking.refundsWhenCancelledBy(CancelledBy.STUDENT, onTime)).isTrue();
+    assertThat(booking.refundsWhenCancelledBy(CancelledBy.STUDENT, late)).isFalse();
+    assertThat(booking.refundsWhenCancelledBy(CancelledBy.TUTOR, onTime)).isTrue();
+    assertThat(booking.refundsWhenCancelledBy(CancelledBy.TUTOR, late)).isTrue();
+  }
 }

@@ -7,7 +7,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
@@ -15,7 +19,11 @@ import pe.ayni.shared.tenancy.MissingUserException;
 @RestControllerAdvice(
         assignableTypes = {
                 AccessController.class,
-                IdentityMeController.class
+                IdentityMeController.class,
+                AdminUniversitiesController.class,
+                CoordinatorInvitationController.class,
+                CreditPolicyController.class,
+                UniversityIdentityController.class
         })
 class IdentityExceptionHandler {
 
@@ -32,6 +40,50 @@ class IdentityExceptionHandler {
 
         return answer(
                 HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CoordinatorRequired.class)
+    ResponseEntity<ApiError> handleCoordinatorRequired(
+            CoordinatorRequired exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(InvitationConflict.class)
+    ResponseEntity<ApiError> handleInvitationConflict(
+            InvitationConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CreditPolicyConflict.class)
+    ResponseEntity<ApiError> handleCreditPolicyConflict(
+            CreditPolicyConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(UniversityAlreadyRegistered.class)
+    ResponseEntity<ApiError> handleUniversityAlreadyRegistered(
+            UniversityAlreadyRegistered exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
                 exception.getMessage(),
                 request);
     }

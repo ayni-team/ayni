@@ -20,8 +20,7 @@ import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * US06/US09: abandons a session ten minutes after its scheduled start when either participant has
- * not checked in.
+ * US06: abandons a session ten minutes after its scheduled start when its tutor has not checked in.
  */
 @Service
 public class AbandonTutorNoShowUseCase {
@@ -54,7 +53,7 @@ public class AbandonTutorNoShowUseCase {
   }
 
   /**
-   * Abandons one session if either participant had not joined by the ten-minute deadline.
+   * Abandons one session if its tutor had not joined by the ten-minute deadline.
    *
    * @return whether the session was abandoned now
    * @throws NoSuchElementException when the session does not exist in the current university
@@ -70,18 +69,13 @@ public class AbandonTutorNoShowUseCase {
             .lockByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
 
-    if (!session.isDueForTutorNoShow(now)) {
+    if (!session.isDueForTutorNoShow(now)
+        || checkedInByDeadline(session, session.getTutorId(), ParticipantRole.TUTOR)) {
       return false;
     }
 
     boolean studentCheckedIn =
         checkedInByDeadline(session, session.getStudentId(), ParticipantRole.STUDENT);
-    boolean tutorCheckedIn =
-        checkedInByDeadline(session, session.getTutorId(), ParticipantRole.TUTOR);
-    if (studentCheckedIn && tutorCheckedIn) {
-      return false;
-    }
-
     BookingView confirmedBooking = booking.requireBooking(session.getBookingId());
     if (confirmedBooking.status() != BookingStatus.CONFIRMED) {
       return false;

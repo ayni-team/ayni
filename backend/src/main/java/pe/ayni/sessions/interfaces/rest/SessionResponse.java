@@ -2,7 +2,6 @@ package pe.ayni.sessions.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.application.PresenceState;
@@ -29,16 +28,9 @@ public record SessionResponse(
     @Schema(description = "First moment the room can be joined, UTC",
         example = "2026-09-30T19:45:00Z")
         Instant joinOpensAt,
-    @Schema(description = "When both participants checked in and the session began; null until then",
-        nullable = true,
+    @Schema(description = "When the first participant joined; null until then", nullable = true,
         example = "2026-09-30T19:52:10Z")
         Instant startedAt,
-    @Schema(description = "When the student first checked in", nullable = true)
-        Instant studentJoinedAt,
-    @Schema(description = "When the tutor first checked in", nullable = true)
-        Instant tutorJoinedAt,
-    @Schema(description = "Participants who had not checked in by the ten-minute deadline")
-        List<UUID> absentParticipantIds,
     @Schema(description = "What the student needs help with, written when booking",
         example = "Normal forms before Friday's exam")
         String needDescription,
@@ -93,9 +85,6 @@ public record SessionResponse(
         session.scheduledEnd(),
         session.joinOpensAt(),
         session.startedAt(),
-        session.studentJoinedAt(),
-        session.tutorJoinedAt(),
-        session.absentParticipantIds(),
         session.needDescription(),
         session.presenceCheckAt(),
         Presence.of(session.presence()),
