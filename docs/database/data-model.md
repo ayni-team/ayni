@@ -1063,6 +1063,31 @@ INDEX (tenant_id, resource_type, resource_id)
 
 Append only, like the ledger, and for the same reason: it is what a decision is defended with.
 
+**How the database refuses a change.** A `BEFORE UPDATE OR DELETE` row trigger,
+`tr_activity_log_append_only`, raises `audit.activity_log is append only`, and a `BEFORE TRUNCATE`
+statement trigger, `tr_activity_log_no_truncate`, does the same for `TRUNCATE`, which skips row
+triggers. Both call `audit.reject_activity_log_change()`, the counterpart of
+`wallet.reject_ledger_change()`. The refusal does not depend on the application, so somebody with a
+`psql` prompt is refused too. A correction is a new row. The trigger can be dropped by whoever owns
+the table, so it stops accidents and the application, not an administrator of the database: telling
+an alteration apart is the pending scenario of US48, which needs the rows chained.
+
+**What the columns hold.**
+
+- `actor_id` is `NULL` when nobody is named: the system closing a session, or a decision whose event
+  does not say which coordinator took it.
+- `actor_role` is `STUDENT`, `TUTOR`, `COORDINATOR`, `SYSTEM`, or `UNKNOWN` for somebody who claimed
+  to be a person the university does not know.
+- `action` is what happened, in upper case, with the outcome in the name when there is one
+  (`RECOGNITION_APPROVED`, `RECOGNITION_REJECTED`). `AUDIT_LOG_ACCESS_DENIED` is a refused attempt
+  to read the log.
+- `resource_type` and `resource_id` say what it happened to: `BOOKING`, `SESSION`, `WALLET` (the
+  account of the person), `CATALOG_ITEM`, `VALIDATION_REQUEST`, `RECOGNITION_REQUEST`, `AUDIT_LOG`.
+- `metadata` is a flat object of strings that describes the fact: the other people involved, the
+  amount, whether it was late. **It never holds an email address, a link or a code, nor the free
+  text of a reason.**
+- `occurred_at` is the moment the event says it happened, not the moment it was written.
+
 ### `audit.anomalies`
 
 ```
