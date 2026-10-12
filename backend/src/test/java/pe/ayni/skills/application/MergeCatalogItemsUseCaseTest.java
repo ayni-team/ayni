@@ -31,6 +31,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.application.MergeCatalogItemsUseCase.Merge;
 import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.GlobalCatalogItemNotModerable;
 import pe.ayni.skills.domain.model.NotACoordinator;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
@@ -46,7 +47,6 @@ import pe.ayni.skills.infrastructure.TaughtSessionRepository;
 class MergeCatalogItemsUseCaseTest {
 
   private static final String UPC = "UPC";
-  private static final String UTEC = "UTEC";
   private static final Instant NOW = Instant.parse("2026-10-05T09:00:00Z");
   private static final UUID COORDINATOR = UUID.randomUUID();
   private static final UUID STUDENT = UUID.randomUUID();
@@ -73,20 +73,24 @@ class MergeCatalogItemsUseCaseTest {
   private CatalogItem kept;
 
   @BeforeEach
-  void twoToolsThatAreTheSame() {
+  void twoCoursesThatAreTheSame() {
     when(identity.requireUser(COORDINATOR))
         .thenReturn(new UserView(COORDINATOR, UPC, UserRole.COORDINATOR, "c@upc.edu.pe", null, "C", null, null, null));
     when(identity.requireUser(STUDENT))
         .thenReturn(new UserView(STUDENT, UPC, UserRole.STUDENT, "s@upc.edu.pe", "U1", "S", null, null, null));
-    duplicate = tool("Node JS");
-    kept = tool("Node.js");
+    duplicate = course("Node JS", "C1");
+    kept = course("Node.js", "C2");
     found(duplicate);
     found(kept);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of());
-    when(offeredSkills.lockByCatalogItemId(kept.getId())).thenReturn(List.of());
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, duplicate.getId())).thenReturn(List.of());
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, kept.getId())).thenReturn(List.of());
   }
 
-  private static CatalogItem tool(String name) {
+  private static CatalogItem course(String name, String code) {
+    return new CatalogItem(UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), name, null, code, NOW);
+  }
+
+  private static CatalogItem globalTool(String name) {
     return new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), name, null, null, NOW);
   }
 
@@ -114,8 +118,8 @@ class MergeCatalogItemsUseCaseTest {
   @DisplayName("an enabled offer moves to the item that stays and the search is told the old one ended and the new one began")
   void anEnabledOfferMovesAndTheSearchIsTold() {
     UUID tutor = UUID.randomUUID();
-    OfferedSkill offer = enabled(UTEC, tutor, duplicate);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of(offer));
+    OfferedSkill offer = enabled(UPC, tutor, duplicate);
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, duplicate.getId())).thenReturn(List.of(offer));
 
     Merge merge = merge();
 
@@ -127,9 +131,9 @@ class MergeCatalogItemsUseCaseTest {
     ArgumentCaptor<Object> announced = ArgumentCaptor.forClass(Object.class);
     verify(events, times(2)).publishEvent(announced.capture());
     assertThat(announced.getAllValues().get(0))
-        .isEqualTo(new SkillWithdrawn(UTEC, tutor, duplicate.getId(), NOW.plusSeconds(60)));
+        .isEqualTo(new SkillWithdrawn(UPC, tutor, duplicate.getId(), NOW.plusSeconds(60)));
     assertThat(announced.getAllValues().get(1))
-        .isEqualTo(new SkillEnabled(UTEC, tutor, kept.getId(), NOW.plusSeconds(60)));
+        .isEqualTo(new SkillEnabled(UPC, tutor, kept.getId(), NOW.plusSeconds(60)));
   }
 
   @Test
@@ -140,7 +144,7 @@ class MergeCatalogItemsUseCaseTest {
     rejected.rejectEvidence(NOW);
     OfferedSkill withdrawn = enabled(UPC, UUID.randomUUID(), duplicate);
     withdrawn.withdraw(NOW);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of(pending, rejected, withdrawn));
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, duplicate.getId())).thenReturn(List.of(pending, rejected, withdrawn));
 
     Merge merge = merge();
 
@@ -158,8 +162,8 @@ class MergeCatalogItemsUseCaseTest {
     UUID tutor = UUID.randomUUID();
     OfferedSkill onDuplicate = enabled(UPC, tutor, duplicate);
     OfferedSkill onKept = enabled(UPC, tutor, kept);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of(onDuplicate));
-    when(offeredSkills.lockByCatalogItemId(kept.getId())).thenReturn(List.of(onKept));
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, duplicate.getId())).thenReturn(List.of(onDuplicate));
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, kept.getId())).thenReturn(List.of(onKept));
 
     Merge merge = merge();
 
@@ -176,19 +180,16 @@ class MergeCatalogItemsUseCaseTest {
   }
 
   @Test
-  @DisplayName("the same tutor id in another university is another person: that offer still moves")
-  void theSameTutorIdInAnotherUniversityStillMoves() {
-    UUID tutor = UUID.randomUUID();
-    OfferedSkill onDuplicate = enabled(UTEC, tutor, duplicate);
-    OfferedSkill onKept = enabled(UPC, tutor, kept);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of(onDuplicate));
-    when(offeredSkills.lockByCatalogItemId(kept.getId())).thenReturn(List.of(onKept));
+  @DisplayName("every read and every move is limited to the coordinator's university")
+  void everyQueryCarriesTheUniversity() {
+    merge();
 
-    Merge merge = merge();
-
-    assertThat(onDuplicate.getCatalogItemId()).isEqualTo(kept.getId());
-    assertThat(merge.offersMoved()).isEqualTo(1);
-    assertThat(merge.offersWithdrawn()).isZero();
+    verify(offeredSkills).lockByTenantIdAndCatalogItemId(UPC, duplicate.getId());
+    verify(offeredSkills).lockByTenantIdAndCatalogItemId(UPC, kept.getId());
+    verify(interests).deleteDuplicatesOf(UPC, duplicate.getId(), kept.getId());
+    verify(interests).moveInterests(UPC, duplicate.getId(), kept.getId());
+    verify(proposals).repoint(UPC, duplicate.getId(), kept.getId());
+    verify(taughtSessions).carryOver(UPC, duplicate.getId(), kept.getId());
   }
 
   @Test
@@ -197,8 +198,8 @@ class MergeCatalogItemsUseCaseTest {
     UUID tutor = UUID.randomUUID();
     OfferedSkill rejected = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, tutor, duplicate.getId(), NOW);
     rejected.rejectEvidence(NOW);
-    when(offeredSkills.lockByCatalogItemId(duplicate.getId())).thenReturn(List.of(rejected));
-    when(offeredSkills.lockByCatalogItemId(kept.getId())).thenReturn(List.of(enabled(UPC, tutor, kept)));
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, duplicate.getId())).thenReturn(List.of(rejected));
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, kept.getId())).thenReturn(List.of(enabled(UPC, tutor, kept)));
 
     Merge merge = merge();
 
@@ -211,10 +212,10 @@ class MergeCatalogItemsUseCaseTest {
   @Test
   @DisplayName("the duplicate is retired, the one that stays is not, and the rest follows to it")
   void theDuplicateIsRetiredAndTheRestFollows() {
-    when(interests.deleteDuplicatesOf(duplicate.getId(), kept.getId())).thenReturn(2);
-    when(interests.moveInterests(duplicate.getId(), kept.getId())).thenReturn(5);
-    when(proposals.repoint(duplicate.getId(), kept.getId())).thenReturn(1);
-    when(taughtSessions.carryOver(duplicate.getId(), kept.getId())).thenReturn(12);
+    when(interests.deleteDuplicatesOf(UPC, duplicate.getId(), kept.getId())).thenReturn(2);
+    when(interests.moveInterests(UPC, duplicate.getId(), kept.getId())).thenReturn(5);
+    when(proposals.repoint(UPC, duplicate.getId(), kept.getId())).thenReturn(1);
+    when(taughtSessions.carryOver(UPC, duplicate.getId(), kept.getId())).thenReturn(12);
 
     Merge merge = merge();
 
@@ -235,8 +236,8 @@ class MergeCatalogItemsUseCaseTest {
 
     org.mockito.InOrder order = org.mockito.Mockito.inOrder(catalogItems, interests);
     order.verify(catalogItems).flush();
-    order.verify(interests).deleteDuplicatesOf(any(), any());
-    order.verify(interests).moveInterests(any(), any());
+    order.verify(interests).deleteDuplicatesOf(any(), any(), any());
+    order.verify(interests).moveInterests(any(), any(), any());
   }
 
   @Test
@@ -249,36 +250,24 @@ class MergeCatalogItemsUseCaseTest {
   }
 
   @Test
-  @DisplayName("a course and a tool cannot be joined, and nothing moves")
-  void aCourseAndAToolCannotBeJoined() {
-    CatalogItem course =
-        new CatalogItem(UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Node course", null, "C1", NOW);
-    found(course);
+  @DisplayName("a global tool is not the coordinator's to join, whichever side it is on, and nothing moves")
+  void aGlobalToolCannotBeJoined() {
+    CatalogItem figma = globalTool("Figma");
+    CatalogItem penpot = globalTool("Penpot");
+    found(figma);
+    found(penpot);
 
-    assertThatThrownBy(() -> merge(COORDINATOR, course.getId(), kept.getId())).isInstanceOf(SkillsRuleViolation.class);
-    assertThatThrownBy(() -> merge(COORDINATOR, kept.getId(), course.getId())).isInstanceOf(SkillsRuleViolation.class);
+    assertThatThrownBy(() -> merge(COORDINATOR, figma.getId(), kept.getId()))
+        .isInstanceOf(GlobalCatalogItemNotModerable.class);
+    assertThatThrownBy(() -> merge(COORDINATOR, kept.getId(), figma.getId()))
+        .isInstanceOf(GlobalCatalogItemNotModerable.class);
+    assertThatThrownBy(() -> merge(COORDINATOR, figma.getId(), penpot.getId()))
+        .isInstanceOf(GlobalCatalogItemNotModerable.class);
 
-    verifyNoInteractions(interests, proposals, taughtSessions, events);
+    verifyNoInteractions(offeredSkills, interests, proposals, taughtSessions, events);
+    assertThat(figma.isActive()).isTrue();
+    assertThat(penpot.isActive()).isTrue();
     assertThat(kept.isActive()).isTrue();
-    assertThat(course.isActive()).isTrue();
-  }
-
-  @Test
-  @DisplayName("two courses of the university can be joined")
-  void twoCoursesOfTheUniversityCanBeJoined() {
-    CatalogItem oldCourse =
-        new CatalogItem(UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Old", null, "C1", NOW);
-    CatalogItem newCourse =
-        new CatalogItem(UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "New", null, "C2", NOW);
-    found(oldCourse);
-    found(newCourse);
-    when(offeredSkills.lockByCatalogItemId(oldCourse.getId())).thenReturn(List.of());
-    when(offeredSkills.lockByCatalogItemId(newCourse.getId())).thenReturn(List.of());
-
-    merge(COORDINATOR, oldCourse.getId(), newCourse.getId());
-
-    assertThat(oldCourse.isActive()).isFalse();
-    assertThat(newCourse.isActive()).isTrue();
   }
 
   @Test
@@ -287,8 +276,8 @@ class MergeCatalogItemsUseCaseTest {
     duplicate.retire();
     assertThatThrownBy(() -> merge()).isInstanceOf(SkillsStateConflict.class);
 
-    CatalogItem active = tool("Active");
-    CatalogItem retiredOne = tool("Retired");
+    CatalogItem active = course("Active", "C3");
+    CatalogItem retiredOne = course("Retired", "C4");
     retiredOne.retire();
     found(active);
     found(retiredOne);
@@ -329,8 +318,8 @@ class MergeCatalogItemsUseCaseTest {
     CatalogItem highOne = withId(high);
     found(lowOne);
     found(highOne);
-    when(offeredSkills.lockByCatalogItemId(low)).thenReturn(List.of());
-    when(offeredSkills.lockByCatalogItemId(high)).thenReturn(List.of());
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, low)).thenReturn(List.of());
+    when(offeredSkills.lockByTenantIdAndCatalogItemId(UPC, high)).thenReturn(List.of());
     merge(COORDINATOR, low, high);
     ArgumentCaptor<UUID> forward = ArgumentCaptor.forClass(UUID.class);
     verify(catalogItems, times(2)).lockByIdAndTenantVisibility(forward.capture(), any());
@@ -351,6 +340,7 @@ class MergeCatalogItemsUseCaseTest {
   }
 
   private static CatalogItem withId(UUID id) {
-    return new CatalogItem(id, CatalogScope.GLOBAL, null, UUID.randomUUID(), "Item " + id, null, null, NOW);
+    return new CatalogItem(
+        id, CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Item " + id, null, "C-" + id, NOW);
   }
 }

@@ -76,7 +76,21 @@ class RetireCatalogItemDatabaseTest {
         .thenReturn(new UserView(student, tenant, UserRole.STUDENT, "s@u.pe", "U1", "S", null, null, null));
   }
 
-  private CatalogItem tool(String name) {
+  /** A course of the coordinator's university, which is what a coordinator may retire. */
+  private CatalogItem ownCourse(String name) {
+    return catalogItems.save(
+        new CatalogItem(
+            UUID.randomUUID(),
+            CatalogScope.UNIVERSITY,
+            tenant,
+            category,
+            name,
+            null,
+            "C" + UUID.randomUUID().toString().substring(0, 8),
+            NOW));
+  }
+
+  private CatalogItem globalTool(String name) {
     return catalogItems.save(
         new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, category, name, null, null, NOW));
   }
@@ -130,11 +144,14 @@ class RetireCatalogItemDatabaseTest {
   }
 
   @Test
-  @DisplayName("retiring a tool withdraws every offer, in every university, and announces each one")
-  void retiringAToolWithdrawsEveryOffer() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+  @DisplayName("retiring a course withdraws every offer of the university and announces each one")
+  void retiringACourseWithdrawsEveryOffer() throws Exception {
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
     String other = "T" + UUID.randomUUID().toString().substring(0, 8);
     OfferedSkill mine = enabledBy(tenant, figma);
+    OfferedSkill second = enabledBy(tenant, figma);
+    // Nothing of another university can offer this course, but if a row did, the retirement would
+    // neither count it nor withdraw it.
     OfferedSkill theirs = enabledBy(other, figma);
 
     String answer = body(retire(figma.getId(), 2).andExpect(status().isOk()));
@@ -143,12 +160,13 @@ class RetireCatalogItemDatabaseTest {
     assertThat(JsonPath.<Integer>read(answer, "$.tutorsAffected")).isEqualTo(2);
     assertThat(catalogItems.findById(figma.getId()).orElseThrow().isActive()).isFalse();
     assertThat(offeredSkills.findById(mine.getId()).orElseThrow().getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
-    assertThat(offeredSkills.findById(theirs.getId()).orElseThrow().getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+    assertThat(offeredSkills.findById(second.getId()).orElseThrow().getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+    assertThat(offeredSkills.findById(theirs.getId()).orElseThrow().isEnabled()).isTrue();
     assertThat(withdrawnFrom(figma))
         .extracting(SkillWithdrawn::tenantId, SkillWithdrawn::tutorId)
         .containsExactlyInAnyOrder(
             org.assertj.core.groups.Tuple.tuple(tenant, mine.getTutorId()),
-            org.assertj.core.groups.Tuple.tuple(other, theirs.getTutorId()));
+            org.assertj.core.groups.Tuple.tuple(tenant, second.getTutorId()));
   }
 
   @Test
@@ -159,7 +177,7 @@ class RetireCatalogItemDatabaseTest {
     for (int i = 0; i < 12; i++) {
       letters.append((char) ('a' + java.util.concurrent.ThreadLocalRandom.current().nextInt(26)));
     }
-    CatalogItem figma = tool(letters.toString());
+    CatalogItem figma = ownCourse(letters.toString());
     retire(figma.getId(), 0).andExpect(status().isOk());
 
     String catalogue =
@@ -193,7 +211,7 @@ class RetireCatalogItemDatabaseTest {
   @Test
   @DisplayName("the moderator reads how many tutors are affected before confirming, and confirms with it")
   void theModeratorReadsTheNumberBeforeConfirming() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
     enabledBy(tenant, figma);
     enabledBy(tenant, figma);
     enabledBy(tenant, figma);
@@ -214,7 +232,7 @@ class RetireCatalogItemDatabaseTest {
   @Test
   @DisplayName("a confirmation that is not the number of tutors retires nothing and says the real number")
   void aWrongConfirmationRetiresNothing() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
     OfferedSkill offer = enabledBy(tenant, figma);
 
     String refusal = body(retire(figma.getId(), 5).andExpect(status().isConflict()));
@@ -228,7 +246,7 @@ class RetireCatalogItemDatabaseTest {
   @Test
   @DisplayName("an item retired once cannot be retired again, and nothing is announced twice")
   void anItemRetiredOnceCannotBeRetiredAgain() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
     enabledBy(tenant, figma);
     retire(figma.getId(), 1).andExpect(status().isOk());
 
@@ -240,7 +258,7 @@ class RetireCatalogItemDatabaseTest {
   @Test
   @DisplayName("a missing, negative or unreadable confirmation is refused")
   void aBadConfirmationIsRefused() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
 
     retire(coordinator, tenant, figma.getId(), "{}").andExpect(status().isBadRequest());
     retire(coordinator, tenant, figma.getId(), "{\"confirmedTutors\":-1}").andExpect(status().isBadRequest());
@@ -252,7 +270,7 @@ class RetireCatalogItemDatabaseTest {
   @Test
   @DisplayName("a student cannot retire an item, a course of another university is not found, and neither is an unknown item")
   void aStudentCannotRetireAndOtherUniversitiesDoNotFindIt() throws Exception {
-    CatalogItem figma = tool("Figma " + UUID.randomUUID());
+    CatalogItem figma = ownCourse("Figma " + UUID.randomUUID());
     CatalogItem theirs = course("T" + UUID.randomUUID().toString().substring(0, 8));
 
     retire(student, tenant, figma.getId(), "{\"confirmedTutors\":0}").andExpect(status().isForbidden());
@@ -264,14 +282,16 @@ class RetireCatalogItemDatabaseTest {
   }
 
   @Test
-  @DisplayName("a course of the university is retired for that university only")
-  void aCourseIsRetiredForItsUniversity() throws Exception {
-    CatalogItem course = course(tenant);
-    OfferedSkill offer = enabledBy(tenant, course);
+  @DisplayName("a global tool is not the coordinator's to retire: 403, nothing is withdrawn or announced")
+  void aGlobalToolIsNotTheCoordinatorsToRetire() throws Exception {
+    CatalogItem figma = globalTool("Figma " + UUID.randomUUID());
+    OfferedSkill offer = enabledBy(tenant, figma);
 
-    retire(course.getId(), 1).andExpect(status().isOk());
+    String refusal = body(retire(figma.getId(), 1).andExpect(status().isForbidden()));
 
-    assertThat(catalogItems.findById(course.getId()).orElseThrow().isActive()).isFalse();
-    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+    assertThat(JsonPath.<String>read(refusal, "$.message")).contains("global tool");
+    assertThat(catalogItems.findById(figma.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().isEnabled()).isTrue();
+    assertThat(withdrawnFrom(figma)).isEmpty();
   }
 }

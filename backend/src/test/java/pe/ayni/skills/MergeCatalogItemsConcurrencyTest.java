@@ -78,8 +78,8 @@ class MergeCatalogItemsConcurrencyTest {
       for (int round = 0; round < ROUNDS; round++) {
         UUID category =
             categories.save(new Category(UUID.randomUUID(), "Category " + UUID.randomUUID(), (short) 0)).getId();
-        CatalogItem first = tool(category);
-        CatalogItem second = tool(category);
+        CatalogItem first = course(category);
+        CatalogItem second = course(category);
 
         CyclicBarrier bothReady = new CyclicBarrier(2);
         Future<Boolean> forward = pool.submit(attempt(bothReady, coordinator, first, second));
@@ -112,9 +112,16 @@ class MergeCatalogItemsConcurrencyTest {
     };
   }
 
-  private CatalogItem tool(UUID category) {
+  private CatalogItem course(UUID category) {
     return catalogItems.save(
         new CatalogItem(
-            UUID.randomUUID(), CatalogScope.GLOBAL, null, category, "Tool " + UUID.randomUUID(), null, null, Instant.now()));
+            UUID.randomUUID(),
+            CatalogScope.UNIVERSITY,
+            UPC,
+            category,
+            "Course " + UUID.randomUUID(),
+            null,
+            "C" + UUID.randomUUID().toString().substring(0, 8),
+            Instant.now()));
   }
 }

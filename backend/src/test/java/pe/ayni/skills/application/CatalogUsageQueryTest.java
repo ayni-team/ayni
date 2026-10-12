@@ -61,12 +61,12 @@ class CatalogUsageQueryTest {
   }
 
   @Test
-  @DisplayName("an item comes with the tutors who offer it and the sessions taught on it")
+  @DisplayName("an item comes with the tutors of the university who offer it and the sessions taught on it")
   void anItemComesWithItsUse() {
     CatalogItem figma = tool();
     when(catalogItems.findByIdAndTenantVisibility(figma.getId(), UPC)).thenReturn(Optional.of(figma));
-    when(offeredSkills.countByCatalogItemIdAndStatus(figma.getId(), OfferedSkillStatus.ENABLED)).thenReturn(12L);
-    when(taughtSessions.countByCatalogItemId(figma.getId())).thenReturn(48L);
+    when(offeredSkills.countByTenantIdAndCatalogItemIdAndStatus(UPC, figma.getId(), OfferedSkillStatus.ENABLED)).thenReturn(12L);
+    when(taughtSessions.countByTenantIdAndCatalogItemId(UPC, figma.getId())).thenReturn(48L);
 
     CatalogUsage usage = usageOf(COORDINATOR, figma.getId());
 

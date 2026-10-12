@@ -30,6 +30,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.application.RetireCatalogItemUseCase.Retirement;
 import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.GlobalCatalogItemNotModerable;
 import pe.ayni.skills.domain.model.NotACoordinator;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
@@ -42,7 +43,6 @@ import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 class RetireCatalogItemUseCaseTest {
 
   private static final String UPC = "UPC";
-  private static final String UTEC = "UTEC";
   private static final Instant NOW = Instant.parse("2026-10-05T09:00:00Z");
   private static final UUID COORDINATOR = UUID.randomUUID();
   private static final UUID STUDENT = UUID.randomUUID();
@@ -67,9 +67,11 @@ class RetireCatalogItemUseCaseTest {
         .thenReturn(new UserView(COORDINATOR, UPC, UserRole.COORDINATOR, "c@upc.edu.pe", null, "C", null, null, null));
     when(identity.requireUser(STUDENT))
         .thenReturn(new UserView(STUDENT, UPC, UserRole.STUDENT, "s@upc.edu.pe", "U1", "S", null, null, null));
-    figma = new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), "Figma", null, null, NOW);
+    figma =
+        new CatalogItem(
+            UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Calculus I", null, "MA101", NOW);
     when(catalogItems.lockByIdAndTenantVisibility(figma.getId(), UPC)).thenReturn(Optional.of(figma));
-    when(offeredSkills.lockByCatalogItemIdAndStatus(figma.getId(), OfferedSkillStatus.ENABLED))
+    when(offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(UPC, figma.getId(), OfferedSkillStatus.ENABLED))
         .thenReturn(List.of());
   }
 
@@ -86,18 +88,18 @@ class RetireCatalogItemUseCaseTest {
   }
 
   @Test
-  @DisplayName("retiring withdraws every offer and announces it for each tutor, in their own university")
+  @DisplayName("retiring withdraws every offer of the university and announces it for each tutor")
   void retiringWithdrawsEveryOfferAndAnnouncesIt() {
-    OfferedSkill ofUpc = offeredBy(UPC);
-    OfferedSkill ofUtec = offeredBy(UTEC);
-    when(offeredSkills.lockByCatalogItemIdAndStatus(figma.getId(), OfferedSkillStatus.ENABLED))
-        .thenReturn(List.of(ofUpc, ofUtec));
+    OfferedSkill first = offeredBy(UPC);
+    OfferedSkill second = offeredBy(UPC);
+    when(offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(UPC, figma.getId(), OfferedSkillStatus.ENABLED))
+        .thenReturn(List.of(first, second));
 
     Retirement retirement = retire(COORDINATOR, 2);
 
     assertThat(figma.isActive()).isFalse();
-    assertThat(ofUpc.getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
-    assertThat(ofUtec.getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+    assertThat(first.getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
+    assertThat(second.getStatus()).isEqualTo(OfferedSkillStatus.WITHDRAWN);
     assertThat(retirement.tutorsAffected()).isEqualTo(2);
     assertThat(retirement.retiredAt()).isEqualTo(NOW.plusSeconds(60));
     ArgumentCaptor<SkillWithdrawn> announced = ArgumentCaptor.forClass(SkillWithdrawn.class);
@@ -105,8 +107,8 @@ class RetireCatalogItemUseCaseTest {
     assertThat(announced.getAllValues())
         .extracting(SkillWithdrawn::tenantId, SkillWithdrawn::tutorId, SkillWithdrawn::catalogItemId)
         .containsExactlyInAnyOrder(
-            org.assertj.core.groups.Tuple.tuple(UPC, ofUpc.getTutorId(), figma.getId()),
-            org.assertj.core.groups.Tuple.tuple(UTEC, ofUtec.getTutorId(), figma.getId()));
+            org.assertj.core.groups.Tuple.tuple(UPC, first.getTutorId(), figma.getId()),
+            org.assertj.core.groups.Tuple.tuple(UPC, second.getTutorId(), figma.getId()));
   }
 
   @Test
@@ -123,7 +125,7 @@ class RetireCatalogItemUseCaseTest {
   @DisplayName("if the number of tutors is not the one confirmed, nothing is retired and the real number is said")
   void ifTheNumberChangedNothingIsRetired() {
     OfferedSkill offer = offeredBy(UPC);
-    when(offeredSkills.lockByCatalogItemIdAndStatus(figma.getId(), OfferedSkillStatus.ENABLED))
+    when(offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(UPC, figma.getId(), OfferedSkillStatus.ENABLED))
         .thenReturn(List.of(offer));
 
     assertThatThrownBy(() -> retire(COORDINATOR, 3))
@@ -142,8 +144,22 @@ class RetireCatalogItemUseCaseTest {
 
     assertThatThrownBy(() -> retire(COORDINATOR, 0)).isInstanceOf(SkillsStateConflict.class);
 
-    verify(offeredSkills, never()).lockByCatalogItemIdAndStatus(any(), any());
+    verify(offeredSkills, never()).lockByTenantIdAndCatalogItemIdAndStatus(any(), any(), any());
     verifyNoInteractions(events);
+  }
+
+  @Test
+  @DisplayName("a global tool is not the coordinator's to retire: nothing is withdrawn or announced")
+  void aGlobalToolIsNotTheCoordinatorsToRetire() {
+    CatalogItem global =
+        new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), "Figma", null, null, NOW);
+    when(catalogItems.lockByIdAndTenantVisibility(global.getId(), UPC)).thenReturn(Optional.of(global));
+
+    assertThatThrownBy(() -> TenantContext.runAs(UPC, () -> useCase.execute(COORDINATOR, global.getId(), 0)))
+        .isInstanceOf(GlobalCatalogItemNotModerable.class);
+
+    assertThat(global.isActive()).isTrue();
+    verifyNoInteractions(offeredSkills, events);
   }
 
   @Test

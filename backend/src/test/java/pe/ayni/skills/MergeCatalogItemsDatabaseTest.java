@@ -82,18 +82,18 @@ class MergeCatalogItemsDatabaseTest {
   private CatalogItem kept;
 
   @BeforeEach
-  void aUniversityAndTwoToolsThatAreTheSame() {
+  void aUniversityAndTwoCoursesThatAreTheSame() {
     tenant = "T" + UUID.randomUUID().toString().substring(0, 8);
     category = categories.save(new Category(UUID.randomUUID(), "Category " + tenant, (short) 0)).getId();
     when(identity.requireUser(coordinator))
         .thenReturn(new UserView(coordinator, tenant, UserRole.COORDINATOR, "c@u.pe", null, "C", null, null, null));
     when(identity.requireUser(student))
         .thenReturn(new UserView(student, tenant, UserRole.STUDENT, "s@u.pe", "U1", "S", null, null, null));
-    duplicate = tool();
-    kept = tool();
+    duplicate = course(tenant);
+    kept = course(tenant);
   }
 
-  private CatalogItem tool() {
+  private CatalogItem globalTool() {
     return catalogItems.save(
         new CatalogItem(UUID.randomUUID(), CatalogScope.GLOBAL, null, category, "Tool " + UUID.randomUUID(), null, null, NOW));
   }
@@ -145,6 +145,7 @@ class MergeCatalogItemsDatabaseTest {
   void theOffersHoldOnTheItemThatStays() throws Exception {
     String other = "T" + UUID.randomUUID().toString().substring(0, 8);
     OfferedSkill mine = enabledBy(tenant, UUID.randomUUID(), duplicate);
+    // Nothing of another university can hold this course, but if a row did, the join would not touch it.
     OfferedSkill theirs = enabledBy(other, UUID.randomUUID(), duplicate);
     OfferedSkill pending =
         offeredSkills.save(OfferedSkill.requestValidation(UUID.randomUUID(), tenant, UUID.randomUUID(), duplicate.getId(), NOW));
@@ -154,14 +155,13 @@ class MergeCatalogItemsDatabaseTest {
 
     assertThat(JsonPath.<String>read(answer, "$.removedCatalogItemId")).isEqualTo(duplicate.getId().toString());
     assertThat(JsonPath.<String>read(answer, "$.keptCatalogItemId")).isEqualTo(kept.getId().toString());
-    assertThat(JsonPath.<Integer>read(answer, "$.offersMoved")).isEqualTo(3);
+    assertThat(JsonPath.<Integer>read(answer, "$.offersMoved")).isEqualTo(2);
     assertThat(JsonPath.<Integer>read(answer, "$.offersWithdrawn")).isZero();
-    for (OfferedSkill moved : List.of(mine, theirs)) {
-      OfferedSkill read = offeredSkills.findById(moved.getId()).orElseThrow();
-      assertThat(read.getCatalogItemId()).isEqualTo(kept.getId());
-      assertThat(read.getStatus()).isEqualTo(OfferedSkillStatus.ENABLED);
-      assertThat(read.getAccreditationPath()).isEqualTo(AccreditationPath.REVIEWED_EVIDENCE);
-    }
+    OfferedSkill moved = offeredSkills.findById(mine.getId()).orElseThrow();
+    assertThat(moved.getCatalogItemId()).isEqualTo(kept.getId());
+    assertThat(moved.getStatus()).isEqualTo(OfferedSkillStatus.ENABLED);
+    assertThat(moved.getAccreditationPath()).isEqualTo(AccreditationPath.REVIEWED_EVIDENCE);
+    assertThat(offeredSkills.findById(theirs.getId()).orElseThrow().getCatalogItemId()).isEqualTo(duplicate.getId());
     OfferedSkill pendingRead = offeredSkills.findById(pending.getId()).orElseThrow();
     assertThat(pendingRead.getCatalogItemId()).isEqualTo(kept.getId());
     assertThat(pendingRead.getStatus()).isEqualTo(OfferedSkillStatus.PENDING);
@@ -171,17 +171,17 @@ class MergeCatalogItemsDatabaseTest {
 
     assertThat(applicationEvents.stream(SkillWithdrawn.class).filter(e -> e.catalogItemId().equals(duplicate.getId())))
         .extracting(SkillWithdrawn::tenantId, SkillWithdrawn::tutorId)
-        .containsExactlyInAnyOrder(Tuple.tuple(tenant, mine.getTutorId()), Tuple.tuple(other, theirs.getTutorId()));
+        .containsExactly(Tuple.tuple(tenant, mine.getTutorId()));
     assertThat(applicationEvents.stream(SkillEnabled.class).filter(e -> e.catalogItemId().equals(kept.getId())))
         .extracting(SkillEnabled::tenantId, SkillEnabled::tutorId)
-        .containsExactlyInAnyOrder(Tuple.tuple(tenant, mine.getTutorId()), Tuple.tuple(other, theirs.getTutorId()));
+        .containsExactly(Tuple.tuple(tenant, mine.getTutorId()));
 
     String usage =
         body(
             mockMvc
                 .perform(get("/api/v1/coordinator/catalog/" + kept.getId() + "/usage").headers(headers(coordinator, tenant)))
                 .andExpect(status().isOk()));
-    assertThat(JsonPath.<Integer>read(usage, "$.tutorsOffering")).isEqualTo(3);
+    assertThat(JsonPath.<Integer>read(usage, "$.tutorsOffering")).isEqualTo(2);
   }
 
   @Test
@@ -212,16 +212,17 @@ class MergeCatalogItemsDatabaseTest {
     interests.save(new LearningInterest(UUID.randomUUID(), tenant, inBoth, duplicate.getId(), NOW));
     interests.save(new LearningInterest(UUID.randomUUID(), tenant, inBoth, kept.getId(), NOW));
     interests.save(new LearningInterest(UUID.randomUUID(), tenant, onlyInDuplicate, duplicate.getId(), NOW));
-    // The same student id in another university is another person.
+    // The same student id in another university is another person, and another university's row is
+    // not this coordinator's to move.
     String other = "T" + UUID.randomUUID().toString().substring(0, 8);
     interests.save(new LearningInterest(UUID.randomUUID(), other, inBoth, duplicate.getId(), NOW));
 
     String answer = body(merge(duplicate, kept).andExpect(status().isOk()));
 
     assertThat(JsonPath.<Integer>read(answer, "$.interestsDropped")).isEqualTo(1);
-    assertThat(JsonPath.<Integer>read(answer, "$.interestsMoved")).isEqualTo(2);
-    assertThat(interestsIn(kept)).containsExactlyInAnyOrder(Tuple.tuple(tenant, inBoth), Tuple.tuple(tenant, onlyInDuplicate), Tuple.tuple(other, inBoth));
-    assertThat(interestsIn(duplicate)).isEmpty();
+    assertThat(JsonPath.<Integer>read(answer, "$.interestsMoved")).isEqualTo(1);
+    assertThat(interestsIn(kept)).containsExactlyInAnyOrder(Tuple.tuple(tenant, inBoth), Tuple.tuple(tenant, onlyInDuplicate));
+    assertThat(interestsIn(duplicate)).containsExactly(Tuple.tuple(other, inBoth));
   }
 
   private List<Tuple> interestsIn(CatalogItem item) {
@@ -241,14 +242,23 @@ class MergeCatalogItemsDatabaseTest {
     taughtSessions.recordIfNew(UUID.randomUUID(), tenant, duplicate.getId(), UUID.randomUUID(), NOW);
     taughtSessions.recordIfNew(UUID.randomUUID(), tenant, duplicate.getId(), UUID.randomUUID(), NOW);
     taughtSessions.recordIfNew(UUID.randomUUID(), tenant, kept.getId(), UUID.randomUUID(), NOW);
+    String other = "T" + UUID.randomUUID().toString().substring(0, 8);
+    SkillProposal ofOther = SkillProposal.propose(UUID.randomUUID(), other, student, category, "Dup " + UUID.randomUUID(), null, NOW);
+    ofOther.mergeInto(coordinator, duplicate.getId(), null, NOW);
+    proposals.save(ofOther);
+    taughtSessions.recordIfNew(UUID.randomUUID(), other, duplicate.getId(), UUID.randomUUID(), NOW);
 
     String answer = body(merge(duplicate, kept).andExpect(status().isOk()));
 
     assertThat(JsonPath.<Integer>read(answer, "$.proposalsRepointed")).isEqualTo(1);
     assertThat(JsonPath.<Integer>read(answer, "$.sessionsCarriedOver")).isEqualTo(2);
     assertThat(proposals.findByTenantIdAndId(tenant, proposal.getId()).orElseThrow().getCatalogItemId()).isEqualTo(kept.getId());
-    assertThat(taughtSessions.countByCatalogItemId(kept.getId())).isEqualTo(3);
-    assertThat(taughtSessions.countByCatalogItemId(duplicate.getId())).isZero();
+    assertThat(taughtSessions.countByTenantIdAndCatalogItemId(tenant, kept.getId())).isEqualTo(3);
+    assertThat(taughtSessions.countByTenantIdAndCatalogItemId(tenant, duplicate.getId())).isZero();
+    // What another university recorded is not moved.
+    assertThat(proposals.findByTenantIdAndId(other, ofOther.getId()).orElseThrow().getCatalogItemId())
+        .isEqualTo(duplicate.getId());
+    assertThat(taughtSessions.countByTenantIdAndCatalogItemId(other, duplicate.getId())).isEqualTo(1);
   }
 
   @Test
@@ -265,19 +275,22 @@ class MergeCatalogItemsDatabaseTest {
   }
 
   @Test
-  @DisplayName("two courses of the university are joined, and a course never joins a tool")
-  void twoCoursesAreJoinedAndACourseNeverJoinsATool() throws Exception {
-    CatalogItem oldCourse = course(tenant);
-    CatalogItem newCourse = course(tenant);
-    OfferedSkill offer = enabledBy(tenant, UUID.randomUUID(), oldCourse);
+  @DisplayName("a global tool is not joined by a coordinator, on either side, and nothing moves")
+  void aGlobalToolIsNotJoinedByACoordinator() throws Exception {
+    CatalogItem figma = globalTool();
+    CatalogItem penpot = globalTool();
+    OfferedSkill offer = enabledBy(tenant, UUID.randomUUID(), figma);
 
-    merge(oldCourse, duplicate).andExpect(status().isBadRequest());
-    merge(duplicate, newCourse).andExpect(status().isBadRequest());
-    merge(oldCourse, newCourse).andExpect(status().isOk());
+    merge(figma, kept).andExpect(status().isForbidden());
+    merge(kept, figma).andExpect(status().isForbidden());
+    merge(figma, penpot).andExpect(status().isForbidden());
 
-    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().getCatalogItemId()).isEqualTo(newCourse.getId());
-    assertThat(catalogItems.findById(oldCourse.getId()).orElseThrow().isActive()).isFalse();
-    assertThat(catalogItems.findById(duplicate.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(offeredSkills.findById(offer.getId()).orElseThrow().getCatalogItemId()).isEqualTo(figma.getId());
+    assertThat(catalogItems.findById(figma.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(catalogItems.findById(penpot.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(catalogItems.findById(kept.getId()).orElseThrow().isActive()).isTrue();
+    assertThat(applicationEvents.stream(SkillWithdrawn.class).filter(e -> e.catalogItemId().equals(figma.getId())))
+        .isEmpty();
   }
 
   @Test
@@ -285,7 +298,7 @@ class MergeCatalogItemsDatabaseTest {
   void incoherentJoinsAreRefused() throws Exception {
     merge(duplicate, duplicate).andExpect(status().isBadRequest());
 
-    CatalogItem retired = tool();
+    CatalogItem retired = course(tenant);
     retired.retire();
     catalogItems.save(retired);
     merge(duplicate, retired).andExpect(status().isBadRequest());

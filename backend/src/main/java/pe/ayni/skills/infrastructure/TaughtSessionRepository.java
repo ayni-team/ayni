@@ -12,16 +12,16 @@ import pe.ayni.skills.domain.model.TaughtSession;
 /**
  * The sessions taught on each item.
  *
- * <p>The count takes no university on purpose: a moderator reviews an item by its use everywhere,
- * and a global tool is taught in every university. It is a number, never a row about a person.
+ * <p>Every read and every move takes the university: a moderator reviews an item by its use in
+ * their own. The count is a number, never a row about a person.
  */
 public interface TaughtSessionRepository extends JpaRepository<TaughtSession, UUID> {
 
-  /** How many sessions were taught on the item, in every university. */
-  long countByCatalogItemId(UUID catalogItemId);
+  /** How many sessions of the university were taught on the item. */
+  long countByTenantIdAndCatalogItemId(String tenantId, UUID catalogItemId);
 
   /**
-   * Counts the sessions taught on {@code source} as taught on {@code target}, because the two items
+   * Counts the university's sessions taught on {@code source} as taught on {@code target}, because the two items
    * were joined and what was taught on one was taught on the skill that stays.
    *
    * @return how many sessions moved
@@ -29,9 +29,14 @@ public interface TaughtSessionRepository extends JpaRepository<TaughtSession, UU
   @Transactional
   @Modifying
   @Query(
-      value = "update skills.taught_sessions set catalog_item_id = :target where catalog_item_id = :source",
+      value =
+          """
+          update skills.taught_sessions set catalog_item_id = :target
+          where tenant_id = :tenantId and catalog_item_id = :source
+          """,
       nativeQuery = true)
-  int carryOver(@Param("source") UUID source, @Param("target") UUID target);
+  int carryOver(
+      @Param("tenantId") String tenantId, @Param("source") UUID source, @Param("target") UUID target);
 
   /**
    * Records that the session was taught on the item, unless it already is.

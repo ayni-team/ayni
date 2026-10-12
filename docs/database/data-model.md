@@ -328,16 +328,16 @@ catalog_item_id  uuid          NOT NULL
 tutor_id         uuid          NOT NULL
 completed_at     timestamptz   NOT NULL
 
-INDEX (catalog_item_id)
+INDEX (tenant_id, catalog_item_id)
 ```
 
 Keyed by the session, so an announcement delivered twice counts once. `catalog_item_id` has no
 foreign key: the row records what another module announced, and a listener that failed on an item it
 does not know would leave the announcement unprocessed. Skills keeps it because it
 cannot ask reputation, which has `sessions_taught`: reputation already depends on skills. The count
-is read without a university on purpose: a global tool is taught in all of them, and the moderator
-who retires it must see all of them. It starts empty, so the sessions completed before it existed
-are not counted.
+is read and moved by university, like every other table: a coordinator reviews, and joins, the
+use of an item in their own university, a global tool included, and never sees another's. It
+starts empty, so the sessions completed before it existed are not counted.
 
 ### `skills.skill_proposals`
 
