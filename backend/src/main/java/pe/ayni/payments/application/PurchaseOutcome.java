@@ -16,6 +16,7 @@ public record PurchaseOutcome(
     Instant createdAt,
     Instant confirmedAt,
     Instant expiresAt,
+    boolean providerUnavailable,
     boolean created) {
 
   public static PurchaseOutcome of(Purchase purchase, boolean created) {
@@ -29,6 +30,7 @@ public record PurchaseOutcome(
         purchase.getCreatedAt(),
         purchase.getConfirmedAt(),
         purchase.getExpiresAt(),
+        false,
         created);
   }
 
@@ -43,6 +45,22 @@ public record PurchaseOutcome(
         createdAt,
         confirmedAt,
         expiresAt,
+        providerUnavailable,
         true);
+  }
+
+  public PurchaseOutcome asProviderUnavailable() {
+    return new PurchaseOutcome(
+        id,
+        credits,
+        amount,
+        currency,
+        status,
+        providerReference,
+        createdAt,
+        confirmedAt,
+        expiresAt,
+        true,
+        created);
   }
 }
