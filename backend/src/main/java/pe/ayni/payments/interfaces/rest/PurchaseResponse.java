@@ -14,7 +14,9 @@ public record PurchaseResponse(
     PurchaseStatus status,
     String providerReference,
     Instant createdAt,
-    Instant confirmedAt) {
+    Instant confirmedAt,
+    Instant expiresAt,
+    String guidance) {
 
   static PurchaseResponse of(PurchaseOutcome outcome) {
     return new PurchaseResponse(
@@ -25,6 +27,10 @@ public record PurchaseResponse(
         outcome.status(),
         outcome.providerReference(),
         outcome.createdAt(),
-        outcome.confirmedAt());
+        outcome.confirmedAt(),
+        outcome.expiresAt(),
+        outcome.status() == PurchaseStatus.PENDING
+            ? "Payment is still being processed. Do not start another purchase; check this purchase's status."
+            : null);
   }
 }
