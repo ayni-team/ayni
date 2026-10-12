@@ -11,9 +11,9 @@ public record ApiError(
     @Schema(example = "2026-10-12T21:33:00Z") Instant timestamp,
     @Schema(example = "403") int status,
     @Schema(example = "Forbidden") String error,
-    @Schema(example = "Only an active coordinator of the university can read its activity log")
+    @Schema(example = "Only an active coordinator of the university can use the audit")
         String message,
-    @Schema(example = "/api/v1/coordinator/audit-log") String path) {
+    @Schema(example = "/api/v1/coordinator/anomalies") String path) {
 
   static ApiError of(HttpStatus status, String message, HttpServletRequest request, Instant now) {
     return new ApiError(
