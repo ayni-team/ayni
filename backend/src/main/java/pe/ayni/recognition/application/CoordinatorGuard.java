@@ -14,8 +14,11 @@ import pe.ayni.recognition.domain.model.NotACoordinator;
  * control of the platform. Until then nothing but this check stops a student from reading the queue
  * with the evidence of another student, and afterwards it still belongs here: a role says what kind
  * of person you are, and the use case is where it matters.
+ *
+ * <p>The bean is named: skills has a guard of its own with the same class name, and two components
+ * with the same default name stop the application from starting.
  */
-@Component
+@Component("recognitionCoordinatorGuard")
 class CoordinatorGuard {
 
   private final IdentityApi identity;
