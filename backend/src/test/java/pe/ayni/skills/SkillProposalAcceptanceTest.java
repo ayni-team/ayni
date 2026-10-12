@@ -1,11 +1,19 @@
 package pe.ayni.skills;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -19,12 +27,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.UserRole;
+import pe.ayni.identity.UserView;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.Category;
 import pe.ayni.skills.domain.model.ProposalStatus;
@@ -37,7 +49,11 @@ import pe.ayni.skills.infrastructure.SkillProposalRepository;
  * US42, over HTTP, against a real database.
  *
  * <p>One test per scenario of {@code src/test/resources/features/US42-propose-a-skill.feature}, with
- * the same names. The scenario tagged {@code @pending} there has no test here, and says why.
+ * the same names.
+ *
+ * <p>The decisions of a moderator, which US43 builds, are made through the real endpoint. The
+ * identity of each person is stubbed, since identity is another module; everything else is the real
+ * application.
  *
  * <p>The comparison with the catalogue reads every item the university can see, so each test builds
  * its names from random letters that no other test uses and cannot be stopped by what another left.
@@ -51,23 +67,48 @@ class SkillProposalAcceptanceTest {
 
   private static final String UPC = "UPC";
   private static final String UTEC = "UTEC";
+  private static final Path EVIDENCE_DIR = newEvidenceFolder();
+  private static final byte[] PDF = "%PDF-1.7 the portfolio of a student".getBytes(StandardCharsets.UTF_8);
+
+  /** Scenario 4 starts an accreditation, which stores a file. */
+  @DynamicPropertySource
+  static void evidenceFolder(DynamicPropertyRegistry registry) {
+    registry.add("ayni.skills.evidence-dir", EVIDENCE_DIR::toString);
+  }
 
   /** A student of their own, so that one scenario cannot see another one's proposals. */
   private final UUID student = UUID.randomUUID();
+
+  private final UUID coordinator = UUID.randomUUID();
 
   @Autowired private MockMvc mockMvc;
   @Autowired private CategoryRepository categories;
   @Autowired private CatalogItemRepository catalogItems;
   @Autowired private SkillProposalRepository proposals;
-  @Autowired private JdbcTemplate jdbc;
   @MockitoBean private IdentityApi identity;
 
   private UUID category;
   private String word;
 
-  /** Background: a category, and a word that belongs to this scenario alone. */
+  /** Background: a category, a word that belongs to this scenario alone, and a coordinator. */
   @BeforeEach
   void aCategoryAndAWordOfItsOwn() {
+    when(identity.requireUser(any(UUID.class)))
+        .thenAnswer(
+            call -> {
+              UUID id = call.getArgument(0);
+              boolean moderator = id.equals(coordinator);
+              return new UserView(
+                  id,
+                  UPC,
+                  moderator ? UserRole.COORDINATOR : UserRole.STUDENT,
+                  "someone@upc.edu.pe",
+                  moderator ? null : "U202310949",
+                  moderator ? "Carla Ríos" : "Ana Torres",
+                  null,
+                  null,
+                  null);
+            });
     category =
         categories.save(new Category(UUID.randomUUID(), "Category " + UUID.randomUUID(), (short) 0)).getId();
     StringBuilder letters = new StringBuilder("qz");
@@ -157,6 +198,42 @@ class SkillProposalAcceptanceTest {
         .isEqualTo("It is already covered by another skill");
     assertThat(read(decided, "$[0].resolvedAt", String.class)).isNotBlank();
     assertThat(decided).doesNotContain("resolvedBy");
+  }
+
+  @Test
+  @DisplayName("Approved proposal")
+  void approvedProposal() throws Exception {
+
+    String id = proposedId(student, word);
+
+    approve(id);
+
+    String catalogue =
+        mockMvc
+            .perform(get("/api/v1/catalog").header("X-Tenant-Id", UPC).param("q", word))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(read(catalogue, "$.items[*].name", List.class)).containsExactly(word);
+    String itemId = read(catalogue, "$.items[0].id", String.class);
+    assertThat(read(proposalsOf(student), "$[0].status", String.class)).isEqualTo("APPROVED");
+    assertThat(read(proposalsOf(student), "$[0].catalogItemId", String.class)).isEqualTo(itemId);
+
+    // The student can start its accreditation: submitting the evidence for the new tool.
+    String submission =
+        mockMvc
+            .perform(
+                multipart("/api/v1/tutor/skills/{id}/validation", itemId)
+                    .file(new MockMultipartFile("files", "portfolio.pdf", "application/pdf", PDF))
+                    .param("note", "Two years of work with it")
+                    .headers(headers(student, UPC)))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertThat(read(submission, "$.skillStatus", String.class)).isEqualTo("PENDING");
+    assertThat(read(submission, "$.requestStatus", String.class)).isEqualTo("SUBMITTED");
   }
 
   @Test
@@ -294,26 +371,38 @@ class SkillProposalAcceptanceTest {
         .getContentAsString();
   }
 
-  /**
-   * What a moderator's rejection leaves in the table. Resolving is US43, which does not exist yet,
-   * so the decision is written directly: this test is about the student reading it.
-   */
-  private void reject(String proposalId, String reason) {
-    jdbc.update(
-        """
-        update skills.skill_proposals
-        set status = 'REJECTED', resolved_by = ?, resolved_at = now(), decision_reason = ?
-        where id = ?
-        """,
-        UUID.randomUUID(),
-        reason,
-        UUID.fromString(proposalId));
+  /** The coordinator of the university rejects the proposal with a reason, through the endpoint. */
+  private void reject(String proposalId, String reason) throws Exception {
+    decide(proposalId, "{\"decision\":\"REJECT\",\"reason\":\"%s\"}".formatted(reason));
+  }
+
+  /** The coordinator of the university approves the proposal, through the endpoint. */
+  private void approve(String proposalId) throws Exception {
+    decide(proposalId, "{\"decision\":\"APPROVE\"}");
+  }
+
+  private void decide(String proposalId, String json) throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/coordinator/skill-proposals/{id}/decision", proposalId)
+                .headers(headers(coordinator, UPC))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+        .andExpect(status().isOk());
   }
 
   private CatalogItem seedTool(String name) {
     return catalogItems.save(
         new CatalogItem(
             UUID.randomUUID(), CatalogScope.GLOBAL, null, category, name, null, null, Instant.now()));
+  }
+
+  private static Path newEvidenceFolder() {
+    try {
+      return Files.createTempDirectory("ayni-proposal-evidence-test");
+    } catch (IOException failure) {
+      throw new UncheckedIOException(failure);
+    }
   }
 
   private static <T> T read(String json, String path, Class<T> type) {

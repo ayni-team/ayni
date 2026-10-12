@@ -33,6 +33,23 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
       @Param("namePattern") String namePattern,
       Pageable pageable);
 
+  /**
+   * Waits for its turn to add a global item, until the transaction ends.
+   *
+   * <p>The catalogue does not hold a global name twice, but nothing in the table says so: global
+   * items have no university to scope a unique index by, and the tools of the seed data share names
+   * on purpose in some tests. Two universities approving the same tool at once would each find the
+   * name free and each create it. Whoever approves takes this lock first, then looks for the name,
+   * so the second one finds the first one's item.
+   *
+   * <p>The lock is a number of this module's own, taken from the database, so it also holds across
+   * several instances of the application.
+   *
+   * @return nothing useful: only the wait matters
+   */
+  @Query(value = "select cast(pg_advisory_xact_lock(7043001) as text)", nativeQuery = true)
+  String lockGlobalCatalogue();
+
   /** Every item in the given status visible to the university, to compare a name against all. */
   @Query(
       """

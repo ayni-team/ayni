@@ -16,9 +16,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.Category;
 import pe.ayni.skills.domain.model.ProposalStatus;
 import pe.ayni.skills.domain.model.SkillProposal;
+import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.CategoryRepository;
 import pe.ayni.skills.infrastructure.SkillProposalRepository;
 
@@ -44,6 +46,7 @@ class SkillProposalDatabaseTest {
   private final UUID student = UUID.randomUUID();
 
   @Autowired private CategoryRepository categories;
+  @Autowired private CatalogItemRepository catalogItems;
   @Autowired private SkillProposalRepository proposals;
   @Autowired private JdbcTemplate jdbc;
   @MockitoBean private IdentityApi identity;
@@ -153,7 +156,11 @@ class SkillProposalDatabaseTest {
     String name = "Figma " + unique();
     SkillProposal first = propose(UPC, student, category, name);
     jdbc.update(
-        "update skills.skill_proposals set status = 'REJECTED', resolved_by = ?, resolved_at = now() where id = ?",
+        """
+        update skills.skill_proposals
+        set status = 'REJECTED', resolved_by = ?, resolved_at = now(), decision_reason = 'No'
+        where id = ?
+        """,
         UUID.randomUUID(),
         first.getId());
 
@@ -189,6 +196,107 @@ class SkillProposalDatabaseTest {
   @DisplayName("the database refuses a proposal for a category that does not exist")
   void theDatabaseRefusesAProposalForAMissingCategory() {
     assertThatThrownBy(() -> propose(UPC, student, UUID.randomUUID(), "Figma " + unique()))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  // ---- US43: what a resolution leaves in the table ----
+
+  private final UUID moderator = UUID.randomUUID();
+
+  private UUID tool(UUID category) {
+    return catalogItems
+        .save(
+            new CatalogItem(
+                UUID.randomUUID(), CatalogScope.GLOBAL, null, category, "Tool " + unique(), null, null, NOW))
+        .getId();
+  }
+
+  @Test
+  @DisplayName("an approval is stored with who decided, when, and the item that was created")
+  void anApprovalIsStored() {
+    UUID category = category();
+    SkillProposal proposal = propose(UPC, student, category, "Figma " + unique());
+    UUID item = tool(category);
+
+    proposal.approve(moderator, item, "Widely used", NOW.plusSeconds(60));
+    proposals.saveAndFlush(proposal);
+
+    SkillProposal read = proposals.findByTenantIdAndId(UPC, proposal.getId()).orElseThrow();
+    assertThat(read.getStatus()).isEqualTo(ProposalStatus.APPROVED);
+    assertThat(read.getResolvedBy()).isEqualTo(moderator);
+    assertThat(read.getResolvedAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(read.getCatalogItemId()).isEqualTo(item);
+    assertThat(read.getDecisionReason()).isEqualTo("Widely used");
+  }
+
+  @Test
+  @DisplayName("a merge is stored with the existing item it was joined to")
+  void aMergeIsStored() {
+    UUID category = category();
+    SkillProposal proposal = propose(UPC, student, category, "NodeJS " + unique());
+    UUID existing = tool(category);
+
+    proposal.mergeInto(moderator, existing, null, NOW.plusSeconds(60));
+    proposals.saveAndFlush(proposal);
+
+    SkillProposal read = proposals.findByTenantIdAndId(UPC, proposal.getId()).orElseThrow();
+    assertThat(read.getStatus()).isEqualTo(ProposalStatus.MERGED);
+    assertThat(read.getCatalogItemId()).isEqualTo(existing);
+    assertThat(read.getResolvedBy()).isEqualTo(moderator);
+  }
+
+  @Test
+  @DisplayName("a rejection is stored with its reason and no item")
+  void aRejectionIsStored() {
+    SkillProposal proposal = propose(UPC, student, category(), "Figma " + unique());
+
+    proposal.reject(moderator, "Not a tool we teach", NOW.plusSeconds(60));
+    proposals.saveAndFlush(proposal);
+
+    SkillProposal read = proposals.findByTenantIdAndId(UPC, proposal.getId()).orElseThrow();
+    assertThat(read.getStatus()).isEqualTo(ProposalStatus.REJECTED);
+    assertThat(read.getDecisionReason()).isEqualTo("Not a tool we teach");
+    assertThat(read.getCatalogItemId()).isNull();
+  }
+
+  @Test
+  @DisplayName("the database refuses an approval or a merge that points at no catalogue item")
+  void theDatabaseRefusesAResolutionWithNoItem() {
+    SkillProposal proposal = propose(UPC, student, category(), "Figma " + unique());
+
+    for (String status : new String[] {"APPROVED", "MERGED"}) {
+      assertThatThrownBy(
+              () ->
+                  jdbc.update(
+                      "update skills.skill_proposals set status = ?, resolved_by = ?, resolved_at = now() where id = ?",
+                      status,
+                      moderator,
+                      proposal.getId()))
+          .isInstanceOf(DataIntegrityViolationException.class);
+    }
+  }
+
+  @Test
+  @DisplayName("the database refuses a rejection that has no reason")
+  void theDatabaseRefusesARejectionWithNoReason() {
+    SkillProposal proposal = propose(UPC, student, category(), "Figma " + unique());
+
+    assertThatThrownBy(
+            () ->
+                jdbc.update(
+                    "update skills.skill_proposals set status = 'REJECTED', resolved_by = ?, resolved_at = now() where id = ?",
+                    moderator,
+                    proposal.getId()))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  @DisplayName("the database refuses a catalogue item that does not exist")
+  void theDatabaseRefusesAMissingCatalogueItem() {
+    SkillProposal proposal = propose(UPC, student, category(), "Figma " + unique());
+    proposal.approve(moderator, UUID.randomUUID(), null, NOW);
+
+    assertThatThrownBy(() -> proposals.saveAndFlush(proposal))
         .isInstanceOf(DataIntegrityViolationException.class);
   }
 }

@@ -319,7 +319,8 @@ UNIQUE (tenant_id, student_id, catalog_item_id)
 ### `skills.skill_proposals`
 
 A tool a student asks to add to the catalogue because it is not there (US42). A moderator resolves
-it later (US43): approving it creates the catalogue item, rejecting it leaves a reason.
+it later (US43), one of three ways: approving it creates a catalogue item, merging joins it to an
+item the catalogue already has, and rejecting it leaves a reason the student reads.
 
 ```
 id               uuid          PK
@@ -328,21 +329,26 @@ proposed_by      uuid          NOT NULL
 category_id      uuid          NOT NULL REFERENCES skills.categories(id)
 name             varchar(160)  NOT NULL
 description      varchar(500)
-status           varchar(16)   NOT NULL   -- PROPOSED | APPROVED | REJECTED
-resolved_by      uuid
+status           varchar(16)   NOT NULL   -- PROPOSED | APPROVED | MERGED | REJECTED
+resolved_by      uuid                     -- the moderator, a coordinator of the same university
 resolved_at      timestamptz
 decision_reason  varchar(500)
-catalog_item_id  uuid          REFERENCES skills.catalog_items(id)   -- set by an approval
+catalog_item_id  uuid          REFERENCES skills.catalog_items(id)   -- the item it ended up in
 created_at       timestamptz   NOT NULL DEFAULT now()
 
-CHECK  (status IN ('PROPOSED','APPROVED','REJECTED'))
+CHECK  (status IN ('PROPOSED','APPROVED','MERGED','REJECTED'))
 CHECK  (status = 'PROPOSED' OR (resolved_by IS NOT NULL AND resolved_at IS NOT NULL))
+CHECK  (status NOT IN ('APPROVED','MERGED') OR catalog_item_id IS NOT NULL)
+CHECK  (status <> 'REJECTED' OR decision_reason IS NOT NULL)
 UNIQUE (tenant_id, proposed_by, lower(name)) WHERE status = 'PROPOSED'
 INDEX  (tenant_id, created_at) WHERE status = 'PROPOSED'
+INDEX  (tenant_id, resolved_at DESC) WHERE status <> 'PROPOSED'
 ```
 
-A proposal is decided once, like a validation request. The unique index only holds while the
-proposal waits, so a student whose proposal was rejected can propose the name again.
+A proposal is decided once, like a validation request, and the row keeps who decided, when and how:
+that is the history a moderator reads. `catalog_item_id` is the item an approval created or the
+existing one a merge joined; the student reads it to offer the skill. The unique index only holds
+while the proposal waits, so a student whose proposal was rejected can propose the name again.
 
 ---
 

@@ -29,7 +29,11 @@ import pe.ayni.skills.domain.model.SkillsStateConflict;
  * that means one thing here should not quietly acquire a status code decided elsewhere.
  */
 @RestControllerAdvice(
-    assignableTypes = {SkillsController.class, CoordinatorValidationsController.class})
+    assignableTypes = {
+      SkillsController.class,
+      CoordinatorValidationsController.class,
+      CoordinatorSkillProposalsController.class
+    })
 class SkillsExceptionHandler {
 
   private final Clock clock;

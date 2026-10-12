@@ -111,6 +111,84 @@ public class SkillProposal {
     return this.status == ProposalStatus.PROPOSED;
   }
 
+  /**
+   * Adds the tool to the catalogue as a new item.
+   *
+   * @param catalogItemId the item that was created for it
+   * @param reason why, if the moderator wants to say; {@code null} or blank for none
+   * @throws SkillsStateConflict when the proposal was already resolved
+   */
+  public void approve(UUID moderatorId, UUID catalogItemId, String reason, Instant now) {
+    requireWaiting();
+    String normalised = cleanReason(reason);
+    resolve(
+        ProposalStatus.APPROVED,
+        moderatorId,
+        Objects.requireNonNull(catalogItemId, "catalogItemId must not be null"),
+        normalised,
+        now);
+  }
+
+  /**
+   * Joins the proposal to an item the catalogue already has, so no new one is created.
+   *
+   * @param catalogItemId the existing item
+   * @param reason why, if the moderator wants to say; {@code null} or blank for none
+   * @throws SkillsStateConflict when the proposal was already resolved
+   */
+  public void mergeInto(UUID moderatorId, UUID catalogItemId, String reason, Instant now) {
+    requireWaiting();
+    String normalised = cleanReason(reason);
+    resolve(
+        ProposalStatus.MERGED,
+        moderatorId,
+        Objects.requireNonNull(catalogItemId, "catalogItemId must not be null"),
+        normalised,
+        now);
+  }
+
+  /**
+   * Refuses the proposal. The student reads the reason, so it is required.
+   *
+   * @throws SkillsRuleViolation when the reason is missing or longer than the column holds
+   * @throws SkillsStateConflict when the proposal was already resolved
+   */
+  public void reject(UUID moderatorId, String reason, Instant now) {
+    requireWaiting();
+    String normalised = cleanReason(reason);
+    if (normalised == null) {
+      throw new SkillsRuleViolation("a rejection needs a reason the student can read");
+    }
+    resolve(ProposalStatus.REJECTED, moderatorId, null, normalised, now);
+  }
+
+  private void requireWaiting() {
+    if (!isWaiting()) {
+      throw new SkillsStateConflict("this proposal was already resolved");
+    }
+  }
+
+  private void resolve(
+      ProposalStatus outcome, UUID moderatorId, UUID catalogItemId, String reason, Instant now) {
+    this.resolvedBy = Objects.requireNonNull(moderatorId, "moderatorId must not be null");
+    this.resolvedAt = Objects.requireNonNull(now, "now must not be null");
+    this.catalogItemId = catalogItemId;
+    this.decisionReason = reason;
+    this.status = outcome;
+  }
+
+  private static String cleanReason(String reason) {
+    if (reason == null || reason.isBlank()) {
+      return null;
+    }
+    String stripped = reason.strip();
+    if (stripped.length() > MAX_REASON_LENGTH) {
+      throw new SkillsRuleViolation(
+          "the reason can have at most %d characters".formatted(MAX_REASON_LENGTH));
+    }
+    return stripped;
+  }
+
   private static String requireName(String name) {
     String stripped = name == null ? "" : name.strip();
     if (stripped.length() < MIN_NAME_LENGTH || stripped.length() > MAX_NAME_LENGTH) {

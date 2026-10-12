@@ -4,10 +4,8 @@
 # Each scenario below is covered by a test method of the same name in
 # SkillProposalAcceptanceTest, which exercises it over HTTP against a real PostgreSQL.
 #
-# Scenario 4 is tagged @pending on purpose. Approving a proposal, and the tool appearing in the
-# catalogue, is resolving it, which is US43. Until then nothing can approve a proposal, so there is
-# nothing to build here. Scenario 3 reads a decision, and its test writes one straight into the
-# table to prove that the student can read it; US43 replaces that with the real decision.
+# A moderator's decision is US43. Scenarios 3 and 4 read what it leaves, and their tests make the
+# decision through its endpoint (see US43-moderate-proposed-skills.feature).
 #
 # The scenarios after the fifth are not on the card. They pin down what the card leaves out: which
 # proposals the student cannot make, and who can read them.
@@ -36,9 +34,8 @@ Feature: Proposing a skill that is not in the catalogue
     When a moderator rejects it with a reason
     Then the student reads the decision and the reason
 
-  @pending
   Scenario: Approved proposal
-    Given a proposal was approved
+    Given a moderator approved a proposal
     When the student opens the catalogue
     Then the skill is available and the student can start its accreditation
 
