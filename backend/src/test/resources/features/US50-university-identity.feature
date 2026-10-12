@@ -1,3 +1,10 @@
+# US50 - As a coordinator, I want to configure my university's logo and colours, so that Ayni
+# looks like my university.
+#
+# Each scenario runs over HTTP against a real PostgreSQL, with the same name, in
+# UniversityIdentityAcceptanceTest, and the rules of the use case in
+# UpdateUniversityIdentityUseCaseTest. Nothing here is @pending.
+
 Feature: Configure university identity
 
   Scenario: An active coordinator updates their university identity

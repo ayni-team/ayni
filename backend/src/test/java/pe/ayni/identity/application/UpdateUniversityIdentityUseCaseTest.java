@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import pe.ayni.identity.UserRole;
-import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.domain.model.User;
@@ -149,7 +149,7 @@ class UpdateUniversityIdentityUseCaseTest {
                                                 "#000000",
                                                 "#FFFFFF")))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        CoordinatorRequired.class)
                 .hasMessageContaining(
                         "active coordinator");
 
@@ -187,7 +187,7 @@ class UpdateUniversityIdentityUseCaseTest {
                                                 "#000000",
                                                 "#FFFFFF")))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        CoordinatorRequired.class)
                 .hasMessageContaining(
                         "active coordinator");
 
@@ -221,9 +221,9 @@ class UpdateUniversityIdentityUseCaseTest {
                                                 "#003A70",
                                                 "#FFFFFF")))
                 .isInstanceOf(
-                        java.util.NoSuchElementException.class)
+                        CoordinatorRequired.class)
                 .hasMessageContaining(
-                        "does not belong");
+                        "active coordinator");
 
         verify(
                 tenants,

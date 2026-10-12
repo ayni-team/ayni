@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.UniversityIdentityView;
 import pe.ayni.identity.application.UpdateUniversityIdentityUseCase;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.shared.tenancy.CurrentUser;
 
 class UniversityIdentityControllerTest {
@@ -116,5 +117,37 @@ class UniversityIdentityControllerTest {
                         "https://cdn.ayni.pe/upc.png",
                         "#D50000",
                         "#FFFFFF");
+    }
+
+    @Test
+    void refusesWhoIsNotAnActiveCoordinatorWithForbidden() throws Exception {
+
+        when(
+                updateIdentity.execute(
+                        coordinatorId,
+                        null,
+                        "#D50000",
+                        "#FFFFFF"))
+                .thenThrow(
+                        new CoordinatorRequired(
+                                "Only an active coordinator can update the university identity"));
+
+        mvc.perform(
+                        put(
+                                "/api/v1/coordinator/university-identity")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        {
+                                          "primaryColor": "#D50000",
+                                          "secondaryColor": "#FFFFFF"
+                                        }
+                                        """))
+                .andExpect(
+                        status().isForbidden())
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(403));
     }
 }

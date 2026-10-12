@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.UserRole;
-import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.infrastructure.TenantRepository;
@@ -53,14 +53,14 @@ public class UpdateUniversityIdentityUseCase {
                                 currentUserId)
                         .orElseThrow(
                                 () ->
-                                        new NoSuchElementException(
-                                                "The user does not belong to this university"));
+                                        new CoordinatorRequired(
+                                                "Only an active coordinator can update the university identity"));
 
         if (coordinator.getRole()
                 != UserRole.COORDINATOR
                 || !coordinator.isActive()) {
 
-            throw new IdentityRuleViolation(
+            throw new CoordinatorRequired(
                     "Only an active coordinator can update the university identity");
         }
 

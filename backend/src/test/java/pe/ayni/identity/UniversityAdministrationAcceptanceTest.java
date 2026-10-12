@@ -309,7 +309,9 @@ class UniversityAdministrationAcceptanceTest {
         personal.addAll(jdbc.queryForList("select full_name from identity.users", String.class));
         personal.addAll(jdbc.queryForList("select email from identity.users", String.class));
         personal.addAll(
-                jdbc.queryForList("select student_code from identity.users", String.class));
+                jdbc.queryForList(
+                        "select student_code from identity.users where student_code is not null",
+                        String.class));
         personal.addAll(
                 jdbc.queryForList(
                         "select distinct course_name from identity.academic_records", String.class));
