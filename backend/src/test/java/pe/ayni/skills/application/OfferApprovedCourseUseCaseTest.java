@@ -212,6 +212,38 @@ class OfferApprovedCourseUseCaseTest {
   }
 
   @Test
+  @DisplayName("a withdrawn tool with accepted evidence is offered again, with no academic record")
+  void aWithdrawnToolWithAcceptedEvidenceIsOfferedAgain() {
+    OfferedSkill withdrawn = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, NOW);
+    withdrawn.approveByReviewedEvidence(NOW);
+    withdrawn.withdraw(NOW);
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(Optional.of(withdrawn));
+    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.of(globalTool()));
+
+    OfferedSkill skill = execute();
+
+    assertThat(skill).isSameAs(withdrawn);
+    assertThat(skill.isEnabled()).isTrue();
+    verify(events).publishEvent(any(SkillEnabled.class));
+    verify(identity, never()).approvedCourses(any());
+  }
+
+  @Test
+  @DisplayName("a global tool the tutor never had accepted is still refused")
+  void aGlobalToolNeverAcceptedIsStillRefused() {
+    OfferedSkill rejected = OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, NOW);
+    rejected.rejectEvidence(NOW);
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(Optional.of(rejected));
+
+    // A rejected tool is not withdrawn, so it is the conflict that answers, before any item is read.
+    assertThatThrownBy(this::execute).isInstanceOf(SkillsStateConflict.class);
+
+    verify(events, never()).publishEvent(any(Object.class));
+  }
+
+  @Test
   @DisplayName("an unknown catalog item is refused")
   void anUnknownCatalogItemIsRefused() {
     when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.empty());

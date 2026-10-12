@@ -65,6 +65,25 @@ public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID
   List<OfferedSkill> findByTenantIdAndTutorId(String tenantId, UUID tutorId);
 
   /**
+   * The tutor's skill for an item, locked until the transaction ends.
+   *
+   * <p>For the submission of evidence: two submissions of the same rejected skill at once must not
+   * both put it back in the queue, so the second waits and then finds it already pending.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select skill from OfferedSkill skill
+      where skill.tenantId = :tenantId
+        and skill.tutorId = :tutorId
+        and skill.catalogItemId = :catalogItemId
+      """)
+  Optional<OfferedSkill> lockByTenantIdAndTutorIdAndCatalogItemId(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("catalogItemId") UUID catalogItemId);
+
+  /**
    * One offered skill, locked until the transaction ends.
    *
    * <p>The row carries no version column, and two requests withdrawing the same skill at once would

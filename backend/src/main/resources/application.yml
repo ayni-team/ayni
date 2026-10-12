@@ -27,6 +27,13 @@ spring:
           java_time_use_direct_jdbc: true
         format_sql: true
 
+  servlet:
+    multipart:
+      # The evidence a student attaches (US16): up to three files of five megabytes. Spring's own
+      # default of one megabyte per file would refuse most portfolios before the rules are asked.
+      max-file-size: 5MB
+      max-request-size: 16MB
+
   flyway:
     enabled: true
     locations: classpath:db/migration

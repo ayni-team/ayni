@@ -14,8 +14,10 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
+import pe.ayni.skills.domain.model.ValidationRequest;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
+import pe.ayni.skills.infrastructure.ValidationRequestRepository;
 
 /** US18, scenario 1: the tutor sees every skill with where it stands. */
 class TutorSkillsQueryTest {
@@ -26,7 +28,8 @@ class TutorSkillsQueryTest {
 
   private final OfferedSkillRepository offeredSkills = mock(OfferedSkillRepository.class);
   private final CatalogItemRepository catalogItems = mock(CatalogItemRepository.class);
-  private final TutorSkillsQuery query = new TutorSkillsQuery(offeredSkills, catalogItems);
+  private final ValidationRequestRepository requests = mock(ValidationRequestRepository.class);
+  private final TutorSkillsQuery query = new TutorSkillsQuery(offeredSkills, catalogItems, requests);
 
   private static CatalogItem course(String name, String courseCode) {
     return new CatalogItem(
@@ -56,6 +59,42 @@ class TutorSkillsQueryTest {
         .extracting(tutorSkill -> tutorSkill.item().getName())
         .containsExactly("Architecture", "Databases");
     assertThat(result.get(0).skill()).isSameAs(withdrawn);
+  }
+
+  @Test
+  @DisplayName("a skill whose evidence was rejected and sent again shows only the last submission")
+  void aSkillShowsOnlyItsLastSubmission() {
+    CatalogItem tool =
+        new CatalogItem(
+            UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), "Figma", null, null, NOW);
+    OfferedSkill skill =
+        OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, tool.getId(), NOW);
+    ValidationRequest first = ValidationRequest.submit(UUID.randomUUID(), UPC, skill.getId(), null, NOW);
+    first.reject(UUID.randomUUID(), "The certificate is not legible", NOW.plusSeconds(60));
+    ValidationRequest second =
+        ValidationRequest.submit(UUID.randomUUID(), UPC, skill.getId(), null, NOW.plusSeconds(3600));
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
+    when(catalogItems.findAllById(List.of(tool.getId()))).thenReturn(List.of(tool));
+    // Read in the opposite order on purpose: the newest one wins whatever comes first.
+    when(requests.findByTenantIdAndOfferedSkillIdIn(UPC, List.of(skill.getId())))
+        .thenReturn(List.of(second, first));
+
+    List<TutorSkillsQuery.TutorSkill> result = runAsUpc();
+
+    assertThat(result).singleElement().satisfies(tutorSkill -> assertThat(tutorSkill.latestReview()).isSameAs(second));
+  }
+
+  @Test
+  @DisplayName("a course enabled by its grade has no submission to show")
+  void aCourseHasNoSubmissionToShow() {
+    CatalogItem course = course("Databases", "1ASI0616");
+    OfferedSkill skill = enabledFor(course);
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
+    when(catalogItems.findAllById(List.of(course.getId()))).thenReturn(List.of(course));
+
+    assertThat(runAsUpc())
+        .singleElement()
+        .satisfies(tutorSkill -> assertThat(tutorSkill.latestReview()).isNull());
   }
 
   @Test
