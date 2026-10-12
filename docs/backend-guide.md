@@ -252,7 +252,7 @@ public interface IdentityApi {
 | POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
-| POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |
+| POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
 | PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
 | PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
@@ -277,6 +277,39 @@ the same code, or the same domain, end with one `201` and one `409`, never a `50
 
 `GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
 active and how many students and coordinators it has, and nothing else about its people.
+
+**Inviting a coordinator (TS10).** `POST /api/v1/admin/universities/{code}/coordinators` takes the
+`email` and the `fullName`. In one transaction it creates the coordinator as `PENDING`, with no
+student code and no onboarding, stores a single use `COORDINATOR_INVITE` link (only its hash) and
+publishes `AccessRequested`, which notifications turns into the email. The address must belong to
+one of the university's domains. Nothing is published when it is refused.
+
+| Status | When |
+|---|---|
+| 201 | Invited. The coordinator exists as `PENDING` and the link is on its way |
+| 400 | A field is missing, the email is not one, it is not of a domain of the university, or `X-User-Id` is missing |
+| 404 | The university does not exist |
+| 409 | The university is suspended, or the address already has a user in it, pending or active |
+
+Inviting takes the university's row first, so two invitations to the same address at once end with
+one `201` and one `409`, never a `500`.
+
+**Accepting the invitation.** The link goes to `POST /api/v1/access/confirm`, as every other one.
+For a `COORDINATOR_INVITE` link it consumes the link, activates the coordinator, publishes
+`CoordinatorActivated` and opens their first session; the student activation of US38 is not
+touched.
+
+| Status | When |
+|---|---|
+| 200 | Activated, with the session |
+| 400 | The token is unknown, or the link expired |
+| 403 | The account the link points to is not a coordinator |
+| 404 | The account the link points to no longer exists |
+| 409 | The invitation was already used, also by a confirmation that arrived at the same time |
+
+The link is consumed with a conditional update, so two confirmations at once activate the
+coordinator once, publish `CoordinatorActivated` once and open one session: the other one is
+answered `409`.
 
 **Credit policy (US52).** `PUT /api/v1/coordinator/credit-policy` takes `creditsAmount` and
 `validityDays`, both of at least 1. In one transaction it closes the current `BASELINE` policy of

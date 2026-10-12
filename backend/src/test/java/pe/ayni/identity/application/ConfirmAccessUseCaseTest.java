@@ -25,7 +25,9 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.AcademicRecord;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
@@ -34,6 +36,7 @@ import pe.ayni.identity.infrastructure.AccessLinkRepository;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
+import pe.ayni.shared.events.CoordinatorActivated;
 import pe.ayni.shared.events.StudentActivated;
 
 /** US38 confirmation without Spring. */
@@ -528,18 +531,195 @@ class ConfirmAccessUseCaseTest {
                         NOW);
     }
 
+    private User invitedCoordinator(
+            UserRole role,
+            UserStatus status) {
+
+        User coordinator =
+                new User(
+                        userId,
+                        "UPC",
+                        role,
+                        "coordinator@upc.edu.pe",
+                        null,
+                        "Maria Coordinator",
+                        null,
+                        null,
+                        null,
+                        null,
+                        status,
+                        null,
+                        null,
+                        NOW.minusSeconds(3600),
+                        NOW.minusSeconds(3600));
+
+        when(
+                users.findByTenantIdAndEmailIgnoreCase(
+                        "UPC",
+                        "coordinator@upc.edu.pe"))
+                .thenReturn(
+                        Optional.of(
+                                coordinator));
+
+        return coordinator;
+    }
+
     @Test
     @DisplayName(
-            "a coordinator invitation remains pending")
-    void invitationRemainsPending() {
+            "a coordinator invitation activates the coordinator once and opens a session")
+    void invitationActivatesTheCoordinator() {
 
-        link(
-                "UPC",
-                AccessPurpose.COORDINATOR_INVITE,
-                NOW.plusSeconds(600));
+        AccessLink link =
+                link(
+                        "UPC",
+                        "coordinator@upc.edu.pe",
+                        AccessPurpose.COORDINATOR_INVITE,
+                        NOW.plusSeconds(600));
 
-        assertRefused(
-                ConfirmAccessUseCase.INVITATION_PENDING);
+        User coordinator =
+                invitedCoordinator(
+                        UserRole.COORDINATOR,
+                        UserStatus.PENDING);
+
+        when(
+                accessLinks.consume(
+                        link.getId(),
+                        NOW))
+                .thenReturn(1);
+
+        ConfirmAccessResult result =
+                useCase.execute(
+                        "raw-access-token");
+
+        assertThat(coordinator.getStatus())
+                .isEqualTo(UserStatus.ACTIVE);
+
+        assertThat(coordinator.getActivatedAt())
+                .isEqualTo(NOW);
+
+        assertThat(result.userId())
+                .isEqualTo(userId);
+
+        verify(users)
+                .saveAndFlush(
+                        coordinator);
+
+        verify(events)
+                .publishEvent(
+                        new CoordinatorActivated(
+                                "UPC",
+                                userId,
+                                NOW));
+
+        verify(sessions)
+                .save(any());
+    }
+
+    @Test
+    @DisplayName(
+            "a coordinator invitation that was already used is a conflict")
+    void usedInvitationIsAConflict() {
+
+        AccessLink link =
+                link(
+                        "UPC",
+                        "coordinator@upc.edu.pe",
+                        AccessPurpose.COORDINATOR_INVITE,
+                        NOW.plusSeconds(600));
+
+        link.consume(
+                NOW.minusSeconds(30));
+
+        invitedCoordinator(
+                UserRole.COORDINATOR,
+                UserStatus.ACTIVE);
+
+        assertThatThrownBy(
+                () ->
+                        useCase.execute(
+                                "raw-access-token"))
+                .isInstanceOf(
+                        InvitationConflict.class);
+
+        verify(sessions, never())
+                .save(any());
+
+        verify(events, never())
+                .publishEvent(
+                        any(CoordinatorActivated.class));
+    }
+
+    @Test
+    @DisplayName(
+            "a coordinator invitation lost to a concurrent confirmation is a conflict")
+    void invitationLostToAConcurrentConfirmationIsAConflict() {
+
+        AccessLink link =
+                link(
+                        "UPC",
+                        "coordinator@upc.edu.pe",
+                        AccessPurpose.COORDINATOR_INVITE,
+                        NOW.plusSeconds(600));
+
+        User coordinator =
+                invitedCoordinator(
+                        UserRole.COORDINATOR,
+                        UserStatus.PENDING);
+
+        when(
+                accessLinks.consume(
+                        link.getId(),
+                        NOW))
+                .thenReturn(0);
+
+        assertThatThrownBy(
+                () ->
+                        useCase.execute(
+                                "raw-access-token"))
+                .isInstanceOf(
+                        InvitationConflict.class);
+
+        assertThat(coordinator.getStatus())
+                .isEqualTo(UserStatus.PENDING);
+
+        verify(sessions, never())
+                .save(any());
+
+        verify(events, never())
+                .publishEvent(
+                        any(CoordinatorActivated.class));
+    }
+
+    @Test
+    @DisplayName(
+            "a coordinator invitation of someone who is not a coordinator is forbidden")
+    void invitationOfANonCoordinatorIsForbidden() {
+
+        AccessLink link =
+                link(
+                        "UPC",
+                        "coordinator@upc.edu.pe",
+                        AccessPurpose.COORDINATOR_INVITE,
+                        NOW.plusSeconds(600));
+
+        invitedCoordinator(
+                UserRole.STUDENT,
+                UserStatus.PENDING);
+
+        assertThatThrownBy(
+                () ->
+                        useCase.execute(
+                                "raw-access-token"))
+                .isInstanceOf(
+                        CoordinatorRequired.class);
+
+        verify(accessLinks, never())
+                .consume(
+                        link.getId(),
+                        NOW);
+
+        verify(sessions, never())
+                .save(any());
     }
 
     @Test

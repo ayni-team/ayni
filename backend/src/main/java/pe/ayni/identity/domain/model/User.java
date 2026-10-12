@@ -106,7 +106,23 @@ public class User {
     public boolean isActive() {
         return status == UserStatus.ACTIVE;
     }
+    public void activateCoordinator(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
 
+        if (role != UserRole.COORDINATOR) {
+            throw new IdentityRuleViolation(
+                    "Only a coordinator can be activated from a coordinator invitation");
+        }
+
+        if (status != UserStatus.PENDING) {
+            throw new IdentityRuleViolation(
+                    "The coordinator invitation is no longer pending");
+        }
+
+        status = UserStatus.ACTIVE;
+        activatedAt = now;
+        updatedAt = now;
+    }
     private static String normalizeEmail(String email) {
         return Objects.requireNonNull(email, "email must not be null")
                 .trim()

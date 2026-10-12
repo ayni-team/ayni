@@ -13,8 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
+import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.AcademicRecord;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
@@ -23,6 +26,7 @@ import pe.ayni.identity.infrastructure.AccessLinkRepository;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
+import pe.ayni.shared.events.CoordinatorActivated;
 import pe.ayni.shared.events.StudentActivated;
 
 /**
@@ -49,8 +53,8 @@ public class ConfirmAccessUseCase {
     static final String EXPIRED_OR_USED =
             "This access link has expired or was already used. Ask for a new one";
 
-    static final String INVITATION_PENDING =
-            "This link accepts a coordinator invitation, which is not available yet";
+    static final String NOT_A_COORDINATOR =
+            "This invitation does not belong to a coordinator";
 
     static final String NO_UNIVERSITY =
             "Signing in without a university, as a platform administrator, is not available yet";
@@ -111,6 +115,12 @@ public class ConfirmAccessUseCase {
                                         new IdentityRuleViolation(
                                                 INVALID));
 
+        if (accessLink.getPurpose() == AccessPurpose.COORDINATOR_INVITE
+                && accessLink.getConsumedAt() != null) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
         if (!accessLink.isUsable(now)) {
             throw new IdentityRuleViolation(
                     EXPIRED_OR_USED);
@@ -138,8 +148,10 @@ public class ConfirmAccessUseCase {
                                     now);
 
                     case COORDINATOR_INVITE ->
-                            throw new IdentityRuleViolation(
-                                    INVITATION_PENDING);
+                            activateCoordinator(
+                                    accessLink,
+                                    tenantId,
+                                    now);
                 };
 
         return openSession(
@@ -260,6 +272,61 @@ public class ConfirmAccessUseCase {
                         now));
 
         return user;
+    }
+
+    private User activateCoordinator(
+            AccessLink accessLink,
+            String tenantId,
+            Instant now) {
+
+        User coordinator =
+                users.findByTenantIdAndEmailIgnoreCase(
+                                tenantId,
+                                accessLink.getEmail())
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found for access link"));
+
+        if (coordinator.getRole()
+                != UserRole.COORDINATOR) {
+
+            throw new CoordinatorRequired(
+                    NOT_A_COORDINATOR);
+        }
+
+        if (coordinator.getStatus()
+                != UserStatus.PENDING) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
+        /*
+         * Consume first, with the conditional update. Of two confirmations of
+         * the same link at once, the one that finds it consumed changes nothing:
+         * it activates nobody and publishes nothing.
+         */
+        if (accessLinks.consume(
+                accessLink.getId(),
+                now)
+                == 0) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
+        coordinator.activateCoordinator(
+                now);
+
+        users.saveAndFlush(
+                coordinator);
+
+        events.publishEvent(
+                new CoordinatorActivated(
+                        tenantId,
+                        coordinator.getId(),
+                        now));
+
+        return coordinator;
     }
 
     private ConfirmAccessResult openSession(

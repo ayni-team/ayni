@@ -88,7 +88,9 @@ public class AccessController {
  A sign in link opens a session for an existing active student. An activation \
  link creates the student using the academic profile reported by the university, \
  stores the approved courses, publishes StudentActivated and opens the first \
- session.
+ session. A coordinator invitation link activates the pending coordinator, \
+ publishes CoordinatorActivated and opens their first session; it works once, \
+ and a second use answers 409.
  """)
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content =
@@ -122,6 +124,14 @@ public class AccessController {
                                                      "message":"This access link has expired or was already used. Ask for a new one",
                                                      "path":"/api/v1/access/confirm"}
                                                     """)))
+    @ApiResponse(
+            responseCode = "403",
+            description = "A coordinator invitation whose account is not a coordinator",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "A coordinator invitation that was already used",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(
             responseCode = "404",
             description = "The account the link was issued for no longer exists",
