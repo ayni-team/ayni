@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -14,8 +15,8 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.Tenant;
-import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
@@ -79,14 +80,24 @@ public class InviteCoordinatorUseCase {
                         fullName,
                         "Coordinator name");
 
+        /*
+         * The row of the university is the lock of its invitations. The email is
+         * unique per university, but the check for it happens before the insert:
+         * two invitations to the same address at once would both find it free and
+         * the table would refuse the second one with a 500. The second request
+         * waits here until the first commits and then finds the user.
+         */
         Tenant tenant =
-                tenants.findByCodeAndStatus(
-                                normalizedCode,
-                                TenantStatus.ACTIVE)
+                tenants.lockByCode(
+                                normalizedCode)
                         .orElseThrow(
                                 () ->
-                                        new IdentityRuleViolation(
-                                                "The university does not exist or is not active"));
+                                        new NoSuchElementException(
+                                                "The university does not exist"));
+
+        if (!tenant.isActive()) {
+            throw InvitationConflict.universityNotActive();
+        }
 
         if (!tenant.claims(normalizedEmail)) {
             throw new IdentityRuleViolation(
@@ -97,8 +108,7 @@ public class InviteCoordinatorUseCase {
                 normalizedCode,
                 normalizedEmail)) {
 
-            throw new IdentityRuleViolation(
-                    "A user with this email already exists in the university");
+            throw InvitationConflict.emailAlreadyHasUser();
         }
 
         Instant now =

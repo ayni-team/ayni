@@ -24,6 +24,7 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.domain.model.User;
@@ -89,9 +90,8 @@ class InviteCoordinatorUseCaseTest {
     void createsPendingCoordinatorAndInvitation() {
 
         when(
-                tenants.findByCodeAndStatus(
-                        "UPC",
-                        TenantStatus.ACTIVE))
+                tenants.lockByCode(
+                        "UPC"))
                 .thenReturn(
                         Optional.of(
                                 upc()));
@@ -188,9 +188,8 @@ class InviteCoordinatorUseCaseTest {
     void rejectsEmailOutsideUniversityDomain() {
 
         when(
-                tenants.findByCodeAndStatus(
-                        "UPC",
-                        TenantStatus.ACTIVE))
+                tenants.lockByCode(
+                        "UPC"))
                 .thenReturn(
                         Optional.of(
                                 upc()));
@@ -218,9 +217,8 @@ class InviteCoordinatorUseCaseTest {
     void rejectsExistingUniversityUser() {
 
         when(
-                tenants.findByCodeAndStatus(
-                        "UPC",
-                        TenantStatus.ACTIVE))
+                tenants.lockByCode(
+                        "UPC"))
                 .thenReturn(
                         Optional.of(
                                 upc()));
@@ -239,11 +237,59 @@ class InviteCoordinatorUseCaseTest {
                                 "Coordinator",
                                 null))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        InvitationConflict.class)
                 .hasMessageContaining(
                         "already exists");
 
         verify(tokens, never())
                 .generate();
+    }
+
+    @Test
+    void refusesASuspendedUniversityAsAConflict() {
+
+        Tenant suspended =
+                upc();
+        suspended.suspend(NOW);
+
+        when(
+                tenants.lockByCode(
+                        "UPC"))
+                .thenReturn(
+                        Optional.of(
+                                suspended));
+
+        assertThatThrownBy(
+                () ->
+                        useCase.execute(
+                                "UPC",
+                                "coordinator@upc.edu.pe",
+                                "Coordinator",
+                                null))
+                .isInstanceOf(
+                        InvitationConflict.class);
+
+        verify(users, never())
+                .save(any());
+    }
+
+    @Test
+    void anUnknownUniversityIsNotFound() {
+
+        when(
+                tenants.lockByCode(
+                        "NOPE"))
+                .thenReturn(
+                        Optional.empty());
+
+        assertThatThrownBy(
+                () ->
+                        useCase.execute(
+                                "NOPE",
+                                "coordinator@upc.edu.pe",
+                                "Coordinator",
+                                null))
+                .isInstanceOf(
+                        java.util.NoSuchElementException.class);
     }
 }

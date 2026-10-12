@@ -27,7 +27,7 @@ public class CoordinatorInvitationController {
     }
 
     @PostMapping("/{code}/coordinators")
-    @ResponseStatus(HttpStatus.ACCEPTED)
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Invite a university coordinator",
             description =

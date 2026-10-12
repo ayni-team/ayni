@@ -3,8 +3,11 @@ package pe.ayni.identity.infrastructure;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 
@@ -17,6 +20,14 @@ import pe.ayni.identity.domain.model.TenantStatus;
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
     Optional<Tenant> findByCode(String code);
+
+    /**
+     * The university, locked until the end of the transaction: whoever changes what hangs from it
+     * and must read it first (its credit policy) waits here for the one before.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Tenant t where t.code = :code")
+    Optional<Tenant> lockByCode(@Param("code") String code);
 
     Optional<Tenant> findByCodeAndStatus(String code, TenantStatus status);
 

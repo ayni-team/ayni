@@ -74,7 +74,7 @@ class CoordinatorInvitationControllerTest {
                                         }
                                         """))
                 .andExpect(
-                        status().isAccepted());
+                        status().isCreated());
 
         verify(inviteCoordinator)
                 .execute(
