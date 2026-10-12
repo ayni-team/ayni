@@ -337,8 +337,8 @@ public interface WalletApi {
 | GET | `/api/v1/wallet` | student — balance broken down by origin with expiry dates |
 | GET | `/api/v1/wallet/movements` | student — history, filterable by period and type |
 | GET | `/api/v1/wallet/benefits` | student — active benefits offered by their university |
-| POST | `/api/v1/wallet/benefits` | coordinator — create a benefit and its earned-credit cost |
-| PUT | `/api/v1/wallet/benefits/{benefitId}` | coordinator — update or deactivate a benefit |
+| POST | `/api/v1/coordinator/benefits` | coordinator — create a benefit and its earned-credit cost |
+| PUT | `/api/v1/coordinator/benefits/{benefitId}` | coordinator — update or deactivate a benefit |
 | POST | `/api/v1/wallet/benefits/{benefitId}/redemptions` | student — redeem earned credits |
 | POST | `/api/v1/wallet/donations` | student — donate earned credits to the incoming-student pool |
 | GET | `/api/v1/wallet/donation-pool` | student — total donated credits and contribution count |
