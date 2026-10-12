@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import pe.ayni.identity.domain.model.User;
-
+import pe.ayni.identity.UserRole;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByTenantIdAndEmailIgnoreCase(
@@ -18,4 +18,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByTenantIdAndEmailIgnoreCase(
             String tenantId,
             String email);
+    long countByTenantIdAndRole(
+            String tenantId,
+            UserRole role);
 }

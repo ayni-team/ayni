@@ -20,10 +20,10 @@ import pe.ayni.wallet.application.ExpireCredits;
 /**
  * Two wallets to look at while identity does not exist.
  *
- * <p>Nothing grants credits today: the university's policy arrives with {@code StudentActivated},
- * which identity will publish. Until then the endpoints would answer an empty wallet to everyone
- * and there would be nothing to review, so under the {@code dev} profile the module fills two
- * accounts that between them show everything US23 asks for.
+ *  * <p>In normal operation {@code StudentActivated} grants the university's baseline credits.
+ *  * Under the {@code dev} profile this runner still fills two deterministic accounts so the wallet
+ *  * endpoints can demonstrate every credit origin, expiry and refund without requiring a fresh
+ *  * activation on every startup.
  *
  * <p>It is written through the published interface and the real use cases, never with direct
  * inserts: demonstration data that took a shortcut the application cannot take is data that proves

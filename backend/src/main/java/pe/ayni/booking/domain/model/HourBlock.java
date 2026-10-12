@@ -147,7 +147,7 @@ public class HourBlock {
     }
     switch (this.status) {
       case BOOKED -> throw new HourUnavailable(ALREADY_BOOKED);
-      case RELEASED -> throw new HourUnavailable(NO_LONGER_OFFERED);
+      case RELEASED, WITHDRAWN -> throw new HourUnavailable(NO_LONGER_OFFERED);
       case HELD -> {
         if (!isHoldExpired(now)) {
           throw new HourUnavailable(HELD_BY_ANOTHER);
@@ -232,7 +232,7 @@ public class HourBlock {
     }
     switch (this.status) {
       case BOOKED -> throw new HourUnavailable(ALREADY_BOOKED);
-      case RELEASED -> throw new HourUnavailable(NO_LONGER_OFFERED);
+      case RELEASED, WITHDRAWN -> throw new HourUnavailable(NO_LONGER_OFFERED);
       case HELD -> {
         if (!isHoldExpired(now)) {
           throw new HourUnavailable(HELD_BY_ANOTHER);
@@ -278,8 +278,23 @@ public class HourBlock {
   }
 
   /**
-   * Takes an hour out of circulation for good because the tutor is no longer free then: they paused
-   * or removed that time.
+   * Returns a cancelled booking's hour to circulation when the student cancelled it.
+   *
+   * @throws BookingRuleViolation when the hour does not belong to a confirmed booking
+   */
+  public void returnToAvailability() {
+    if (this.status != HourBlockStatus.BOOKED) {
+      throw new BookingRuleViolation("Only booked blocks can be returned to availability");
+    }
+
+    this.status = HourBlockStatus.AVAILABLE;
+    this.bookingId = null;
+    this.heldBy = null;
+    this.heldUntil = null;
+  }
+
+  /**
+   * Withdraws an hour because the tutor is no longer free then: they paused or removed that time.
    *
    * <p>A free hour and a held one are withdrawn. A student holding it is only choosing, and the
    * tutor will not be there; their confirmation is refused as an hour no longer offered. A booked
@@ -293,9 +308,24 @@ public class HourBlock {
       return false;
     }
 
-    this.status = HourBlockStatus.RELEASED;
+    this.status = HourBlockStatus.WITHDRAWN;
     this.heldBy = null;
     this.heldUntil = null;
+    return true;
+  }
+
+  /**
+   * Returns a previously withdrawn hour to circulation when current availability rules produce it
+   * again.
+   *
+   * @return whether the hour was restored
+   */
+  public boolean restore(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != HourBlockStatus.WITHDRAWN || hasStartedAt(now)) {
+      return false;
+    }
+    this.status = HourBlockStatus.AVAILABLE;
     return true;
   }
 

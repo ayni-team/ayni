@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingView;
 import pe.ayni.booking.OpenHourView;
@@ -53,6 +54,15 @@ public class BookingService implements BookingApi {
         booking.getHours(),
         booking.getNeedDescription(),
         booking.getStatus());
+  }
+
+  @Override
+  @Transactional
+  public boolean isConfirmed(UUID bookingId) {
+    return bookings
+        .lockByTenantIdAndId(TenantContext.require(), bookingId)
+        .map(booking -> booking.getStatus() == BookingStatus.CONFIRMED)
+        .orElse(false);
   }
 
   @Override

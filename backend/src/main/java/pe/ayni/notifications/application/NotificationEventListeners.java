@@ -3,6 +3,7 @@ package pe.ayni.notifications.application;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import pe.ayni.shared.events.AccessRequested;
+import pe.ayni.shared.events.PurchaseConfirmed;
 import pe.ayni.shared.events.PresenceCodeIssued;
 import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -24,14 +25,17 @@ class NotificationEventListeners {
   private final DeliverAccessLinkUseCase deliverAccessLink;
   private final DeliverPresenceCodeUseCase deliverPresenceCode;
   private final DeliverTutorNoShowNotice deliverTutorNoShowNotice;
+  private final DeliverPurchaseConfirmationUseCase deliverPurchaseConfirmation;
 
   NotificationEventListeners(
       DeliverAccessLinkUseCase deliverAccessLink,
       DeliverPresenceCodeUseCase deliverPresenceCode,
-      DeliverTutorNoShowNotice deliverTutorNoShowNotice) {
+      DeliverTutorNoShowNotice deliverTutorNoShowNotice,
+      DeliverPurchaseConfirmationUseCase deliverPurchaseConfirmation) {
     this.deliverAccessLink = deliverAccessLink;
     this.deliverPresenceCode = deliverPresenceCode;
     this.deliverTutorNoShowNotice = deliverTutorNoShowNotice;
+    this.deliverPurchaseConfirmation = deliverPurchaseConfirmation;
   }
 
   @ApplicationModuleListener
@@ -49,5 +53,10 @@ class NotificationEventListeners {
     if (event.studentCheckedIn()) {
       TenantContext.runAs(event.tenantId(), () -> deliverTutorNoShowNotice.execute(event));
     }
+  }
+
+  @ApplicationModuleListener
+  void on(PurchaseConfirmed event) {
+    TenantContext.runAs(event.tenantId(), () -> deliverPurchaseConfirmation.execute(event));
   }
 }

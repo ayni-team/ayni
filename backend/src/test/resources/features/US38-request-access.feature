@@ -91,10 +91,12 @@ Feature: Requesting access with an institutional email
     Then the request is still accepted
     And the notice is recorded as failed, with the reason
 
-  @pending
   Scenario: First access of a new student with their academic profile
     Given an activation link was sent to a new student
+    And the academic system recognizes the student code from their institutional email
     When the link is opened
-    Then the account is created with the academic profile the university reports
+    Then an active student account is created
+    And the student's name, code, career and current term come from the academic system
+    And the approved academic record is stored
+    And a session is opened for the new student
     And StudentActivated is published
-    # Not in this task: creating accounts from the academic system is a decision of its own.
