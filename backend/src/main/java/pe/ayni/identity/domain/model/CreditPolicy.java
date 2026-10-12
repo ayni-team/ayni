@@ -12,6 +12,12 @@ import java.util.Objects;
 import java.util.UUID;
 import pe.ayni.identity.PolicyKind;
 
+/**
+ * A version of a university credit policy.
+ *
+ * <p>Policies are historical records. Updating a policy never overwrites the previous values:
+ * the old version is superseded and a new version becomes current.
+ */
 @Entity
 @Table(schema = "identity", name = "credit_policies")
 public class CreditPolicy {
@@ -69,9 +75,9 @@ public class CreditPolicy {
                         "id must not be null");
 
         this.tenantId =
-                Objects.requireNonNull(
+                requireText(
                         tenantId,
-                        "tenantId must not be null");
+                        "tenantId");
 
         this.kind =
                 Objects.requireNonNull(
@@ -90,6 +96,7 @@ public class CreditPolicy {
 
         if ((createdByAdmin == null)
                 == (createdByUser == null)) {
+
             throw new IdentityRuleViolation(
                     "A credit policy must have exactly one author");
         }
@@ -115,6 +122,38 @@ public class CreditPolicy {
                 Objects.requireNonNull(
                         createdAt,
                         "createdAt must not be null");
+    }
+
+    /**
+     * Closes this version of the policy without deleting it.
+     */
+    public void supersede(Instant now) {
+
+        Objects.requireNonNull(
+                now,
+                "now must not be null");
+
+        if (supersededAt != null) {
+            throw new IdentityRuleViolation(
+                    "The credit policy was already superseded");
+        }
+
+        supersededAt =
+                now;
+    }
+
+    private static String requireText(
+            String value,
+            String field) {
+
+        if (value == null
+                || value.isBlank()) {
+
+            throw new IdentityRuleViolation(
+                    field + " must not be blank");
+        }
+
+        return value.trim();
     }
 
     public UUID getId() {

@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
@@ -19,6 +20,7 @@ import pe.ayni.shared.tenancy.MissingUserException;
                 AccessController.class,
                 IdentityMeController.class,
                 AdminUniversitiesController.class,
+                CreditPolicyController.class,
                 UniversityIdentityController.class
         })
 class IdentityExceptionHandler {
@@ -47,6 +49,17 @@ class IdentityExceptionHandler {
 
         return answer(
                 HttpStatus.FORBIDDEN,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CreditPolicyConflict.class)
+    ResponseEntity<ApiError> handleCreditPolicyConflict(
+            CreditPolicyConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
                 exception.getMessage(),
                 request);
     }
