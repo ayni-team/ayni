@@ -139,11 +139,13 @@ class BookingController {
       summary = "Cancel a confirmed tutoring booking",
       description =
           """
-          The student or tutor who is part of the booking may cancel it before the session starts.
-          A cancellation at least twelve hours before the start returns the credits to their
-          original lots and makes the student's hours available again. Inside twelve hours the
-          first request returns a warning without cancelling; repeat it with confirmLate=true to
-          proceed without a refund. A started session cannot be cancelled.
+          The student or tutor of the booking may cancel it before the session starts. A
+          student who cancels twelve hours or more ahead gets their credits back and the hours
+          become available again. Inside twelve hours the first request answers 409 with a
+          warning and cancels nothing; repeat it with confirmLate=true to proceed. A student's
+          late cancellation is not refunded. A tutor's cancellation always refunds the student,
+          and a late one is recorded against the tutor. A started session cannot be cancelled,
+          and cancelling twice changes nothing.
           """)
   @Parameter(
       in = ParameterIn.HEADER,
@@ -161,7 +163,9 @@ class BookingController {
               type = "string",
               format = "uuid",
               example = "11111111-1111-4111-8111-111111111111"))
-  @ApiResponse(responseCode = "204", description = "The booking was cancelled")
+  @ApiResponse(
+      responseCode = "204",
+      description = "The booking was cancelled, or it already was and nothing changed")
   @ApiResponse(
       responseCode = "409",
       description =
@@ -176,12 +180,17 @@ class BookingController {
                           """
                           {"bookingId":"d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f",
                            "startsAt":"2026-09-29T23:00:00Z","late":true,
-                           "refundWillBeIssued":false,"confirmationRequired":true,
+                           "refundWillBeIssued":false,"incidentWillBeRecorded":false,
+                           "confirmationRequired":true,
                            "confirmationRequest":"DELETE /api/v1/bookings/d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f?confirmLate=true"}
                           """)))
   @ApiResponse(
+      responseCode = "403",
+      description = "The caller is neither the student nor the tutor of the booking",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
       responseCode = "404",
-      description = "The booking does not exist or the caller is not a participant",
+      description = "The booking does not exist in this university",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "400",
@@ -191,7 +200,7 @@ class BookingController {
       @PathVariable UUID id,
       @Parameter(
               description =
-                  "Set to true only after the caller accepts that a late cancellation receives no refund.",
+                  "Set to true only after the caller has read the warning of a late cancellation.",
               example = "true")
           @RequestParam(defaultValue = "false")
           boolean confirmLate) {

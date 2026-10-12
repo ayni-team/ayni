@@ -162,6 +162,43 @@ public class Booking {
   }
 
   /**
+   * Which side of this booking a person is.
+   *
+   * @throws NotBookingParticipant when they are neither the student nor the tutor
+   */
+  public CancelledBy participantRole(UUID userId) {
+    Objects.requireNonNull(userId, "userId must not be null");
+
+    if (studentId.equals(userId)) {
+      return CancelledBy.STUDENT;
+    }
+    if (tutorId.equals(userId)) {
+      return CancelledBy.TUTOR;
+    }
+    throw new NotBookingParticipant("Only the student or the tutor of a booking can cancel it");
+  }
+
+  /**
+   * Whether cancelling at this moment is late: strictly less than twelve hours before the start.
+   * Exactly twelve hours is not late.
+   */
+  public boolean isLateToCancelAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return Duration.between(now, startsAt).compareTo(LATE_CANCELLATION_WINDOW) < 0;
+  }
+
+  /**
+   * Whether the student gets their credits back when this booking is cancelled now by this person.
+   *
+   * <p>The tutor's cancellation always refunds, however late: the student did nothing wrong. The
+   * student's refunds only while it is not late.
+   */
+  public boolean refundsWhenCancelledBy(CancelledBy by, Instant now) {
+    Objects.requireNonNull(by, "by must not be null");
+    return by == CancelledBy.TUTOR || !isLateToCancelAt(now);
+  }
+
+  /**
    * Cancels this booking and records who cancelled it and whether it was late.
    *
    * <p>A cancellation is late when it occurs strictly less than twelve hours before the scheduled
@@ -179,7 +216,7 @@ public class Booking {
       throw new BookingRuleViolation("A tutoring session cannot be cancelled after it has started");
     }
 
-    boolean late = Duration.between(now, startsAt).compareTo(LATE_CANCELLATION_WINDOW) < 0;
+    boolean late = isLateToCancelAt(now);
     this.status = BookingStatus.CANCELLED;
     this.cancelledBy = by;
     this.cancelledAt = now;

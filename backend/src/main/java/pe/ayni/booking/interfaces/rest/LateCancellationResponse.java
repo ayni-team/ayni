@@ -17,9 +17,14 @@ record LateCancellationResponse(
     @Schema(description = "Whether the cancellation is inside the twelve-hour late window.",
         example = "true")
     boolean late,
-    @Schema(description = "Late cancellations under this policy do not receive a credit refund.",
+    @Schema(description = "Whether the student gets their credits back: false when the student"
+        + " cancels this late, true when the tutor does.",
         example = "false")
     boolean refundWillBeIssued,
+    @Schema(description = "Whether the cancellation will be recorded against the tutor's"
+        + " reliability: true only when the tutor cancels this late.",
+        example = "false")
+    boolean incidentWillBeRecorded,
     @Schema(description = "Whether the caller must explicitly confirm before cancellation.",
         example = "true")
     boolean confirmationRequired,
@@ -34,6 +39,7 @@ record LateCancellationResponse(
         confirmation.startsAt(),
         true,
         confirmation.refundWillBeIssued(),
+        confirmation.incidentWillBeRecorded(),
         true,
         "DELETE /api/v1/bookings/" + confirmation.bookingId() + "?confirmLate=true");
   }

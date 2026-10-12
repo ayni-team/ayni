@@ -20,6 +20,7 @@ import pe.ayni.booking.domain.model.BookingRuleViolation;
 import pe.ayni.booking.domain.model.HoldExpired;
 import pe.ayni.booking.domain.model.HourUnavailable;
 import pe.ayni.booking.domain.model.HoursNotOffered;
+import pe.ayni.booking.domain.model.NotBookingParticipant;
 import pe.ayni.booking.domain.model.StudentNotActive;
 import pe.ayni.booking.domain.model.TutorNotBookable;
 import pe.ayni.shared.tenancy.MissingTenantException;
@@ -50,6 +51,13 @@ class BookingExceptionHandler {
   ResponseEntity<ApiError> handleBookingRuleViolation(
       BookingRuleViolation exception, HttpServletRequest request) {
     return answer(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+  }
+
+  /** The person is not the student or the tutor of the booking. */
+  @ExceptionHandler(NotBookingParticipant.class)
+  ResponseEntity<ApiError> handleNotBookingParticipant(
+      NotBookingParticipant exception, HttpServletRequest request) {
+    return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
   }
 
   @ExceptionHandler(BookingCancellationConflict.class)

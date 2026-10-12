@@ -1,9 +1,9 @@
 package pe.ayni.booking.application;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,33 +11,35 @@ import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.domain.model.Booking;
 import pe.ayni.booking.domain.model.BookingCancellationConflict;
 import pe.ayni.booking.domain.model.BookingRuleViolation;
 import pe.ayni.booking.domain.model.CancelledBy;
 import pe.ayni.booking.domain.model.HourBlock;
+import pe.ayni.booking.domain.model.NotBookingParticipant;
 import pe.ayni.booking.domain.model.ReliabilityIncidentKind;
 import pe.ayni.booking.domain.model.TutorReliabilityIncident;
 import pe.ayni.booking.infrastructure.BookingRepository;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
 import pe.ayni.booking.infrastructure.TutorReliabilityIncidentRepository;
 import pe.ayni.shared.events.BookingCancelled;
-import pe.ayni.booking.BookingStatus;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.wallet.WalletApi;
 
 /**
- * Cancels a confirmed booking, returning credits for cancellations outside the late window.
+ * Cancels a confirmed booking.
  *
- * <p>A late cancellation is not performed until the caller confirms it explicitly. A confirmed
- * cancellation updates the booking and its blocks, refunds synchronously when eligible, records a
- * tutor reliability incident when the tutor cancelled late, and publishes one event for the other
- * modules.
+ * <p>The student gets their credits back when they cancel twelve hours or more ahead; a student who
+ * cancels later is warned first and, once they confirm, is not refunded. The tutor's cancellation
+ * always refunds the student, and a late one is also recorded against the tutor. A late
+ * cancellation by anyone is not performed until the caller confirms it explicitly.
+ *
+ * <p>The booking is locked while it is cancelled, so two cancellations at once end with one
+ * cancellation, one refund and one event: the second finds it cancelled and does nothing.
  */
 @Service
 public class CancelBookingUseCase {
-
-  private static final Duration LATE_CANCELLATION_WINDOW = Duration.ofHours(12);
 
   private final BookingRepository bookings;
   private final HourBlockRepository blocks;
@@ -67,8 +69,9 @@ public class CancelBookingUseCase {
    * @param userId the student or tutor making the request
    * @param bookingId the booking to cancel
    * @param confirmLate whether the caller confirmed a cancellation inside the twelve-hour window
-   * @return details when late confirmation is required; otherwise empty
-   * @throws NoSuchElementException when the booking does not exist or the caller is not a participant
+   * @return what the caller is warned about when late confirmation is required; otherwise empty
+   * @throws NoSuchElementException when the booking does not exist in this university
+   * @throws NotBookingParticipant when the caller is neither the student nor the tutor
    * @throws BookingCancellationConflict when the booking is no longer cancellable
    */
   @Transactional
@@ -83,7 +86,7 @@ public class CancelBookingUseCase {
         bookings
             .lockByTenantIdAndId(tenantId, bookingId)
             .orElseThrow(() -> new NoSuchElementException("Booking not found: " + bookingId));
-    CancelledBy cancelledBy = cancelledBy(booking, userId, bookingId);
+    CancelledBy cancelledBy = booking.participantRole(userId);
 
     if (booking.getStatus() == BookingStatus.CANCELLED) {
       return Optional.empty();
@@ -96,11 +99,13 @@ public class CancelBookingUseCase {
           "A tutoring session cannot be cancelled after it has started");
     }
 
-    boolean late =
-        Duration.between(now, booking.getStartsAt()).compareTo(LATE_CANCELLATION_WINDOW) < 0;
+    boolean late = booking.isLateToCancelAt(now);
+    boolean refund = booking.refundsWhenCancelledBy(cancelledBy, now);
+    boolean recordIncident = late && cancelledBy == CancelledBy.TUTOR;
     if (late && !confirmLate) {
       return Optional.of(
-          new LateCancellationConfirmation(bookingId, booking.getStartsAt(), false));
+          new LateCancellationConfirmation(
+              bookingId, booking.getStartsAt(), refund, recordIncident));
     }
 
     List<HourBlock> bookingBlocks =
@@ -109,10 +114,7 @@ public class CancelBookingUseCase {
       throw new BookingRuleViolation("The confirmed booking has no booked hour blocks");
     }
 
-    booking.cancel(
-        cancelledBy,
-        late ? "Late cancellation confirmed; no refund issued" : "Cancelled by participant",
-        now);
+    booking.cancel(cancelledBy, reasonOf(cancelledBy, late), now);
 
     for (HourBlock block : bookingBlocks) {
       if (!bookingId.equals(block.getBookingId())) {
@@ -125,12 +127,12 @@ public class CancelBookingUseCase {
       }
     }
 
-    if (!late) {
+    if (refund) {
       // Wallet is the only module allowed to write the ledger; this call shares the transaction.
       wallet.refund(bookingId);
     }
 
-    if (late && cancelledBy == CancelledBy.TUTOR) {
+    if (recordIncident) {
       incidents.save(
           new TutorReliabilityIncident(
               UUID.randomUUID(),
@@ -155,13 +157,12 @@ public class CancelBookingUseCase {
     return Optional.empty();
   }
 
-  private static CancelledBy cancelledBy(Booking booking, UUID userId, UUID bookingId) {
-    if (booking.getStudentId().equals(userId)) {
-      return CancelledBy.STUDENT;
+  private static String reasonOf(CancelledBy cancelledBy, boolean late) {
+    if (!late) {
+      return "Cancelled by " + cancelledBy.name().toLowerCase(Locale.ROOT);
     }
-    if (booking.getTutorId().equals(userId)) {
-      return CancelledBy.TUTOR;
-    }
-    throw new NoSuchElementException("Booking not found: " + bookingId);
+    return cancelledBy == CancelledBy.TUTOR
+        ? "Late cancellation confirmed by the tutor; the student was refunded"
+        : "Late cancellation confirmed by the student; no refund issued";
   }
 }

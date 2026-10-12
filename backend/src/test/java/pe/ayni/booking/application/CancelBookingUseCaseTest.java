@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -27,6 +28,7 @@ import pe.ayni.booking.domain.model.BookingCancellationConflict;
 import pe.ayni.booking.domain.model.BookingRuleViolation;
 import pe.ayni.booking.domain.model.HourBlock;
 import pe.ayni.booking.domain.model.HourBlockStatus;
+import pe.ayni.booking.domain.model.NotBookingParticipant;
 import pe.ayni.booking.domain.model.ReliabilityIncidentKind;
 import pe.ayni.booking.domain.model.TutorReliabilityIncident;
 import pe.ayni.booking.infrastructure.BookingRepository;
@@ -105,7 +107,8 @@ class CancelBookingUseCaseTest {
 
     assertThat(result)
         .contains(
-            new LateCancellationConfirmation(booking.getId(), booking.getStartsAt(), false));
+            new LateCancellationConfirmation(
+                booking.getId(), booking.getStartsAt(), false, false));
     assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
     assertThat(block.getStatus()).isEqualTo(HourBlockStatus.BOOKED);
     verifyNoInteractions(wallet, incidents, events);
@@ -129,8 +132,47 @@ class CancelBookingUseCaseTest {
   }
 
   @Test
-  @DisplayName("a late tutor cancellation releases the hour and records a reliability incident")
-  void lateTutorCancellationRecordsAnIncidentAndReleasesTheHour() {
+  @DisplayName("a tutor cancellation ahead of time refunds the student and releases the hour")
+  void tutorCancellationAheadOfTimeRefundsAndReleasesTheHour() {
+    Booking booking = booking(NOW.plus(Duration.ofHours(13)));
+    HourBlock block = bookedBlock(booking);
+    arrange(booking, block);
+
+    Optional<LateCancellationConfirmation> result =
+        asUpc(() -> useCase.execute(TUTOR, booking.getId(), false));
+
+    assertThat(result).isEmpty();
+    assertThat(booking.getCancelledBy().name()).isEqualTo("TUTOR");
+    assertThat(booking.getCancelledLate()).isFalse();
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
+    assertThat(block.getBookingId()).isNull();
+    verify(wallet).refund(booking.getId());
+    verify(incidents, never()).save(any(TutorReliabilityIncident.class));
+    assertCancellationEvent(booking, block, BookingCancelled.CancelledBy.TUTOR, false);
+  }
+
+  @Test
+  @DisplayName("a late tutor cancellation first warns that it will be recorded and refunds")
+  void lateTutorCancellationNeedsConfirmationAndWarnsAboutTheRecord() {
+    Booking booking = booking(NOW.plus(Duration.ofHours(11)));
+    HourBlock block = bookedBlock(booking);
+    arrange(booking, block);
+
+    Optional<LateCancellationConfirmation> result =
+        asUpc(() -> useCase.execute(TUTOR, booking.getId(), false));
+
+    assertThat(result)
+        .contains(
+            new LateCancellationConfirmation(
+                booking.getId(), booking.getStartsAt(), true, true));
+    assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    assertThat(block.getStatus()).isEqualTo(HourBlockStatus.BOOKED);
+    verifyNoInteractions(wallet, incidents, events);
+  }
+
+  @Test
+  @DisplayName("a confirmed late tutor cancellation refunds, releases the hour and is recorded")
+  void confirmedLateTutorCancellationRefundsAndRecordsAnIncident() {
     Booking booking = booking(NOW.plus(Duration.ofHours(11)));
     HourBlock block = bookedBlock(booking);
     arrange(booking, block);
@@ -138,13 +180,16 @@ class CancelBookingUseCaseTest {
     asUpc(() -> useCase.execute(TUTOR, booking.getId(), true));
 
     assertThat(booking.getCancelledBy().name()).isEqualTo("TUTOR");
+    assertThat(booking.getCancelledLate()).isTrue();
     assertThat(block.getStatus()).isEqualTo(HourBlockStatus.RELEASED);
     assertThat(block.getBookingId()).isNull();
-    verifyNoInteractions(wallet);
+    verify(wallet).refund(booking.getId());
     ArgumentCaptor<TutorReliabilityIncident> incident =
         ArgumentCaptor.forClass(TutorReliabilityIncident.class);
     verify(incidents).save(incident.capture());
     assertThat(incident.getValue()).extracting("kind").isEqualTo(ReliabilityIncidentKind.LATE_CANCELLATION);
+    assertThat(incident.getValue()).extracting("tutorId").isEqualTo(TUTOR);
+    assertThat(incident.getValue()).extracting("bookingId").isEqualTo(booking.getId());
     assertCancellationEvent(booking, block, BookingCancelled.CancelledBy.TUTOR, true);
   }
 
@@ -164,15 +209,27 @@ class CancelBookingUseCaseTest {
   }
 
   @Test
-  @DisplayName("only the student or tutor who owns the booking may cancel it")
+  @DisplayName("only the student or tutor of the booking may cancel it")
   void rejectsANonParticipant() {
     Booking booking = booking(NOW.plus(Duration.ofDays(1)));
     arrange(booking, bookedBlock(booking));
 
     assertThatThrownBy(() -> asUpc(() -> useCase.execute(UUID.randomUUID(), booking.getId(), false)))
-        .isInstanceOf(java.util.NoSuchElementException.class);
+        .isInstanceOf(NotBookingParticipant.class);
 
     assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    verifyNoInteractions(wallet, incidents, events);
+  }
+
+  @Test
+  @DisplayName("a booking that does not exist in this university is not found")
+  void aMissingBookingIsNotFound() {
+    UUID missing = UUID.randomUUID();
+    when(bookings.lockByTenantIdAndId(UPC, missing)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> asUpc(() -> useCase.execute(STUDENT, missing, false)))
+        .isInstanceOf(NoSuchElementException.class);
+
     verifyNoInteractions(wallet, incidents, events);
   }
 
