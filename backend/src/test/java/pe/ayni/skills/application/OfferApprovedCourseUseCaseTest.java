@@ -29,6 +29,7 @@ import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
+import pe.ayni.skills.domain.model.SkillsStateConflict;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -81,10 +82,57 @@ class OfferApprovedCourseUseCaseTest {
                 OfferedSkill.enableByAcademicRecord(
                     UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, THRESHOLD, THRESHOLD, NOW)));
 
-    assertThatThrownBy(this::execute).isInstanceOf(SkillsRuleViolation.class);
+    assertThatThrownBy(this::execute).isInstanceOf(SkillsStateConflict.class);
 
     verify(catalogItems, never()).findByIdAndTenantVisibility(any(), any());
     verify(offeredSkills, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("a withdrawn course is offered again, on the same row, once the grade still clears")
+  void aWithdrawnCourseIsOfferedAgain() {
+    OfferedSkill withdrawn =
+        OfferedSkill.enableByAcademicRecord(
+            UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, THRESHOLD, THRESHOLD, NOW.minusSeconds(3600));
+    withdrawn.withdraw(NOW.minusSeconds(60));
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(Optional.of(withdrawn));
+    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+        .thenReturn(Optional.of(universityCourse("1ASI0657")));
+    when(identity.approvedCourses(TUTOR))
+        .thenReturn(
+            List.of(new ApprovedCourseView("1ASI0657", "Fundamentos", new BigDecimal("16.00"), "2026-1")));
+    when(identity.requireTenant(UPC)).thenReturn(tenant(THRESHOLD));
+
+    OfferedSkill skill = execute();
+
+    assertThat(skill).isSameAs(withdrawn);
+    assertThat(skill.isEnabled()).isTrue();
+    assertThat(skill.getAccreditedGrade()).isEqualByComparingTo("16.00");
+    verify(events).publishEvent(any(SkillEnabled.class));
+  }
+
+  @Test
+  @DisplayName("a withdrawn course whose grade no longer clears is refused and stays withdrawn")
+  void aWithdrawnCourseWhoseGradeNoLongerClearsIsRefused() {
+    OfferedSkill withdrawn =
+        OfferedSkill.enableByAcademicRecord(
+            UUID.randomUUID(), UPC, TUTOR, CATALOG_ITEM_ID, THRESHOLD, THRESHOLD, NOW.minusSeconds(3600));
+    withdrawn.withdraw(NOW.minusSeconds(60));
+    when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
+        .thenReturn(Optional.of(withdrawn));
+    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+        .thenReturn(Optional.of(universityCourse("1ASI0657")));
+    when(identity.approvedCourses(TUTOR))
+        .thenReturn(
+            List.of(new ApprovedCourseView("1ASI0657", "Fundamentos", new BigDecimal("14.00"), "2026-1")));
+    // The university raised the bar after the first offer.
+    when(identity.requireTenant(UPC)).thenReturn(tenant(new BigDecimal("15.00")));
+
+    assertThatThrownBy(this::execute).isInstanceOf(SkillsRuleViolation.class);
+
+    assertThat(withdrawn.isEnabled()).isFalse();
+    verify(events, never()).publishEvent(any());
   }
 
   @Test

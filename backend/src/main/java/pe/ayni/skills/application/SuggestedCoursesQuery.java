@@ -8,7 +8,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.ApprovedCourseView;
@@ -16,6 +15,7 @@ import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.CatalogItemStatus;
+import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -24,16 +24,11 @@ import pe.ayni.skills.infrastructure.OfferedSkillRepository;
  * without the tutor having to search for them.
  *
  * <p>A course is suggested only when offering it would succeed: it is an active course of the
- * university, its grade reaches the university's threshold, and the tutor has not offered it
- * before (enabled, pending or even withdrawn), since {@link OfferApprovedCourseUseCase} refuses a
- * second offer of the same item.
+ * university, its grade reaches the university's threshold, and the tutor does not hold it. One the
+ * tutor withdrew is suggested again, since {@link OfferApprovedCourseUseCase} offers it again.
  *
  * <p>The answer costs the same whatever the length of the academic record: one read of the
  * matching courses and one of the tutor's offers, instead of two queries per approved course.
- *
- * <p>{@code identity} is injected {@code @Lazy}, for the same reason as in {@link
- * OfferApprovedCourseUseCase}: identity has no implementation yet, and a plain injection would stop
- * every other module's Spring context from starting.
  */
 @Service
 public class SuggestedCoursesQuery {
@@ -45,7 +40,7 @@ public class SuggestedCoursesQuery {
   SuggestedCoursesQuery(
       CatalogItemRepository catalogItems,
       OfferedSkillRepository offeredSkills,
-      @Lazy IdentityApi identity) {
+      IdentityApi identity) {
     this.catalogItems = catalogItems;
     this.offeredSkills = offeredSkills;
     this.identity = identity;
@@ -72,7 +67,9 @@ public class SuggestedCoursesQuery {
       return List.of();
     }
 
-    Set<UUID> alreadyOffered = Set.copyOf(offeredSkills.findAllCatalogItemIds(tenantId, tutorId));
+    Set<UUID> alreadyOffered =
+        Set.copyOf(
+            offeredSkills.findCatalogItemIdsNotIn(tenantId, tutorId, OfferedSkillStatus.WITHDRAWN));
 
     return catalogItems
         .findByTenantIdAndCourseCodeInAndStatus(

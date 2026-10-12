@@ -116,10 +116,42 @@ public class OfferedSkill {
         now);
   }
 
-  /** Stops the tutor from offering this skill; reservations already confirmed are unaffected. */
+  /**
+   * Offers again a course the tutor withdrew, once the academic record still clears the threshold.
+   *
+   * <p>The accreditation is not carried over: the grade is checked again against today's threshold
+   * and copied again, because the threshold may have changed since the first offer.
+   *
+   * @throws SkillsStateConflict when the skill is not withdrawn, or was not accredited by the
+   *     academic record
+   * @throws SkillsRuleViolation when the grade no longer clears the threshold
+   */
+  public void reEnableByAcademicRecord(BigDecimal grade, BigDecimal threshold, Instant now) {
+    Objects.requireNonNull(grade, "grade must not be null");
+    Objects.requireNonNull(threshold, "threshold must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != OfferedSkillStatus.WITHDRAWN
+        || this.accreditationPath != AccreditationPath.ACADEMIC_RECORD) {
+      throw new SkillsStateConflict("only a withdrawn course can be offered again");
+    }
+    if (grade.compareTo(threshold) < 0) {
+      throw new SkillsRuleViolation(
+          "grade %s does not reach the university's threshold %s".formatted(grade, threshold));
+    }
+    this.status = OfferedSkillStatus.ENABLED;
+    this.accreditedGrade = grade;
+    this.enabledAt = now;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Stops the tutor from offering this skill; reservations already confirmed are unaffected.
+   *
+   * @throws SkillsStateConflict when the skill is not enabled
+   */
   public void withdraw(Instant now) {
     if (this.status != OfferedSkillStatus.ENABLED) {
-      throw new SkillsRuleViolation("only an enabled skill can be withdrawn");
+      throw new SkillsStateConflict("only an enabled skill can be withdrawn");
     }
     this.status = OfferedSkillStatus.WITHDRAWN;
     this.updatedAt = Objects.requireNonNull(now, "now must not be null");
