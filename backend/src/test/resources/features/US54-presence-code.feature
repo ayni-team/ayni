@@ -3,7 +3,8 @@
 #
 # Codes only go out for a session that started, which since US09 is one both participants entered
 # before the ten-minute mark. Scenarios 1, 2 and 4 of the story. Scenario 3, a session that ends without every confirmation
-# becoming unverified, arrives with closing the session (US11).
+# becoming unverified, is closing the session (US11), and the alert that the audit raises about it
+# is "Failed presence verification" in US47-anomalous-usage-alerts.feature.
 #
 # Every scenario names the test that runs it, against a real PostgreSQL, in
 # PresenceCheckAcceptanceTest, with the same name. The code's rules are covered without Spring by

@@ -713,7 +713,8 @@ Only participants may read a session. Anyone else gets a refusal, link or no lin
 Owns the request and the university's decision. **Ayni certifies nothing by itself.**
 
 **Publishes:** `RecognitionRequested`, `RecognitionResolved`.
-**Calls:** `SessionsApi.completedSessionsOf`, `WalletApi.earnedTotal`, `ReputationApi.standingOf`.
+**Calls:** `SessionsApi.completedSessionsOf`, `WalletApi.earnedTotal`, `ReputationApi.standingOf`,
+`AuditApi.openAlertsOf` (through the `SessionAlerts` port).
 
 | Method | Path | Who |
 |---|---|---|
@@ -750,8 +751,8 @@ in skills) reads the queue and then a case: the figures and the sessions of the 
 were submitted, so reading it days later shows the same. Each session carries its date, how long it
 really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where both confirmed their
 code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
-port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
-place says there are none.
+port and are put next to the session they are about: the adapter asks `AuditApi.openAlertsOf` and
+carries only the alerts that are still open, so one a coordinator dismissed is not shown again.
 
 **Supporting sessions (US30).** `GET .../{id}/sessions` lists the sessions behind a request with the date,
 the duration and the course or skill taught (read through `SkillsApi.requireItem`); the hours listed
@@ -871,10 +872,22 @@ stores the purchase identifier and amount, not payment credentials. The other ev
 
 Records what happened and detects what does not add up.
 
-**No published interface.** It listens and it answers one endpoint.
+```java
+public interface AuditApi {
+  Map<UUID, List<AlertView>> openAlertsOf(Collection<UUID> sessionIds);   // used by recognition
+}
+```
 
-**Calls:** `IdentityApi.requireUser` and `IdentityApi.isActive`, only to know who asks for the log.
-The listeners call nobody: who acted is what the event says.
+`openAlertsOf` answers, for each of the sessions of the current university that has any, the alerts
+that are still `OPEN` about it: `id`, `kind`, `severity`, `description` and `detectedAt`. A session
+with none is not in the map, and neither is a dismissed alert. It is the only thing audit offers: the
+rest is an endpoint.
+
+**Calls:** `IdentityApi.requireUser` and `IdentityApi.isActive`, to know who asks for the log or the
+alerts, and `IdentityApi.requireUser` again for the name of the people an alert involves;
+`IdentityApi.activeTenantCodes`, for the job that looks at every university; `SessionsApi` for what
+an alert shows about a session and for how long it really lasted. The listeners that write the log
+call nobody: who acted is what the event says.
 
 **Listens to** (US48), one entry per event in `audit.activity_log`:
 
@@ -894,6 +907,11 @@ The listeners call nobody: who acted is what the event says.
 | `RecognitionRequested` | `RECOGNITION_REQUESTED` | the student | `RECOGNITION_REQUEST` |
 | `RecognitionResolved` | `RECOGNITION_APPROVED` or `RECOGNITION_REJECTED` | a coordinator, not named | `RECOGNITION_REQUEST` |
 
+Audit also writes one entry of its own, which no event causes: `ANOMALY_DISMISSED`, with the
+coordinator who dismissed an alert as actor, `COORDINATOR` as role and the alert (`ANOMALY`) as
+resource, in the same transaction as the dismissal. Its details are the kind, the severity and the
+subject of the alert, never the reason.
+
 **Not listened to, on purpose.** `AccessRequested` and `PresenceCodeIssued` carry the access link
 and the presence code in clear, and `StudentActivated` carries an email address: no entry holds an
 email, a link or a code. `CreditsExpiring` is a reminder of something that has not happened yet,
@@ -910,8 +928,9 @@ decision.
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/coordinator/audit-log` | coordinator: reads the log of their university (US48) |
-| GET | `/api/v1/coordinator/anomalies` | coordinator, still to do (US47) |
-| POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | coordinator, still to do (US47) |
+| GET | `/api/v1/coordinator/anomalies` | coordinator: the alerts of anomalous usage, paged, by status (US47) |
+| GET | `/api/v1/coordinator/anomalies/{id}` | coordinator: one alert with its pattern, its people and its sessions (US47) |
+| POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | coordinator: closes an alert with a reason (US47) |
 
 **Reading the log (US48).** `GET /api/v1/coordinator/audit-log` takes the optional filters
 `actorId` (the person who acted), `resourceType` and `resourceId` (the resource), and `from` and
@@ -938,6 +957,61 @@ after the `403`. A request with no `X-User-Id` is malformed, answers `400` and w
 **Not built.** Pointing out an entry that does not fit the sequence needs the entries chained, and
 `audit.activity_log` has no columns for that. It is a decision of its own, tagged `@pending` in
 `US48-audit-log.feature`.
+
+### Alerts of anomalous usage (US47)
+
+An alert, an `audit.anomalies` row, is a pattern that suggests credits are being piled up
+artificially. It is raised `OPEN`, names the tutor whose credits it puts in question (`subject_id`),
+keeps the other people and the figures that made it an anomaly in `detail`, and points at the
+sessions that support it in `audit.anomaly_sessions`. It carries no email, link, code or free text.
+
+**What it detects**
+
+| Kind | Raised by | When | Severity |
+|---|---|---|---|
+| `FAILED_PRESENCE` | `SessionUnverified` | always: a session ended without every participant confirming | `HIGH` when neither confirmed, `MEDIUM` when one did |
+| `SHORT_DURATION` | `SessionCompleted` | the session lasted strictly less than `ayni.audit.short-session-ratio` (0.5 by default) of the hours booked; the real duration is `startedAt` to `endedAt` of `SessionsApi.completedSessionsOf`, so the interface did not change | `HIGH` under half of that fraction, `MEDIUM` otherwise |
+| `REPEATED_PAIR` | the job | the same tutor and student completed more than `ayni.audit.repeated-pair-threshold` sessions (3) in the last `ayni.audit.repeated-pair-period` (`P30D`) | `HIGH` from twice the threshold, `MEDIUM` otherwise |
+
+The two by event run after the publisher commits and in a transaction of their own, with the
+university of the event bound. A failure is logged without the data of the event and swallowed, as
+recording is: what was published has already happened, and the platform never waits for the analysis.
+The alert of a kind and a session has an identifier derived from the university, the kind and the
+session, so the same event delivered twice finds it already there, also when both arrive at the
+same moment.
+
+**The job.** `ayni.audit.analysis-delay` (`PT1H`; `PT24H` in
+`src/test/resources/config/application.properties`, so it never races a test) runs
+`DetectRepeatedPairsUseCase` for one university at a time, from `IdentityApi.activeTenantCodes()`
+and `TenantContext.runAs`, and decides each pair in a transaction of its own. It reads what audit
+recorded, the `SESSION_COMPLETED` entries of `audit.activity_log`, and asks no other module: those
+entries already carry the session, the tutor, the student and the moment. A session counts once even
+if its completion was written twice. A pair is pointed out once per period: while an alert about it,
+open or dismissed, is younger than the period, it is not raised again. The decision of one pair takes
+an advisory lock, so two runs at once raise it once. The tests call the use case the job calls.
+
+`UNUSUAL_FREQUENCY` and `NO_BOARD_ACTIVITY` are in the model and nothing raises them yet: the first
+needs a baseline of what is usual for a tutor, and the second the whiteboard (US10).
+
+**Reading and deciding.** All three are for an active coordinator of the university of the request.
+
+| Method | Path | Does |
+|---|---|---|
+| GET | `/api/v1/coordinator/anomalies` | takes `status` (`OPEN`, `DISMISSED` or `CONFIRMED`, optional, any case), `page` and `size` (20 by default, at most 100). Answers `items`, `page`, `size` and `total`, the most recently detected first; each item has `id`, `kind`, `severity`, `status`, `subjectId`, `description`, `sessionCount` and `detectedAt` |
+| GET | `/api/v1/coordinator/anomalies/{id}` | the alert with `pattern` (the figures, as they were when it was detected), `people` (id, role and name), `sessions` (id, scheduled start and end, status) and, once decided, `resolution` |
+| POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | takes `reason`, required, at most 500 characters; closes the alert as `DISMISSED` with who and when, and writes `ANOMALY_DISMISSED` in the log |
+
+| Status | When |
+|---|---|
+| 200 | A page, the alert, or the alert dismissed |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, an id that is not a UUID, a `status` that is not one of the three, a body that is missing, or a `reason` that is blank or too long |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or somebody the university does not know |
+| 404 | The alert does not exist **in this university**. Another university's alert answers the same |
+| 409 | Dismissing an alert that was already resolved |
+
+The alert is read with `PESSIMISTIC_WRITE` while it is dismissed, so two coordinators at once end
+with one `200` and one `409`, and one entry in the log. The decision is not reopened. Unlike the
+refused attempt to read the log, a refused attempt on the alerts is not written down.
 
 ---
 

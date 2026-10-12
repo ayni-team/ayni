@@ -5,7 +5,8 @@
 # Scenarios 1 and 3 of the story, and scenario 3 of US54: a session that ends without both presence
 # confirmations is unverified. Scenarios 2 and 4 are wallet's, which already grants earned credits
 # with no expiry and with the session as their source; here only the earned total is asserted.
-# Scenario 5, flagging an abnormally short session, belongs to audit, which does not exist yet.
+# Scenario 5, flagging an abnormally short session, is audit's (US47): "Abnormally short session"
+# in US47-anomalous-usage-alerts.feature.
 #
 # Every scenario names the test that runs it, against a real PostgreSQL with the real wallet, in
 # CloseSessionAcceptanceTest, with the same name. The session's rules are covered without Spring by
