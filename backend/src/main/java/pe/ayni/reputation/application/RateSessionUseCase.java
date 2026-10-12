@@ -2,15 +2,18 @@ package pe.ayni.reputation.application;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.reputation.domain.model.AlreadyRated;
+import pe.ayni.reputation.domain.model.InvalidRating;
+import pe.ayni.reputation.domain.model.NotAParticipant;
 import pe.ayni.reputation.domain.model.Rating;
 import pe.ayni.reputation.domain.model.RatingWindow;
+import pe.ayni.reputation.domain.model.SessionNotRatable;
 import pe.ayni.reputation.domain.model.TutorStanding;
 import pe.ayni.reputation.infrastructure.RatingRepository;
 import pe.ayni.reputation.infrastructure.RatingWindowRepository;
@@ -56,15 +59,11 @@ public class RateSessionUseCase {
 
         RatingWindow window =
                 ratingWindows
-                        .findByTenantIdAndSessionId(tenantId, sessionId)
-                        .orElseThrow(
-                                () ->
-                                        new NoSuchElementException(
-                                                "The session is not available for rating"));
+                        .lockByTenantIdAndSessionId(tenantId, sessionId)
+                        .orElseThrow(SessionNotRatable::new);
 
         if (!window.isParticipant(userId)) {
-            throw new IllegalArgumentException(
-                    "Only participants of the session may submit a rating");
+            throw new NotAParticipant();
         }
 
         Instant now = clock.instant();
@@ -119,8 +118,7 @@ public class RateSessionUseCase {
             Instant now) {
 
         if (stars == null) {
-            throw new IllegalArgumentException(
-                    "A student rating requires stars");
+            throw new InvalidRating("A student rating requires stars");
         }
 
         ensureNotAlreadyRated(
@@ -142,14 +140,17 @@ public class RateSessionUseCase {
 
         TutorStanding standing =
                 standings
-                        .findByTenantIdAndTutorIdAndCatalogItemId(
+                        .lockByTenantIdAndTutorIdAndCatalogItemId(
                                 tenantId,
                                 window.tutorId(),
                                 window.catalogItemId())
-                        .orElseThrow(
+                        .orElseGet(
                                 () ->
-                                        new IllegalStateException(
-                                                "Tutor standing was not opened for the completed session"));
+                                        TutorStanding.initial(
+                                                tenantId,
+                                                window.tutorId(),
+                                                window.catalogItemId(),
+                                                now));
 
         standing.recordRating(stars, now);
         standings.save(standing);
@@ -170,7 +171,7 @@ public class RateSessionUseCase {
         if (wasPunctual == null
                 || connectionOk == null
                 || sessionFlowed == null) {
-            throw new IllegalArgumentException(
+            throw new InvalidRating(
                     "A tutor rating requires punctuality, connection and session flow");
         }
 
@@ -202,8 +203,7 @@ public class RateSessionUseCase {
                 sessionId,
                 direction)) {
 
-            throw new IllegalStateException(
-                    "This participant already rated the session");
+            throw new AlreadyRated();
         }
     }
 

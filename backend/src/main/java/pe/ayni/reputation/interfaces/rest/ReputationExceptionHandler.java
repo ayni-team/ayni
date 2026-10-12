@@ -6,11 +6,16 @@ import java.time.Clock;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import pe.ayni.reputation.domain.model.AlreadyRated;
+import pe.ayni.reputation.domain.model.InvalidRating;
+import pe.ayni.reputation.domain.model.NotAParticipant;
+import pe.ayni.reputation.domain.model.SessionNotRatable;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
 
@@ -111,9 +116,42 @@ class ReputationExceptionHandler {
                 request);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler(NotAParticipant.class)
+    ResponseEntity<ApiError> handleNotAParticipant(
+            NotAParticipant exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(SessionNotRatable.class)
+    ResponseEntity<ApiError> handleSessionNotRatable(
+            SessionNotRatable exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(AlreadyRated.class)
+    ResponseEntity<ApiError> handleAlreadyRated(
+            AlreadyRated exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(InvalidRating.class)
     ResponseEntity<ApiError> handleInvalidRating(
-            IllegalArgumentException exception,
+            InvalidRating exception,
             HttpServletRequest request) {
 
         return answer(
@@ -122,14 +160,14 @@ class ReputationExceptionHandler {
                 request);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    ResponseEntity<ApiError> handleRatingConflict(
-            IllegalStateException exception,
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiError> handleInvalidBody(
+            MethodArgumentNotValidException exception,
             HttpServletRequest request) {
 
         return answer(
-                HttpStatus.CONFLICT,
-                exception.getMessage(),
+                HttpStatus.BAD_REQUEST,
+                "The rating is invalid",
                 request);
     }
 

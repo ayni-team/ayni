@@ -68,11 +68,15 @@ class RatingController {
             content = @Content(schema = @Schema(implementation = RatingResponse.class)))
     @ApiResponse(
             responseCode = "400",
-            description = "Invalid rating or the caller is not a participant",
+            description = "The stars of a student, or one of the three facts of a tutor, are missing",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(
+            responseCode = "403",
+            description = "The caller is not a participant of the session",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(
             responseCode = "404",
-            description = "The session is not available for rating",
+            description = "The session does not exist, or is not available for rating in this university",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(
             responseCode = "409",

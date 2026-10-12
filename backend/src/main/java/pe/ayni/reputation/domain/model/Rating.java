@@ -87,7 +87,7 @@ public class Rating {
             Instant createdAt) {
 
         if (stars < 1 || stars > 5) {
-            throw new IllegalArgumentException("Stars must be between 1 and 5");
+            throw new InvalidRating("Stars must be between 1 and 5");
         }
 
         return new Rating(
