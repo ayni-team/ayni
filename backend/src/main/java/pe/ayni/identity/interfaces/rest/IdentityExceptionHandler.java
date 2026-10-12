@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
@@ -17,7 +18,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
         assignableTypes = {
                 AccessController.class,
                 IdentityMeController.class,
-                AdminUniversitiesController.class
+                AdminUniversitiesController.class,
+                UniversityIdentityController.class
         })
 class IdentityExceptionHandler {
 
@@ -34,6 +36,17 @@ class IdentityExceptionHandler {
 
         return answer(
                 HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CoordinatorRequired.class)
+    ResponseEntity<ApiError> handleCoordinatorRequired(
+            CoordinatorRequired exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.FORBIDDEN,
                 exception.getMessage(),
                 request);
     }

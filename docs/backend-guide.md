@@ -254,6 +254,7 @@ public interface IdentityApi {
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |
 | PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the policy |
+| PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
@@ -276,6 +277,18 @@ the same code, or the same domain, end with one `201` and one `409`, never a `50
 
 `GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
 active and how many students and coordinators it has, and nothing else about its people.
+
+**University identity (US50).** `PUT /api/v1/coordinator/university-identity` takes `logoUrl`,
+`primaryColor` and `secondaryColor`, each optional and replaced as a whole: a field that is missing
+or blank leaves the university with none. The university is the one of the request
+(`X-Tenant-Id`); the body has no field for it and a code that appears there is ignored. It answers
+the university's `code`, `name` and the three values as they are stored.
+
+| Status | When |
+|---|---|
+| 200 | Updated |
+| 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour), or `X-Tenant-Id` or `X-User-Id` is missing |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
 
 ---
 
