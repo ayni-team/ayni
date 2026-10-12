@@ -43,6 +43,9 @@ public class Session {
    */
   public static final Duration PRESENCE_CHECK_AFTER = Duration.ofMinutes(5);
 
+  /** When a session with no tutor check-in is abandoned. */
+  public static final Duration TUTOR_NO_SHOW_AFTER = Duration.ofMinutes(10);
+
   /**
    * How long after the booked hour a session still in progress closes on its own: when only one
    * participant confirmed the end, or nobody did (US11, scenario 3).
@@ -190,6 +193,33 @@ public class Session {
   /** When the presence codes are due. */
   public Instant presenceCheckAt() {
     return this.scheduledStart.plus(PRESENCE_CHECK_AFTER);
+  }
+
+  /** When an unconfirmed tutor is considered absent. */
+  public Instant tutorNoShowAt() {
+    return this.scheduledStart.plus(TUTOR_NO_SHOW_AFTER);
+  }
+
+  /** Whether an open session has reached the point when a missing tutor is a no-show. */
+  public boolean isDueForTutorNoShow(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return (this.status == SessionStatus.SCHEDULED || this.status == SessionStatus.IN_PROGRESS)
+        && !now.isBefore(tutorNoShowAt());
+  }
+
+  /**
+   * Abandons a session after its tutor failed to check in by the no-show deadline.
+   *
+   * @throws IllegalStateException when the session is not open
+   */
+  public void abandon(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != SessionStatus.SCHEDULED && this.status != SessionStatus.IN_PROGRESS) {
+      throw new IllegalStateException(
+          "Session " + id + " is " + status + " and cannot be abandoned");
+    }
+    this.status = SessionStatus.ABANDONED;
+    this.endedAt = now;
   }
 
   /**

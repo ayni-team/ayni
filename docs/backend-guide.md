@@ -204,8 +204,6 @@ The Trello card of each story says what is left of it.
 
 ### Decisions still open
 
-- Who pays when nobody attends a session (US06 scenario 3 and `ABANDONED`). Decide before
-  building it.
 - How access works (TS03): **decided**, no longer open. See
   `adr/0007-access-control-and-tenant-isolation.md`.
 - The mock academic system (ADR 0006): one service for several universities, the student code taken
@@ -414,8 +412,9 @@ public interface WalletApi {
 
 **Publishes:** `CreditsGranted`, `CreditsExpiring`, `CreditsExpired`.
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
-`BookingCancelled` (refunds the booking, unless the student cancelled it late) and
-`SessionUnverified` (refunds the booking), `PurchaseConfirmed`.
+`BookingCancelled` (refunds the booking, unless the student cancelled it late),
+`SessionUnverified` (refunds the booking), `SessionAbandoned` (refunds the booking, but only when
+the student was present) and `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
@@ -454,6 +453,12 @@ The listener of `BookingCancelled` refunds every cancellation except one: it doe
 event is late **and** the student cancelled it themselves. A tutor's cancellation refunds whatever
 the hour, and the same event delivered twice refunds once.
 
+The listener of `SessionAbandoned` refunds the booking only when `studentCheckedIn` is true: a
+student who was in the room and whose tutor never came gets the credit back, and when nobody came
+there is nothing to return, because nobody was wronged. Delivered twice it refunds once, as every
+listener that moves credits does, and a session is never both abandoned and unverified, so the
+student cannot be refunded by the two events.
+
 ---
 
 ## booking
@@ -477,6 +482,8 @@ because a hold ends either in a booking, which is announced, or back in circulat
 **Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
 `HoursWithdrawn`.
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
+**Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
+records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -539,6 +546,14 @@ Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) an
 `BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
 happened. A tutor removing availability over a confirmed booking is cancelling that session.
 
+**A tutor no-show (US06).** When sessions abandons a session because its tutor did not come, the
+booking becomes `NO_SHOW` in every case, and only when the student was present is a `NO_SHOW` row
+written to `booking.tutor_reliability`, next to the `LATE_CANCELLATION` ones, so a tutor's record
+lives in one table. Nothing is held against the tutor when both were absent. The booking is locked
+while it is marked and `UNIQUE (booking_id, kind)` stands behind it, so the event delivered twice
+records one incident. A booking cancelled or completed in the meantime is left as it is. Reputation
+does not hear about this: standing is built from ratings, not from absences.
+
 **Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
 or a date exception usually arrives after its hours exist. Saving one adjusts them in the same
 transaction: every future hour the rules no longer give, free or held, becomes `WITHDRAWN` and
@@ -598,9 +613,11 @@ public interface SessionsApi {
 `UNVERIFIED` one earns the tutor nothing and backs no recognition. Its `hours` are the hours that
 were booked, one credit each, not the minutes the call lasted.
 
-**Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `PresenceCodeIssued`.
-**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session;
-`IdentityApi.activeTenantCodes` — for the job that sends the presence codes.
+**Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `SessionAbandoned`,
+`PresenceCodeIssued`.
+**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session
+and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
+that look at every university.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
 | Method | Path | Who |
@@ -639,6 +656,30 @@ check's: `COMPLETED` when both confirmed their code, with `SessionCompleted` pay
 booked hours; `UNVERIFIED` otherwise, including a session closed before any code was sent, with
 `SessionUnverified` naming who did not confirm. The session is locked while it is closed, and while
 a code is confirmed, so it closes once and its outcome is not changed after it was decided.
+
+**A tutor no-show (US06).** A session is a tutor no-show when ten minutes have passed since its
+scheduled start and the tutor had not joined by then, whether the student did or not. It is
+abandoned: the session becomes `ABANDONED`, `ended_at` is set, and `SessionAbandoned` is published,
+naming the booking, the tutor, the student, the skill and `studentCheckedIn`, which says whether the
+student had joined by that same ten minute mark. A tutor who arrived after it finds the room closed.
+Who pays, and who is told, depends on that flag:
+
+| The student | The tutor | The session | The booking | Credits | The student is told | The tutor's record |
+|---|---|---|---|---|---|---|
+| joined | did not | `ABANDONED` | `NO_SHOW` | returned to the student | yes | a `NO_SHOW` incident |
+| did not join | did not | `ABANDONED` | `NO_SHOW` | not returned | no | nothing |
+
+When nobody attends, then, nobody is refunded and nobody is blamed: the student did not wait for
+anything and the tutor did not fail anyone. The credit stays spent, because the hour was held for
+them and taken from other students, which is also what a student cancelling late pays.
+
+A job runs every minute (`ayni.sessions.no-show-delay`, `PT24H` in the tests so it never races
+one), one university at a time and one session per transaction, and calls
+`AbandonTutorNoShowUseCase`; the tests call that same use case. The session is locked while it is
+abandoned, so two runs at once abandon it once and publish `SessionAbandoned` once. An abandoned
+session is never issued presence codes, is never closed `UNVERIFIED` by the closing job, and
+refuses to be joined or confirmed: both jobs only look at sessions in progress, and the status
+says it is over. Codes issued before the ten minutes, at the fifth, change nothing either.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
 
@@ -774,7 +815,8 @@ tutor in the same skill at once are both counted.
 **Calls:** `IdentityApi.requireUser` — for the address of the person an event names.
 
 Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCodeIssued`,
-`CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever is added later.
+`SessionAbandoned`, `CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever
+is added later.
 
 | Method | Path | Who |
 |---|---|---|
@@ -791,6 +833,10 @@ expires in minutes; asking again issues a new one. Email goes over SMTP (`spring
 under `docker compose`, which shows it at http://localhost:8025, and to a real relay in a deployment.
 `PresenceCodeIssued`, the email with the presence code (US54), is delivered the same way: the
 notice keeps the session and the expiry, never the code, and the address is read from identity.
+`SessionAbandoned` tells the student that their tutor did not come and the credit was returned
+(US06), only when `studentCheckedIn` is true: nobody is told anything when nobody came. The notice
+is a `TUTOR_NO_SHOW`, committed before the email leaves like the others, and keeps the session and
+nothing else; neither the address nor the email goes to a log.
 `PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice
 stores the purchase identifier and amount, not payment credentials. The other events above, and
 `GET /api/v1/notifications`, are still to do.

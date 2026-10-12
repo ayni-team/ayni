@@ -88,6 +88,8 @@ ayni:
     presence-check-delay: PT1M
     # How often the sessions left open fifteen minutes past their booked hour are closed.
     closing-delay: PT1M
+    # How often the sessions whose tutor had not come ten minutes after the start are abandoned.
+    no-show-delay: PT1M
   wallet:
     # The daily wallet job warns once for each expiring group this many days in advance.
     expiry-notice-days: 7

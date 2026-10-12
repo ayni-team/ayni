@@ -89,6 +89,12 @@ public class Participation {
     return endConfirmedAt != null;
   }
 
+  /** Whether this participant had joined by the supplied attendance deadline. */
+  public boolean hasCheckedInBy(Instant deadline) {
+    Objects.requireNonNull(deadline, "deadline must not be null");
+    return joinedAt != null && !joinedAt.isAfter(deadline);
+  }
+
   public UUID getId() {
     return id;
   }

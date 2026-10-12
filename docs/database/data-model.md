@@ -531,6 +531,10 @@ hour window. `cancelled_late` records whether it happened inside that window, an
 who did it: a tutor's cancellation refunds at any hour. A tutor who removes availability over a
 confirmed booking is cancelling that session, and it is recorded against them.
 
+`NO_SHOW` is the state of a booking whose session was abandoned ten minutes after its start because
+the tutor had not joined (US06). It is set whether or not the student was there; what changes is
+the refund and the tutor's record, below.
+
 ### `booking.tutor_reliability`
 
 What a tutor's record looks like, kept as facts rather than as a score.
@@ -548,6 +552,11 @@ INDEX  (tenant_id, tutor_id)
 ```
 
 One row per incident, never a counter. A counter loses the story and cannot be audited.
+
+`LATE_CANCELLATION` is written when a tutor confirms a cancellation inside twelve hours of the
+start. `NO_SHOW` is written when the tutor did not join a session ten minutes after its start **and
+the student did**; when both were absent nobody was wronged and no row is written. The unique key
+makes either one a single fact however many times the event that causes it is delivered.
 
 ---
 
@@ -580,6 +589,9 @@ INDEX (tenant_id, scheduled_start)
 link cannot walk in.
 
 `UNVERIFIED` is the state of a session that took place but failed the presence check below.
+`ABANDONED` is the state of a session whose tutor had not joined ten minutes after its scheduled
+start (US06), whether or not the student was there; `ended_at` is the moment it was abandoned. It
+is never given presence codes and never becomes `UNVERIFIED`.
 `CANCELLED` is the state of a session whose booking was cancelled before it started, so that the
 history shows what happened instead of an empty workspace (US12).
 
@@ -1087,7 +1099,7 @@ recipient_id   uuid                     -- NULL when the recipient has no accoun
 recipient_email varchar(160) NOT NULL
 kind           varchar(40)   NOT NULL   -- ACCESS_LINK | BOOKING_CONFIRMED | SESSION_REMINDER |
                                         -- PRESENCE_CODE | CREDITS_EXPIRING | PURCHASE_CONFIRMED |
-                                        -- REQUEST_RESOLVED …
+                                        -- TUTOR_NO_SHOW | REQUEST_RESOLVED …
 payload        jsonb         NOT NULL
 sent_at        timestamptz
 failed_reason  varchar(500)

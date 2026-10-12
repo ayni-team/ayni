@@ -206,6 +206,49 @@ class SessionTest {
   }
 
   @Test
+  @DisplayName("a session is abandoned ten minutes after the start if the tutor did not check in")
+  void abandonsAfterTutorNoShowDeadline() {
+
+    Session scheduled = aSessionAtNine();
+    Instant deadline = NINE.plus(Duration.ofMinutes(10));
+
+    assertThat(scheduled.tutorNoShowAt()).isEqualTo(deadline);
+    assertThat(scheduled.isDueForTutorNoShow(deadline.minusSeconds(1))).isFalse();
+    assertThat(scheduled.isDueForTutorNoShow(deadline)).isTrue();
+
+    scheduled.abandon(deadline);
+
+    assertThat(scheduled.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+    assertThat(scheduled.getEndedAt()).isEqualTo(deadline);
+    assertThat(scheduled.isDueForTutorNoShow(deadline.plusSeconds(1))).isFalse();
+  }
+
+  @Test
+  @DisplayName("a tutor no-show is detected even when only the student joined")
+  void abandonsAnInProgressSessionWhenTutorNeverArrived() {
+
+    Session session = aSessionAtNine();
+    session.join(STUDENT, NINE);
+
+    assertThat(session.isDueForTutorNoShow(NINE.plus(Duration.ofMinutes(10)))).isTrue();
+    session.abandon(NINE.plus(Duration.ofMinutes(10)));
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+  }
+
+  @Test
+  @DisplayName("a session cannot be abandoned after it has already ended")
+  void cannotAbandonClosedSession() {
+
+    Session session = aSessionAtNine();
+    session.join(TUTOR, NINE);
+    session.close(false, NINE.plus(Duration.ofHours(1)));
+
+    assertThat(session.isDueForTutorNoShow(NINE.plus(Duration.ofMinutes(10)))).isFalse();
+    assertThatThrownBy(() -> session.abandon(NINE.plus(Duration.ofMinutes(10))))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
   @DisplayName("the tutor earns the hours that were booked")
   void earnsTheBookedHours() {
 
