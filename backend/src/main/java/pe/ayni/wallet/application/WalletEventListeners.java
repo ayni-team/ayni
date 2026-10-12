@@ -79,14 +79,16 @@ class WalletEventListeners {
   }
 
   /**
-   * A booking was cancelled: cancelling always refunds.
+   * A booking was cancelled: the student gets their credits back, except when they cancelled it
+   * themselves inside the late window.
    *
-   * <p>Whether it was late, and who it counts against, is booking's business. Wallet returns the
-   * credits either way.
+   * <p>A tutor's cancellation refunds whatever the hour, because the student did nothing. Booking
+   * already asked for the refund inside its own transaction; this listener is the net behind it, and
+   * {@code RefundBooking} gives back only once however many times the event arrives.
    */
   @ApplicationModuleListener
   void on(BookingCancelled event) {
-    if (event.late()) {
+    if (event.late() && event.cancelledBy() == BookingCancelled.CancelledBy.STUDENT) {
       log.debug("Skipped refund for late cancellation of booking {}", event.bookingId());
       return;
     }
