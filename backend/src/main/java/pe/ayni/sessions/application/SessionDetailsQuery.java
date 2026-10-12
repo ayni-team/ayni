@@ -1,6 +1,7 @@
 package pe.ayni.sessions.application;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingView;
+import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 import pe.ayni.sessions.domain.model.Participation;
@@ -27,7 +29,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>The room name is not part of the answer. It is what lets anyone into the call, so it is only
  * handed over by joining, inside the window the room is open. Nor is the presence code, which only
  * travels by email: the answer says whether it was sent, until when it can be typed in and whether
- * it was, for the reader alone.
+ * it was, for the reader alone. The first arrival of each participant is visible to both, and once
+ * the session was abandoned so is who did not check in.
  */
 @Service
 public class SessionDetailsQuery {
@@ -81,6 +84,11 @@ public class SessionDetailsQuery {
             .findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId)
             .map(Participation::getEndConfirmedAt)
             .orElse(null);
+    List<Participation> arrivals = participations.findByTenantIdAndSessionId(tenantId, sessionId);
+    List<UUID> absent =
+        session.getStatus() == SessionStatus.ABANDONED
+            ? session.absentAtDeadline(arrivals)
+            : List.of();
 
     return new SessionDetails(
         session.getId(),
@@ -94,11 +102,22 @@ public class SessionDetailsQuery {
         session.getScheduledEnd(),
         session.joinOpensAt(),
         session.getStartedAt(),
+        arrivalOf(arrivals, session.getStudentId()),
+        arrivalOf(arrivals, session.getTutorId()),
+        absent,
         booked.needDescription(),
         session.presenceCheckAt(),
         presence,
         endConfirmedAt,
         session.getEndedAt(),
         session.closesAt());
+  }
+
+  private static Instant arrivalOf(List<Participation> arrivals, UUID userId) {
+    return arrivals.stream()
+        .filter(arrival -> arrival.getUserId().equals(userId))
+        .map(Participation::getJoinedAt)
+        .findFirst()
+        .orElse(null);
   }
 }

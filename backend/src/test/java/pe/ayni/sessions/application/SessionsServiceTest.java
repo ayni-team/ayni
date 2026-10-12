@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.SessionSummary;
 import pe.ayni.sessions.SessionView;
+import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -81,7 +83,16 @@ class SessionsServiceTest {
         Session.schedule(
             UUID.randomUUID(), UPC, UUID.randomUUID(), student, tutor, NINE,
             NINE.plus(Duration.ofHours(2)), NINE.minus(Duration.ofDays(1)));
-    completed.join(student, NINE.plus(Duration.ofMinutes(3)));
+    Instant arrived = NINE.plus(Duration.ofMinutes(3));
+    completed.join(student, arrived);
+    completed.join(tutor, arrived);
+    completed.startIfBothCheckedIn(
+        List.of(
+            Participation.arrived(
+                UUID.randomUUID(), UPC, completed.getId(), student, ParticipantRole.STUDENT, arrived),
+            Participation.arrived(
+                UUID.randomUUID(), UPC, completed.getId(), tutor, ParticipantRole.TUTOR, arrived)),
+        arrived);
     // Ended ten minutes early: still the two hours the student paid for.
     completed.close(true, NINE.plus(Duration.ofMinutes(110)));
     when(repository.findByTenantIdAndTutorIdAndStatusOrderByScheduledStartAsc(

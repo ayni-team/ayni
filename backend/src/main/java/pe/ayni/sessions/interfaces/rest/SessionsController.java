@@ -57,7 +57,8 @@ class SessionsController {
           "The session of a booking with its schedule, its state, when the room opens and what "
               + "the student needs help with, so the tutor arrives prepared. Only the two "
               + "participants can read it. The room name is not included: it is handed over by "
-              + "joining.")
+              + "joining. It shows when each participant first arrived and, once the session was "
+              + "abandoned, who did not check in.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",
@@ -100,9 +101,12 @@ class SessionsController {
       summary = "Join the session's room",
       description =
           "Lets the student or the tutor into the video call, from fifteen minutes before the "
-              + "start until the scheduled end, and answers with the room name. The first "
-              + "participant to join starts the session and SessionStarted is published. Joining "
-              + "again, after a dropped connection, changes nothing.")
+              + "start until the scheduled end, and answers with the room name and when each "
+              + "participant first arrived. Entering does not start the session: it starts, and "
+              + "SessionStarted is published once, when both participants have entered before "
+              + "ten minutes have passed since the scheduled start. If one is still missing then, "
+              + "the session is abandoned. Joining again, after a dropped connection, changes "
+              + "nothing.")
   @Parameter(
       in = ParameterIn.HEADER,
       name = "X-Tenant-Id",

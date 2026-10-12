@@ -5,12 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.PresenceCheckUnavailable;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.domain.model.SessionNotOpen;
@@ -79,20 +81,90 @@ class SessionTest {
         .isInstanceOf(NotAParticipant.class);
   }
 
+  /** The first arrival of a participant, as joining records it. */
+  private static Participation arrival(Session session, UUID user, Instant at) {
+    return Participation.arrived(
+        UUID.randomUUID(), "UPC", session.getId(), user, session.roleOf(user), at);
+  }
+
+  /** A session both participants checked in to, started when the second arrived. */
+  private static Session aSessionStartedAt(Instant studentArrived, Instant tutorArrived) {
+    Session session = aSessionAtNine();
+    session.join(STUDENT, studentArrived);
+    session.join(TUTOR, tutorArrived);
+    Instant startedAt = studentArrived.isAfter(tutorArrived) ? studentArrived : tutorArrived;
+    assertThat(
+            session.startIfBothCheckedIn(
+                List.of(
+                    arrival(session, STUDENT, studentArrived),
+                    arrival(session, TUTOR, tutorArrived)),
+                startedAt))
+        .isTrue();
+    return session;
+  }
+
   @Test
-  @DisplayName("the first participant to join starts it, and joining again changes nothing")
-  void theFirstJoinStartsIt() {
+  @DisplayName("joining does not start it: it starts when the second participant has checked in")
+  void startsWhenTheSecondParticipantChecksIn() {
 
     Session session = aSessionAtNine();
     Instant tenToNine = NINE.minus(Duration.ofMinutes(10));
+    Instant fiveToNine = NINE.minus(Duration.ofMinutes(5));
 
-    assertThat(session.join(STUDENT, tenToNine)).isTrue();
+    session.join(STUDENT, tenToNine);
+    List<Participation> onlyTheStudent = List.of(arrival(session, STUDENT, tenToNine));
+    assertThat(session.startIfBothCheckedIn(onlyTheStudent, tenToNine)).isFalse();
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
+    assertThat(session.getStartedAt()).isNull();
+
+    session.join(TUTOR, fiveToNine);
+    List<Participation> both =
+        List.of(arrival(session, STUDENT, tenToNine), arrival(session, TUTOR, fiveToNine));
+    assertThat(session.startIfBothCheckedIn(both, fiveToNine)).isTrue();
     assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
-    assertThat(session.getStartedAt()).isEqualTo(tenToNine);
+    assertThat(session.getStartedAt()).as("when the second arrived").isEqualTo(fiveToNine);
 
-    assertThat(session.join(TUTOR, NINE)).isFalse();
-    assertThat(session.join(STUDENT, NINE.plus(Duration.ofMinutes(20)))).isFalse();
-    assertThat(session.getStartedAt()).isEqualTo(tenToNine);
+    // Coming back changes nothing, and it does not start twice.
+    session.join(STUDENT, NINE.plus(Duration.ofMinutes(20)));
+    assertThat(session.startIfBothCheckedIn(both, NINE.plus(Duration.ofMinutes(20)))).isFalse();
+    assertThat(session.getStartedAt()).isEqualTo(fiveToNine);
+  }
+
+  @Test
+  @DisplayName("a participant who arrives at the ten minute mark or later has not checked in")
+  void theDeadlineIsStrict() {
+
+    Session session = aSessionAtNine();
+    Instant deadline = NINE.plus(Duration.ofMinutes(10));
+    Participation student = arrival(session, STUDENT, NINE);
+    Participation justInTime = arrival(session, TUTOR, deadline.minusSeconds(1));
+    Participation atTheMark = arrival(session, TUTOR, deadline);
+
+    assertThat(session.checkedInOnTime(TUTOR, List.of(justInTime))).isTrue();
+    assertThat(session.checkedInOnTime(TUTOR, List.of(atTheMark))).isFalse();
+    assertThat(session.startIfBothCheckedIn(List.of(student, atTheMark), deadline)).isFalse();
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
+    assertThat(session.absentAtDeadline(List.of(student, atTheMark))).containsExactly(TUTOR);
+    assertThat(session.absentAtDeadline(List.of(student, justInTime))).isEmpty();
+    assertThat(session.absentAtDeadline(List.of())).containsExactly(STUDENT, TUTOR);
+    assertThat(session.startIfBothCheckedIn(List.of(student, justInTime), deadline.minusSeconds(1)))
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("a session already abandoned is not started by a late arrival")
+  void anAbandonedSessionDoesNotStart() {
+
+    Session session = aSessionAtNine();
+    session.abandon(NINE.plus(Duration.ofMinutes(10)));
+
+    assertThat(
+            session.startIfBothCheckedIn(
+                List.of(arrival(session, STUDENT, NINE), arrival(session, TUTOR, NINE)),
+                NINE.plus(Duration.ofMinutes(11))))
+        .isFalse();
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+    assertThat(session.getStartedAt()).isNull();
   }
 
   @Test
@@ -107,7 +179,7 @@ class SessionTest {
         .hasMessageContaining("opens fifteen minutes before");
     assertThat(session.getStatus()).isEqualTo(SessionStatus.SCHEDULED);
 
-    assertThat(session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)))).isTrue();
+    session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)));
   }
 
   @Test
@@ -136,8 +208,8 @@ class SessionTest {
   @DisplayName("presence codes are due five minutes after the scheduled start, however early it began")
   void presenceCodesAreDueFiveMinutesIn() {
 
-    Session session = aSessionAtNine();
-    session.join(STUDENT, NINE.minus(Duration.ofMinutes(15)));
+    Session session =
+        aSessionStartedAt(NINE.minus(Duration.ofMinutes(15)), NINE.minus(Duration.ofMinutes(14)));
 
     assertThat(session.presenceCheckAt()).isEqualTo(NINE.plus(Duration.ofMinutes(5)));
     assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(4)))).isFalse();
@@ -147,33 +219,33 @@ class SessionTest {
   }
 
   @Test
-  @DisplayName("a session nobody joined has nobody to check, and presence waits for it to start")
+  @DisplayName("a session that never started has nobody to check, however many minutes pass")
   void aSessionNotStartedIsNotChecked() {
 
     Session session = aSessionAtNine();
+    session.join(STUDENT, NINE.minus(Duration.ofMinutes(5)));
 
-    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(10)))).isFalse();
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(5)))).isFalse();
+    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(30)))).isFalse();
     assertThatThrownBy(session::requireInProgressForPresence)
         .isInstanceOf(PresenceCheckUnavailable.class)
         .hasMessageContaining("scheduled");
-
-    session.join(TUTOR, NINE.plus(Duration.ofMinutes(20)));
-
-    assertThat(session.isDueForPresenceCheck(NINE.plus(Duration.ofMinutes(20)))).isTrue();
-    session.requireInProgressForPresence();
+    assertThat(session.isDueToClose(NINE.plus(Duration.ofHours(2)))).isFalse();
+    assertThatThrownBy(() -> session.close(false, NINE.plus(Duration.ofHours(2))))
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   @DisplayName("a session closes completed or unverified, once, and only while in progress")
   void closesOnce() {
 
-    Session verified = aSessionAtNine();
-    assertThatThrownBy(() -> verified.close(true, NINE))
-        .as("a session nobody joined cannot be closed")
+    Session neverStarted = aSessionAtNine();
+    assertThatThrownBy(() -> neverStarted.close(true, NINE))
+        .as("a session that never started cannot be closed")
         .isInstanceOf(IllegalStateException.class);
-    assertThatThrownBy(verified::requireInProgressToEnd).isInstanceOf(SessionNotOpen.class);
+    assertThatThrownBy(neverStarted::requireInProgressToEnd).isInstanceOf(SessionNotOpen.class);
 
-    verified.join(STUDENT, NINE);
+    Session verified = aSessionStartedAt(NINE, NINE);
     verified.requireInProgressToEnd();
     verified.close(true, NINE.plus(Duration.ofMinutes(58)));
     assertThat(verified.getStatus()).isEqualTo(SessionStatus.COMPLETED);
@@ -184,8 +256,7 @@ class SessionTest {
         .isInstanceOf(SessionNotOpen.class)
         .hasMessageContaining("completed");
 
-    Session unverified = aSessionAtNine();
-    unverified.join(TUTOR, NINE);
+    Session unverified = aSessionStartedAt(NINE, NINE);
     unverified.close(false, NINE.plus(Duration.ofMinutes(58)));
     assertThat(unverified.getStatus()).isEqualTo(SessionStatus.UNVERIFIED);
   }
@@ -198,21 +269,21 @@ class SessionTest {
     Instant quarterPast = NINE.plus(Duration.ofHours(1)).plus(Duration.ofMinutes(15));
 
     assertThat(session.closesAt()).isEqualTo(quarterPast);
-    assertThat(session.isDueToClose(quarterPast)).as("nobody joined: nothing to close").isFalse();
+    assertThat(session.isDueToClose(quarterPast)).as("never started: nothing to close").isFalse();
 
-    session.join(STUDENT, NINE);
-    assertThat(session.isDueToClose(quarterPast.minusSeconds(1))).isFalse();
-    assertThat(session.isDueToClose(quarterPast)).isTrue();
+    Session started = aSessionStartedAt(NINE, NINE);
+    assertThat(started.isDueToClose(quarterPast.minusSeconds(1))).isFalse();
+    assertThat(started.isDueToClose(quarterPast)).isTrue();
   }
 
   @Test
-  @DisplayName("a session is abandoned ten minutes after the start if the tutor did not check in")
+  @DisplayName("a session is abandoned ten minutes after the start if somebody did not check in")
   void abandonsAfterTutorNoShowDeadline() {
 
     Session scheduled = aSessionAtNine();
     Instant deadline = NINE.plus(Duration.ofMinutes(10));
 
-    assertThat(scheduled.tutorNoShowAt()).isEqualTo(deadline);
+    assertThat(scheduled.checkInDeadline()).isEqualTo(deadline);
     assertThat(scheduled.isDueForTutorNoShow(deadline.minusSeconds(1))).isFalse();
     assertThat(scheduled.isDueForTutorNoShow(deadline)).isTrue();
 
@@ -224,8 +295,8 @@ class SessionTest {
   }
 
   @Test
-  @DisplayName("a tutor no-show is detected even when only the student joined")
-  void abandonsAnInProgressSessionWhenTutorNeverArrived() {
+  @DisplayName("a missing participant is detected even when the other one joined")
+  void abandonsWhenOnlyOneParticipantArrived() {
 
     Session session = aSessionAtNine();
     session.join(STUDENT, NINE);
@@ -239,8 +310,7 @@ class SessionTest {
   @DisplayName("a session cannot be abandoned after it has already ended")
   void cannotAbandonClosedSession() {
 
-    Session session = aSessionAtNine();
-    session.join(TUTOR, NINE);
+    Session session = aSessionStartedAt(NINE, NINE);
     session.close(false, NINE.plus(Duration.ofHours(1)));
 
     assertThat(session.isDueForTutorNoShow(NINE.plus(Duration.ofMinutes(10)))).isFalse();

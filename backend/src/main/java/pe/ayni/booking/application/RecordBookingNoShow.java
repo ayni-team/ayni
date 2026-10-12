@@ -15,12 +15,14 @@ import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * US06: a session abandoned because its tutor did not come marks its booking {@code NO_SHOW}, and
- * records the absence against the tutor when the student did attend.
+ * US06 and US09: a session abandoned because a participant did not check in marks its booking
+ * {@code NO_SHOW}, and records the absence against the tutor when the student did attend, which
+ * means the tutor was the one missing.
  *
- * <p>Nobody was wronged when both were absent, so the booking is marked and nothing is held against
- * the tutor. The incident goes to {@code booking.tutor_reliability} with the same kind a late
- * cancellation uses, and {@code uq_tutor_reliability_booking_kind} stands behind the check here.
+ * <p>Nobody was wronged when both were absent, and a tutor who came is not to blame for an absent
+ * student, so the booking is marked and nothing is held against the tutor. The incident goes to
+ * {@code booking.tutor_reliability} with the same kind a late cancellation uses, and {@code
+ * uq_tutor_reliability_booking_kind} stands behind the check here.
  *
  * <p>The booking is locked while this runs, so the same event delivered twice, or at once, records
  * one incident.

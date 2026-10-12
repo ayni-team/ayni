@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
-import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.ParticipationRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
@@ -20,7 +20,14 @@ import pe.ayni.shared.events.SessionAbandoned;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * US06: abandons a session ten minutes after its scheduled start when its tutor has not checked in.
+ * US06 and US09: abandons a session ten minutes after its scheduled start when either participant
+ * has not checked in.
+ *
+ * <p>Who is held to account depends on who was missing. A tutor who did not come while the student
+ * did is a tutor no-show: the student is refunded and told, and the incident is the tutor's. A
+ * student who did not come while the tutor did loses the hour, and nothing is held against the
+ * tutor; when neither came, nobody is refunded or blamed. {@link SessionAbandoned} carries only
+ * whether the student was present, and that is enough for its listeners to tell the three apart.
  */
 @Service
 public class AbandonTutorNoShowUseCase {
@@ -53,7 +60,7 @@ public class AbandonTutorNoShowUseCase {
   }
 
   /**
-   * Abandons one session if its tutor had not joined by the ten-minute deadline.
+   * Abandons one session if either participant had not joined before the ten-minute deadline.
    *
    * @return whether the session was abandoned now
    * @throws NoSuchElementException when the session does not exist in the current university
@@ -69,13 +76,18 @@ public class AbandonTutorNoShowUseCase {
             .lockByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
 
-    if (!session.isDueForTutorNoShow(now)
-        || checkedInByDeadline(session, session.getTutorId(), ParticipantRole.TUTOR)) {
+    if (!session.isDueForTutorNoShow(now)) {
       return false;
     }
 
-    boolean studentCheckedIn =
-        checkedInByDeadline(session, session.getStudentId(), ParticipantRole.STUDENT);
+    List<Participation> arrivals =
+        participations.findByTenantIdAndSessionId(tenantId, sessionId);
+    boolean studentCheckedIn = session.checkedInOnTime(session.getStudentId(), arrivals);
+    boolean tutorCheckedIn = session.checkedInOnTime(session.getTutorId(), arrivals);
+    if (studentCheckedIn && tutorCheckedIn) {
+      return false;
+    }
+
     BookingView confirmedBooking = booking.requireBooking(session.getBookingId());
     if (confirmedBooking.status() != BookingStatus.CONFIRMED) {
       return false;
@@ -93,15 +105,5 @@ public class AbandonTutorNoShowUseCase {
             studentCheckedIn,
             now));
     return true;
-  }
-
-  private boolean checkedInByDeadline(
-      Session session, UUID userId, ParticipantRole expectedRole) {
-    return participations
-        .findByTenantIdAndSessionIdAndUserId(
-            session.getTenantId(), session.getId(), userId)
-        .filter(participation -> participation.getRole() == expectedRole)
-        .map(participation -> participation.hasCheckedInBy(session.tutorNoShowAt()))
-        .orElse(false);
   }
 }
