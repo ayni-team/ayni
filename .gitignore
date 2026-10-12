@@ -1,5 +1,7 @@
 # ----- Java / Maven -----
 target/
+# Written at the repository root when the tests run from there (Spring Modulith docs)
+/build/
 *.class
 *.log
 

@@ -158,11 +158,11 @@ prevents rather than detects.
 
 The code is single use, expires, and the number of attempts is capped.
 
-> **Open, and it needs your decision.** What happens when somebody does not confirm. *Proposal:* the
-> session ends as `UNVERIFIED`, the tutor earns **no** credits, the student is refunded and the audit
-> is notified. Earned credits are what backs a recognition request, so handing them out without proof
-> of presence would hollow out the mechanism. Treating it as a no show instead would punish somebody
-> whose email merely did not arrive.
+> **Decided.** When somebody does not confirm the code, the session ends as `UNVERIFIED`. The tutor
+> earns **no** credits, the student recovers theirs and the audit is notified. Earned credits are
+> what backs a recognition request, so handing them out without proof of presence would hollow out
+> the mechanism. Treating it as a no show instead would punish somebody whose email merely did not
+> arrive. Implemented in US54 and US11.
 
 *Policy: as the end approaches, both participants are warned.*
 
@@ -287,16 +287,19 @@ There is no user-facing reporting of sessions. Detection is automatic.
 9. **A presence code five minutes into the session**, by email, entered in the platform.
 10. **Twelve hours** is the cancellation window, and a refund is always issued.
 11. **The catalogue is global for tools and per university for courses.**
+12. **An unconfirmed presence check ends the session as `UNVERIFIED`**: the tutor earns no credits,
+    the student recovers theirs and the audit is notified (US54, US11).
 
 ## Still open
 
-- What happens when a presence check is not confirmed. Proposal above.
 - Which notices exist exactly, and when each is sent.
 - What happens to the data of a university that is suspended.
 - Whether a student may ever receive tutoring from another university. Isolation forbids it today;
   it is a product question, not a technical one.
 
 ## What these decisions contradict in the report
+
+All of these were corrected in version 1.1.0 of the report (2026-09-23). The list stays as history.
 
 - The report states one credit equals thirty minutes (hypothesis H2).
 - US35 grants purchased credits with an expiry date.
