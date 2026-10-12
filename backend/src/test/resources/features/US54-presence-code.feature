@@ -1,7 +1,8 @@
 # US54 - As the coordinator who answers for the recognised hours, I need both participants to prove
 # they are really in the session, so that the hours add up to tutoring that actually happened.
 #
-# Scenarios 1, 2 and 4 of the story. Scenario 3, a session that ends without every confirmation
+# Codes only go out for a session that started, which since US09 is one both participants entered
+# before the ten-minute mark. Scenarios 1, 2 and 4 of the story. Scenario 3, a session that ends without every confirmation
 # becoming unverified, arrives with closing the session (US11).
 #
 # Every scenario names the test that runs it, against a real PostgreSQL, in
@@ -12,7 +13,7 @@ Feature: Proving presence with a code sent by email
 
   Background:
     Given Ana booked an hour with Bruno, which scheduled their session
-    And both joined it
+    And both joined it, which started the session
 
   Scenario: Five minutes into the session each participant gets a code
     Given the session is ten minutes into its hour
@@ -21,8 +22,8 @@ Feature: Proving presence with a code sent by email
     And only its hash is stored
     And looking again sends nothing more
 
-  Scenario: No code before the fifth minute, for a session nobody joined, or after the end
-    Given one session two minutes in, one nobody joined and one already over
+  Scenario: No code before the fifth minute, for a session that never started, or after the end
+    Given one session two minutes in, one that never started and one already over
     When the presence codes are looked for
     Then none of them gets a code
 
@@ -54,8 +55,8 @@ Feature: Proving presence with a code sent by email
     When she types it
     Then it is refused, and no attempt is spent
 
-  Scenario: Presence cannot be confirmed before the code, without joining, or by somebody else
+  Scenario: Presence cannot be confirmed before the code, before the session starts, or by a stranger
     Then a code typed before it is sent is refused
-    And Bruno cannot confirm a session he never joined
+    And a participant cannot confirm while the other participant has not joined
     And a stranger is refused
     And a code that is not six digits is refused without spending an attempt

@@ -155,6 +155,11 @@ class JoinSessionAcceptanceTest {
         "select room_name from sessions.sessions where id = ?", String.class, sessionId);
   }
 
+  private String statusOf(UUID sessionId) {
+    return jdbc.queryForObject(
+        "select status from sessions.sessions where id = ?", String.class, sessionId);
+  }
+
   private int participationsOf(UUID sessionId) {
     return jdbc.queryForObject(
         "select count(*) from sessions.participations where tenant_id = ? and session_id = ?",
@@ -205,8 +210,8 @@ class JoinSessionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("Joining opens the room and the first participant starts the session")
-  void joiningStartsTheSession() throws Exception {
+  @DisplayName("Both participants check in before the session starts")
+  void joiningStartsTheSessionAfterBothCheckIn() throws Exception {
 
     UUID session = aSessionStartingIn(Duration.ofMinutes(10));
 
@@ -214,24 +219,32 @@ class JoinSessionAcceptanceTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.role").value("STUDENT"))
         .andExpect(jsonPath("$.roomName").value(roomOf(session)))
-        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
-        .andExpect(jsonPath("$.startedAt").exists());
-    String startedAt =
-        jdbc.queryForObject(
-            "select started_at::text from sessions.sessions where id = ?", String.class, session);
+        .andExpect(jsonPath("$.status").value("SCHEDULED"))
+        .andExpect(jsonPath("$.startedAt").doesNotExist())
+        .andExpect(jsonPath("$.studentJoinedAt").exists())
+        .andExpect(jsonPath("$.tutorJoinedAt").doesNotExist());
+
+    read(session, tutor)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.studentJoinedAt").exists())
+        .andExpect(jsonPath("$.tutorJoinedAt").doesNotExist());
 
     join(session, tutor)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.role").value("TUTOR"))
-        .andExpect(jsonPath("$.roomName").value(roomOf(session)));
+        .andExpect(jsonPath("$.roomName").value(roomOf(session)))
+        .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("$.studentJoinedAt").exists())
+        .andExpect(jsonPath("$.tutorJoinedAt").exists())
+        .andExpect(jsonPath("$.startedAt").exists());
 
     assertThat(started.of(session)).as("SessionStarted, once").isEqualTo(1);
     assertThat(participationsOf(session)).isEqualTo(2);
     assertThat(
             jdbc.queryForObject(
-                "select started_at::text from sessions.sessions where id = ?", String.class, session))
-        .as("the start is the first arrival")
-        .isEqualTo(startedAt);
+                "select started_at from sessions.sessions where id = ?", Instant.class, session))
+        .as("the start is when the second participant checked in")
+        .isNotNull();
   }
 
   @Test
@@ -257,35 +270,43 @@ class JoinSessionAcceptanceTest {
                 session,
                 student))
         .isEqualTo(firstArrival);
-    assertThat(started.of(session)).isEqualTo(1);
+    assertThat(started.of(session)).isZero();
   }
 
   @Test
   @DisplayName("Both arriving at the same moment start the session once")
   void bothAtOnceStartItOnce() throws Exception {
 
-    UUID session = aSessionStartingIn(Duration.ofMinutes(5));
-    CyclicBarrier bothReady = new CyclicBarrier(2);
+    // Each round is a session of its own with both participants held at a barrier. Without the lock
+    // on the session, a round where each records their arrival without seeing the other's leaves
+    // the session scheduled for good, and one where both see both starts it twice: either way a
+    // round fails, and with this many of them the lock is what the test is proving.
+    int rounds = 25;
     ExecutorService pool = Executors.newFixedThreadPool(2);
     try {
-      List<Future<Integer>> answers = new ArrayList<>();
-      for (UUID participant : List.of(student, tutor)) {
-        answers.add(
-            pool.submit(
-                () -> {
-                  bothReady.await();
-                  return join(session, participant).andReturn().getResponse().getStatus();
-                }));
-      }
-      for (Future<Integer> answer : answers) {
-        assertThat(answer.get()).isEqualTo(200);
+      for (int round = 0; round < rounds; round++) {
+        UUID session = aSessionStartingIn(Duration.ofMinutes(5));
+        CyclicBarrier bothReady = new CyclicBarrier(2);
+        List<Future<Integer>> answers = new ArrayList<>();
+        for (UUID participant : List.of(student, tutor)) {
+          answers.add(
+              pool.submit(
+                  () -> {
+                    bothReady.await();
+                    return join(session, participant).andReturn().getResponse().getStatus();
+                  }));
+        }
+        for (Future<Integer> answer : answers) {
+          assertThat(answer.get()).isEqualTo(200);
+        }
+
+        assertThat(statusOf(session)).as("round %d: started", round).isEqualTo("IN_PROGRESS");
+        assertThat(started.of(session)).as("round %d: SessionStarted once", round).isEqualTo(1);
+        assertThat(participationsOf(session)).isEqualTo(2);
       }
     } finally {
       pool.shutdownNow();
     }
-
-    assertThat(started.of(session)).isEqualTo(1);
-    assertThat(participationsOf(session)).isEqualTo(2);
   }
 
   @Test
