@@ -344,7 +344,10 @@ class PaymentsAcceptanceTest {
 
     purchase(student, 2, "unavailable-" + UUID.randomUUID())
         .andExpect(status().isAccepted())
-        .andExpect(jsonPath("$.status").value("PENDING"));
+        .andExpect(jsonPath("$.status").value("PENDING"))
+        .andExpect(jsonPath("$.providerUnavailable").value(true))
+        .andExpect(jsonPath("$.guidance").value(
+            "Credit purchases are temporarily unavailable. This attempt remains pending; do not retry. Check this purchase's status."));
 
     mockMvc
         .perform(
