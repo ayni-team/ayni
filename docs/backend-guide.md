@@ -349,7 +349,8 @@ public interface WalletApi {
 
 **Publishes:** `CreditsGranted`, `CreditsExpiring`, `CreditsExpired`.
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
-`BookingCancelled` and `SessionUnverified` (refund the booking), `PurchaseConfirmed`.
+`BookingCancelled` (refunds the booking, unless the student cancelled it late) and
+`SessionUnverified` (refunds the booking), `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
@@ -384,6 +385,10 @@ A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` ins
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
 The reasoning is in ADR 0005.
 
+The listener of `BookingCancelled` refunds every cancellation except one: it does nothing when the
+event is late **and** the student cancelled it themselves. A tutor's cancellation refunds whatever
+the hour, and the same event delivered twice refunds once.
+
 ---
 
 ## booking
@@ -393,6 +398,7 @@ Owns availability and reservations.
 ```java
 public interface BookingApi {
   BookingView requireBooking(UUID bookingId);
+  boolean isConfirmed(UUID bookingId);   // used by sessions, before it schedules a session
   List<OpenHourView> openHoursOf(UUID tutorId, Instant from);   // used by matching
 }
 ```
@@ -413,7 +419,7 @@ because a hold ends either in a booking, which is announced, or back in circulat
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history |
-| DELETE | `/api/v1/bookings/{id}` | student or tutor | cancels, always refunds |
+| DELETE | `/api/v1/bookings/{id}` | student or tutor of the booking | cancels. The student is refunded unless they cancel inside twelve hours of the start; the tutor's cancellation always refunds. `confirmLate=true` confirms a cancellation inside twelve hours. 204, 400, 403, 404 and 409 |
 | GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
 | DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
@@ -442,8 +448,31 @@ it for rollback. A refusal answers 409 with the reason (the hour was taken, the 
 tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
 nothing was charged.
 
-**Cancelling:** always refunds. Inside twelve hours of the start it is recorded against whoever
-cancelled. A tutor removing availability over a confirmed booking is cancelling that session.
+**Cancelling.** Only the booking's student or tutor may cancel it, before the session starts; the
+booking is locked while it is cancelled, so two cancellations at once end with one refund and one
+`BookingCancelled`, and cancelling again answers `204` and changes nothing. "Late" is strictly less
+than twelve hours before the start; exactly twelve is on time.
+
+| Who cancels | Twelve hours or more ahead | Less than twelve hours ahead |
+|---|---|---|
+| Student | credits returned, hours `AVAILABLE` | warned first that nothing is returned; once confirmed, cancelled with no refund, hours `AVAILABLE` |
+| Tutor | credits returned, hours `RELEASED` | asked to confirm and warned it will be recorded; once confirmed, credits returned, hours `RELEASED` and a `LATE_CANCELLATION` incident in `booking.tutor_reliability` |
+
+The warning is the answer to the first request and cancels nothing: `409` with `late`,
+`refundWillBeIssued`, `incidentWillBeRecorded` and `confirmationRequired`. The same `DELETE` with
+`confirmLate=true` carries it out. Without the lateness, `confirmLate` changes nothing.
+
+| Status | When |
+|---|---|
+| 204 | Cancelled, or it already was |
+| 400 | A missing `X-Tenant-Id` or `X-User-Id`, or a booking id that is not a UUID |
+| 403 | The caller is neither the student nor the tutor of the booking |
+| 404 | The booking does not exist in this university. Another university's booking answers the same |
+| 409 | The confirmation of a late cancellation is needed, or the session has already started |
+
+Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) and publishes
+`BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
+happened. A tutor removing availability over a confirmed booking is cancelling that session.
 
 **Changing availability reaches the hours that exist.** Hours are generated weeks ahead, so a pause
 or a date exception usually arrives after its hours exist. Saving one adjusts them in the same
