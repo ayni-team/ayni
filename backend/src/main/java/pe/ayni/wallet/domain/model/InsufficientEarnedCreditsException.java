@@ -1,4 +1,4 @@
-package pe.ayni.wallet;
+package pe.ayni.wallet.domain.model;
 
 import pe.ayni.shared.domain.Credits;
 

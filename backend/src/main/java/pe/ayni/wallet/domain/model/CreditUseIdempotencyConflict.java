@@ -1,4 +1,4 @@
-package pe.ayni.wallet;
+package pe.ayni.wallet.domain.model;
 
 public class CreditUseIdempotencyConflict extends RuntimeException {
 

@@ -9,8 +9,8 @@ import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.UserRole;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.shared.tenancy.TenantContext;
-import pe.ayni.wallet.CampusBenefitNotFoundException;
-import pe.ayni.wallet.WalletAccessDeniedException;
+import pe.ayni.wallet.domain.model.CampusBenefitNotFoundException;
+import pe.ayni.wallet.domain.model.WalletAccessDeniedException;
 import pe.ayni.wallet.domain.model.CampusBenefit;
 import pe.ayni.wallet.infrastructure.CampusBenefitRepository;
 

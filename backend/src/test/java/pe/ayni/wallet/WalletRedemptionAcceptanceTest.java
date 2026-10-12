@@ -81,7 +81,7 @@ class WalletRedemptionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A confirmed campus benefit redemption spends earned credits and returns a receipt")
+  @DisplayName("The student redeems earned credits for a campus benefit")
   void aConfirmedCampusBenefitRedemptionSpendsEarnedCreditsAndReturnsAReceipt()
       throws Exception {
     grant(student, 5, CreditType.EARNED);
@@ -123,7 +123,7 @@ class WalletRedemptionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A confirmed donation reduces earned credits and increases the campus incoming pool")
+  @DisplayName("The student donates earned credits to the incoming-student pool")
   void aConfirmedDonationReducesEarnedCreditsAndIncreasesTheIncomingPool() throws Exception {
     grant(student, 4, CreditType.EARNED);
     grant(student, 2, CreditType.PURCHASED);
@@ -164,7 +164,7 @@ class WalletRedemptionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A redemption and donation require a warning round trip before confirmation")
+  @DisplayName("The student must review the irreversible-operation warning")
   void aRedemptionAndDonationRequireAWarningRoundTripBeforeConfirmation() throws Exception {
     grant(student, 4, CreditType.EARNED);
     UUID benefitId = createBenefit("Campus meal", 2);
@@ -188,7 +188,7 @@ class WalletRedemptionAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A benefit redemption refuses when earned credits are insufficient")
+  @DisplayName("Purchased credits cannot cover a benefit redemption")
   void aBenefitRedemptionRefusesWhenEarnedCreditsAreInsufficient() throws Exception {
     grant(student, 1, CreditType.EARNED);
     grant(student, 4, CreditType.PURCHASED);

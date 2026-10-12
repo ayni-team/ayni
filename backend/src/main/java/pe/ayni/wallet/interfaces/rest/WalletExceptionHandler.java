@@ -14,12 +14,12 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.shared.tenancy.MissingTenantException;
 import pe.ayni.shared.tenancy.MissingUserException;
-import pe.ayni.wallet.CampusBenefitNotFoundException;
-import pe.ayni.wallet.CreditUseConfirmationException;
-import pe.ayni.wallet.CreditUseIdempotencyConflict;
+import pe.ayni.wallet.domain.model.CampusBenefitNotFoundException;
+import pe.ayni.wallet.domain.model.CreditUseConfirmationException;
+import pe.ayni.wallet.domain.model.CreditUseIdempotencyConflict;
 import pe.ayni.wallet.InsufficientCreditsException;
-import pe.ayni.wallet.InsufficientEarnedCreditsException;
-import pe.ayni.wallet.WalletAccessDeniedException;
+import pe.ayni.wallet.domain.model.InsufficientEarnedCreditsException;
+import pe.ayni.wallet.domain.model.WalletAccessDeniedException;
 import pe.ayni.wallet.domain.model.CreditRuleViolation;
 
 /**
