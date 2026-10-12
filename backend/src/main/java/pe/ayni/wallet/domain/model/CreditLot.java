@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.UUID;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
@@ -61,6 +62,9 @@ public class CreditLot {
 
   @Column(name = "expires_at", updatable = false)
   private Instant expiresAt;
+
+  @Column(name = "expiry_notice_sent_at")
+  private Instant expiryNoticeSentAt;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "source_type", length = 24, nullable = false, updatable = false)
@@ -180,6 +184,20 @@ public class CreditLot {
     return lost;
   }
 
+  /** Records that the one advance notice for this credit group has been published. */
+  public void markExpiryNoticeSent(Instant notifiedAt) {
+    if (expiresAt == null) {
+      throw new CreditRuleViolation("Credits without an expiry cannot receive an expiry notice");
+    }
+    if (remainingAmount == 0) {
+      throw new CreditRuleViolation("An empty credit group cannot receive an expiry notice");
+    }
+    if (expiryNoticeSentAt != null) {
+      throw new CreditRuleViolation("An expiry notice was already sent for this credit group");
+    }
+    this.expiryNoticeSentAt = Objects.requireNonNull(notifiedAt, "notifiedAt must not be null");
+  }
+
   /** Whether the group had already died at the given moment. */
   public boolean isExpiredAt(Instant now) {
     return expiresAt != null && !now.isBefore(expiresAt);
@@ -221,6 +239,10 @@ public class CreditLot {
 
   public Instant expiresAt() {
     return expiresAt;
+  }
+
+  public Instant expiryNoticeSentAt() {
+    return expiryNoticeSentAt;
   }
 
   public CreditSource sourceType() {
