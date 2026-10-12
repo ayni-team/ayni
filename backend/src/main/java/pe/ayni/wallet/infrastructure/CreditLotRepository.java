@@ -15,9 +15,9 @@ import pe.ayni.wallet.domain.model.CreditLot;
 /**
  * Groups of credits.
  *
- * <p>Two of these queries take a write lock. Credits are the one thing in this product that can be
- * spent twice if two requests read the same groups at the same time, and the groups carry no
- * version column, so the rows are locked while they are being spent.
+ * <p>Queries that change groups take a write lock. Credits are the one thing in this product that
+ * can be spent twice if two requests read the same groups at the same time, and the groups carry no
+ * version column, so the rows are locked while they are being spent or processed.
  */
 public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
 
@@ -71,6 +71,23 @@ public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
       """)
   List<CreditLot> lockExpired(@Param("tenantId") String tenantId, @Param("now") Instant now);
 
+  /** Credit groups in their advance-notice window that have not been notified yet. */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select lot from CreditLot lot
+      where lot.tenantId = :tenantId
+        and lot.remainingAmount > 0
+        and lot.expiresAt > :now
+        and lot.expiresAt <= :noticeBefore
+        and lot.expiryNoticeSentAt is null
+      order by lot.accountId, lot.expiresAt
+      """)
+  List<CreditLot> lockExpiring(
+      @Param("tenantId") String tenantId,
+      @Param("now") Instant now,
+      @Param("noticeBefore") Instant noticeBefore);
+
   /**
    * The universities that have credits to expire.
    *
@@ -86,6 +103,18 @@ public interface CreditLotRepository extends JpaRepository<CreditLot, UUID> {
         and lot.expiresAt <= :now
       """)
   List<String> tenantsWithCreditsToExpire(@Param("now") Instant now);
+
+  /** Universities with at least one unnotified credit group in its advance-notice window. */
+  @Query(
+      """
+      select distinct lot.tenantId from CreditLot lot
+      where lot.remainingAmount > 0
+        and lot.expiresAt > :now
+        and lot.expiresAt <= :noticeBefore
+        and lot.expiryNoticeSentAt is null
+      """)
+  List<String> tenantsWithCreditsExpiring(
+      @Param("now") Instant now, @Param("noticeBefore") Instant noticeBefore);
 
   /**
    * Everything the student was ever granted of one type, spent or not.
