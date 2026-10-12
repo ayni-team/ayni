@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -52,6 +53,7 @@ class WalletEventListenersTest {
   @Autowired private WalletApi wallet;
   @Autowired private ApplicationEventPublisher events;
   @Autowired private TransactionTemplate transactions;
+  @Autowired private JdbcTemplate jdbc;
 
   @MockitoBean
   private IdentityApi identity;
@@ -192,8 +194,7 @@ class WalletEventListenersTest {
   }
 
   @Test
-  @DisplayName(
-          "an activated student receives the baseline grant exactly once")
+  @DisplayName("The allocation is not duplicated")
   void anActivatedStudentReceivesInitialCreditsOnce() {
 
     UUID policyId =
@@ -238,6 +239,23 @@ class WalletEventListenersTest {
             .isEqualTo(Credits.of(5));
   }
 
+  @Test
+  @DisplayName("Initial credits of the term")
+  void anActivatedStudentSeesTheInitialCreditsWithTheirExpiry() {
+    UUID policyId = UUID.randomUUID();
+    Instant activatedAt = Instant.parse("2026-10-02T20:00:00Z");
+    when(identity.currentPolicy(UPC, PolicyKind.BASELINE))
+        .thenReturn(
+            Optional.of(
+                new CreditPolicyView(policyId, PolicyKind.BASELINE, Credits.of(5), 30)));
+
+    publish(
+        new StudentActivated(UPC, student, "u202500003@upc.edu.pe", "U202500003", activatedAt));
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    assertThat(expiryOfSeedCredits(student)).isEqualTo(activatedAt.plus(Duration.ofDays(30)));
+  }
+
   /** Publishes as the owning module would: inside a transaction that then commits. */
   private void publish(Object event) {
     transactions.executeWithoutResult(
@@ -257,6 +275,21 @@ class WalletEventListenersTest {
                                     .available());
 
     return available[0];
+  }
+
+  /** When the credits the university granted this student stop being usable. */
+  private Instant expiryOfSeedCredits(UUID userId) {
+    return jdbc.queryForObject(
+            """
+            select lot.expires_at
+            from wallet.credit_lots lot
+            join wallet.credit_accounts account on account.id = lot.account_id
+            where account.tenant_id = ? and account.user_id = ? and lot.credit_type = 'SEED'
+            """,
+            java.sql.Timestamp.class,
+            UPC,
+            userId)
+        .toInstant();
   }
 
   private Credits earnedTotalOf(UUID userId) {
