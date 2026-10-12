@@ -28,7 +28,12 @@ import pe.ayni.wallet.domain.model.CreditRuleViolation;
  * <p>It is declared for wallet's controller alone, so each module keeps its own mapping: a refusal
  * that means one thing here should not quietly acquire a status code decided elsewhere.
  */
-@RestControllerAdvice(assignableTypes = {WalletController.class, CampusBenefitsController.class})
+@RestControllerAdvice(
+    assignableTypes = {
+      WalletController.class,
+      CampusBenefitsController.class,
+      CoordinatorCampusBenefitsController.class
+    })
 class WalletExceptionHandler {
 
   private final Clock clock;
