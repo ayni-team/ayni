@@ -68,7 +68,7 @@ class RetireCourseUseCaseTest {
             UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), "Databases", null, "1ASI0616", NOW);
     when(catalogItems.findByIdAndTenantVisibility(course.getId(), UPC)).thenReturn(Optional.of(course));
     when(catalogItems.lockByIdAndTenantVisibility(course.getId(), UPC)).thenReturn(Optional.of(course));
-    when(offeredSkills.lockByCatalogItemIdAndStatus(course.getId(), OfferedSkillStatus.ENABLED))
+    when(offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(UPC, course.getId(), OfferedSkillStatus.ENABLED))
         .thenReturn(List.of());
   }
 
@@ -84,7 +84,7 @@ class RetireCourseUseCaseTest {
     OfferedSkill offer = OfferedSkill.enableByAcademicRecord(
         UUID.randomUUID(), UPC, UUID.randomUUID(), course.getId(), new java.math.BigDecimal("15.00"),
         new java.math.BigDecimal("13.00"), NOW);
-    when(offeredSkills.lockByCatalogItemIdAndStatus(course.getId(), OfferedSkillStatus.ENABLED))
+    when(offeredSkills.lockByTenantIdAndCatalogItemIdAndStatus(UPC, course.getId(), OfferedSkillStatus.ENABLED))
         .thenReturn(List.of(offer));
 
     Retirement retirement = retire(COORDINATOR, course.getId(), 1);
