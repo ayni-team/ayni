@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pe.ayni.recognition.domain.model.RecognitionRequest;
+import pe.ayni.recognition.domain.model.RecognitionRuleViolation;
+import pe.ayni.recognition.domain.model.RecognitionStateConflict;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.recognition.domain.model.RequestedSession;
 
@@ -73,6 +75,67 @@ class RecognitionRequestTest {
 
     assertThat(first.getRequestId()).isEqualTo(request.getId());
     assertThat(second.getRequestId()).isEqualTo(request.getId());
+  }
+
+  @Test
+  @DisplayName("approving records who decided, when and why, and the figures stay as they were")
+  void approving() {
+    RecognitionRequest request = submit(session(10, 5), session(10, 4));
+    UUID coordinator = UUID.randomUUID();
+    Instant later = NOW.plusSeconds(3 * 86400);
+
+    request.approve(coordinator, "  The hours match the programme  ", later);
+
+    assertThat(request.getStatus()).isEqualTo(RequestStatus.APPROVED);
+    assertThat(request.getReviewedBy()).isEqualTo(coordinator);
+    assertThat(request.getReviewedAt()).isEqualTo(later);
+    assertThat(request.getDecisionReason()).isEqualTo("The hours match the programme");
+    assertThat(request.getTotalHours()).isEqualTo(20);
+    assertThat(request.getAverageRating()).isEqualByComparingTo(new BigDecimal("4.50"));
+  }
+
+  @Test
+  @DisplayName("rejecting records the decision and the reason")
+  void rejecting() {
+    RecognitionRequest request = submit(session(20, null));
+
+    request.reject(UUID.randomUUID(), "The sessions are not related to the programme", NOW);
+
+    assertThat(request.getStatus()).isEqualTo(RequestStatus.REJECTED);
+    assertThat(request.getDecisionReason()).isEqualTo("The sessions are not related to the programme");
+  }
+
+  @Test
+  @DisplayName("a decision without a reason, or with one that is too long, is refused and nothing changes")
+  void aDecisionNeedsAReason() {
+    RecognitionRequest request = submit(session(20, null));
+    UUID coordinator = UUID.randomUUID();
+
+    assertThatThrownBy(() -> request.approve(coordinator, null, NOW)).isInstanceOf(RecognitionRuleViolation.class);
+    assertThatThrownBy(() -> request.approve(coordinator, "   ", NOW)).isInstanceOf(RecognitionRuleViolation.class);
+    assertThatThrownBy(() -> request.reject(coordinator, "x".repeat(1001), NOW))
+        .isInstanceOf(RecognitionRuleViolation.class);
+
+    assertThat(request.getStatus()).isEqualTo(RequestStatus.SUBMITTED);
+    assertThat(request.getReviewedBy()).isNull();
+  }
+
+  @Test
+  @DisplayName("a request that was decided cannot be decided again, in either direction")
+  void decidedOnce() {
+    RecognitionRequest approved = submit(session(20, null));
+    approved.approve(UUID.randomUUID(), "Fine", NOW);
+    RecognitionRequest rejected = submit(session(20, null));
+    rejected.reject(UUID.randomUUID(), "No", NOW);
+
+    assertThatThrownBy(() -> approved.reject(UUID.randomUUID(), "Changed my mind", NOW))
+        .isInstanceOf(RecognitionStateConflict.class);
+    assertThatThrownBy(() -> rejected.approve(UUID.randomUUID(), "Changed my mind", NOW))
+        .isInstanceOf(RecognitionStateConflict.class);
+
+    assertThat(approved.getStatus()).isEqualTo(RequestStatus.APPROVED);
+    assertThat(rejected.getStatus()).isEqualTo(RequestStatus.REJECTED);
+    assertThat(approved.getDecisionReason()).isEqualTo("Fine");
   }
 
   @Test

@@ -105,6 +105,37 @@ class RecognitionRequestDatabaseTest {
   }
 
   @Test
+  @DisplayName("the queue of a university has the oldest first, only the states asked for, and nothing of another university")
+  void theQueueOfAUniversity() {
+    RecognitionRequest older = save(UUID.randomUUID(), session(UUID.randomUUID(), 1, null));
+    RecognitionRequest newer = save(UUID.randomUUID(), session(UUID.randomUUID(), 1, null));
+    RecognitionRequest decided = save(UUID.randomUUID(), session(UUID.randomUUID(), 1, null));
+    jdbc.update("update recognition.requests set submitted_at = ? where id = ?", java.sql.Timestamp.from(NOW.minusSeconds(86400)), older.getId());
+    jdbc.update("update recognition.requests set submitted_at = ? where id = ?", java.sql.Timestamp.from(NOW), newer.getId());
+    jdbc.update(
+        "update recognition.requests set status = 'REJECTED', reviewed_by = ?, reviewed_at = now(), decision_reason = 'No' where id = ?",
+        UUID.randomUUID(),
+        decided.getId());
+    String other = "O" + tenant;
+    jdbc.update(
+        "insert into recognition.requests (id, tenant_id, student_id, total_hours, sessions_count, status) values (?, ?, ?, 5, 1, 'SUBMITTED')",
+        UUID.randomUUID(),
+        other,
+        UUID.randomUUID());
+
+    var waiting =
+        requests.findByTenantIdAndStatusInOrderBySubmittedAtAsc(
+            tenant, List.of(RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW), org.springframework.data.domain.PageRequest.of(0, 10));
+    var rejected =
+        requests.findByTenantIdAndStatusInOrderBySubmittedAtAsc(
+            tenant, List.of(RequestStatus.REJECTED), org.springframework.data.domain.PageRequest.of(0, 10));
+
+    assertThat(waiting.getContent()).extracting(RecognitionRequest::getId).containsExactly(older.getId(), newer.getId());
+    assertThat(waiting.getTotalElements()).isEqualTo(2);
+    assertThat(rejected.getContent()).extracting(RecognitionRequest::getId).containsExactly(decided.getId());
+  }
+
+  @Test
   @DisplayName("the database refuses a resolved request without who decided, when and why, and an unknown status")
   void theDatabaseRefusesIncompleteDecisions() {
     RecognitionRequest saved = save(student, session(UUID.randomUUID(), 1, null));
