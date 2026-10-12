@@ -1,5 +1,6 @@
 package pe.ayni.skills.application;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.ApprovedCourseView;
 import pe.ayni.identity.IdentityApi;
-import pe.ayni.identity.TenantView;
 import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
@@ -43,6 +43,7 @@ public class OfferApprovedCourseUseCase {
   private final CatalogItemRepository catalogItems;
   private final OfferedSkillRepository offeredSkills;
   private final IdentityApi identity;
+  private final TeachingThreshold threshold;
   private final ApplicationEventPublisher events;
   private final Clock clock;
 
@@ -50,11 +51,13 @@ public class OfferApprovedCourseUseCase {
       CatalogItemRepository catalogItems,
       OfferedSkillRepository offeredSkills,
       IdentityApi identity,
+      TeachingThreshold threshold,
       ApplicationEventPublisher events,
       Clock clock) {
     this.catalogItems = catalogItems;
     this.offeredSkills = offeredSkills;
     this.identity = identity;
+    this.threshold = threshold;
     this.events = events;
     this.clock = clock;
   }
@@ -110,13 +113,13 @@ public class OfferApprovedCourseUseCase {
                         "the tutor's academic record has no approved course %s"
                             .formatted(item.getCourseCode())));
 
-    TenantView tenant = identity.requireTenant(tenantId);
+    BigDecimal minimumGrade = threshold.of(tenantId);
     Instant now = clock.instant();
 
     OfferedSkill skill;
     if (existing.isPresent()) {
       skill = existing.get();
-      skill.reEnableByAcademicRecord(approved.grade(), tenant.minimumTeachingGrade(), now);
+      skill.reEnableByAcademicRecord(approved.grade(), minimumGrade, now);
     } else {
       skill =
           OfferedSkill.enableByAcademicRecord(
@@ -125,7 +128,7 @@ public class OfferApprovedCourseUseCase {
               tutorId,
               catalogItemId,
               approved.grade(),
-              tenant.minimumTeachingGrade(),
+              minimumGrade,
               now);
     }
     offeredSkills.save(skill);

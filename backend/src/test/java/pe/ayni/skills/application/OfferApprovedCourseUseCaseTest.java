@@ -30,6 +30,7 @@ import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
+import pe.ayni.skills.infrastructure.AcademicSettingsRepository;
 import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 
@@ -48,7 +49,12 @@ class OfferApprovedCourseUseCaseTest {
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   private final OfferApprovedCourseUseCase useCase =
       new OfferApprovedCourseUseCase(
-          catalogItems, offeredSkills, identity, events, Clock.fixed(NOW, ZoneOffset.UTC));
+          catalogItems,
+          offeredSkills,
+          identity,
+          new TeachingThreshold(mock(AcademicSettingsRepository.class), identity),
+          events,
+          Clock.fixed(NOW, ZoneOffset.UTC));
 
   private static CatalogItem universityCourse(String courseCode) {
     return new CatalogItem(

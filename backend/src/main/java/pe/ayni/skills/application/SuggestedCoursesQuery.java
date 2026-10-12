@@ -36,14 +36,17 @@ public class SuggestedCoursesQuery {
   private final CatalogItemRepository catalogItems;
   private final OfferedSkillRepository offeredSkills;
   private final IdentityApi identity;
+  private final TeachingThreshold threshold;
 
   SuggestedCoursesQuery(
       CatalogItemRepository catalogItems,
       OfferedSkillRepository offeredSkills,
-      IdentityApi identity) {
+      IdentityApi identity,
+      TeachingThreshold teachingThreshold) {
     this.catalogItems = catalogItems;
     this.offeredSkills = offeredSkills;
     this.identity = identity;
+    this.threshold = teachingThreshold;
   }
 
   /** A catalog item the tutor could offer, with the grade that would enable it. */
@@ -52,12 +55,12 @@ public class SuggestedCoursesQuery {
   @Transactional(readOnly = true)
   public List<SuggestedCourse> forTutor(UUID tutorId) {
     String tenantId = TenantContext.require();
-    BigDecimal threshold = identity.requireTenant(tenantId).minimumTeachingGrade();
+    BigDecimal minimumGrade = threshold.of(tenantId);
 
     // A course taken twice appears once per term; the best grade is the one that counts.
     Map<String, BigDecimal> clearingGrades =
         identity.approvedCourses(tutorId).stream()
-            .filter(course -> course.grade().compareTo(threshold) >= 0)
+            .filter(course -> course.grade().compareTo(minimumGrade) >= 0)
             .collect(
                 Collectors.toMap(
                     ApprovedCourseView::courseCode,
