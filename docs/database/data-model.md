@@ -862,6 +862,34 @@ tag         varchar(40)   NOT NULL
 PRIMARY KEY (rating_id, tag)
 ```
 
+### `reputation.rating_windows`
+
+The completed sessions that can still be rated: one row per session, opened when reputation hears
+`SessionCompleted`. It is not an opinion and nobody writes it through an endpoint.
+
+```
+tenant_id          varchar(32)   NOT NULL
+session_id         uuid          NOT NULL
+tutor_id           uuid          NOT NULL
+student_id         uuid          NOT NULL
+catalog_item_id    uuid          NOT NULL
+opened_at          timestamptz   NOT NULL
+
+PRIMARY KEY (tenant_id, session_id)
+```
+
+It exists because reputation may not ask `sessions` anything to rate: a rating arrives with a
+session id and nothing else, and four things must be known at that moment. Whether the session
+completed (no row, no rating, which is also why another university's session is a 404); who the
+tutor and the student were, to refuse a stranger and to tell which direction the caller rates; and
+which skill it was about, because a standing is per skill and the rating itself has no column for
+it. The row holds exactly that, copied from the event.
+
+It is also what makes `SessionCompleted` idempotent: the row is written in the same transaction
+that counts the session in `tutor_standing.sessions_taught`, so finding it means the session was
+already counted. Its primary key is the backstop, and whoever rates takes a lock on it so two
+ratings of one session cannot both pass the check that it was not rated.
+
 ### `reputation.tutor_standing`
 
 A projection, rebuilt from ratings. Never the source of truth.

@@ -586,7 +586,7 @@ public interface ReputationApi {
 
 **Publishes:** `SessionRated`.
 **Calls:** `SkillsApi.isTutorEnabledFor` — to tell a new tutor from one who does not teach the skill.
-**Listens to:** `SessionCompleted` — opens the rating window.
+**Listens to:** `SessionCompleted` — counts the session and opens the rating window.
 
 | Method | Path | Who |
 |---|---|---|
@@ -603,6 +603,33 @@ university. A missing `X-Tenant-Id`, a missing `catalogItemId` or an id that is 
 The student rates with stars and tags. The tutor answers three facts: punctual, connection held,
 session flowed. One rating per session and per direction. Below three ratings there is no average,
 only a new tutor mark. Standing is per skill, never overall.
+
+**`POST /api/v1/sessions/{id}/rating`** (US32 and US34). One endpoint, two directions: the caller is
+the person in `X-User-Id`, and who they are in the session decides what they send.
+
+- A **student** sends `stars` (1 to 5) and optionally `tags` and `comment`. It becomes a
+  `STUDENT_TO_TUTOR` rating and counts in the tutor's standing in the skill of the session.
+- A **tutor** sends `wasPunctual`, `connectionOk` and `sessionFlowed`, all three, and optionally
+  `comment`. It becomes a `TUTOR_TO_STUDENT` rating and does not touch any standing: it is three
+  facts about the session, not a score.
+
+**Who opens the window.** reputation does, when it hears `SessionCompleted`: it writes
+`reputation.rating_windows` (see `database/data-model.md`) and counts the session in the tutor's
+`sessions_taught`, once, however many times the event arrives. A session that never completed has no
+window and cannot be rated. A successful rating publishes `SessionRated`, which matching listens to.
+
+| Status | When |
+|---|---|
+| 201 | Registered. The body carries the id of the rating |
+| 400 | A student without `stars`, a tutor missing any of the three facts, `stars` outside 1 to 5, a missing `X-Tenant-Id` or `X-User-Id`, or a session id that is not a UUID |
+| 403 | The caller is neither the tutor nor the student of the session |
+| 404 | There is no completed session with that id in this university. Another university's session answers the same |
+| 409 | That direction of the session was already rated |
+
+**Races.** The window of the session is locked while someone rates, so two ratings of the same
+session and direction at once end with one `201` and one `409`, never a `500`. The standing is
+locked too, because the count and the average are read and written back: two students rating the same
+tutor in the same skill at once are both counted.
 
 ---
 
