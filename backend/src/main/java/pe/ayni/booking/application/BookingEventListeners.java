@@ -17,7 +17,6 @@ class BookingEventListeners {
 
   @ApplicationModuleListener
   void on(SessionAbandoned event) {
-    TenantContext.runAs(
-        event.tenantId(), () -> recordBookingNoShow.record(event.bookingId()));
+    TenantContext.runAs(event.tenantId(), () -> recordBookingNoShow.record(event));
   }
 }
