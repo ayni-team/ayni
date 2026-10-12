@@ -9,7 +9,9 @@ import jakarta.persistence.Table;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -43,7 +45,10 @@ public class Session {
    */
   public static final Duration PRESENCE_CHECK_AFTER = Duration.ofMinutes(5);
 
-  /** When a session with no tutor check-in is abandoned. */
+  /**
+   * The check-in deadline, counted from the scheduled start: both participants have to be in the
+   * room before it, or the session is abandoned (US06, US09).
+   */
   public static final Duration TUTOR_NO_SHOW_AFTER = Duration.ofMinutes(10);
 
   /**
@@ -150,18 +155,17 @@ public class Session {
   }
 
   /**
-   * Lets a participant into the room.
+   * Lets a participant into the room, without starting the session.
    *
    * <p>The room opens {@link #JOIN_OPENS_BEFORE} before the start and closes at the scheduled end.
-   * The first participant to join starts the session, whoever it is: from then on it is in
-   * progress, and the start is when somebody actually arrived, not when it was scheduled. Joining a
-   * session already in progress changes nothing, so coming back after a dropped connection works.
+   * Being in the room is a check-in, not a start: the session begins when both participants have
+   * checked in, which {@link #startIfBothCheckedIn} decides. Joining a session already in
+   * progress changes nothing, so coming back after a dropped connection works.
    *
-   * @return whether this join started the session
    * @throws NotAParticipant when the person is neither the student nor the tutor
    * @throws SessionNotOpen when it is too early, the session is over, or it will not take place
    */
-  public boolean join(UUID userId, Instant now) {
+  public void join(UUID userId, Instant now) {
     Objects.requireNonNull(now, "now must not be null");
     roleOf(userId);
 
@@ -176,13 +180,45 @@ public class Session {
     if (!now.isBefore(this.scheduledEnd)) {
       throw new SessionNotOpen("This session has already ended");
     }
+  }
 
-    if (this.status == SessionStatus.IN_PROGRESS) {
+  /**
+   * Starts the session when both participants checked in before the deadline.
+   *
+   * <p>The start is the moment the second of them arrived. A session already started, or one that
+   * is not scheduled, is left as it is, so the answer is true exactly once.
+   *
+   * @param arrivals the first arrival of whoever has joined so far
+   * @return whether this call started the session
+   */
+  public boolean startIfBothCheckedIn(Collection<Participation> arrivals, Instant now) {
+    Objects.requireNonNull(arrivals, "arrivals must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != SessionStatus.SCHEDULED
+        || !checkedInOnTime(this.studentId, arrivals)
+        || !checkedInOnTime(this.tutorId, arrivals)) {
       return false;
     }
     this.status = SessionStatus.IN_PROGRESS;
     this.startedAt = now;
     return true;
+  }
+
+  /** Whether this participant arrived before the check-in deadline. */
+  public boolean checkedInOnTime(UUID userId, Collection<Participation> arrivals) {
+    Objects.requireNonNull(userId, "userId must not be null");
+    Objects.requireNonNull(arrivals, "arrivals must not be null");
+    return arrivals.stream()
+        .anyMatch(
+            arrival ->
+                arrival.getUserId().equals(userId) && arrival.hasCheckedInBefore(checkInDeadline()));
+  }
+
+  /** The participants that had not checked in before the deadline, the student first. */
+  public List<UUID> absentAtDeadline(Collection<Participation> arrivals) {
+    return List.of(this.studentId, this.tutorId).stream()
+        .filter(participant -> !checkedInOnTime(participant, arrivals))
+        .toList();
   }
 
   /** The first moment a participant may join. */
@@ -195,20 +231,23 @@ public class Session {
     return this.scheduledStart.plus(PRESENCE_CHECK_AFTER);
   }
 
-  /** When an unconfirmed tutor is considered absent. */
-  public Instant tutorNoShowAt() {
+  /**
+   * When a participant who has not checked in is considered absent. Whoever arrives at this moment
+   * or later is late: the ten minutes have been completed.
+   */
+  public Instant checkInDeadline() {
     return this.scheduledStart.plus(TUTOR_NO_SHOW_AFTER);
   }
 
-  /** Whether an open session has reached the point when a missing tutor is a no-show. */
+  /** Whether an open session has reached its check-in deadline. */
   public boolean isDueForTutorNoShow(Instant now) {
     Objects.requireNonNull(now, "now must not be null");
     return (this.status == SessionStatus.SCHEDULED || this.status == SessionStatus.IN_PROGRESS)
-        && !now.isBefore(tutorNoShowAt());
+        && !now.isBefore(checkInDeadline());
   }
 
   /**
-   * Abandons a session after its tutor failed to check in by the no-show deadline.
+   * Abandons a session after at least one participant failed to check in before the deadline.
    *
    * @throws IllegalStateException when the session is not open
    */
@@ -225,9 +264,9 @@ public class Session {
   /**
    * Whether the presence codes should go out now.
    *
-   * <p>Only while the session is in progress: one nobody joined has nobody to check yet, and the
-   * codes go out as soon as somebody arrives, however late. Never after the scheduled end, when there
-   * is no session left to be present in.
+   * <p>Only while the session is in progress, which it is once both participants checked in: a
+   * session that never started has nobody to check, and one abandoned is over. Never after the
+   * scheduled end, when there is no session left to be present in.
    */
   public boolean isDueForPresenceCheck(Instant now) {
     Objects.requireNonNull(now, "now must not be null");

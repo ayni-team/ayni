@@ -2,6 +2,7 @@ package pe.ayni.sessions.application;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -23,11 +24,13 @@ import pe.ayni.shared.tenancy.TenantContext;
  *
  * <p>Whether the room is open, and whether this person belongs in it, is the session's to decide.
  * This use case locks the session while it does, records the participant's first arrival, and
- * announces the start when this join is the one that started it.
+ * starts the session, announcing it, when this arrival is the one that completes the check-in of
+ * both participants before the ten-minute deadline (US09). Entering the room alone starts nothing.
  *
  * <p>The session is locked rather than read, because the two participants usually arrive within
- * seconds of each other: without the lock both could find it not started, both start it and {@link
- * SessionStarted} would be published twice.
+ * seconds of each other: without the lock each would record their arrival without seeing the
+ * other's, neither would find both present and the session would never start, or both would start
+ * it and {@link SessionStarted} would be published twice.
  */
 @Service
 public class JoinSessionUseCase {
@@ -65,7 +68,7 @@ public class JoinSessionUseCase {
             .lockByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
 
-    boolean startedNow = session.join(userId, now);
+    session.join(userId, now);
     ParticipantRole role = session.roleOf(userId);
 
     if (participations.findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId).isEmpty()) {
@@ -73,7 +76,8 @@ public class JoinSessionUseCase {
           Participation.arrived(UUID.randomUUID(), tenantId, sessionId, userId, role, now));
     }
 
-    if (startedNow) {
+    List<Participation> arrivals = participations.findByTenantIdAndSessionId(tenantId, sessionId);
+    if (session.startIfBothCheckedIn(arrivals, now)) {
       events.publishEvent(new SessionStarted(tenantId, sessionId, session.getBookingId(), now));
     }
 
@@ -84,6 +88,16 @@ public class JoinSessionUseCase {
         session.getStatus(),
         session.getStartedAt(),
         session.getScheduledStart(),
-        session.getScheduledEnd());
+        session.getScheduledEnd(),
+        arrivalOf(arrivals, session.getStudentId()),
+        arrivalOf(arrivals, session.getTutorId()));
+  }
+
+  private static Instant arrivalOf(List<Participation> arrivals, UUID userId) {
+    return arrivals.stream()
+        .filter(arrival -> arrival.getUserId().equals(userId))
+        .map(Participation::getJoinedAt)
+        .findFirst()
+        .orElse(null);
   }
 }

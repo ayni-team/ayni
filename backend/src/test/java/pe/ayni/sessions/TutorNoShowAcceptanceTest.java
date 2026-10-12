@@ -34,6 +34,13 @@ class TutorNoShowAcceptanceTest extends TutorNoShowScenario {
   @Autowired private IssuePresenceCodesUseCase issuePresenceCodes;
   @Autowired private CloseOverdueSessionsUseCase closeOverdueSessions;
 
+  /** What the person has earned teaching, according to wallet. */
+  private int earnedBy(UUID userId) {
+    int[] earned = new int[1];
+    TenantContext.runAs(UPC, () -> earned[0] = wallet.earnedTotal(userId).amount());
+    return earned[0];
+  }
+
   @Test
   @DisplayName("The tutor does not check in and the attending student is refunded automatically")
   void theAttendingStudentIsRefundedAutomatically() throws Exception {
@@ -181,17 +188,82 @@ class TutorNoShowAcceptanceTest extends TutorNoShowScenario {
   }
 
   @Test
-  @DisplayName("Codes sent before the tutor was abandoned never turn the session unverified")
-  void codesSentBeforeTheAbandonmentDoNotCloseItAsUnverified() throws Exception {
+  @DisplayName("The student does not check in and the attending tutor is neither penalized nor paid")
+  void anAbsentStudentCostsTheAttendingTutorNothing() throws Exception {
+
+    UUID bookingId = anaBooksTheHour();
+    UUID session = sessionOf(bookingId);
+    tutorCheckedIn(session);
+    assertThat(sessionStatus(session)).as("one of two is not a start").isEqualTo("SCHEDULED");
+    TenantContext.runAs(UPC, () -> assertThat(abandonNoShows.dueNow()).doesNotContain(session));
+
+    clock.set(start.plus(Duration.ofMinutes(10)));
+    assertThat(abandonDue(session)).isTrue();
+
+    assertThat(sessionStatus(session)).isEqualTo("ABANDONED");
+    assertThat(bookingStatus(bookingId)).isEqualTo("NO_SHOW");
+    assertThat(announcements.abandonedOf(session))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.studentCheckedIn()).isFalse();
+              assertThat(event.tutorId()).isEqualTo(tutor);
+              assertThat(event.studentId()).isEqualTo(ana);
+            });
+
+    // The student lost the hour: nothing came back and nobody was told.
+    assertThat(balanceOf(ana)).as("the credit is not returned").isEqualTo(4);
+    assertThat(refundsOf(bookingId)).isZero();
+    assertThat(noShowNoticesOf(session)).isZero();
+    verify(emailDelivery, never()).send(argThat(email -> email.to().equals(ANAS_EMAIL)));
+
+    // The tutor came, so nothing is held against them, and they earn nothing either.
+    assertThat(incidentsOf(bookingId, "NO_SHOW")).isZero();
+    assertThat(incidentsOf(bookingId, "LATE_CANCELLATION")).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from booking.tutor_reliability where tenant_id = ? and tutor_id = ?",
+                Integer.class,
+                UPC,
+                tutor))
+        .isZero();
+    assertThat(earnedBy(tutor)).isZero();
+    assertThat(ledgerEntriesOf(tutor)).isZero();
+    assertThat(announcements.startedOf(session)).isEmpty();
+
+    // Nothing later turns it into something else: no codes, no closing, no payment.
+    clock.set(start.plus(Duration.ofHours(1)).plus(Duration.ofMinutes(20)));
+    TenantContext.runAs(
+        UPC,
+        () -> {
+          assertThat(issuePresenceCodes.issueFor(session)).isFalse();
+          assertThat(closeOverdueSessions.closeFor(session)).isFalse();
+        });
+    assertThat(sessionStatus(session)).isEqualTo("ABANDONED");
+    assertThat(announcements.unverifiedOf(session)).isEmpty();
+    assertThat(earnedBy(tutor)).isZero();
+    assertThat(ledgerEntriesOf(tutor)).isZero();
+    assertThat(balanceOf(ana)).isEqualTo(4);
+  }
+
+  @Test
+  @DisplayName("A session that never started is sent no codes before it is abandoned")
+  void aSessionThatNeverStartedIsSentNoCodes() throws Exception {
 
     UUID bookingId = anaBooksTheHour();
     UUID session = sessionOf(bookingId);
     anaCheckedIn(session);
 
-    // Five minutes in, the presence check goes out to both, whether the tutor came or not.
+    // Five minutes in, the presence check would go out to both if the session had started.
     clock.set(start.plus(Duration.ofMinutes(5)));
-    TenantContext.runAs(UPC, () -> assertThat(issuePresenceCodes.issueFor(session)).isTrue());
-    assertThat(presenceChecksOf(session)).isEqualTo(2);
+    TenantContext.runAs(
+        UPC,
+        () -> {
+          assertThat(issuePresenceCodes.dueNow()).doesNotContain(session);
+          assertThat(issuePresenceCodes.issueFor(session)).isFalse();
+        });
+    assertThat(presenceChecksOf(session)).isZero();
+    assertThat(sessionStatus(session)).isEqualTo("SCHEDULED");
 
     clock.set(start.plus(Duration.ofMinutes(10)));
     assertThat(abandonDue(session)).isTrue();
@@ -204,6 +276,7 @@ class TutorNoShowAcceptanceTest extends TutorNoShowScenario {
           assertThat(closeOverdueSessions.closeFor(session)).isFalse();
         });
 
+    assertThat(presenceChecksOf(session)).isZero();
     assertThat(sessionStatus(session)).isEqualTo("ABANDONED");
     assertThat(announcements.unverifiedOf(session)).isEmpty();
     assertThat(announcements.abandonedOf(session)).hasSize(1);

@@ -1,11 +1,16 @@
 # US06 - As a student who waited for a session the tutor never attended, I want my credits
 # returned automatically, so I do not lose balance because of someone else's absence.
 #
-# A tutor no-show is detected ten minutes after the scheduled start. The session is abandoned and
-# the booking is marked NO_SHOW. The student is refunded and notified, and the absence is recorded
-# in the tutor's reliability history (booking.tutor_reliability, kind NO_SHOW), only when the
-# student checked in. When neither participant checked in, nobody is refunded and no tutor no-show
-# is recorded: that is the rule for who pays when nobody attends.
+# An absence is detected ten minutes after the scheduled start (US09: a session starts only when both
+# participants checked in before then). The session is abandoned and the booking is marked NO_SHOW.
+# Who pays depends on who was missing:
+#
+#   tutor missing, student present   the student is refunded and notified, and the absence is
+#                                    recorded in the tutor's reliability history
+#                                    (booking.tutor_reliability, kind NO_SHOW)
+#   student missing, tutor present   no refund, no notice, nothing against the tutor, and the tutor
+#                                    earns no credits: the hour was lost by the one who did not come
+#   both missing                     no refund and nothing recorded against the tutor
 #
 # Each scenario is run by a test of pe.ayni.sessions.TutorNoShowAcceptanceTest with its title as
 # display name.
@@ -39,3 +44,14 @@ Feature: Automatic recovery of credits after a tutor no-show
     And the booking is marked NO_SHOW
     And Ana's credit is not returned
     And no tutor no-show is recorded in Bruno's reliability history
+
+  Scenario: The student does not check in and the attending tutor is neither penalized nor paid
+    Given Bruno checked in to the session
+    And Ana did not check in
+    When ten minutes have passed since the scheduled start
+    Then the session is abandoned
+    And the booking is marked NO_SHOW
+    And Ana's credit is not returned
+    And Ana is not sent a tutor no-show notice
+    And no tutor no-show is recorded in Bruno's reliability history
+    And Bruno earns no credits

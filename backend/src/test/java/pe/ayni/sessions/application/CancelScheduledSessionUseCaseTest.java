@@ -6,11 +6,14 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pe.ayni.sessions.SessionStatus;
+import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.SessionRepository;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -44,6 +47,16 @@ class CancelScheduledSessionUseCaseTest {
     UUID bookingId = UUID.randomUUID();
     Session session = session(bookingId);
     session.join(session.getStudentId(), START);
+    session.join(session.getTutorId(), START);
+    session.startIfBothCheckedIn(
+        List.of(
+            Participation.arrived(
+                UUID.randomUUID(), UPC, session.getId(), session.getStudentId(),
+                ParticipantRole.STUDENT, START),
+            Participation.arrived(
+                UUID.randomUUID(), UPC, session.getId(), session.getTutorId(),
+                ParticipantRole.TUTOR, START)),
+        START);
     when(sessions.lockByTenantIdAndBookingId(UPC, bookingId)).thenReturn(Optional.of(session));
 
     TenantContext.runAs(UPC, () -> useCase.execute(bookingId, START.plusSeconds(1)));

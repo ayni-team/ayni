@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,12 +85,12 @@ class AbandonTutorNoShowUseCaseTest {
                 BookingStatus.CONFIRMED));
   }
 
+  private final List<Participation> arrivals = new ArrayList<>();
+
   private void checkIn(UUID participant, ParticipantRole role, Instant joinedAt) {
-    when(participations.findByTenantIdAndSessionIdAndUserId(TENANT, SESSION_ID, participant))
-        .thenReturn(
-            Optional.of(
-                Participation.arrived(
-                    UUID.randomUUID(), TENANT, SESSION_ID, participant, role, joinedAt)));
+    arrivals.add(
+        Participation.arrived(UUID.randomUUID(), TENANT, SESSION_ID, participant, role, joinedAt));
+    when(participations.findByTenantIdAndSessionId(TENANT, SESSION_ID)).thenReturn(arrivals);
   }
 
   private boolean abandon() {
@@ -101,7 +102,7 @@ class AbandonTutorNoShowUseCaseTest {
   @Test
   @DisplayName("publishes a tutor no-show event when the student checked in")
   void publishesNoShowWithStudentAttendance() {
-    checkIn(STUDENT, ParticipantRole.STUDENT, NOW);
+    checkIn(STUDENT, ParticipantRole.STUDENT, NOW.minusSeconds(1));
 
     assertThat(abandon()).isTrue();
 
@@ -127,9 +128,25 @@ class AbandonTutorNoShowUseCaseTest {
   }
 
   @Test
-  @DisplayName("a tutor who joined by the deadline is not marked absent without a presence code")
-  void tutorCheckInWithoutConfirmedCodePreventsNoShow() {
-    checkIn(TUTOR, ParticipantRole.TUTOR, NOW);
+  @DisplayName("a present tutor is not penalized when the student is absent")
+  void recordsStudentAbsenceWithoutTutorConsequences() {
+    checkIn(TUTOR, ParticipantRole.TUTOR, NOW.minusSeconds(1));
+
+    assertThat(abandon()).isTrue();
+
+    assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+    ArgumentCaptor<SessionAbandoned> event = ArgumentCaptor.forClass(SessionAbandoned.class);
+    verify(events).publishEvent(event.capture());
+    assertThat(event.getValue().studentCheckedIn()).isFalse();
+    assertThat(event.getValue().tutorId()).isEqualTo(TUTOR);
+    assertThat(event.getValue().studentId()).isEqualTo(STUDENT);
+  }
+
+  @Test
+  @DisplayName("a session whose participants both checked in before the deadline is not abandoned")
+  void bothCheckedInPreventsAbandonment() {
+    checkIn(STUDENT, ParticipantRole.STUDENT, NOW.minusSeconds(30));
+    checkIn(TUTOR, ParticipantRole.TUTOR, NOW.minusSeconds(1));
 
     assertThat(abandon()).isFalse();
 
@@ -140,11 +157,25 @@ class AbandonTutorNoShowUseCaseTest {
   @Test
   @DisplayName("a tutor joining after the deadline is still recorded as absent")
   void tutorJoiningAfterDeadlineDoesNotPreventNoShow() {
+    checkIn(STUDENT, ParticipantRole.STUDENT, NOW.minusSeconds(30));
     checkIn(TUTOR, ParticipantRole.TUTOR, NOW.plusSeconds(1));
 
     assertThat(abandon()).isTrue();
 
     assertThat(session.getStatus()).isEqualTo(SessionStatus.ABANDONED);
+    ArgumentCaptor<SessionAbandoned> event = ArgumentCaptor.forClass(SessionAbandoned.class);
+    verify(events).publishEvent(event.capture());
+    assertThat(event.getValue().studentCheckedIn()).isTrue();
+  }
+
+  @Test
+  @DisplayName("arriving exactly when the ten minutes are completed is not checking in")
+  void arrivingAtTheMarkIsAbsence() {
+    checkIn(STUDENT, ParticipantRole.STUDENT, NOW);
+    checkIn(TUTOR, ParticipantRole.TUTOR, NOW.minusSeconds(1));
+
+    assertThat(abandon()).isTrue();
+
     ArgumentCaptor<SessionAbandoned> event = ArgumentCaptor.forClass(SessionAbandoned.class);
     verify(events).publishEvent(event.capture());
     assertThat(event.getValue().studentCheckedIn()).isFalse();

@@ -1,6 +1,7 @@
 package pe.ayni.sessions.application;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.ParticipantRole;
@@ -12,6 +13,12 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * @param needDescription what the student wrote when booking, read from booking: the tutor reads it
  *     before the session (US07)
  * @param joinOpensAt the first moment the room can be joined
+ * @param startedAt when both participants had checked in and the session began, {@code null}
+ *     while it has not
+ * @param studentJoinedAt when the student first arrived, {@code null} if they have not
+ * @param tutorJoinedAt when the tutor first arrived, {@code null} if they have not
+ * @param absentParticipantIds who had not checked in before the deadline, only once the session was
+ *     abandoned; empty otherwise
  * @param presenceCheckAt when the presence codes are sent
  * @param presence the reader's own presence code, {@code null} until it is sent
  * @param endConfirmedAt when the reader confirmed the end, {@code null} if they have not
@@ -30,6 +37,9 @@ public record SessionDetails(
     Instant scheduledEnd,
     Instant joinOpensAt,
     Instant startedAt,
+    Instant studentJoinedAt,
+    Instant tutorJoinedAt,
+    List<UUID> absentParticipantIds,
     String needDescription,
     Instant presenceCheckAt,
     PresenceState presence,

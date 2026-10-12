@@ -26,6 +26,7 @@ import pe.ayni.identity.UserView;
 import pe.ayni.notifications.application.EmailDelivery;
 import pe.ayni.sessions.application.AbandonTutorNoShowUseCase;
 import pe.ayni.shared.events.SessionAbandoned;
+import pe.ayni.shared.events.SessionStarted;
 import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -69,6 +70,7 @@ abstract class TutorNoShowScenario extends BookingScenario {
 
     private final List<SessionAbandoned> abandoned = new CopyOnWriteArrayList<>();
     private final List<SessionUnverified> unverified = new CopyOnWriteArrayList<>();
+    private final List<SessionStarted> started = new CopyOnWriteArrayList<>();
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void on(SessionAbandoned event) {
@@ -78,6 +80,15 @@ abstract class TutorNoShowScenario extends BookingScenario {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     void on(SessionUnverified event) {
       unverified.add(event);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void on(SessionStarted event) {
+      started.add(event);
+    }
+
+    List<SessionStarted> startedOf(UUID sessionId) {
+      return started.stream().filter(event -> event.sessionId().equals(sessionId)).toList();
     }
 
     List<SessionAbandoned> abandonedOf(UUID sessionId) {
@@ -140,6 +151,12 @@ abstract class TutorNoShowScenario extends BookingScenario {
     join(sessionId, ana).andExpect(status().isOk());
   }
 
+  /** Bruno, the tutor, is in the room five minutes before the start. */
+  protected void tutorCheckedIn(UUID sessionId) throws Exception {
+    clock.set(start.minus(Duration.ofMinutes(5)));
+    join(sessionId, tutor).andExpect(status().isOk());
+  }
+
   /** The job's work: finds what is due in the university and abandons one session. */
   protected boolean abandonDue(UUID sessionId) {
     boolean[] abandoned = new boolean[1];
@@ -186,6 +203,19 @@ abstract class TutorNoShowScenario extends BookingScenario {
         tutor,
         bookingId,
         kind);
+  }
+
+  /** Everything the ledger holds for this person: charges, refunds and earnings alike. */
+  protected int ledgerEntriesOf(UUID userId) {
+    return jdbc.queryForObject(
+        """
+        select count(*) from wallet.ledger_entries entry
+        join wallet.credit_accounts account on account.id = entry.account_id
+        where account.tenant_id = ? and account.user_id = ?
+        """,
+        Integer.class,
+        UPC,
+        userId);
   }
 
   protected int presenceChecksOf(UUID sessionId) {

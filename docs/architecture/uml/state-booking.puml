@@ -7,7 +7,7 @@ hide empty description
 CONFIRMED --> CANCELLED : student or tutor cancels\n/ refund, BookingCancelled\n/ late = starts in less than 12 h
 CONFIRMED --> CANCELLED : SessionUnverified\n/ cancelledBy = SYSTEM, refund
 CONFIRMED --> COMPLETED : SessionCompleted
-CONFIRMED --> NO_SHOW : SessionAbandoned\n[tutor did not join in 10 min]\n/ tutor incident recorded and student refunded\nonly if the student had joined
+CONFIRMED --> NO_SHOW : SessionAbandoned\n[a participant did not join in 10 min]\n/ tutor incident recorded and student refunded\nonly if the student had joined
 
 CANCELLED --> [*]
 COMPLETED --> [*]

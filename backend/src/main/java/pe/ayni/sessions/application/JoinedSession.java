@@ -10,6 +10,10 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  *
  * @param roomName the room of the video call. Unguessable, and handed only to a participant who
  *     joins
+ * @param startedAt when both participants had checked in and the session began, {@code null}
+ *     while it has not
+ * @param studentJoinedAt when the student first arrived, {@code null} if they have not
+ * @param tutorJoinedAt when the tutor first arrived, {@code null} if they have not
  */
 public record JoinedSession(
     UUID sessionId,
@@ -18,4 +22,6 @@ public record JoinedSession(
     SessionStatus status,
     Instant startedAt,
     Instant scheduledStart,
-    Instant scheduledEnd) {}
+    Instant scheduledEnd,
+    Instant studentJoinedAt,
+    Instant tutorJoinedAt) {}

@@ -2,6 +2,7 @@ package pe.ayni.sessions.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.application.PresenceState;
@@ -28,9 +29,20 @@ public record SessionResponse(
     @Schema(description = "First moment the room can be joined, UTC",
         example = "2026-09-30T19:45:00Z")
         Instant joinOpensAt,
-    @Schema(description = "When the first participant joined; null until then", nullable = true,
-        example = "2026-09-30T19:52:10Z")
+    @Schema(description = "When both participants had checked in and the session began; null "
+        + "until then", nullable = true, example = "2026-09-30T19:52:10Z")
         Instant startedAt,
+    @Schema(description = "When the student first arrived in the room, UTC; null if they have "
+        + "not. Visible to both participants", nullable = true,
+        example = "2026-09-30T19:50:03Z")
+        Instant studentJoinedAt,
+    @Schema(description = "When the tutor first arrived in the room, UTC; null if they have not. "
+        + "Visible to both participants", nullable = true, example = "2026-09-30T19:52:10Z")
+        Instant tutorJoinedAt,
+    @Schema(description = "Who had not checked in within ten minutes of the scheduled start. "
+        + "Filled only once the session is ABANDONED, empty before",
+        example = "[\"11111111-1111-4111-8111-111111111111\"]")
+        List<UUID> absentParticipantIds,
     @Schema(description = "What the student needs help with, written when booking",
         example = "Normal forms before Friday's exam")
         String needDescription,
@@ -85,6 +97,9 @@ public record SessionResponse(
         session.scheduledEnd(),
         session.joinOpensAt(),
         session.startedAt(),
+        session.studentJoinedAt(),
+        session.tutorJoinedAt(),
+        session.absentParticipantIds(),
         session.needDescription(),
         session.presenceCheckAt(),
         Presence.of(session.presence()),

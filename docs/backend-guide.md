@@ -414,7 +414,7 @@ public interface WalletApi {
 **Listens to:** `StudentActivated` (grants the policy), `SessionCompleted` (credits the tutor),
 `BookingCancelled` (refunds the booking, unless the student cancelled it late),
 `SessionUnverified` (refunds the booking), `SessionAbandoned` (refunds the booking, but only when
-the student was present) and `PurchaseConfirmed`.
+the student was present, which means the tutor was the one missing) and `PurchaseConfirmed`.
 
 | Method | Path | Who |
 |---|---|---|
@@ -454,8 +454,9 @@ event is late **and** the student cancelled it themselves. A tutor's cancellatio
 the hour, and the same event delivered twice refunds once.
 
 The listener of `SessionAbandoned` refunds the booking only when `studentCheckedIn` is true: a
-student who was in the room and whose tutor never came gets the credit back, and when nobody came
-there is nothing to return, because nobody was wronged. Delivered twice it refunds once, as every
+student who was in the room and whose tutor never came gets the credit back. When the student was
+the one missing, whether the tutor came or not, there is nothing to return: the hour was theirs to
+use. Delivered twice it refunds once, as every
 listener that moves credits does, and a session is never both abandoned and unverified, so the
 student cannot be refunded by the two events.
 
@@ -483,7 +484,8 @@ because a hold ends either in a booking, which is announced, or back in circulat
 `HoursWithdrawn`.
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
 **Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
-records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`.
+records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`, which means the tutor
+was the one missing.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -546,10 +548,11 @@ Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) an
 `BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
 happened. A tutor removing availability over a confirmed booking is cancelling that session.
 
-**A tutor no-show (US06).** When sessions abandons a session because its tutor did not come, the
-booking becomes `NO_SHOW` in every case, and only when the student was present is a `NO_SHOW` row
-written to `booking.tutor_reliability`, next to the `LATE_CANCELLATION` ones, so a tutor's record
-lives in one table. Nothing is held against the tutor when both were absent. The booking is locked
+**A tutor no-show (US06).** When sessions abandons a session because a participant did not come,
+the booking becomes `NO_SHOW` in every case, and only when the student was present, so the tutor was
+the one missing, is a `NO_SHOW` row written to `booking.tutor_reliability`, next to the
+`LATE_CANCELLATION` ones, so a tutor's record lives in one table. Nothing is held against the tutor
+when both were absent, nor when only the student was. The booking is locked
 while it is marked and `UNIQUE (booking_id, kind)` stands behind it, so the event delivered twice
 records one incident. A booking cancelled or completed in the meantime is left as it is. Reputation
 does not hear about this: standing is built from ratings, not from absences.
@@ -630,22 +633,37 @@ that look at every university.
 
 **Joining.** `GET /sessions/{id}` shows a participant the session and the student's need, read
 through `BookingApi.requireBooking`, and never the room name. `POST /sessions/{id}/join` hands the
-room name over, from fifteen minutes before the start until the scheduled end; the first participant
-to join moves the session to `IN_PROGRESS` and publishes `SessionStarted`, and each participant's
-first arrival is recorded in `sessions.participations`. The session is locked while it is joined, so
-two participants arriving at once start it once. A stranger gets 403, a room that is not open 409.
+room name over, from fifteen minutes before the start until the scheduled end, and records the
+participant's first arrival in `sessions.participations`. Entering does not start the session
+(US09): it moves to `IN_PROGRESS` and publishes `SessionStarted`, once, when both participants have
+entered **before ten minutes have passed since the scheduled start**, and its `startedAt` is the
+moment the second of them arrived. Somebody who arrives at the ten minute mark or later is late: the
+arrival is recorded, nothing starts, and the session is abandoned as the next section says. The
+session is locked while it is joined, so two participants arriving at once start it once. Joining
+again changes nothing, the first arrival included. A stranger gets 403, a room that is not open 409.
+
+**What each participant sees of the arrivals.** Both answers, `GET /sessions/{id}` and `POST
+/sessions/{id}/join`, carry `studentJoinedAt` and `tutorJoinedAt`: the first arrival of each, UTC,
+`null` for whoever has not come. Both participants see both, so whoever enters knows whether the
+other is already there. `startedAt` is `null` until both have checked in. `GET /sessions/{id}` also
+carries `absentParticipantIds`: the participants who had not entered before the ten minute mark. It
+is filled only once the session is `ABANDONED` and is empty before. Nothing writes an arrival but
+joining, and joining records only the first one: there is no endpoint to correct it, and the table
+is not protected against an `UPDATE` made straight in the database.
 
 **The presence check.** Five minutes after the scheduled start, a code is issued to each
-participant and sent by email. Whoever does not confirm makes the session end as `UNVERIFIED`: the
-tutor earns nothing, the student is refunded and the audit is told. The code is stored hashed,
-expires and caps attempts.
+participant of a session that has started and sent by email. Whoever does not confirm makes the
+session end as `UNVERIFIED`: the tutor earns nothing, the student is refunded and the audit is
+told. The code is stored hashed, expires and caps attempts.
 
 **Built so far (US54):** a job runs every minute (`ayni.sessions.presence-check-delay`) and issues
 the codes of every session in progress at least five minutes past its scheduled start and not over,
-one `PresenceCodeIssued` per participant, both of them, whether they joined or not. The code is six
+one `PresenceCodeIssued` per participant. A session in progress is one both of them entered, so a
+session that never started is issued none. The code is six
 digits, lasts fifteen minutes and dies after five wrong attempts; a wrong one answers 422 and still
 counts, so the transaction commits on it. `POST /sessions/{id}/presence` only accepts a participant
-who joined, while the session is in progress. `GET /sessions/{id}` tells the reader when the codes
+who joined, while the session is in progress: with only one of them in the room it is `SCHEDULED`
+and the answer is 409. `GET /sessions/{id}` tells the reader when the codes
 go out and the state of their own code, never the code.
 
 **Closing (US11).** `POST /sessions/{id}/end` records that a participant who joined confirms the end.
@@ -654,32 +672,37 @@ The second confirmation closes the session; with only one, or none, a job that r
 `participations.end_confirmed_at` keeps who confirmed. Either way the outcome is the presence
 check's: `COMPLETED` when both confirmed their code, with `SessionCompleted` paying the tutor the
 booked hours; `UNVERIFIED` otherwise, including a session closed before any code was sent, with
-`SessionUnverified` naming who did not confirm. The session is locked while it is closed, and while
+`SessionUnverified` naming who did not confirm. Only a session that started is closed this way: one
+that never started, because somebody did not come, is not ended by a participant and is not closed
+by the job, whatever time it is, and it is `ABANDONED` by the section below instead. The session is locked while it is closed, and while
 a code is confirmed, so it closes once and its outcome is not changed after it was decided.
 
-**A tutor no-show (US06).** A session is a tutor no-show when ten minutes have passed since its
-scheduled start and the tutor had not joined by then, whether the student did or not. It is
-abandoned: the session becomes `ABANDONED`, `ended_at` is set, and `SessionAbandoned` is published,
-naming the booking, the tutor, the student, the skill and `studentCheckedIn`, which says whether the
-student had joined by that same ten minute mark. A tutor who arrived after it finds the room closed.
-Who pays, and who is told, depends on that flag:
+**An absence (US06, US09).** A session is abandoned when ten minutes have passed since its
+scheduled start and either participant had not entered before then, the tutor, the student or both.
+The session becomes `ABANDONED`, `ended_at` is set, `startedAt` stays `null` and `SessionAbandoned`
+is published, naming the booking, the tutor, the student, the skill and `studentCheckedIn`, which
+says whether the student had entered by that same mark. The event keeps its shape: when the student
+had entered the tutor was the one missing, and when they had not, the student was, whether or not
+the tutor came. Who pays, and who is told, depends on that flag:
 
 | The student | The tutor | The session | The booking | Credits | The student is told | The tutor's record |
 |---|---|---|---|---|---|---|
-| joined | did not | `ABANDONED` | `NO_SHOW` | returned to the student | yes | a `NO_SHOW` incident |
-| did not join | did not | `ABANDONED` | `NO_SHOW` | not returned | no | nothing |
+| entered | did not | `ABANDONED` | `NO_SHOW` | returned to the student | yes | a `NO_SHOW` incident |
+| did not | entered | `ABANDONED` | `NO_SHOW` | not returned | no | nothing, and the tutor earns no credits |
+| did not | did not | `ABANDONED` | `NO_SHOW` | not returned | no | nothing |
 
-When nobody attends, then, nobody is refunded and nobody is blamed: the student did not wait for
-anything and the tutor did not fail anyone. The credit stays spent, because the hour was held for
-them and taken from other students, which is also what a student cancelling late pays.
+When the student is the one who does not come, the hour was held for them and taken from other
+students, so the credit stays spent, which is also what a student cancelling late pays; the tutor
+who waited is not blamed and is not paid either, because nothing was taught and no `SessionCompleted`
+exists. When nobody attends nobody is refunded and nobody is blamed.
 
 A job runs every minute (`ayni.sessions.no-show-delay`, `PT24H` in the tests so it never races
 one), one university at a time and one session per transaction, and calls
 `AbandonTutorNoShowUseCase`; the tests call that same use case. The session is locked while it is
-abandoned, so two runs at once abandon it once and publish `SessionAbandoned` once. An abandoned
-session is never issued presence codes, is never closed `UNVERIFIED` by the closing job, and
-refuses to be joined or confirmed: both jobs only look at sessions in progress, and the status
-says it is over. Codes issued before the ten minutes, at the fifth, change nothing either.
+abandoned, so two runs at once abandon it once and publish `SessionAbandoned` once. A session that
+never started is never issued presence codes and is never closed `UNVERIFIED` by the closing job,
+and an abandoned one refuses to be joined or confirmed: both jobs only look at sessions in
+progress, and the status says it is over.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
 
@@ -834,7 +857,8 @@ under `docker compose`, which shows it at http://localhost:8025, and to a real r
 `PresenceCodeIssued`, the email with the presence code (US54), is delivered the same way: the
 notice keeps the session and the expiry, never the code, and the address is read from identity.
 `SessionAbandoned` tells the student that their tutor did not come and the credit was returned
-(US06), only when `studentCheckedIn` is true: nobody is told anything when nobody came. The notice
+(US06), only when `studentCheckedIn` is true: nobody is told anything when the student was the one
+missing, or when nobody came. The notice
 is a `TUTOR_NO_SHOW`, committed before the email leaves like the others, and keeps the session and
 nothing else; neither the address nor the email goes to a log.
 `PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice

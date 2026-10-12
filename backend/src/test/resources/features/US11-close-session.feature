@@ -15,7 +15,7 @@ Feature: Closing a session
 
   Background:
     Given Ana booked an hour with Bruno and paid one credit for it
-    And both joined the session and received their presence codes
+    And both joined the session, which started it, and received their presence codes
 
   Scenario: Both confirm the end and the tutor earns the hour
     Given both confirmed their presence
@@ -53,8 +53,8 @@ Feature: Closing a session
     When Ana and Bruno confirm the end at the same moment
     Then the session is completed once and Bruno is credited once
 
-  Scenario: Only a participant who joined can end a session in progress
+  Scenario: The session cannot be ended before both participants check in
     Then a stranger is refused
-    And nobody can end a session that has not started
-    And Bruno cannot end a session he never joined
+    And nobody can end a session that has not started, even if one of them is in the room
+    And a session that never started is not closed by the closing job, however late
     And nobody can end a session that is already closed

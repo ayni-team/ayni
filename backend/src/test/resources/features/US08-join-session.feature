@@ -6,7 +6,8 @@
 #
 # Every scenario names the test that runs it, against a real PostgreSQL, in
 # JoinSessionAcceptanceTest, with the same name. The rules of the room are covered without Spring by
-# SessionTest.
+# SessionTest. Since US09 joining does not start the session by itself: both participants have to
+# check in, and what happens when one does not is that story's.
 
 Feature: Meeting in the session's room
 
@@ -23,12 +24,14 @@ Feature: Meeting in the session's room
     Then they are refused, whatever link they hold
     And nothing is recorded for them
 
-  Scenario: Joining opens the room and the first participant starts the session
+  Scenario: Both participants check in before the session starts
     Given the session starts in ten minutes
     When Ana joins
-    Then she gets the room name and the session is in progress from that moment
+    Then she gets the room name and the session stays scheduled
+    And Bruno can see that Ana has checked in
     When Bruno joins
-    Then he gets the same room, the start stays the moment Ana arrived
+    Then he gets the same room and the session is in progress
+    And both check-in times are visible to them
     And SessionStarted was published once
 
   Scenario: Coming back after a dropped connection
@@ -37,8 +40,9 @@ Feature: Meeting in the session's room
     Then she gets the room again, and her first arrival is what stays recorded
 
   Scenario: Both arriving at the same moment start the session once
-    When Ana and Bruno join at the same moment
+    When Ana and Bruno join at the same moment, however many times it is tried
     Then both are let in
+    And the session is in progress, started once
     And SessionStarted is published once
 
   Scenario: The room is not open too early, after the end, or for a cancelled session

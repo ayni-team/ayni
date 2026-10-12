@@ -48,6 +48,10 @@ class NotificationEventListeners {
     TenantContext.runAs(event.tenantId(), () -> deliverPresenceCode.execute(event));
   }
 
+  /**
+   * A session was abandoned. The student is told only when they were there and the tutor was not:
+   * that is the one case in which their credits come back. An absent student is told nothing.
+   */
   @ApplicationModuleListener
   void on(SessionAbandoned event) {
     if (event.studentCheckedIn()) {
