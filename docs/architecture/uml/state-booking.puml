@@ -14,8 +14,10 @@ COMPLETED --> [*]
 NO_SHOW --> [*]
 
 note right of CANCELLED
-  Cancelling always refunds the student.
-  A late cancellation is recorded
-  against whoever cancelled.
+  The student is refunded, except when
+  they cancel inside twelve hours of the
+  start. A tutor's cancellation always
+  refunds; a late one is recorded
+  against the tutor.
 end note
 @enduml

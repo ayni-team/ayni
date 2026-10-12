@@ -4,14 +4,17 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.BookingConfirmed;
 
 /**
@@ -31,6 +34,32 @@ public class BookingTestConfig {
   @Bean
   FailingConfirmation failingConfirmation() {
     return new FailingConfirmation();
+  }
+
+  /** Counts what was published, from whichever thread published it. */
+  @Bean
+  CancelledEvents cancelledEvents() {
+    return new CancelledEvents();
+  }
+
+  /**
+   * Every {@code BookingCancelled} that committed, by booking.
+   *
+   * <p>{@code ApplicationEvents} only sees what the test thread published, and the race tests
+   * publish from worker threads.
+   */
+  public static class CancelledEvents {
+
+    private final List<BookingCancelled> published = new CopyOnWriteArrayList<>();
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void on(BookingCancelled event) {
+      published.add(event);
+    }
+
+    public List<BookingCancelled> of(UUID bookingId) {
+      return published.stream().filter(event -> event.bookingId().equals(bookingId)).toList();
+    }
   }
 
   /**
