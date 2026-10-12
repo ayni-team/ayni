@@ -54,4 +54,23 @@ class TutorStandingTest {
         assertThat(standing.isNew()).isTrue();
         assertThat(standing.updatedAt()).isEqualTo(NOW.plusSeconds(60));
     }
+    @Test
+    @DisplayName("student ratings update the count and average")
+    void studentRatingsUpdateCountAndAverage() {
+        TutorStanding standing =
+                TutorStanding.initial(
+                        "UPC",
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        NOW);
+
+        standing.recordRating(5, NOW.plusSeconds(10));
+        standing.recordRating(4, NOW.plusSeconds(20));
+        standing.recordRating(5, NOW.plusSeconds(30));
+
+        assertThat(standing.ratingsCount()).isEqualTo(3);
+        assertThat(standing.averageStars()).isEqualByComparingTo("4.67");
+        assertThat(standing.visibleAverageStars()).isEqualByComparingTo("4.67");
+        assertThat(standing.updatedAt()).isEqualTo(NOW.plusSeconds(30));
+    }
 }
