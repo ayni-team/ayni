@@ -244,6 +244,22 @@ class UniversityAdministrationAcceptanceTest {
     }
 
     @Test
+    @DisplayName("A registration without its minimum teaching grade is a bad request")
+    void aRegistrationWithoutAGradeIsABadRequest() throws Exception {
+
+        String code = newCode();
+
+        register(
+                        mockMvc,
+                        ADMINISTRATOR,
+                        registration(code, domainOf(code), "13.00", 5, 30)
+                                .replace("\"minimumTeachingGrade\": 13.00,", ""))
+                .andExpect(status().isBadRequest());
+
+        assertThat(count("select count(*) from identity.tenants where code = ?", code)).isZero();
+    }
+
+    @Test
     @DisplayName("The listing returns configuration and counts, never names, emails or courses")
     void theListingReturnsConfigurationAndCountsOnly() throws Exception {
 
