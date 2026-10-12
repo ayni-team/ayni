@@ -40,7 +40,7 @@ import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.events.AccessRequested;
-
+import pe.ayni.shared.events.StudentActivated;
 /**
  * US38 over HTTP against a real PostgreSQL: asking for a link, opening it, and every way opening it
  * must fail. One test per confirmation scenario of {@code features/US38-request-access.feature}.
@@ -244,30 +244,156 @@ class ConfirmAccessAcceptanceTest {
     }
 
     @Test
-    @DisplayName("An activation link of a new student is refused until activation exists")
-    void anActivationLinkIsRefused() throws Exception {
+    @DisplayName("First access of a new student creates the account from the academic system")
+    void firstAccessActivatesNewStudent() throws Exception {
 
-        String email = "u2099" + UUID.randomUUID().toString().substring(0, 5) + "@upc.edu.pe";
-        String link = requestLink(email);
-        assertThat(
-                        events.stream(AccessRequested.class)
-                                .filter(event -> event.email().equals(email))
-                                .map(AccessRequested::purpose))
-                .containsOnly("ACTIVATION");
+        String email =
+                "u202500003@upc.edu.pe";
 
-        confirm(tokenOf(link))
-                .andExpect(status().isBadRequest())
-                .andExpect(
-                        jsonPath("$.message")
-                                .value("This link would create a new Ayni account, and creating"
-                                        + " accounts is not available yet. Only students who"
-                                        + " already have an account can sign in for now"));
+        String link =
+                requestLink(email);
 
         assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from identity.users where email = ?",
-                                Integer.class,
-                                email))
-                .isZero();
+                events.stream(AccessRequested.class)
+                        .filter(
+                                event ->
+                                        event.email()
+                                                .equals(email))
+                        .map(
+                                AccessRequested::purpose))
+                .containsOnly(
+                        "ACTIVATION");
+
+        MvcResult answer =
+                confirm(tokenOf(link))
+                        .andExpect(
+                                status().isOk())
+                        .andExpect(
+                                jsonPath("$.tenantId")
+                                        .value("UPC"))
+                        .andReturn();
+
+        String userIdText =
+                JsonPath.read(
+                        answer.getResponse()
+                                .getContentAsString(),
+                        "$.userId");
+
+        UUID activatedUserId =
+                UUID.fromString(
+                        userIdText);
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select full_name
+                        from identity.users
+                        where id = ?
+                          and tenant_id = 'UPC'
+                        """,
+                        String.class,
+                        activatedUserId))
+                .isEqualTo(
+                        "Carla Mendoza");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select student_code
+                        from identity.users
+                        where id = ?
+                        """,
+                        String.class,
+                        activatedUserId))
+                .isEqualTo(
+                        "U202500003");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select career
+                        from identity.users
+                        where id = ?
+                        """,
+                        String.class,
+                        activatedUserId))
+                .isEqualTo(
+                        "Software Engineering");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select current_term
+                        from identity.users
+                        where id = ?
+                        """,
+                        String.class,
+                        activatedUserId))
+                .isEqualTo(
+                        "2026-2");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select status
+                        from identity.users
+                        where id = ?
+                        """,
+                        String.class,
+                        activatedUserId))
+                .isEqualTo(
+                        "ACTIVE");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                        from identity.academic_records
+                        where tenant_id = 'UPC'
+                          and user_id = ?
+                        """,
+                        Integer.class,
+                        activatedUserId))
+                .isEqualTo(3);
+
+        assertThat(
+                sessionsOf(
+                        activatedUserId))
+                .isEqualTo(1);
+
+        assertThat(
+                events.stream(
+                                StudentActivated.class)
+                        .filter(
+                                event ->
+                                        event.userId()
+                                                .equals(
+                                                        activatedUserId))
+                        .toList())
+                .hasSize(1);
+
+        StudentActivated activated =
+                events.stream(
+                                StudentActivated.class)
+                        .filter(
+                                event ->
+                                        event.userId()
+                                                .equals(
+                                                        activatedUserId))
+                        .findFirst()
+                        .orElseThrow();
+
+        assertThat(
+                activated.tenantId())
+                .isEqualTo("UPC");
+
+        assertThat(
+                activated.email())
+                .isEqualTo(email);
+
+        assertThat(
+                activated.studentCode())
+                .isEqualTo(
+                        "U202500003");
     }
 }
