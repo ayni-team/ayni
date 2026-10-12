@@ -280,7 +280,10 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
-**Listens to:** `StudentActivated` — to enable the courses their grades already justify.
+**Listens to:** `StudentActivated` — to enable the courses their grades already justify;
+`SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
+catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
+already depends on skills, and the modules would depend on each other.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -296,6 +299,9 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 | GET | `/api/v1/coordinator/skill-proposals?status=` | coordinator | proposals of the university: the queue by default, the history with APPROVED, MERGED or REJECTED (US43) |
 | GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
 | POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
+| GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it, counted in the coordinator's university only, for a global tool too; counts, never people (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the ADMIN role, which does not exist yet (TS03) (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 

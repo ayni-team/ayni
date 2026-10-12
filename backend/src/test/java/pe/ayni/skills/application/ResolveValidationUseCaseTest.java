@@ -31,12 +31,15 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.application.ResolveValidationUseCase.Resolution;
 import pe.ayni.skills.domain.model.AccreditationPath;
 import pe.ayni.skills.domain.model.NotACoordinator;
+import pe.ayni.skills.CatalogScope;
+import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.OfferedSkill;
 import pe.ayni.skills.domain.model.OfferedSkillStatus;
 import pe.ayni.skills.domain.model.SkillsRuleViolation;
 import pe.ayni.skills.domain.model.SkillsStateConflict;
 import pe.ayni.skills.domain.model.ValidationRequest;
 import pe.ayni.skills.domain.model.ValidationStatus;
+import pe.ayni.skills.infrastructure.CatalogItemRepository;
 import pe.ayni.skills.infrastructure.OfferedSkillRepository;
 import pe.ayni.skills.infrastructure.ValidationRequestRepository;
 
@@ -52,10 +55,16 @@ class ResolveValidationUseCaseTest {
   private final IdentityApi identity = mock(IdentityApi.class);
   private final ValidationRequestRepository requests = mock(ValidationRequestRepository.class);
   private final OfferedSkillRepository offeredSkills = mock(OfferedSkillRepository.class);
+  private final CatalogItemRepository catalogItems = mock(CatalogItemRepository.class);
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   private final ResolveValidationUseCase useCase =
       new ResolveValidationUseCase(
-          new CoordinatorGuard(identity), requests, offeredSkills, events, Clock.fixed(NOW, ZoneOffset.UTC));
+          new CoordinatorGuard(identity),
+          requests,
+          offeredSkills,
+          catalogItems,
+          events,
+          Clock.fixed(NOW, ZoneOffset.UTC));
 
   private OfferedSkill skill;
   private ValidationRequest request;
@@ -191,5 +200,24 @@ class ResolveValidationUseCaseTest {
         .isInstanceOf(NoSuchElementException.class);
 
     verify(events, never()).publishEvent(any(Object.class));
+  }
+
+  @Test
+  @DisplayName("evidence for a tool retired while it waited cannot be approved, but can be rejected")
+  void evidenceForARetiredToolCannotBeApproved() {
+    CatalogItem retired =
+        new CatalogItem(TOOL_ID, CatalogScope.GLOBAL, null, UUID.randomUUID(), "Old tool", null, null, NOW);
+    retired.retire();
+    when(catalogItems.findById(TOOL_ID)).thenReturn(Optional.of(retired));
+
+    assertThatThrownBy(() -> decide(true, "Solid portfolio")).isInstanceOf(SkillsStateConflict.class);
+    assertThat(request.isWaiting()).isTrue();
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.PENDING);
+    verify(events, never()).publishEvent(any(Object.class));
+
+    decide(false, "The tool was retired");
+
+    assertThat(request.getStatus()).isEqualTo(ValidationStatus.REJECTED);
+    assertThat(skill.getStatus()).isEqualTo(OfferedSkillStatus.REJECTED);
   }
 }

@@ -14,6 +14,46 @@ import pe.ayni.skills.domain.model.OfferedSkillStatus;
 /** Every method takes the university: no query here may cross into another one's tutors. */
 public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID> {
 
+  /**
+   * How many tutors of the university hold the item in the given status.
+   *
+   * <p>A tutor holds one row per item, so this is a count of tutors. It returns a number and never a
+   * row about a person.
+   */
+  long countByTenantIdAndCatalogItemIdAndStatus(
+      String tenantId, UUID catalogItemId, OfferedSkillStatus status);
+
+  /**
+   * Every offer of the item in the given status in the university, locked until the transaction
+   * ends. Only for retiring the item, which touches every tutor that holds it: the lock keeps a
+   * tutor from withdrawing the same skill at the same moment and announcing it twice.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select skill from OfferedSkill skill
+      where skill.tenantId = :tenantId
+        and skill.catalogItemId = :catalogItemId
+        and skill.status = :status
+      """)
+  List<OfferedSkill> lockByTenantIdAndCatalogItemIdAndStatus(
+      @Param("tenantId") String tenantId,
+      @Param("catalogItemId") UUID catalogItemId,
+      @Param("status") OfferedSkillStatus status);
+
+  /**
+   * Every offer of the item in the university, whatever its status, locked until the transaction
+   * ends. Only for joining two items, which moves what every tutor holds on one to the other.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select skill from OfferedSkill skill
+      where skill.tenantId = :tenantId and skill.catalogItemId = :catalogItemId
+      """)
+  List<OfferedSkill> lockByTenantIdAndCatalogItemId(
+      @Param("tenantId") String tenantId, @Param("catalogItemId") UUID catalogItemId);
+
   Optional<OfferedSkill> findByTenantIdAndTutorIdAndCatalogItemId(
       String tenantId, UUID tutorId, UUID catalogItemId);
 

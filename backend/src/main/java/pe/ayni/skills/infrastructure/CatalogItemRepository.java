@@ -1,5 +1,6 @@
 package pe.ayni.skills.infrastructure;
 
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -7,6 +8,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.ayni.skills.domain.model.CatalogItem;
@@ -67,6 +69,38 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
         and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
       """)
   Optional<CatalogItem> findByIdAndTenantVisibility(
+      @Param("id") UUID id, @Param("tenantId") String tenantId);
+
+  /**
+   * An item visible to the university, locked for writing until the transaction ends. Whoever
+   * retires or joins an item takes this lock, so nobody can start offering it in the meantime.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      """
+      select item from CatalogItem item
+      where item.id = :id
+        and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
+      """)
+  Optional<CatalogItem> lockByIdAndTenantVisibility(
+      @Param("id") UUID id, @Param("tenantId") String tenantId);
+
+  /**
+   * An item visible to the university, locked for sharing until the transaction ends. Whoever
+   * starts offering an item takes this one: any number of tutors can at once, but none while the
+   * item is being retired, and a retirement waits for them. The tutor then finds the item as the
+   * retirement left it, and cannot be left offering something that was just taken out.
+   *
+   * <p>Only for transactions that write: PostgreSQL does not lock rows in a read only one.
+   */
+  @Lock(LockModeType.PESSIMISTIC_READ)
+  @Query(
+      """
+      select item from CatalogItem item
+      where item.id = :id
+        and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
+      """)
+  Optional<CatalogItem> lockByIdAndTenantVisibilityForShare(
       @Param("id") UUID id, @Param("tenantId") String tenantId);
 
   /** The university's courses in the given status among the codes the academic system reports. */

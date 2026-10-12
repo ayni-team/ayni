@@ -66,7 +66,7 @@ class SubmitEvidenceUseCaseTest {
 
   @BeforeEach
   void aToolTheTutorHasNeverSubmitted() {
-    when(catalogItems.findByIdAndTenantVisibility(TOOL_ID, UPC)).thenReturn(Optional.of(tool()));
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(TOOL_ID, UPC)).thenReturn(Optional.of(tool()));
     when(offeredSkills.lockByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, TOOL_ID))
         .thenReturn(Optional.empty());
     when(offeredSkills.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
@@ -181,7 +181,7 @@ class SubmitEvidenceUseCaseTest {
   @Test
   @DisplayName("a course is refused: it is enabled by the academic record")
   void aCourseIsRefused() {
-    when(catalogItems.findByIdAndTenantVisibility(TOOL_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(TOOL_ID, UPC))
         .thenReturn(
             Optional.of(
                 new CatalogItem(
@@ -199,7 +199,7 @@ class SubmitEvidenceUseCaseTest {
   void aRetiredToolIsRefused() {
     CatalogItem retired = tool();
     retired.retire();
-    when(catalogItems.findByIdAndTenantVisibility(TOOL_ID, UPC)).thenReturn(Optional.of(retired));
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(TOOL_ID, UPC)).thenReturn(Optional.of(retired));
 
     assertThatThrownBy(() -> submit(null, pdf("a.pdf"))).isInstanceOf(SkillsRuleViolation.class);
 
@@ -209,7 +209,7 @@ class SubmitEvidenceUseCaseTest {
   @Test
   @DisplayName("an item that does not exist in this university is not found")
   void anUnknownItemIsNotFound() {
-    when(catalogItems.findByIdAndTenantVisibility(TOOL_ID, UPC)).thenReturn(Optional.empty());
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(TOOL_ID, UPC)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> submit(null, pdf("a.pdf"))).isInstanceOf(NoSuchElementException.class);
 

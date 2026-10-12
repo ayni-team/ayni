@@ -88,7 +88,7 @@ public class OfferApprovedCourseUseCase {
 
     CatalogItem item =
         catalogItems
-            .findByIdAndTenantVisibility(catalogItemId, tenantId)
+            .lockByIdAndTenantVisibilityForShare(catalogItemId, tenantId)
             .orElseThrow(
                 () -> new NoSuchElementException("catalog item %s not found".formatted(catalogItemId)));
 

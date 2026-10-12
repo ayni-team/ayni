@@ -84,7 +84,7 @@ class OfferApprovedCourseUseCaseTest {
 
     assertThatThrownBy(this::execute).isInstanceOf(SkillsStateConflict.class);
 
-    verify(catalogItems, never()).findByIdAndTenantVisibility(any(), any());
+    verify(catalogItems, never()).lockByIdAndTenantVisibilityForShare(any(), any());
     verify(offeredSkills, never()).save(any());
   }
 
@@ -97,7 +97,7 @@ class OfferApprovedCourseUseCaseTest {
     withdrawn.withdraw(NOW.minusSeconds(60));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
         .thenReturn(Optional.of(withdrawn));
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(universityCourse("1ASI0657")));
     when(identity.approvedCourses(TUTOR))
         .thenReturn(
@@ -121,7 +121,7 @@ class OfferApprovedCourseUseCaseTest {
     withdrawn.withdraw(NOW.minusSeconds(60));
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
         .thenReturn(Optional.of(withdrawn));
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(universityCourse("1ASI0657")));
     when(identity.approvedCourses(TUTOR))
         .thenReturn(
@@ -138,7 +138,7 @@ class OfferApprovedCourseUseCaseTest {
   @Test
   @DisplayName("a grade that reaches the threshold enables the skill")
   void gradeReachingTheThresholdEnablesTheSkill() {
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(universityCourse("1ASI0657")));
     when(identity.approvedCourses(TUTOR))
         .thenReturn(List.of(new ApprovedCourseView("1ASI0657", "Fundamentos", THRESHOLD, "2026-1")));
@@ -155,7 +155,7 @@ class OfferApprovedCourseUseCaseTest {
   @Test
   @DisplayName("a grade below the threshold is refused and nothing is saved")
   void gradeBelowTheThresholdIsRefused() {
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(universityCourse("1ASI0657")));
     when(identity.approvedCourses(TUTOR))
         .thenReturn(
@@ -172,7 +172,7 @@ class OfferApprovedCourseUseCaseTest {
   @Test
   @DisplayName("a course missing from the academic record is refused")
   void aCourseMissingFromTheAcademicRecordIsRefused() {
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(universityCourse("1ASI0657")));
     when(identity.approvedCourses(TUTOR)).thenReturn(List.of());
 
@@ -184,7 +184,7 @@ class OfferApprovedCourseUseCaseTest {
   @Test
   @DisplayName("a global tool is refused before consulting the academic record")
   void aGlobalToolIsRefusedBeforeConsultingTheAcademicRecord() {
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(globalTool()));
 
     assertThatThrownBy(this::execute)
@@ -200,7 +200,7 @@ class OfferApprovedCourseUseCaseTest {
   void aRetiredCourseIsRefused() {
     CatalogItem retired = universityCourse("1ASI0657");
     retired.retire();
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC))
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC))
         .thenReturn(Optional.of(retired));
 
     assertThatThrownBy(this::execute)
@@ -219,7 +219,7 @@ class OfferApprovedCourseUseCaseTest {
     withdrawn.withdraw(NOW);
     when(offeredSkills.findByTenantIdAndTutorIdAndCatalogItemId(UPC, TUTOR, CATALOG_ITEM_ID))
         .thenReturn(Optional.of(withdrawn));
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.of(globalTool()));
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.of(globalTool()));
 
     OfferedSkill skill = execute();
 
@@ -246,7 +246,7 @@ class OfferApprovedCourseUseCaseTest {
   @Test
   @DisplayName("an unknown catalog item is refused")
   void anUnknownCatalogItemIsRefused() {
-    when(catalogItems.findByIdAndTenantVisibility(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.empty());
+    when(catalogItems.lockByIdAndTenantVisibilityForShare(CATALOG_ITEM_ID, UPC)).thenReturn(Optional.empty());
 
     assertThatThrownBy(this::execute).isInstanceOf(NoSuchElementException.class);
   }
