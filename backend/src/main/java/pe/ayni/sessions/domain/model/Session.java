@@ -246,6 +246,23 @@ public class Session {
   }
 
   /**
+   * Marks a scheduled session cancelled when its booking is cancelled before the scheduled start.
+   *
+   * @throws SessionRuleViolation when the session has already started or is no longer scheduled
+   */
+  public void cancel(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (this.status != SessionStatus.SCHEDULED) {
+      throw new SessionRuleViolation("Only a session that has not started can be cancelled");
+    }
+    if (!now.isBefore(this.scheduledStart)) {
+      throw new SessionRuleViolation("A session cannot be cancelled after it has started");
+    }
+    this.status = SessionStatus.CANCELLED;
+    this.endedAt = now;
+  }
+
+  /**
    * The hours that were booked, one credit each. What the tutor earns, not the minutes the call
    * lasted.
    */

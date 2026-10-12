@@ -129,6 +129,7 @@ class CloseSessionAcceptanceTest {
 
   @BeforeEach
   void theOtherModulesAnswer() {
+    when(booking.isConfirmed(any())).thenReturn(true);
     when(booking.requireBooking(any()))
         .thenAnswer(
             call ->

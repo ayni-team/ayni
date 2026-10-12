@@ -526,9 +526,10 @@ INDEX (tenant_id, tutor_id, starts_at DESC)
 
 `credits_charged = hours` is the pricing rule written as a constraint: one credit, one hour.
 
-Cancelling always refunds the student. `cancelled_late` records whether it happened inside the
-twelve hour window, which is the same deadline US05 already gives the student. A tutor who removes
-availability over a confirmed booking is cancelling that session, and it is recorded against them.
+A cancellation refunds the student, except when the student themselves cancels inside the twelve
+hour window. `cancelled_late` records whether it happened inside that window, and `cancelled_by`
+who did it: a tutor's cancellation refunds at any hour. A tutor who removes availability over a
+confirmed booking is cancelling that session, and it is recorded against them.
 
 ### `booking.tutor_reliability`
 

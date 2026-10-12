@@ -183,8 +183,9 @@ leaves a trail.
 
 ## 6. When things do not go well
 
-*Policy: cancelling always refunds the student*, and the credits return to the group they came from,
-with the expiry they had.
+*Policy: a cancellation refunds the student* unless the student cancelled it themselves inside the
+twelve hours before the start; a tutor's cancellation refunds at any hour. The credits return to the
+group they came from, with the expiry they had.
 
 *Policy: a cancellation within twelve hours of the start is recorded against whoever made it.* The
 same twelve hours the backlog already gives the student, so there is one rule to explain and not
@@ -285,7 +286,9 @@ There is no user-facing reporting of sessions. Detection is automatic.
 7. **No passwords.** A single use link by email, for every role, and a long session afterwards.
 8. **All available tutors are shown** for an hour, and the student chooses.
 9. **A presence code five minutes into the session**, by email, entered in the platform.
-10. **Twelve hours** is the cancellation window, and a refund is always issued.
+10. **Twelve hours** is the cancellation window. A student who cancels inside it is warned and not
+    refunded; a tutor's cancellation is always refunded and, inside the window, recorded against
+    them.
 11. **The catalogue is global for tools and per university for courses.**
 12. **An unconfirmed presence check ends the session as `UNVERIFIED`**: the tutor earns no credits,
     the student recovers theirs and the audit is notified (US54, US11).
