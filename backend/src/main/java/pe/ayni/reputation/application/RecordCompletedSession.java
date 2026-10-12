@@ -42,7 +42,7 @@ class RecordCompletedSession {
 
         TutorStanding standing =
                 standings
-                        .findByTenantIdAndTutorIdAndCatalogItemId(
+                        .lockByTenantIdAndTutorIdAndCatalogItemId(
                                 tenantId,
                                 tutorId,
                                 catalogItemId)
@@ -54,21 +54,26 @@ class RecordCompletedSession {
                                                 catalogItemId,
                                                 occurredOn));
 
+        // The window is opened once per session, in the same transaction that counts it, so its
+        // presence says the session was already counted: delivering the event again changes
+        // nothing. It is read after the standing is locked, so two deliveries at once are told
+        // apart too.
+        if (ratingWindows
+                .findByTenantIdAndSessionId(tenantId, sessionId)
+                .isPresent()) {
+            return;
+        }
+
         standing.recordCompletedSession(occurredOn);
         standings.save(standing);
 
-        if (ratingWindows
-                .findByTenantIdAndSessionId(tenantId, sessionId)
-                .isEmpty()) {
-
-            ratingWindows.save(
-                    new RatingWindow(
-                            tenantId,
-                            sessionId,
-                            tutorId,
-                            studentId,
-                            catalogItemId,
-                            occurredOn));
-        }
+        ratingWindows.save(
+                new RatingWindow(
+                        tenantId,
+                        sessionId,
+                        tutorId,
+                        studentId,
+                        catalogItemId,
+                        occurredOn));
     }
 }

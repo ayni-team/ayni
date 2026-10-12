@@ -3,6 +3,8 @@ package pe.ayni.reputation.application;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,7 +35,7 @@ class RecordCompletedSessionTest {
         RatingWindowRepository ratingWindows = mock(RatingWindowRepository.class);
 
         when(
-                standings.findByTenantIdAndTutorIdAndCatalogItemId(
+                standings.lockByTenantIdAndTutorIdAndCatalogItemId(
                         tenantId, tutorId, catalogItemId))
                 .thenReturn(Optional.empty());
 
@@ -81,5 +83,45 @@ class RecordCompletedSessionTest {
         assertEquals(studentId, savedWindow.studentId());
         assertEquals(catalogItemId, savedWindow.catalogItemId());
         assertEquals(occurredOn, savedWindow.openedAt());
+    }
+
+    @Test
+    void aSessionCompletedTwiceIsCountedOnce() {
+        String tenantId = "upc";
+        UUID sessionId = UUID.randomUUID();
+        UUID tutorId = UUID.randomUUID();
+        UUID studentId = UUID.randomUUID();
+        UUID catalogItemId = UUID.randomUUID();
+        Instant occurredOn = Instant.parse("2026-09-22T20:00:00Z");
+
+        TutorStandingRepository standings = mock(TutorStandingRepository.class);
+        RatingWindowRepository ratingWindows = mock(RatingWindowRepository.class);
+
+        when(ratingWindows.findByTenantIdAndSessionId(tenantId, sessionId))
+                .thenReturn(
+                        Optional.of(
+                                new RatingWindow(
+                                        tenantId,
+                                        sessionId,
+                                        tutorId,
+                                        studentId,
+                                        catalogItemId,
+                                        occurredOn)));
+
+        RecordCompletedSession useCase =
+                new RecordCompletedSession(standings, ratingWindows);
+
+        TenantContext.runAs(
+                tenantId,
+                () ->
+                        useCase.record(
+                                sessionId,
+                                tutorId,
+                                studentId,
+                                catalogItemId,
+                                occurredOn));
+
+        verify(standings, never()).save(any());
+        verify(ratingWindows, never()).save(any());
     }
 }
