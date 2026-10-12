@@ -280,16 +280,33 @@ are skipped, not refused, and the answer lists the ones that ended up enabled.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
-**Listens to:** `StudentActivated` — to enable the courses their grades already justify.
+**Listens to:** `StudentActivated` — to enable the courses their grades already justify;
+`SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
+catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
+already depends on skills, and the modules would depend on each other.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
+| GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
+| POST | `/api/v1/tutor/skills/proposals` | student | proposes a tool the catalogue does not have. 409 with the similar items until `confirmDistinct` is sent (US42) |
+| GET | `/api/v1/tutor/skills/proposals` | student | own proposals with their status and decision (US42) |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
 | GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
 | DELETE | `/api/v1/tutor/skills/{id}` | student | withdraws it. Confirmed bookings stand |
 | POST | `/api/v1/tutor/skills/{id}/validation` | student | submits evidence for a global tool |
+| GET | `/api/v1/coordinator/skill-proposals?status=` | coordinator | proposals of the university: the queue by default, the history with APPROVED, MERGED or REJECTED (US43) |
+| GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
+| POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
+| GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it, counted in the coordinator's university only, for a global tool too; counts, never people (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the ADMIN role, which does not exist yet (TS03) (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
+| GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/courses/{id}/retire` | coordinator | takes a course of the university out: same effect and confirmation as retiring an item; a global tool is not found here (US51) |
+| GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
+| PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
@@ -323,6 +340,11 @@ public interface WalletApi {
 **Rules that live here and nowhere else:** spend the group closest to expiring first; a refund
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
+
+The daily expiry job publishes one `CreditsExpiring` event per unspent credit group within the
+configured `ayni.wallet.expiry-notice-days` window (seven days by default). Wallet stores the
+publication time on the group, so subsequent runs do not publish a duplicate notice. This job only
+publishes the event; email delivery in `notifications` is a separate responsibility.
 
 A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.
@@ -497,12 +519,56 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/v1/recognition/progress` | student — hours so far against what is required |
-| POST | `/api/v1/recognition/requests` | student |
-| GET | `/api/v1/recognition/requests/mine` | student |
-| GET | `/api/v1/coordinator/recognition/requests` | coordinator — queue with audit flags |
-| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the full file |
-| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator |
+| GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
+| POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
+| GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
+| GET | `/api/v1/coordinator/recognition/requests` | coordinator — what waits, oldest first, with the student and the hours presented; `status` shows the history (US29) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}` | coordinator — the case with its evidence, frozen as submitted, and the audit alerts (US29) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions` | coordinator — the sessions behind it: date, duration, course or skill taught; their hours add up to the total (US30) |
+| GET | `/api/v1/coordinator/recognition/requests/{id}/sessions/{sessionId}` | coordinator — one session's evidence: attendance of both parties, presence verified, the tutor's rating (US30) |
+| POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator — approve or reject with a reason; decided once (US29) |
+
+**Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
+`COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the
+`minimum_hours` of the rule in force of the university (`recognition.rules`, the latest one started
+and not superseded). It does not call `WalletApi.earnedTotal`: wallet credits the tutor from a
+listener, after the session, and keep counting after a request used the session, while the sessions
+are what the request is made of. Credits assigned by the university or bought are never in the figure
+since no session stands behind them. A university with no rule has not opened recognition: the
+required and missing hours are absent and `canRequest` is false.
+
+**Submitting (US28).** `POST /recognition/requests` takes the student's verified sessions that no
+request has used, the oldest first, until the hours of the rule are reached, and registers the request
+with their total, their count and the mean of the ratings they carry. Each session keeps the skill
+(read through `BookingApi.requireBooking`), the period and the rating it had. The student keeps the
+sessions beyond the requirement for the next request. With fewer hours nothing is saved and the
+answer is a 409 with `missingHours`; with no rule in force it is a 409 too, without it. Submitting
+waits for its turn per student (`pg_advisory_xact_lock`), so two requests at once cannot take the
+same sessions; `RecognitionRequested` is published. The ratings come from the `SessionRatings` port:
+reputation has no rating per session to give yet, and the adapter in place says there are none.
+
+**Reviewing (US29).** The coordinator (checked in the use case through `IdentityApi.requireUser`, as
+in skills) reads the queue and then a case: the figures and the sessions of the request exactly as they
+were submitted, so reading it days later shows the same. Each session carries its date, how long it
+really lasted, `presenceVerified` (always true: only `COMPLETED` sessions, where both confirmed their
+code, back a request) and the rating copied. The alerts of the audit come from the `SessionAlerts`
+port and are put next to the session they are about; audit publishes nothing yet, so the adapter in
+place says there are none.
+
+**Supporting sessions (US30).** `GET .../{id}/sessions` lists the sessions behind a request with the date,
+the duration and the course or skill taught (read through `SkillsApi.requireItem`); the hours listed
+add up to the total because both were copied at submission. `GET .../{id}/sessions/{sessionId}` opens
+one of them: the register of both participants (names through `IdentityApi`, presence verified when
+`SessionsApi.requireSession` says the session is `COMPLETED`, which is what both confirming their code
+means) and the tutor's rating as copied. A session is only reached through the request it backs. The
+per-participant arrival and confirmation times are not exposed by `SessionsApi` and are not shown.
+
+**Deciding (US29).** `POST .../decision` takes `APPROVE` or `REJECT` and a reason, required for both.
+It records who decided, when and why, publishes `RecognitionResolved` so notifications can tell the
+student, and the student reads the decision and the reason in `requests/mine`. A request is decided
+once: the request is locked (`PESSIMISTIC_WRITE`) while it is decided, so two coordinators at once end
+with one decision and one 409. A resolved request without reviewer, date and reason is refused by the
+table too.
 
 **Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
 one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
