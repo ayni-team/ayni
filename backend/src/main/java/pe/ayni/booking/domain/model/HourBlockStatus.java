@@ -12,6 +12,9 @@ public enum HourBlockStatus {
   /** Confirmed against a booking. */
   BOOKED,
 
-  /** Taken out of circulation for good, after the booking over it was cancelled. */
-  RELEASED
+  /** Released after cancellation; it does not return to circulation automatically. */
+  RELEASED,
+
+  /** Withdrawn by an availability change; it can return when the rules allow it again. */
+  WITHDRAWN
 }

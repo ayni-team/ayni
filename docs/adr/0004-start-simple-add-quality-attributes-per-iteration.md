@@ -51,6 +51,10 @@ backlog:**
 Until each of those arrives, the corresponding property is **not** satisfied, and the report says so
 rather than claiming it.
 
+**TS06 has since been implemented.** The payment-provider resilience decision is recorded in
+[ADR 0008](0008-payment-provider-resilience.md); the original table above remains the historical
+plan at the time this record was accepted.
+
 ## Consequences
 
 - The team can implement a story end to end on day one: a migration, an entity, a use case, an

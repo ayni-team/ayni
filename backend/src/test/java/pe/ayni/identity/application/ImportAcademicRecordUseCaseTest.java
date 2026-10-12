@@ -111,16 +111,21 @@ class ImportAcademicRecordUseCaseTest {
         when(users.findByTenantIdAndId("UPC", userId))
                 .thenReturn(Optional.of(user));
 
-        when(academicSystem.findApprovedCourses(
+        when(academicSystem.fetchProfile(
                 "UPC",
                 "U202612345"))
                 .thenReturn(
-                        List.of(
-                                new AcademicCourseData(
-                                        "SI385",
-                                        "Fundamentos de Arquitectura de Software",
-                                        BigDecimal.valueOf(18),
-                                        "2026-2")));
+                        new AcademicProfile(
+                                "Juan Sanchez",
+                                "Software Engineering",
+                                "7",
+                                List.of(
+                                        new AcademicCourseData(
+                                                "SI385",
+                                                "Fundamentos de Arquitectura de Software",
+                                                BigDecimal.valueOf(18),
+                                                "2026-2"))));
+
 
         ImportAcademicRecordUseCase useCase =
                 new ImportAcademicRecordUseCase(
