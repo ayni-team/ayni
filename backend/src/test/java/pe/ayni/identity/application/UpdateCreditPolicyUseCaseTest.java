@@ -21,8 +21,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.CreditPolicy;
-import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.domain.model.User;
@@ -85,7 +86,7 @@ class UpdateCreditPolicyUseCaseTest {
                                 coordinator));
 
         when(
-                tenants.findByCode(
+                tenants.lockByCode(
                         "UPC"))
                 .thenReturn(
                         Optional.of(
@@ -192,7 +193,7 @@ class UpdateCreditPolicyUseCaseTest {
                                                 8,
                                                 45)))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        CoordinatorRequired.class)
                 .hasMessageContaining(
                         "active coordinator");
 
@@ -230,7 +231,7 @@ class UpdateCreditPolicyUseCaseTest {
                                                 8,
                                                 45)))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        CoordinatorRequired.class)
                 .hasMessageContaining(
                         "active coordinator");
 
@@ -259,7 +260,7 @@ class UpdateCreditPolicyUseCaseTest {
                                         UserStatus.ACTIVE)));
 
         when(
-                tenants.findByCode(
+                tenants.lockByCode(
                         "UPC"))
                 .thenReturn(
                         Optional.of(
@@ -282,7 +283,7 @@ class UpdateCreditPolicyUseCaseTest {
                                                 8,
                                                 45)))
                 .isInstanceOf(
-                        IdentityRuleViolation.class)
+                        CreditPolicyConflict.class)
                 .hasMessageContaining(
                         "does not have a baseline");
 
@@ -293,6 +294,74 @@ class UpdateCreditPolicyUseCaseTest {
                         argThat(
                                 policy ->
                                         true));
+    }
+
+    @Test
+    void whoDoesNotBelongToTheUniversityCannotChangeCreditPolicy() {
+
+        UUID stranger =
+                UUID.randomUUID();
+
+        when(
+                users.findByTenantIdAndId(
+                        "UPC",
+                        stranger))
+                .thenReturn(
+                        Optional.empty());
+
+        assertThatThrownBy(
+                () ->
+                        TenantContext.runAs(
+                                "UPC",
+                                () ->
+                                        useCase.execute(
+                                                stranger,
+                                                8,
+                                                45)))
+                .isInstanceOf(
+                        CoordinatorRequired.class);
+    }
+
+    @Test
+    void suspendedUniversityRefusesToChangeItsCreditPolicy() {
+
+        UUID coordinatorId =
+                UUID.randomUUID();
+
+        Tenant suspended =
+                upc();
+        suspended.suspend(NOW);
+
+        when(
+                users.findByTenantIdAndId(
+                        "UPC",
+                        coordinatorId))
+                .thenReturn(
+                        Optional.of(
+                                coordinator(
+                                        coordinatorId,
+                                        UserStatus.ACTIVE)));
+
+        when(
+                tenants.lockByCode(
+                        "UPC"))
+                .thenReturn(
+                        Optional.of(
+                                suspended));
+
+        assertThatThrownBy(
+                () ->
+                        TenantContext.runAs(
+                                "UPC",
+                                () ->
+                                        useCase.execute(
+                                                coordinatorId,
+                                                8,
+                                                45)))
+                .isInstanceOf(
+                        CreditPolicyConflict.class)
+                .hasMessageContaining(
+                        "suspended");
     }
 
     private CreditPolicy previousPolicy() {

@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.application.CreditPolicyConfigurationView;
 import pe.ayni.identity.application.UpdateCreditPolicyUseCase;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.shared.tenancy.CurrentUser;
 
 class CreditPolicyControllerTest {
@@ -144,5 +146,55 @@ class CreditPolicyControllerTest {
                                         """))
                 .andExpect(
                         status().isBadRequest());
+    }
+
+    @Test
+    void answersForbiddenToWhoIsNotAnActiveCoordinator() throws Exception {
+
+        when(
+                updateCreditPolicy.execute(
+                        coordinatorId,
+                        8,
+                        45))
+                .thenThrow(
+                        new CoordinatorRequired(
+                                "Only an active coordinator can update the credit policy"));
+
+        mvc.perform(
+                        put(
+                                "/api/v1/coordinator/credit-policy")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "creditsAmount": 8, "validityDays": 45 }
+                                        """))
+                .andExpect(
+                        status().isForbidden());
+    }
+
+    @Test
+    void answersConflictWhenTheStateRefusesTheChange() throws Exception {
+
+        when(
+                updateCreditPolicy.execute(
+                        coordinatorId,
+                        8,
+                        45))
+                .thenThrow(
+                        new CreditPolicyConflict(
+                                "A suspended university cannot update its credit policy"));
+
+        mvc.perform(
+                        put(
+                                "/api/v1/coordinator/credit-policy")
+                                .contentType(
+                                        MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "creditsAmount": 8, "validityDays": 45 }
+                                        """))
+                .andExpect(
+                        status().isConflict());
     }
 }

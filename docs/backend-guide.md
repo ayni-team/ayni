@@ -253,7 +253,7 @@ public interface IdentityApi {
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites by email |
-| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the policy |
+| PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
@@ -276,6 +276,25 @@ the same code, or the same domain, end with one `201` and one `409`, never a `50
 
 `GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
 active and how many students and coordinators it has, and nothing else about its people.
+
+**Credit policy (US52).** `PUT /api/v1/coordinator/credit-policy` takes `creditsAmount` and
+`validityDays`, both of at least 1. In one transaction it closes the current `BASELINE` policy of
+the university of the request (`superseded_at`) and creates the next one, authored by the
+coordinator and valid from today in the university's own zone. The previous version stays stored:
+policies are never edited. `IdentityApi.currentPolicy` answers the new one from then on, so the
+students activated afterwards are granted it; what was granted before keeps the policy that granted
+it. The body is the new policy: `id`, `kind`, `creditsAmount`, `validityDays` and `validFrom`.
+
+| Status | When |
+|---|---|
+| 200 | Replaced |
+| 400 | `creditsAmount` or `validityDays` below 1, or a missing `X-Tenant-Id` or `X-User-Id` |
+| 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
+| 409 | The university is suspended, or it has no baseline policy to replace |
+
+The university's row is locked before the current policy is read, so two coordinators replacing it
+at once are answered `200` both, one after the other, and exactly one `BASELINE` policy stays
+current, never two and never a `500`.
 
 ---
 

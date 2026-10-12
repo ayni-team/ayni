@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
@@ -35,6 +37,28 @@ class IdentityExceptionHandler {
 
         return answer(
                 HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CoordinatorRequired.class)
+    ResponseEntity<ApiError> handleCoordinatorRequired(
+            CoordinatorRequired exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CreditPolicyConflict.class)
+    ResponseEntity<ApiError> handleCreditPolicyConflict(
+            CreditPolicyConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
                 exception.getMessage(),
                 request);
     }

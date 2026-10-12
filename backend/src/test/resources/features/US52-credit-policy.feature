@@ -1,3 +1,11 @@
+# US52 - As a coordinator, I want to set the initial credits my university grants, so that the
+# policy fits what the university can afford.
+#
+# Each scenario runs over HTTP against a real PostgreSQL, with the same name, in
+# CreditPolicyAcceptanceTest, with the rules of the use case in UpdateCreditPolicyUseCaseTest and
+# of the entity in CreditPolicyTest. The same file holds the race of two coordinators replacing the
+# policy at once. Nothing here is @pending.
+
 Feature: Configure university credit policy
 
   Scenario: A coordinator changes the baseline credit policy
@@ -24,3 +32,11 @@ Feature: Configure university credit policy
     Given an active coordinator belongs to a university
     When the coordinator configures zero credits or zero validity days
     Then the request is rejected
+
+  # Not a scenario of the story: the contract of the endpoint when two coordinators change the
+  # policy at once.
+  Scenario: Two coordinators replacing the policy at the same time leave one current baseline
+    Given two active coordinators of a university with a current baseline policy
+    When both replace the policy at the same time
+    Then both are answered 200 and none is answered 500
+    And exactly one baseline policy of the university is current

@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.CreditPolicy;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.User;
@@ -66,19 +68,25 @@ public class UpdateCreditPolicyUseCase {
                                 currentUserId)
                         .orElseThrow(
                                 () ->
-                                        new NoSuchElementException(
-                                                "The user does not belong to this university"));
+                                        new CoordinatorRequired(
+                                                "Only an active coordinator can update the credit policy"));
 
         if (coordinator.getRole()
                 != UserRole.COORDINATOR
                 || !coordinator.isActive()) {
 
-            throw new IdentityRuleViolation(
+            throw new CoordinatorRequired(
                     "Only an active coordinator can update the credit policy");
         }
 
+        /*
+         * The row of the university is the lock of its policies. Two coordinators
+         * replacing the policy at once would both read the same current version and
+         * both insert a new one, leaving two current baselines. The second waits
+         * here until the first commits and then supersedes what the first created.
+         */
         Tenant tenant =
-                tenants.findByCode(
+                tenants.lockByCode(
                                 tenantId)
                         .orElseThrow(
                                 () ->
@@ -86,7 +94,7 @@ public class UpdateCreditPolicyUseCase {
                                                 "The university does not exist"));
 
         if (!tenant.isActive()) {
-            throw new IdentityRuleViolation(
+            throw new CreditPolicyConflict(
                     "A suspended university cannot update its credit policy");
         }
 
@@ -107,7 +115,7 @@ public class UpdateCreditPolicyUseCase {
                                 PolicyKind.BASELINE)
                         .orElseThrow(
                                 () ->
-                                        new IdentityRuleViolation(
+                                        new CreditPolicyConflict(
                                                 "The university does not have a baseline credit policy"));
 
         Instant now =
