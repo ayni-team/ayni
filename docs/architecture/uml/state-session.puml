@@ -4,11 +4,11 @@ hide empty description
 
 [*] --> SCHEDULED : BookingConfirmed\n/ private room created
 
-SCHEDULED --> IN_PROGRESS : first participant joins\n[from 15 min before the start]\n/ SessionStarted
+SCHEDULED --> SCHEDULED : a participant joins\n[from 15 min before the start]\n/ arrival recorded
+SCHEDULED --> IN_PROGRESS : the second participant joins\n[both before 10 min after the start]\n/ SessionStarted
 SCHEDULED --> CANCELLED : BookingCancelled
-SCHEDULED --> ABANDONED : 10 min after the start\n[tutor had not joined]\n/ SessionAbandoned
+SCHEDULED --> ABANDONED : 10 min after the start\n[a participant had not joined]\n/ SessionAbandoned
 
-IN_PROGRESS --> ABANDONED : 10 min after the start\n[tutor had not joined]\n/ SessionAbandoned
 IN_PROGRESS --> IN_PROGRESS : 5 min after start\n/ PresenceCodeIssued to each participant
 IN_PROGRESS --> COMPLETED : EndSession\n[every participant confirmed presence]\n/ SessionCompleted
 IN_PROGRESS --> UNVERIFIED : EndSession or code expired\n[a participant did not confirm]\n/ SessionUnverified
@@ -19,11 +19,14 @@ ABANDONED --> [*]
 CANCELLED --> [*]
 
 note right of ABANDONED
-  A tutor no-show. The booking is NO_SHOW.
-  The student is refunded and told, and
-  the tutor is recorded, only if the student
-  had joined; when nobody came, nothing
-  is returned and nobody is blamed.
+  Somebody did not come. The booking is
+  NO_SHOW and the session never started.
+  Tutor missing, student there: the student
+  is refunded and told, and the tutor is
+  recorded. Student missing, tutor there,
+  or nobody there: nothing is returned,
+  nobody is told and the tutor is not
+  blamed or paid.
 end note
 
 note right of UNVERIFIED

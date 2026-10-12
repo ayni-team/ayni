@@ -532,8 +532,8 @@ who did it: a tutor's cancellation refunds at any hour. A tutor who removes avai
 confirmed booking is cancelling that session, and it is recorded against them.
 
 `NO_SHOW` is the state of a booking whose session was abandoned ten minutes after its start because
-the tutor had not joined (US06). It is set whether or not the student was there; what changes is
-the refund and the tutor's record, below.
+a participant had not joined (US06, US09). It is set whoever was missing; what changes is the
+refund and the tutor's record, below.
 
 ### `booking.tutor_reliability`
 
@@ -555,8 +555,9 @@ One row per incident, never a counter. A counter loses the story and cannot be a
 
 `LATE_CANCELLATION` is written when a tutor confirms a cancellation inside twelve hours of the
 start. `NO_SHOW` is written when the tutor did not join a session ten minutes after its start **and
-the student did**; when both were absent nobody was wronged and no row is written. The unique key
-makes either one a single fact however many times the event that causes it is delivered.
+the student did**; when both were absent, or only the student, nobody was wronged and no row is
+written. The unique key makes either one a single fact however many times the event that causes it
+is delivered.
 
 ---
 
@@ -589,9 +590,12 @@ INDEX (tenant_id, scheduled_start)
 link cannot walk in.
 
 `UNVERIFIED` is the state of a session that took place but failed the presence check below.
-`ABANDONED` is the state of a session whose tutor had not joined ten minutes after its scheduled
-start (US06), whether or not the student was there; `ended_at` is the moment it was abandoned. It
-is never given presence codes and never becomes `UNVERIFIED`.
+`started_at` is the moment the second participant checked in, so a session that is still
+`SCHEDULED`, or that was `ABANDONED`, has none (US09). Entering the room does not start a session:
+it starts when both participants entered before ten minutes had passed since its scheduled start.
+`ABANDONED` is the state of a session in which either participant, the tutor, the student or both,
+had not entered by then (US06, US09); `ended_at` is the moment it was abandoned. It is never given
+presence codes and never becomes `UNVERIFIED`.
 `CANCELLED` is the state of a session whose booking was cancelled before it started, so that the
 history shows what happened instead of an empty workspace (US12).
 
@@ -611,6 +615,10 @@ end_confirmed_at      timestamptz
 UNIQUE (session_id, user_id)
 CHECK  (role IN ('STUDENT','TUTOR'))
 ```
+
+`joined_at` is the participant's first arrival and is never moved: coming back after a dropped
+connection does not change it (US09). Both participants can read both arrivals. Nothing in the
+application writes it twice; the database does not prevent an `UPDATE` made straight on the table.
 
 `connected_seconds` is what the real duration is measured against, and one of the signals the audit
 looks at.
