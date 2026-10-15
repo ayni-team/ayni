@@ -14,7 +14,6 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -251,15 +250,6 @@ class MutualCheckInAcceptanceTest extends TutorNoShowScenario {
         .andExpect(jsonPath("$.tutorJoinedAt").value(brunoArrived.toString()));
     assertThat(arrivalOf(session, ana)).isEqualTo(anaArrived);
     assertThat(arrivalOf(session, tutor)).isEqualTo(brunoArrived);
-  }
-
-  @Test
-  @Disabled(
-      "Pending: refusing an UPDATE of joined_at takes a trigger, which takes a migration, and US09"
-          + " ships none")
-  @DisplayName("The database refuses to change an arrival time")
-  void theDatabaseRefusesToChangeAnArrival() {
-    // Waits for a migration: nothing at the database stops an UPDATE of sessions.participations.
   }
 
   @Test
