@@ -739,7 +739,7 @@ public interface SessionsApi {
 were booked, one credit each, not the minutes the call lasted.
 
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `SessionAbandoned`,
-`PresenceCodeIssued`.
+`PresenceCodeIssued`, `WhiteboardClosed`.
 **Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session
 and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
 that look at every university.
@@ -752,6 +752,7 @@ that look at every university.
 | POST | `/api/v1/sessions/{id}/presence` | participant — submits the six digit code |
 | POST | `/api/v1/sessions/{id}/end` | participant |
 | GET/PUT | `/api/v1/sessions/{id}/whiteboard` | participant |
+| WebSocket | `/api/v1/sessions/{id}/whiteboard/live` | participant, while the session is in progress |
 
 **Joining.** `GET /sessions/{id}` shows a participant the session and the student's need, read
 through `BookingApi.requireBooking`, and never the room name. `POST /sessions/{id}/join` hands the
@@ -827,6 +828,47 @@ and an abandoned one refuses to be joined or confirmed: both jobs only look at s
 progress, and the status says it is over.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
+
+**The shared whiteboard (US10, TS08).** The model and the order of the operations are ADR 0009. A
+board is a set of elements (`id`, `type`, opaque `data`) stored in `sessions.whiteboards.content` as
+`{"version": n, "elements": [...]}`. Both participants draw on it at once over the live channel,
+a WebSocket at `/api/v1/sessions/{id}/whiteboard/live`:
+
+- **Opening it** needs the session token, as `Authorization: Bearer` or, from a browser, as the
+  subprotocol pair `bearer, <token>` (the server answers the `bearer` subprotocol). Only the two
+  participants of a session `IN_PROGRESS` get in; the handshake answers 401, 403, another
+  university's session 404, and a session not in progress 409. The first message is the whole board
+  with its version: `{"type": "board", ...}`.
+- **Drawing** is sending `{"type": "operation", "operation": {"id", "action", "element" |
+  "elementId"}}` with `PUT_ELEMENT`, `REMOVE_ELEMENT` or `CLEAR`. Every action is idempotent. The
+  backend locks the session, applies it, gives the board its next version, commits, and only then
+  sends `{"type": "applied", "version", "by", "operation"}` to both participants, the sender
+  included. One lock per board in memory keeps them leaving in version order. A refused operation
+  answers `{"type": "error", "status", "message"}` (400 for a malformed element, 409 once the
+  session is over) and the channel stays open.
+- **Reconnecting** is opening it again: the board comes whole, never a replay.
+- **Closing the session** (both ending it, or the closing job) closes every channel with code 4409.
+  Nothing is left to save: each operation was stored as it was applied. A session where nobody drew
+  gets its empty board stored, with `has_activity` false, and `WhiteboardClosed` is published with
+  `hadActivity` either way.
+
+`GET /api/v1/sessions/{id}/whiteboard` answers the board in any state of the session: `sessionId`,
+`version`, `elements`, `hasActivity`, `live` and `updatedAt`. `PUT` replaces every element of a
+session in progress, with the `version` last read, and both participants connected receive the new
+board.
+
+| Status | When |
+|---|---|
+| 200 | The board, or the board replaced |
+| 400 | An element without a valid `id` (1 to 64 letters, digits, `-`, `_`) or a `type`, more than 2000 elements, or one over 16 KB |
+| 403 | The caller is neither the student nor the tutor of the session |
+| 404 | The session does not exist in this university |
+| 409 | `PUT` on a session that is not in progress, or with a `version` that is not the current one |
+
+The live channels are kept in the memory of the instance, which is enough for the monolith (ADR
+0002); a second instance would need a broker in between. The token is checked when a channel opens;
+a token revoked during a session keeps its open channel until the session ends. The screen of the web
+application is not built yet.
 
 ---
 
@@ -1113,7 +1155,8 @@ open or dismissed, is younger than the period, it is not raised again. The decis
 an advisory lock, so two runs at once raise it once. The tests call the use case the job calls.
 
 `UNUSUAL_FREQUENCY` and `NO_BOARD_ACTIVITY` are in the model and nothing raises them yet: the first
-needs a baseline of what is usual for a tutor, and the second the whiteboard (US10).
+needs a baseline of what is usual for a tutor. For the second, sessions publishes `WhiteboardClosed`
+with `hadActivity` since US10; audit does not listen to it yet.
 
 **Reading and deciding.** All three are for an active coordinator of the university of the request.
 
