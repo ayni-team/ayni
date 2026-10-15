@@ -207,8 +207,10 @@ The Trello card of each story says what is left of it.
 
 - How access works (TS03): **decided**, no longer open. See
   `adr/0007-access-control-and-tenant-isolation.md`.
-- The mock academic system (ADR 0006): one service for several universities, the student code taken
-  from the local part of the email, the rule configurable per university.
+- The mock academic system (ADR 0006): **decided**, and amended. One service for several
+  universities that finds a student by university and institutional email and answers the student
+  code with the profile; Ayni neither derives the code from the email nor checks its format. See
+  "The academic system" under identity.
 
 ### Guardrails
 
@@ -392,6 +394,24 @@ public interface IdentityApi {
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
+
+**The academic system (ADR 0006).** Identity asks `AcademicSystemPort` for the profile of a
+student by the university and the institutional email, at activation (US38) and when the record is
+imported (US40). The profile carries the student code the university assigned, the name, the
+career, the term and the approved courses with their grades; the code is copied into
+`identity.users.student_code` as it comes. The simulated adapter, `MockAcademicSystemAdapter`,
+reads one file per university, `<CODE>.json`, from the folder `ayni.identity.academic-directory`
+(`AYNI_ACADEMIC_DIRECTORY`, `academic-directory` relative to where the backend runs by default),
+**each time it looks a student up, never at startup**. `backend/academic-directory/` holds the
+four demonstration students (Ana, Bruno and Carla of UPC, Lucia of PUCP) and a `README.md` with the
+format, and `docker-compose.yml` mounts it into the backend at `/app/academic-directory`. Bringing
+a university in is registering it and putting its file in the folder: no restart, no code.
+
+| What happens | Answer of the activation |
+|---|---|
+| The university has no file in the folder | `400`, the university has no academic system configured; the link stays unused |
+| The file has no student with that email, whatever its case | `400`, the student was not found in the academic system; the link stays unused |
+| The file cannot be read | `500`: a mistake of the platform, written to the log with the university's code and nothing else |
 
 **Registering a university (TS10).** `POST /api/v1/admin/universities` takes the code, the name, the
 colours, the email domains, the minimum teaching grade, the time zone, and the initial credits with

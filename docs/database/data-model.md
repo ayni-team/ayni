@@ -123,7 +123,9 @@ CHECK  (role = 'COORDINATOR' OR student_code IS NOT NULL)
 ```
 
 No password column: there are no passwords in this product. `full_name`, `career` and `current_term`
-come from the academic system and are not editable in Ayni.
+come from the academic system and are not editable in Ayni. So does `student_code`: the academic
+system finds the student by their institutional email and answers the code the university assigned
+(ADR 0006, amended), which is copied as it comes, with no rule about its format in Ayni.
 
 ### `identity.access_links`
 
