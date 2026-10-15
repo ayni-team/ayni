@@ -343,6 +343,16 @@ public class HourBlock {
         && !isHoldExpired(now);
   }
 
+  /**
+   * Whether the tutor's agenda shows this hour as still free (US21): nobody booked it and it has not
+   * started. A held hour counts, as it does for {@code BookingApi.openHoursOf}: the hold ends in a
+   * booking or back in circulation within minutes.
+   */
+  public boolean isFreeAt(Instant now) {
+    return (status == HourBlockStatus.AVAILABLE || status == HourBlockStatus.HELD)
+        && !hasStartedAt(now);
+  }
+
   /** Whether the hour has begun: from that moment it can no longer be held or booked. */
   public boolean hasStartedAt(Instant now) {
     return !now.isBefore(this.startsAt);

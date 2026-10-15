@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.time.Instant;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +31,7 @@ import pe.ayni.booking.application.CancelBookingUseCase;
 import pe.ayni.booking.application.HoldHoursUseCase;
 import pe.ayni.booking.application.LateCancellationConfirmation;
 import pe.ayni.booking.application.ReleaseHoldsUseCase;
+import pe.ayni.booking.application.StudentBookingsQuery;
 import pe.ayni.shared.tenancy.CurrentUser;
 
 /**
@@ -48,16 +51,56 @@ class BookingController {
   private final ReleaseHoldsUseCase releaseHolds;
   private final BookHoursUseCase bookHours;
   private final CancelBookingUseCase cancelBooking;
+  private final StudentBookingsQuery studentBookings;
 
   BookingController(
       HoldHoursUseCase holdHours,
       ReleaseHoldsUseCase releaseHolds,
       BookHoursUseCase bookHours,
-      CancelBookingUseCase cancelBooking) {
+      CancelBookingUseCase cancelBooking,
+      StudentBookingsQuery studentBookings) {
     this.holdHours = holdHours;
     this.releaseHolds = releaseHolds;
     this.bookHours = bookHours;
     this.cancelBooking = cancelBooking;
+    this.studentBookings = studentBookings;
+  }
+
+  @GetMapping("/mine")
+  @Operation(
+      summary = "The student's tutorings, upcoming or past",
+      description =
+          """
+          The tutorings the signed in student booked, one page at a time. UPCOMING, the default,
+          lists the confirmed ones whose hours have not ended, the nearest first; HISTORY lists
+          the rest, over, cancelled or not attended, the most recent first. Each one carries the
+          tutor, the course or skill, the UTC instants and its status, and joinable is true from
+          fifteen minutes before the start until the end. The answer carries the university's
+          time zone to show the instants in.
+          """)
+  @ApiResponse(
+      responseCode = "200",
+      description = "A page of tutorings, possibly empty",
+      content = @Content(schema = @Schema(implementation = StudentBookingsResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "view is not UPCOMING or HISTORY, or page or size is out of range",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  StudentBookingsResponse mine(
+      @Parameter(description = "UPCOMING (default) or HISTORY, in any case", example = "UPCOMING")
+          @RequestParam(required = false)
+          String view,
+      @Parameter(description = "Page number, from 0", example = "0")
+          @RequestParam(defaultValue = "0")
+          @Min(0)
+          int page,
+      @Parameter(description = "Page size, 1 to 100", example = "20")
+          @RequestParam(defaultValue = "20")
+          @Min(1)
+          @Max(100)
+          int size) {
+    return StudentBookingsResponse.of(
+        studentBookings.list(CurrentUser.require(), view, page, size));
   }
 
   @PostMapping
