@@ -1,12 +1,26 @@
 import { Link, Outlet } from 'react-router-dom';
+import { api } from '../api/client';
+import { forgetSession } from '../session';
+import { useSession } from '../useSession';
 
 /**
  * The frame every screen is drawn inside: header, navigation and content.
  *
  * Pages render through `Outlet`, so none of them repeats the header or has to
- * know it exists.
+ * know it exists. It also shows whether somebody is signed in, and signs them
+ * out: the token is revoked on the server first and then forgotten here.
  */
 export default function Layout() {
+  const session = useSession();
+
+  async function signOut() {
+    try {
+      await api.post('/v1/access/logout');
+    } finally {
+      forgetSession();
+    }
+  }
+
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', color: '#1a1a1a' }}>
       <header
@@ -29,6 +43,17 @@ export default function Layout() {
             Tutorías
           </Link>
         </nav>
+        <div style={{ marginLeft: 'auto' }}>
+          {session ? (
+            <button type="button" onClick={signOut}>
+              Salir
+            </button>
+          ) : (
+            <Link to="/ingresar" style={{ color: '#444' }}>
+              Ingresar
+            </Link>
+          )}
+        </div>
       </header>
 
       <main style={{ padding: '2rem', maxWidth: '900px', lineHeight: 1.6 }}>

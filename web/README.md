@@ -40,9 +40,12 @@ import { api } from '../../shared/api/client';
 const slots = await api.get<Slot[]>('/v1/slots?course=CS101');
 ```
 
-It adds the `X-Tenant-Id` header, which is how the backend knows which university is asking, and it
-turns a failed response into an `ApiError` you can catch. Do not call `fetch` directly: a call that
-forgets the header reaches the wrong data, or none.
+It adds the session token as `Authorization: Bearer <token>`, which is how the backend knows who is
+asking and from which university (TS03), and it turns a failed response into an `ApiError` you can
+catch. Do not call `fetch` directly: a call that forgets the token is answered 401.
+
+The session is opened at `/access/confirm`, where the emailed link lands, and kept by
+`shared/session.ts`; `/ingresar` asks for a link and the header button signs out.
 
 Paths are relative and start with `/v1/...`. Vite proxies `/api` to the backend, so the browser
 never leaves its own origin and there is nothing to configure about CORS.
