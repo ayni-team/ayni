@@ -129,14 +129,38 @@ public class AccessControlFilter extends OncePerRequestFilter {
         }
     }
 
-    /** The token of the {@code Authorization} header, or {@code null} when there is none. */
+    /**
+     * The token of the {@code Authorization} header, or {@code null} when there is none.
+     *
+     * <p>A browser cannot set that header when it opens a WebSocket (the live whiteboard, ADR
+     * 0009), so the opening of one may carry the token as the subprotocol pair {@code bearer,
+     * <token>} instead.
+     */
     public static String bearerToken(HttpServletRequest request) {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header == null || !header.regionMatches(true, 0, BEARER, 0, BEARER.length())) {
+        if (header == null) {
+            return webSocketToken(request);
+        }
+        if (!header.regionMatches(true, 0, BEARER, 0, BEARER.length())) {
             return null;
         }
         String token = header.substring(BEARER.length()).trim();
         return token.isEmpty() ? null : token;
+    }
+
+    private static String webSocketToken(HttpServletRequest request) {
+        String protocols = request.getHeader("Sec-WebSocket-Protocol");
+        if (protocols == null || !"websocket".equalsIgnoreCase(request.getHeader(HttpHeaders.UPGRADE))) {
+            return null;
+        }
+        String[] offered = protocols.split(",");
+        for (int i = 0; i < offered.length - 1; i++) {
+            if (offered[i].trim().equalsIgnoreCase("bearer")) {
+                String token = offered[i + 1].trim();
+                return token.isEmpty() ? null : token;
+            }
+        }
+        return null;
     }
 
     private static String messageFor(SessionResolution.Outcome outcome) {
