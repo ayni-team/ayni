@@ -50,7 +50,7 @@ class TutorSkillsQueryTest {
     OfferedSkill withdrawn = enabledFor(architecture);
     withdrawn.withdraw(NOW.plusSeconds(60));
     when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(enabled, withdrawn));
-    when(catalogItems.findAllById(List.of(databases.getId(), architecture.getId())))
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(databases.getId(), architecture.getId()), UPC))
         .thenReturn(List.of(databases, architecture));
 
     List<TutorSkillsQuery.TutorSkill> result = runAsUpc();
@@ -74,7 +74,7 @@ class TutorSkillsQueryTest {
     ValidationRequest second =
         ValidationRequest.submit(UUID.randomUUID(), UPC, skill.getId(), null, NOW.plusSeconds(3600));
     when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
-    when(catalogItems.findAllById(List.of(tool.getId()))).thenReturn(List.of(tool));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(tool.getId()), UPC)).thenReturn(List.of(tool));
     // Read in the opposite order on purpose: the newest one wins whatever comes first.
     when(requests.findByTenantIdAndOfferedSkillIdIn(UPC, List.of(skill.getId())))
         .thenReturn(List.of(second, first));
@@ -90,7 +90,7 @@ class TutorSkillsQueryTest {
     CatalogItem course = course("Databases", "1ASI0616");
     OfferedSkill skill = enabledFor(course);
     when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
-    when(catalogItems.findAllById(List.of(course.getId()))).thenReturn(List.of(course));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(course.getId()), UPC)).thenReturn(List.of(course));
 
     assertThat(runAsUpc())
         .singleElement()
@@ -101,7 +101,7 @@ class TutorSkillsQueryTest {
   @DisplayName("a tutor with no skills gets an empty list")
   void aTutorWithNoSkillsGetsAnEmptyList() {
     when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of());
-    when(catalogItems.findAllById(List.of())).thenReturn(List.of());
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(), UPC)).thenReturn(List.of());
 
     assertThat(runAsUpc()).isEmpty();
   }

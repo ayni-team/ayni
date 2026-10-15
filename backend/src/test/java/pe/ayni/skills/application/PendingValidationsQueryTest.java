@@ -86,8 +86,8 @@ class PendingValidationsQueryTest {
         new EvidenceFile(UUID.randomUUID(), UPC, request.getId(), "portfolio.pdf", "UPC/k", "application/pdf", 10, NOW);
     when(requests.findByTenantIdAndStatus(eq(UPC), eq(ValidationStatus.SUBMITTED), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(request), PageRequest.of(0, 20), 1));
-    when(offeredSkills.findAllById(List.of(skill.getId()))).thenReturn(List.of(skill));
-    when(catalogItems.findAllById(List.of(figma.getId()))).thenReturn(List.of(figma));
+    when(offeredSkills.findByTenantIdAndIdIn(UPC, List.of(skill.getId()))).thenReturn(List.of(skill));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(figma.getId()), UPC)).thenReturn(List.of(figma));
     when(evidenceFiles.findByTenantIdAndValidationRequestIdIn(UPC, List.of(request.getId())))
         .thenReturn(List.of(file));
     when(identity.requireUser(TUTOR)).thenReturn(user(TUTOR, UserRole.STUDENT, "Ana Torres"));
@@ -140,8 +140,8 @@ class PendingValidationsQueryTest {
     ValidationRequest secondRequest = ValidationRequest.submit(UUID.randomUUID(), UPC, second.getId(), null, NOW);
     when(requests.findByTenantIdAndStatus(any(), any(), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(firstRequest, secondRequest), PageRequest.of(0, 20), 2));
-    when(offeredSkills.findAllById(any())).thenReturn(List.of(first, second));
-    when(catalogItems.findAllById(any())).thenReturn(List.of(figma, python));
+    when(offeredSkills.findByTenantIdAndIdIn(eq(UPC), any())).thenReturn(List.of(first, second));
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC))).thenReturn(List.of(figma, python));
     when(identity.requireUser(TUTOR)).thenReturn(user(TUTOR, UserRole.STUDENT, "Ana Torres"));
 
     assertThat(page().getContent()).hasSize(2);
