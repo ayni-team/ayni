@@ -270,7 +270,9 @@ headers some controllers still document by hand.
 exists only in `src/test` (`pe.ayni.config.IdentityHeadersTestFilter`) binds them when a request
 carries no `Authorization` header and marks the request as already seen by `AccessControlFilter`,
 so the scenarios keep proving their use case. New tests of access control set
-`ayni.test.identity-headers=false` and use real tokens.
+`ayni.test.identity-headers=false` and use real tokens, and so does every test written since:
+`pe.ayni.config.SignedInPeople` (in `src/test`) creates a university and the people of it who signed
+in, each with a real session token for `Authorization: Bearer`.
 
 **Not built.** A deliberately public resource, the verification of a certificate, has no route
 because Ayni issues no certificates yet; its scenario is `@pending` in
@@ -1107,7 +1109,10 @@ rest is an endpoint.
 **Calls:** `IdentityApi.requireUser` and `IdentityApi.isActive`, to know who asks for the log or the
 alerts, and `IdentityApi.requireUser` again for the name of the people an alert involves;
 `IdentityApi.activeTenantCodes`, for the job that looks at every university; `SessionsApi` for what
-an alert shows about a session and for how long it really lasted. The listeners that write the log
+an alert shows about a session, for how long it really lasted and for how it ended.
+
+**Listens to**, to raise alerts (US47): `SessionUnverified`, `SessionCompleted` and `WhiteboardClosed`,
+described under "Alerts of anomalous usage" below. The listeners that write the log
 call nobody: who acted is what the event says.
 
 **Listens to** (US48), one entry per event in `audit.activity_log`:
@@ -1192,9 +1197,10 @@ sessions that support it in `audit.anomaly_sessions`. It carries no email, link,
 |---|---|---|---|
 | `FAILED_PRESENCE` | `SessionUnverified` | always: a session ended without every participant confirming | `HIGH` when neither confirmed, `MEDIUM` when one did |
 | `SHORT_DURATION` | `SessionCompleted` | the session lasted strictly less than `ayni.audit.short-session-ratio` (0.5 by default) of the hours booked; the real duration is `startedAt` to `endedAt` of `SessionsApi.completedSessionsOf`, so the interface did not change | `HIGH` under half of that fraction, `MEDIUM` otherwise |
+| `NO_BOARD_ACTIVITY` | `WhiteboardClosed` | `hadActivity` is false and the session ended `COMPLETED`, which `SessionsApi.requireSession` says once the closing committed. A session that ended `UNVERIFIED` raises `FAILED_PRESENCE` and nothing about its board | `LOW`: teaching without drawing is possible, so it only weighs next to another alert |
 | `REPEATED_PAIR` | the job | the same tutor and student completed more than `ayni.audit.repeated-pair-threshold` sessions (3) in the last `ayni.audit.repeated-pair-period` (`P30D`) | `HIGH` from twice the threshold, `MEDIUM` otherwise |
 
-The two by event run after the publisher commits and in a transaction of their own, with the
+The three by event run after the publisher commits and in a transaction of their own, with the
 university of the event bound. A failure is logged without the data of the event and swallowed, as
 recording is: what was published has already happened, and the platform never waits for the analysis.
 The alert of a kind and a session has an identifier derived from the university, the kind and the
@@ -1211,9 +1217,9 @@ if its completion was written twice. A pair is pointed out once per period: whil
 open or dismissed, is younger than the period, it is not raised again. The decision of one pair takes
 an advisory lock, so two runs at once raise it once. The tests call the use case the job calls.
 
-`UNUSUAL_FREQUENCY` and `NO_BOARD_ACTIVITY` are in the model and nothing raises them yet: the first
-needs a baseline of what is usual for a tutor. For the second, sessions publishes `WhiteboardClosed`
-with `hadActivity` since US10; audit does not listen to it yet.
+`UNUSUAL_FREQUENCY` is in the model and nothing raises it yet: it needs a baseline of what is usual
+for a tutor. `NO_BOARD_ACTIVITY` is raised as the session closes, so a session is judged once, when
+its board can no longer change; the job does not look at boards.
 
 **Reading and deciding.** All three are for an active coordinator of the university of the request.
 

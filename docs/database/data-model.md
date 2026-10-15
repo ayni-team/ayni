@@ -1157,9 +1157,9 @@ people involved and the figures that made it an anomaly are in `detail`, a flat 
 that holds identifiers and numbers only (`tutorId`, `studentId`, `unconfirmedUserIds`, `sessions`,
 `bookedMinutes` and so on), never an address, a name or a reason.
 
-An alert raised by one session (`FAILED_PRESENCE`, `SHORT_DURATION`) has a derived `id`, a name based
-UUID of the university, the kind and the session, so the primary key is what makes one event
-delivered twice produce one alert. The ones that come from a period (`REPEATED_PAIR`) have a random
+An alert raised by one session (`FAILED_PRESENCE`, `SHORT_DURATION`, `NO_BOARD_ACTIVITY`) has a
+derived `id`, a name based UUID of the university, the kind and the session, so the primary key is
+what makes one event delivered twice produce one alert. The ones that come from a period (`REPEATED_PAIR`) have a random
 `id`.
 
 ### `audit.anomaly_sessions`
