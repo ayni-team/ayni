@@ -79,6 +79,10 @@ Kept apart from `users` on purpose. If administrators lived in the same table as
 query over students would have to remember to exclude them, and the privacy boundary would depend on
 a `WHERE` clause.
 
+An administrator signs in by link (TS03): an `ACTIVE` row is what makes `POST
+/api/v1/access/request` issue a link with no university for its address. A `DISABLED` one is routed
+like any other address, and its open sessions stop working.
+
 ### `identity.users`
 
 Students and coordinators. Both belong to exactly one university.
@@ -147,6 +151,11 @@ CHECK (num_nonnulls(user_id, admin_id) = 1)
 ```
 
 Long lived on purpose: if the session were short, every day would start by waiting for an email.
+
+Every request after TS03 reads one row of this table by `token_hash` (the `UNIQUE` index) to know
+who it is. A session opens nothing once `revoked_at` is set, by signing out, or from the
+`expires_at` instant on. A student's or a coordinator's carries `tenant_id` and `user_id`; a
+platform administrator's carries `admin_id` and no `tenant_id`.
 
 ### `identity.academic_records`
 

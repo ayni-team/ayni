@@ -1,12 +1,13 @@
 package pe.ayni.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
-import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.media.StringSchema;
-import io.swagger.v3.oas.models.parameters.HeaderParameter;
-import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.util.List;
+import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +21,15 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-  private static final String PUBLIC_PREFIX = "/api/v1/access";
+  /** The name the session token scheme is declared with, and referenced by. */
+  public static final String BEARER_SCHEME = "bearer";
+
+  /** The routes that need no session: they are how somebody gets one (ADR 0007). */
+  private static final Set<String> PUBLIC_PATHS =
+      Set.of("/api/v1/access/request", "/api/v1/access/confirm");
+
+  /** The headers the API trusted before TS03. Nothing reads them any more. */
+  private static final Set<String> RETIRED_HEADERS = Set.of("x-tenant-id", "x-user-id");
 
   @Bean
   OpenAPI ayniOpenApi() {
@@ -31,65 +40,59 @@ public class OpenApiConfig {
                 .version("0.1.0")
                 .description(
                     "RESTful API of Ayni, an academic time bank where university students "
-                        + "exchange tutoring hours as credits.")
-                .contact(new Contact().name("Ayni Team")));
+                        + "exchange tutoring hours as credits. Every route except asking for an "
+                        + "access link and opening it needs the session token that opening the "
+                        + "link returns, sent as Authorization: Bearer <token>. The university and "
+                        + "the person of a request are the ones of its session.")
+                .contact(new Contact().name("Ayni Team")))
+        .components(
+            new Components()
+                .addSecuritySchemes(
+                    BEARER_SCHEME,
+                    new SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .description(
+                            "The sessionToken returned by POST /api/v1/access/confirm. Opaque: "
+                                + "only its hash is stored, and signing out revokes it.")))
+        .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
   }
 
   /**
-   * Declares {@code X-Tenant-Id} and {@code X-User-Id} on every operation outside {@code
-   * /api/v1/access}.
+   * Makes Swagger UI describe what TS03 built: a session token on every route but the public ones,
+   * and no identity headers anywhere.
    *
-   * <p>{@link TenantFilter} and {@link CurrentUserFilter} read those headers, but filters are
-   * invisible to springdoc, so unless a controller declares them by hand Swagger UI offers no place
-   * to type them and "Try it out" answers 400. Declaring them here once is cheaper than repeating
-   * the annotation on every endpoint, and it leaves out the access routes, which are public.
+   * <p>Several controllers still document {@code X-Tenant-Id} and {@code X-User-Id} by hand. They
+   * are no longer read, so they are taken out of the description here, once, rather than leaving
+   * Swagger UI offering fields that change nothing. The two access routes that are public declare
+   * that they need no token.
    *
-   * <p>It decides by path and not by controller type because {@code config} must not import the
-   * internals of any module. A header an operation already declares is left alone, so the
-   * controllers that spell them out keep their own description.
-   *
-   * <p>It goes away with TS03: once the session token carries the university and the user, nobody
-   * has to type them.
+   * <p>It decides by path and by header name, not by controller type, because {@code config} must
+   * not import the internals of any module.
    */
   @Bean
-  OpenApiCustomizer requestHeadersCustomizer() {
+  OpenApiCustomizer sessionTokenCustomizer() {
     return openApi ->
-        openApi.getPaths().entrySet().stream()
-            .filter(path -> !path.getKey().startsWith(PUBLIC_PREFIX))
-            .flatMap(path -> path.getValue().readOperations().stream())
+        openApi
+            .getPaths()
             .forEach(
-                operation -> {
-                  addIfMissing(operation, tenantHeader());
-                  addIfMissing(operation, userHeader());
-                });
-  }
-
-  private static void addIfMissing(Operation operation, Parameter header) {
-    boolean declared =
-        operation.getParameters() != null
-            && operation.getParameters().stream()
-                .anyMatch(
-                    existing ->
-                        "header".equals(existing.getIn())
-                            && header.getName().equalsIgnoreCase(existing.getName()));
-    if (!declared) {
-      operation.addParametersItem(header);
-    }
-  }
-
-  private static Parameter tenantHeader() {
-    return new HeaderParameter()
-        .name(TenantFilter.TENANT_HEADER)
-        .required(true)
-        .schema(new StringSchema().example("UPC"))
-        .description("University code. Comes from the session token once sign in is added.");
-  }
-
-  private static Parameter userHeader() {
-    return new HeaderParameter()
-        .name(CurrentUserFilter.USER_HEADER)
-        .required(false)
-        .schema(new StringSchema().format("uuid").example("11111111-1111-4111-8111-111111111111"))
-        .description("Who is asking. Comes from the session token once sign in is added.");
+                (path, item) ->
+                    item.readOperations()
+                        .forEach(
+                            operation -> {
+                              if (operation.getParameters() != null) {
+                                operation
+                                    .getParameters()
+                                    .removeIf(
+                                        parameter ->
+                                            "header".equals(parameter.getIn())
+                                                && parameter.getName() != null
+                                                && RETIRED_HEADERS.contains(
+                                                    parameter.getName().toLowerCase()));
+                              }
+                              if (PUBLIC_PATHS.contains(path)) {
+                                operation.setSecurity(List.of());
+                              }
+                            }));
   }
 }

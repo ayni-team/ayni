@@ -14,17 +14,29 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.PlatformAdmin;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
+import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.events.AccessRequested;
 
+/**
+ * US38 and TS03: asking for a single use access link.
+ *
+ * <p>The address decides who is signing in. A platform administrator's address, an active row of
+ * {@code identity.platform_admins}, gets a sign in link with no university, because an
+ * administrator belongs to none. Any other address is routed to the university that claims its
+ * domain, and gets a sign in link when it already has an account there or an activation link when
+ * it does not.
+ */
 @Service
 public class RequestAccessUseCase {
 
     private final TenantRepository tenants;
+    private final PlatformAdminRepository admins;
     private final UserRepository users;
     private final AccessLinkRepository accessLinks;
     private final AccessTokenGenerator tokens;
@@ -35,6 +47,7 @@ public class RequestAccessUseCase {
 
     RequestAccessUseCase(
             TenantRepository tenants,
+            PlatformAdminRepository admins,
             UserRepository users,
             AccessLinkRepository accessLinks,
             AccessTokenGenerator tokens,
@@ -44,6 +57,7 @@ public class RequestAccessUseCase {
             @Value("${ayni.identity.access-link-ttl:PT10M}") Duration linkTtl) {
 
         this.tenants = tenants;
+        this.admins = admins;
         this.users = users;
         this.accessLinks = accessLinks;
         this.tokens = tokens;
@@ -56,6 +70,14 @@ public class RequestAccessUseCase {
     @Transactional
     public void execute(String email, String requestedIp) {
         String normalizedEmail = normalizeEmail(email);
+
+        if (admins.findByEmailIgnoreCase(normalizedEmail)
+                .filter(PlatformAdmin::isActive)
+                .isPresent()) {
+            issue(null, normalizedEmail, AccessPurpose.LOGIN, requestedIp);
+            return;
+        }
+
         Tenant tenant = findTenant(normalizedEmail);
 
         AccessPurpose purpose =
@@ -63,6 +85,16 @@ public class RequestAccessUseCase {
                         tenant.getCode(), normalizedEmail)
                         ? AccessPurpose.LOGIN
                         : AccessPurpose.ACTIVATION;
+
+        issue(tenant.getCode(), normalizedEmail, purpose, requestedIp);
+    }
+
+    /** Stores the link's hash and hands the link to notifications. No university for an admin. */
+    private void issue(
+            String tenantId,
+            String normalizedEmail,
+            AccessPurpose purpose,
+            String requestedIp) {
 
         GeneratedAccessToken token = tokens.generate();
 
@@ -72,7 +104,7 @@ public class RequestAccessUseCase {
         AccessLink accessLink =
                 new AccessLink(
                         UUID.randomUUID(),
-                        tenant.getCode(),
+                        tenantId,
                         normalizedEmail,
                         purpose,
                         token.tokenHash(),
@@ -84,7 +116,7 @@ public class RequestAccessUseCase {
 
         events.publishEvent(
                 new AccessRequested(
-                        tenant.getCode(),
+                        tenantId,
                         normalizedEmail,
                         purpose.name(),
                         links.build(token.rawToken()),

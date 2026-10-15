@@ -3,9 +3,10 @@ package pe.ayni.shared.tenancy;
 /**
  * Holds the university that owns the request being processed on the current thread.
  *
- * <p>Every university is a separate tenant. {@code TenantFilter} reads it from the request and
- * pushes it here, so that a use case can ask for it without receiving it as a parameter through
- * every method call.
+ * <p>Every university is a separate tenant. Identity's {@code AccessControlFilter} reads it from
+ * the session of the request's token (TS03) and pushes it here, so that a use case can ask for it
+ * without receiving it as a parameter through every method call. A platform administrator's
+ * session has no university, so nothing is bound for them.
  *
  * <p>Queries filter by this value today. Later the database will enforce the same thing by itself,
  * and when that happens this class stays as it is.

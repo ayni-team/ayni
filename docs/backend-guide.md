@@ -66,7 +66,8 @@ message:
 | Status | When |
 |---|---|
 | 400 | The request is malformed: a missing header, a field that is not a UUID, a code that is not six digits |
-| 403 | The person is not allowed: not a participant, not the owner |
+| 401 | No session token, or one that is unknown, expired or revoked. Answered by the access filter before any controller runs (TS03) |
+| 403 | The person is not allowed: a role that is not the route's (the access filter), not a participant, not the owner |
 | 404 | It does not exist **in this university**. Another university's row is a 404, never a 403 |
 | 409 | Well formed, but the current state refuses it: a room not open yet, a session already closed |
 | 422 | Well formed, but the value is wrong and the attempt counts: a wrong presence code |
@@ -191,8 +192,8 @@ The Trello card of each story says what is left of it.
 ### Order and dependencies
 
 1. **TS03 first**, because every endpoint changes who it trusts. `CurrentUser.require()` keeps its
-   signature: controllers do not change, only where the identity comes from. Until it merges, keep
-   using `X-User-Id`.
+   signature: controllers do not change, only where the identity comes from. **Built:** see
+   "Access control" below. Tests keep sending `X-User-Id`, accepted only by a test filter.
 2. **ADR 0006 before activation.** US25 and US38 scenario 3 depend on the mock academic system, and
    wallet's initial grant depends on `StudentActivated`.
 3. **US05 before the notices of cancellation**, US26 before the notice of expiring credits, US32
@@ -213,6 +214,67 @@ The Trello card of each story says what is left of it.
 
 - Stay inside your module. Touching another module's code, tables or published contracts is agreed
   with its owner first.
+
+### Access control (TS03)
+
+ADR 0007, its part about requests. Every request proves who it is with the session token that
+`POST /api/v1/access/confirm` returns, sent as `Authorization: Bearer <token>`. Identity's
+`AccessControlFilter` looks the session up by the hash of the token in `identity.user_sessions`,
+one row by index, and binds its university to `TenantContext` and its person to `CurrentUser`.
+**`X-Tenant-Id` and `X-User-Id` are no longer read by the application**: the university of a request
+is the one of its session, and nobody can name another. Wherever a table below says that a missing
+`X-Tenant-Id` or `X-User-Id` answers `400`, the application now answers `401` before the endpoint
+runs, because there is no session; the `400` of the use case stays for the tests.
+
+**Who may call what, by route group** (`RouteAccess`):
+
+| Routes | Who |
+|---|---|
+| `/api/v1/access/request`, `/api/v1/access/confirm`, Swagger (`/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`), `/actuator/health` | anyone, without a session |
+| `/api/v1/admin/**` | `PLATFORM_ADMIN` |
+| `/api/v1/coordinator/**` | `COORDINATOR` |
+| `GET /api/v1/me`, `/api/v1/notifications/**` | a student or a coordinator: whoever is signed in into a university |
+| `POST /api/v1/access/logout`, anything outside `/api` | any session |
+| every other `/api` route | `STUDENT` |
+
+The role of a student or a coordinator is the `role` of their `identity.users` row; a platform
+administrator is a row of `identity.platform_admins`. The filter decides by role only: ownership,
+and whether the person is active or restricted, stay in the use cases, which are the ones that know
+whether to write a refusal down (US48). A `.` or `..` segment in the path is refused with `400`
+before it is matched.
+
+| Status | When |
+|---|---|
+| 401 | No `Authorization: Bearer` header, a token nobody issued, a session that expired (its `expires_at` instant included) or was revoked, or a session whose person no longer exists or whose administrator was disabled. `WWW-Authenticate: Bearer` |
+| 403 | A session of a role the route does not accept. The message names the roles it does |
+
+Either way the controller is never reached, so nothing is executed and nothing is read on behalf of
+the request. Both answers have the shape of every error. A CORS preflight (`OPTIONS`) passes.
+
+**The platform administrator** signs in by link like everybody else. `POST /api/v1/access/request`
+with the address of an active `identity.platform_admins` row issues a `LOGIN` link with no
+university (`AccessRequested.tenantId` is `null`), and confirming it opens a session with `admin_id`
+and no `tenant_id` nor `user_id`. Nothing binds a university for them, so they see no tenant scoped
+rows; `CurrentUser` is the administrator's id. `DemoPlatformAdminData` seeds one,
+`admin@ayni.local`, under the `dev` profile only.
+
+**Signing out.** `POST /api/v1/access/logout` revokes the session of the token it carries
+(`revoked_at`) and answers `204`; from then on that token is answered `401`.
+
+`POST /api/v1/access/confirm` answers `role` too: `STUDENT`, `COORDINATOR` or `PLATFORM_ADMIN`,
+and `tenantId` is absent for an administrator. Swagger UI declares the session token as the
+`bearer` scheme on every route but the two public access ones, and no longer lists the identity
+headers some controllers still document by hand.
+
+**In tests.** The scenarios written before TS03 send `X-Tenant-Id` and `X-User-Id`. A filter that
+exists only in `src/test` (`pe.ayni.config.IdentityHeadersTestFilter`) binds them when a request
+carries no `Authorization` header and marks the request as already seen by `AccessControlFilter`,
+so the scenarios keep proving their use case. New tests of access control set
+`ayni.test.identity-headers=false` and use real tokens.
+
+**Not built.** A deliberately public resource, the verification of a certificate, has no route
+because Ayni issues no certificates yet; its scenario is `@pending` in
+`TS03-access-control.feature`.
 - A story that moves credits (charge, grant, refund) is reviewed with extra care and needs an
   idempotency test.
 - One pull request per story, small enough to review in one sitting. A story too big for that is
@@ -245,6 +307,7 @@ public interface IdentityApi {
 |---|---|---|---|
 | POST | `/api/v1/access/request` | anyone | receives an email, decides the university, sends the link |
 | POST | `/api/v1/access/confirm` | anyone | consumes the token, opens the session, returns the profile |
+| POST | `/api/v1/access/logout` | signed in | revokes the session of the token it carries (TS03) |
 | GET | `/api/v1/me` | signed in | own profile |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
 | POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |

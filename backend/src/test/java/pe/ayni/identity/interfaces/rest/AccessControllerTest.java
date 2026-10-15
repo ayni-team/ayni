@@ -23,6 +23,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.ConfirmAccessResult;
 import pe.ayni.identity.application.ConfirmAccessUseCase;
 import pe.ayni.identity.application.RequestAccessUseCase;
+import pe.ayni.identity.application.SignOutUseCase;
+import pe.ayni.identity.domain.model.AccessRole;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 
 class AccessControllerTest {
@@ -44,7 +46,8 @@ class AccessControllerTest {
         AccessController controller =
                 new AccessController(
                         requestAccess,
-                        confirmAccess);
+                        confirmAccess,
+                        mock(SignOutUseCase.class));
 
         IdentityExceptionHandler handler =
                 new IdentityExceptionHandler(clock);
@@ -127,6 +130,7 @@ class AccessControllerTest {
                                 "session-token",
                                 "UPC",
                                 userId,
+                                AccessRole.STUDENT,
                                 Instant.parse("2026-09-29T05:30:00Z")));
 
         mvc.perform(

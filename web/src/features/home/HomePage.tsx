@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CURRENT_TENANT } from '../../shared/config';
+import { useSession } from '../../shared/useSession';
 
 /**
  * Landing screen. It exists to prove the chain works end to end: the browser
@@ -11,6 +11,7 @@ import { CURRENT_TENANT } from '../../shared/config';
  */
 export default function HomePage() {
   const [status, setStatus] = useState('comprobando...');
+  const session = useSession();
 
   useEffect(() => {
     fetch('/actuator/health')
@@ -28,7 +29,9 @@ export default function HomePage() {
         <dt style={{ color: '#666' }}>API</dt>
         <dd style={{ margin: 0, fontWeight: 600 }}>{status}</dd>
         <dt style={{ color: '#666' }}>Universidad</dt>
-        <dd style={{ margin: 0, fontWeight: 600 }}>{CURRENT_TENANT}</dd>
+        <dd style={{ margin: 0, fontWeight: 600 }}>
+          {session ? (session.tenantId ?? 'Administración de la plataforma') : 'Sin sesión'}
+        </dd>
       </dl>
 
       <p style={{ marginTop: '2rem', color: '#666' }}>

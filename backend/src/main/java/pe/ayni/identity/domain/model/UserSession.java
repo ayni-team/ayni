@@ -16,8 +16,9 @@ import java.util.UUID;
  * leaked table opens nobody's account.
  *
  * <p>A session belongs to a student or to a platform administrator, never both, which is what
- * {@code ck_identity_user_sessions_subject} enforces. Only students sign in today, so only that
- * constructor exists.
+ * {@code ck_identity_user_sessions_subject} enforces. A student's or a coordinator's carries
+ * their university; an administrator's carries none (TS03), because an administrator belongs to
+ * no university.
  */
 @Entity
 @Table(schema = "identity", name = "user_sessions")
@@ -67,6 +68,40 @@ public class UserSession {
         this.tokenHash = Objects.requireNonNull(tokenHash, "tokenHash must not be null");
         this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+    }
+
+    /** Opens a session for a platform administrator, who has no university. */
+    public static UserSession forPlatformAdmin(
+            UUID id,
+            UUID adminId,
+            String tokenHash,
+            Instant expiresAt,
+            Instant createdAt) {
+
+        UserSession session = new UserSession();
+        session.id = Objects.requireNonNull(id, "id must not be null");
+        session.adminId = Objects.requireNonNull(adminId, "adminId must not be null");
+        session.tokenHash = Objects.requireNonNull(tokenHash, "tokenHash must not be null");
+        session.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+        session.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+        return session;
+    }
+
+    /** Whether it belongs to a platform administrator rather than to somebody of a university. */
+    public boolean belongsToPlatformAdmin() {
+        return adminId != null;
+    }
+
+    /** Whether it was closed by signing out. */
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
+    /** Whether its time is over. The instant of expiry itself no longer opens anything. */
+    public boolean isExpired(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        return !now.isBefore(expiresAt);
     }
 
     /** Whether the session still opens the door: not revoked and not expired. */
