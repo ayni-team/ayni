@@ -1003,7 +1003,8 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 
 **Publishes:** `RecognitionRequested`, `RecognitionResolved`.
 **Calls:** `SessionsApi.completedSessionsOf`, `WalletApi.earnedTotal`, `ReputationApi.standingOf`,
-`AuditApi.openAlertsOf` (through the `SessionAlerts` port).
+`AuditApi.openAlertsOf` (through the `SessionAlerts` port), `IdentityApi.requireTenant` for the zone
+of the university's day.
 
 | Method | Path | Who |
 |---|---|---|
@@ -1019,7 +1020,7 @@ Owns the request and the university's decision. **Ayni certifies nothing by itse
 **Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
 `COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the
 `minimum_hours` of the rule in force of the university (`recognition.rules`, the latest one started
-and not superseded). It does not call `WalletApi.earnedTotal`: wallet credits the tutor from a
+and not superseded, on the university's day: see below). It does not call `WalletApi.earnedTotal`: wallet credits the tutor from a
 listener, after the session, and keep counting after a request used the session, while the sessions
 are what the request is made of. Credits assigned by the university or bought are never in the figure
 since no session stands behind them. A university with no rule has not opened recognition: the
@@ -1058,9 +1059,25 @@ once: the request is locked (`PESSIMISTIC_WRITE`) while it is decided, so two co
 with one decision and one 409. A resolved request without reviewer, date and reason is refused by the
 table too.
 
-**Credits are not consumed.** What a request consumes are the sessions: each one can back exactly
-one request, enforced by `UNIQUE (tenant_id, session_id)`. The figures are copied at submission so
-the file does not move while it is being reviewed.
+**Credits are not consumed.** What a request consumes are the sessions: each one backs one request
+at a time, enforced by a unique index on `(tenant_id, session_id)` over the rows that were not
+released. The figures are copied at submission so the file does not move while it is being reviewed.
+
+**A rejection gives the sessions back.** Rejecting a request releases its sessions in the same
+transaction (`request_sessions.released_at`), so the student's next request can be made of them,
+oldest first as always. The rejected file stays exactly as it was presented: its rows, its hours,
+its count and its ratings are kept and read as before by the coordinator and by the student. An
+approved request never releases its sessions. The release is decided under the lock of the
+request, and the next submission under the student's lock, so two submissions at once after a
+rejection take the freed sessions once: one `201` and one `409` with `missingHours`.
+
+**The rule in force** is the latest `recognition.rules` row that started and was not superseded,
+looked for on **the university's own day**, in the zone `IdentityApi.requireTenant` answers: a
+rule that starts on the 16th is not in force at 21:00 of the 15th in Lima, though it is already the
+16th in UTC. Progress (US27) and submission (US28) read it the same way.
+
+**Every query of `RequestedSessionRepository` takes the university**, the policy of row level
+security being the net.
 
 ---
 
