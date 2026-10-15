@@ -1,9 +1,6 @@
-# US36 runs over HTTP and PostgreSQL in PaymentsAcceptanceTest:
-# offline confirmation -> aPurchaseConfirmedOfflineIsCreditedAndTheStudentIsNotified
-# in-progress purchase -> aPurchaseConfirmedOfflineIsCreditedAndTheStudentIsNotified
-# no duplicate credit -> aPurchaseConfirmedOfflineIsCreditedAndTheStudentIsNotified
-# expiration without limit usage -> anUnconfirmedPurchaseExpiresWithoutConsumingTheMonthlyLimit
-# provider outage isolation -> aProviderOutageLeavesThePurchasePendingWithoutBlockingOtherApis
+# US36 runs over HTTP and PostgreSQL in PaymentsAcceptanceTest: every scenario below has a test with
+# exactly its name. The first three share one purchase the provider confirms only when
+# reconciliation asks, after answering PENDING.
 
 Feature: Resolve a pending credit purchase
 

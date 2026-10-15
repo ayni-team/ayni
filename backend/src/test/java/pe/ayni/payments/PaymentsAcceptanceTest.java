@@ -111,7 +111,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A confirmed purchase publishes the event and credits the student immediately")
+  @DisplayName("A confirmed purchase credits the student immediately")
   void aConfirmedPurchaseCreditsTheStudentImmediately() throws Exception {
     purchase(student, 2, "confirmed-" + UUID.randomUUID())
         .andExpect(status().isCreated())
@@ -127,7 +127,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A student who used the monthly limit is told the limit and amount already used")
+  @DisplayName("A student who used the monthly limit is told the limit and credits used")
   void aStudentAtTheLimitIsToldTheLimitAndCreditsUsed() throws Exception {
     purchase(student, 5, "full-" + UUID.randomUUID()).andExpect(status().isCreated());
     assertThat(confirmedCreditsThisMonth(student)).isEqualTo(5);
@@ -139,7 +139,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A purchase exceeding the remaining allowance reports the maximum amount")
+  @DisplayName("A purchase above the remaining allowance reports the maximum amount")
   void aPurchaseAboveTheRemainingLimitReportsTheMaximum() throws Exception {
     purchase(student, 4, "partial-" + UUID.randomUUID()).andExpect(status().isCreated());
     assertThat(confirmedCreditsThisMonth(student)).isEqualTo(4);
@@ -151,7 +151,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A rejected payment grants no credits and leaves the monthly allowance available")
+  @DisplayName("A rejected payment does not consume credits or the monthly allowance")
   void aRejectedPaymentDoesNotConsumeCreditsOrTheLimit() throws Exception {
     when(provider.charge(any(), any(BigDecimal.class), any()))
         .thenReturn(
@@ -178,7 +178,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A repeated idempotency key returns the same purchase without crediting twice")
+  @DisplayName("A repeated idempotency key does not credit twice")
   void aRepeatedIdempotencyKeyDoesNotCreditTwice() throws Exception {
     String key = "repeat-" + UUID.randomUUID();
     purchase(student, 2, key).andExpect(status().isCreated());
@@ -192,7 +192,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("An idempotency key cannot be reused with a different credit amount")
+  @DisplayName("An idempotency key cannot be reused for a different amount")
   void anIdempotencyKeyCannotBeReusedForAnotherAmount() throws Exception {
     String key = "changed-" + UUID.randomUUID();
     purchase(student, 2, key).andExpect(status().isCreated());
@@ -205,7 +205,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("Purchased credits do not contribute to recognition progress")
+  @DisplayName("Purchased credits do not count towards recognition")
   void purchasedCreditsDoNotCountTowardsRecognition() throws Exception {
     purchase(student, 3, "recognition-" + UUID.randomUUID()).andExpect(status().isCreated());
 
@@ -215,7 +215,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A student can list a purchase and get its receipt and wallet movement reference")
+  @DisplayName("The student lists purchases and gets a confirmed purchase receipt")
   void aStudentCanViewPurchaseDetailsAndReceipt() throws Exception {
     String response =
         purchase(student, 2, "receipt-" + UUID.randomUUID())
@@ -268,7 +268,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A student cannot view another student's purchase details")
+  @DisplayName("A student cannot read another student's purchase")
   void aStudentCannotViewAnotherStudentsPurchaseDetails() throws Exception {
     String response =
         purchase(student, 2, "private-receipt-" + UUID.randomUUID())
@@ -317,7 +317,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("Concurrent purchases cannot spend more than the remaining monthly allowance")
+  @DisplayName("Concurrent purchases cannot exceed the monthly allowance")
   void concurrentPurchasesCannotExceedTheMonthlyLimit() throws Exception {
     purchase(student, 3, "base-" + UUID.randomUUID()).andExpect(status().isCreated());
 
@@ -340,9 +340,14 @@ class PaymentsAcceptanceTest {
     }
   }
 
-  @Test
-  @DisplayName("A provider confirms an interrupted purchase later and the student is notified")
-  void aPurchaseConfirmedOfflineIsCreditedAndTheStudentIsNotified() throws Exception {
+  private static final String STILL_PROCESSING =
+      "Payment is still being processed. Do not start another purchase; check this purchase's status.";
+
+  /**
+   * A purchase of two credits the provider answers {@code PENDING}, and confirms when
+   * reconciliation asks for it later, as if the student had left the platform in between.
+   */
+  private UUID aPurchaseTheProviderConfirmsLater() throws Exception {
     when(provider.charge(any(), any(BigDecimal.class), any()))
         .thenAnswer(
             invocation ->
@@ -362,22 +367,17 @@ class PaymentsAcceptanceTest {
         purchase(student, 2, "offline-" + UUID.randomUUID())
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.status").value("PENDING"))
-            .andExpect(jsonPath("$.guidance").value(
-                "Payment is still being processed. Do not start another purchase; check this purchase's status."))
+            .andExpect(jsonPath("$.guidance").value(STILL_PROCESSING))
             .andReturn()
             .getResponse()
             .getContentAsString();
-    UUID purchaseId = UUID.fromString(JsonPath.read(response, "$.id"));
+    return UUID.fromString(JsonPath.read(response, "$.id"));
+  }
 
-    mockMvc
-        .perform(
-            get("/api/v1/payments/purchases")
-                .header("X-Tenant-Id", UPC)
-                .header("X-User-Id", student))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].status").value("PENDING"))
-        .andExpect(jsonPath("$[0].guidance").value(
-            "Payment is still being processed. Do not start another purchase; check this purchase's status."));
+  @Test
+  @DisplayName("A purchase is confirmed after the student leaves the platform")
+  void aPurchaseIsConfirmedAfterTheStudentLeavesThePlatform() throws Exception {
+    UUID purchaseId = aPurchaseTheProviderConfirmsLater();
     assertThat(availableCredits(student)).isEqualTo(Credits.ZERO);
 
     reconciler.reconcile();
@@ -391,8 +391,6 @@ class PaymentsAcceptanceTest {
         .andExpect(jsonPath("$[0].id").value(purchaseId.toString()))
         .andExpect(jsonPath("$[0].status").value("CONFIRMED"));
     assertThat(availableCredits(student)).isEqualTo(Credits.of(2));
-    assertThat(events.stream(PurchaseConfirmed.class).filter(e -> e.purchaseId().equals(purchaseId)))
-        .hasSize(1);
     assertThat(INBOX.waitForIncomingEmail(5000, 1)).isTrue();
     MimeMessage email = INBOX.getReceivedMessages()[0];
     assertThat(email.getAllRecipients()[0].toString()).isEqualTo("student@upc.edu.pe");
@@ -400,8 +398,34 @@ class PaymentsAcceptanceTest {
     assertThat((String) email.getContent())
         .contains("acreditamos 2 créditos")
         .contains(purchaseId.toString());
+  }
+
+  @Test
+  @DisplayName("The student is told a pending payment is still being processed")
+  void theStudentIsToldAPendingPaymentIsStillBeingProcessed() throws Exception {
+    aPurchaseTheProviderConfirmsLater();
+
+    mockMvc
+        .perform(
+            get("/api/v1/payments/purchases")
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", student))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].status").value("PENDING"))
+        .andExpect(jsonPath("$[0].guidance").value(STILL_PROCESSING));
+    assertThat(availableCredits(student)).isEqualTo(Credits.ZERO);
+  }
+
+  @Test
+  @DisplayName("Repeated provider confirmation does not credit twice")
+  void repeatedProviderConfirmationDoesNotCreditTwice() throws Exception {
+    UUID purchaseId = aPurchaseTheProviderConfirmsLater();
+    reconciler.reconcile();
+    assertThat(availableCredits(student)).isEqualTo(Credits.of(2));
+    assertThat(INBOX.waitForIncomingEmail(5000, 1)).isTrue();
 
     reconciler.reconcile();
+
     assertThat(availableCredits(student)).isEqualTo(Credits.of(2));
     assertThat(events.stream(PurchaseConfirmed.class).filter(e -> e.purchaseId().equals(purchaseId)))
         .hasSize(1);
@@ -409,7 +433,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A provider outage leaves the purchase pending and the other APIs available")
+  @DisplayName("The rest of the platform remains available when the provider is down")
   void aProviderOutageLeavesThePurchasePendingWithoutBlockingOtherApis() throws Exception {
     doThrow(new PaymentProviderUnavailable("Provider timeout"))
         .when(provider)
@@ -439,7 +463,7 @@ class PaymentsAcceptanceTest {
   }
 
   @Test
-  @DisplayName("A pending payment past its deadline expires and releases the monthly allowance")
+  @DisplayName("A purchase with no result expires and releases its monthly allowance")
   void anUnconfirmedPurchaseExpiresWithoutConsumingTheMonthlyLimit() throws Exception {
     Instant now = clock.instant();
     Instant createdAt = now.minus(Duration.ofHours(2));
