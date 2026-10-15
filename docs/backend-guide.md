@@ -628,9 +628,10 @@ was the one missing.
 | POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written |
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
-| GET | `/api/v1/bookings/mine` | student | upcoming and history |
+| GET | `/api/v1/bookings/mine` | student | upcoming and history, a page at a time (US04) |
 | DELETE | `/api/v1/bookings/{id}` | student or tutor of the booking | cancels. The student is refunded unless they cancel inside twelve hours of the start; the tutor's cancellation always refunds. `confirmLate=true` confirms a cancellation inside twelve hours. 204, 400, 403, 404 and 409 |
-| GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free |
+| GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free, in days of the university (US21) |
+| GET | `/api/v1/tutor/agenda/history` | tutor | the sessions already over or called off, a page at a time (US21) |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
 | DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
 | POST | `/api/v1/tutor/availability/exceptions` | tutor | add or remove a specific date |
@@ -683,6 +684,44 @@ The warning is the answer to the first request and cancels nothing: `409` with `
 Booking asks wallet to refund inside its own transaction (`WalletApi.refund`) and publishes
 `BookingCancelled`, which keeps its shape; `late` and `cancelledBy` tell the listeners what
 happened. A tutor removing availability over a confirmed booking is cancelling that session.
+
+**A student's tutorings (US04).** `GET /api/v1/bookings/mine` takes `view` (`UPCOMING`, the
+default, or `HISTORY`, in any case), `page` and `size` (20 by default, 1 to 100). `UPCOMING` is the
+student's `CONFIRMED` bookings whose last hour has not ended, the nearest first, so a session in
+progress is still there; `HISTORY` is the rest, over, cancelled or `NO_SHOW`, the most recent first.
+It answers `view`, `timezone` (the university's, to show the UTC instants in), `page`, `size`,
+`total` and `items`; each item carries `bookingId`, `startsAt`, `endsAt`, `hours`, `status`, `tutor`
+and `catalogItem` (each an `id` and a `name`, read from identity and skills, `null` when the other
+module no longer knows it) and `joinable`. A booking whose session took place stays `CONFIRMED`:
+booking does not hear how a session ended, which is what US12's review answers.
+
+**A tutor's agenda (US21).** `GET /api/v1/tutor/agenda` takes `from` and `to`, ISO 8601 dates of
+the university's zone, both included; without `from` it starts today in that zone, and without
+`to` it covers a week. It answers `from`, `to`, `timezone` and `lines`, in the order they come: a
+`BOOKED` line for each confirmed booking with the tutor that touches the period and has not ended,
+once however many hours it covers, with `booking` (`bookingId`, `hours`, `status`, `student`,
+`catalogItem`, `needDescription`, `joinable`), and a `FREE` line for each hour nobody booked that
+has not started, held ones included as in `openHoursOf`. Withdrawn and released hours are neither
+and are not shown. Every line carries its UTC `startsAt` and `endsAt` and the same moment in the
+university's zone: `date`, `startTime` and `endTime`, so an hour at 22:00 in Lima is on its own day
+although it is the next one in UTC. `GET /api/v1/tutor/agenda/history` is the tutor's half of
+`HISTORY`, a page at a time with the same items as `BOOKED` lines. The path is new: the contract
+listed only the agenda, while the story asks for what was already taught apart from it.
+
+`joinable` is true from fifteen minutes before the start until the end of the last hour, the window
+in which sessions lets the participants in. Both lists only point it out: entering takes the
+session's identifier, which sessions keeps and booking cannot ask for, since sessions already
+depends on booking. That part is `@pending` in `US04-upcoming-tutorings.feature` and
+`US21-tutor-agenda.feature`.
+
+| Status | When |
+|---|---|
+| 200 | A page, or the agenda of the period, possibly empty |
+| 400 | `view` is not `UPCOMING` or `HISTORY`, `page` below 0, `size` outside 1 to 100, a date that is not ISO 8601, `to` before `from`, or a period longer than 31 days |
+| 401 | No session (TS03) |
+
+Both read only the bookings of the person who asks, in the university of their session: there is no
+way to name another student or tutor.
 
 **A tutor no-show (US06).** When sessions abandons a session because a participant did not come,
 the booking becomes `NO_SHOW` in every case, and only when the student was present, so the tutor was

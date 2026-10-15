@@ -30,6 +30,12 @@ public class Booking {
 
   private static final Duration LATE_CANCELLATION_WINDOW = Duration.ofHours(12);
 
+  /**
+   * How long before its start a participant may enter the session, the window in which sessions
+   * opens the room; the lists of US04 and US21 point it out.
+   */
+  public static final Duration JOINING_OPENS_BEFORE = Duration.ofMinutes(15);
+
   @Id
   @Column(name = "id", nullable = false, updatable = false)
   private UUID id;
@@ -238,6 +244,26 @@ public class Booking {
     }
     this.status = BookingStatus.NO_SHOW;
     this.updatedAt = now;
+  }
+
+  /**
+   * Whether this booking is still ahead of its participants: confirmed, and its last hour has not
+   * ended. A session in progress is still upcoming; a cancelled one, or one whose hours are over,
+   * belongs to the history (US04, US21).
+   */
+  public boolean isUpcomingAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return status == BookingStatus.CONFIRMED && endsAt.isAfter(now);
+  }
+
+  /**
+   * Whether its participants may enter the session now: confirmed, from {@link
+   * #JOINING_OPENS_BEFORE} before the start until the end of the last hour, the same window
+   * sessions lets them in.
+   */
+  public boolean isJoinableAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return isUpcomingAt(now) && !now.isBefore(startsAt.minus(JOINING_OPENS_BEFORE));
   }
 
   public UUID getId() {
