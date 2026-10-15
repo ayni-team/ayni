@@ -90,6 +90,9 @@ Measured on 2026-10-15 on the branch `feature/TS07-search-response-time-v2`.
 | — `NARROW` | 200 | 56 to 58 ms | 90 to 94 ms | 100 to 123 ms | 125 to 136 ms |
 | — `UNTAUGHT` | 100 | 56 to 57 ms | 86 to 94 ms | 100 to 126 ms | 118 to 128 ms |
 
+Inside the whole `./mvnw verify`, with the contexts of the other tests still alive in the same JVM,
+the fifty students measured p95 117 ms and a slowest answer of 188 ms.
+
 **The same test inside a container limited to two CPUs** (`docker run --cpus=2`, Maven and the
 application inside it), to see what a small CI runner would measure:
 
