@@ -20,7 +20,10 @@ decorates it with:
 - a configurable timeout (2 seconds by default);
 - a circuit breaker that opens after three consecutive failures for 30 seconds, permits one
   half-open probe, closes after success, and reopens after failure;
-- a bounded bulkhead of two concurrent calls with no waiting queue.
+- a bounded bulkhead of two concurrent calls with no waiting queue. The bulkhead itself refuses when it is
+  full; the worker threads behind it keep what it let in in a queue, which never holds more than
+  the bulkhead allows. Without that queue, a call arriving the moment the previous one returned was
+  refused before its thread was free again, and opened the circuit on a provider that answered.
 
 Timeouts, provider exceptions, an open circuit, and saturation are surfaced as
 `PaymentProviderUnavailable`. A purchase that cannot obtain a definite provider result remains
