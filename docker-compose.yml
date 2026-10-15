@@ -61,6 +61,9 @@ services:
       # mounted below, read each time a student is looked up. Adding a university's file needs no
       # restart.
       AYNI_ACADEMIC_DIRECTORY: /app/academic-directory
+      # The evidence a student submits for a tool (US16), one folder per university, in a named
+      # volume so it survives the container being replaced.
+      AYNI_SKILLS_EVIDENCE_DIR: /var/lib/ayni/evidence
       AYNI_MAIL_HOST: mailpit
       AYNI_MAIL_PORT: 1025
       AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
@@ -83,6 +86,7 @@ services:
       - ./backend/pom.xml:/app/pom.xml
       - ./backend/academic-directory:/app/academic-directory:ro
       - maven-cache:/root/.m2
+      - skills-evidence:/var/lib/ayni/evidence
 
   web:
     build: ./web
@@ -184,3 +188,5 @@ volumes:
     name: ayni-postgres-data
   maven-cache:
     name: ayni-maven-cache
+  skills-evidence:
+    name: ayni-skills-evidence
