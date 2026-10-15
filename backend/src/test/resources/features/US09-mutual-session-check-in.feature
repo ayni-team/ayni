@@ -9,12 +9,10 @@
 # present, or both missing, refunds nobody and counts against nobody.
 #
 # Every scenario names the test that runs it, in MutualCheckInAcceptanceTest, with the same name.
-# They run over HTTP against a real PostgreSQL, with the clock the tests move.
-#
-# The last scenario is tagged @pending on purpose: the arrival record cannot be changed through the
-# API, which the scenario before it shows, but nothing in the database stops an UPDATE of joined_at.
-# A trigger needs a migration, and this story ships none, so the pull request lists it under "Still
-# pending".
+# They run over HTTP against a real PostgreSQL, with the clock the tests move. The last one runs in
+# ArrivalRecordAcceptanceTest, with real session tokens (TS03): the participants check in over
+# HTTP, and the trigger tr_participations_arrival_immutable refuses to rewrite an arrival made
+# straight in the database.
 
 Feature: Mutual session check-in
 
@@ -54,7 +52,6 @@ Feature: Mutual session check-in
     Then the first arrival is what stays recorded, for both of them
     And no request changes an arrival time
 
-  @pending
   Scenario: The database refuses to change an arrival time
     Given both participants checked in
     When anybody updates the arrival time of a participation directly in the database

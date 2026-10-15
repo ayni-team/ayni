@@ -922,8 +922,10 @@ Seeing and hearing each other is checked by hand there and is `@pending` in
 other is already there. `startedAt` is `null` until both have checked in. `GET /sessions/{id}` also
 carries `absentParticipantIds`: the participants who had not entered before the ten minute mark. It
 is filled only once the session is `ABANDONED` and is empty before. Nothing writes an arrival but
-joining, and joining records only the first one: there is no endpoint to correct it, and the table
-is not protected against an `UPDATE` made straight in the database.
+joining, and joining records only the first one: there is no endpoint to correct it, and since
+`V202610150752__sessions_refuse_changing_an_arrival.sql` the database refuses an `UPDATE` that
+changes an arrival already recorded, made by the application or straight on the table (the trigger
+`tr_participations_arrival_immutable`).
 
 **The presence check.** Five minutes after the scheduled start, a code is issued to each
 participant of a session that has started and sent by email. Whoever does not confirm makes the

@@ -661,7 +661,12 @@ CHECK  (role IN ('STUDENT','TUTOR'))
 
 `joined_at` is the participant's first arrival and is never moved: coming back after a dropped
 connection does not change it (US09). Both participants can read both arrivals. Nothing in the
-application writes it twice; the database does not prevent an `UPDATE` made straight on the table.
+application writes it twice, and the database refuses to: a `BEFORE UPDATE OF joined_at` row
+trigger, `tr_participations_arrival_immutable`, calls `sessions.reject_arrival_change()` when an
+update changes a `joined_at` that was already set (`V202610150752__sessions_refuse_changing_an_arrival.sql`).
+Recording the first arrival, changing the other columns of the row, or writing the same value
+again, as an ORM does when it saves the whole row, are allowed. Like the triggers of
+`audit.activity_log`, it stops accidents and the application, not the owner of the table.
 
 `connected_seconds` is what the real duration is measured against, and one of the signals the audit
 looks at.

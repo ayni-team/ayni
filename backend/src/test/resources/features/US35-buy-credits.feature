@@ -1,13 +1,5 @@
-# US35 is covered over HTTP against PostgreSQL in PaymentsAcceptanceTest. Scenario-to-test mapping:
-# confirmed purchase -> aConfirmedPurchaseCreditsTheStudentImmediately
-# monthly limit -> aStudentAtTheLimitIsToldTheLimitAndCreditsUsed
-# remaining allowance -> aPurchaseAboveTheRemainingLimitReportsTheMaximum
-# rejected payment -> aRejectedPaymentDoesNotConsumeCreditsOrTheLimit
-# idempotent retry -> aRepeatedIdempotencyKeyDoesNotCreditTwice
-# mismatched idempotency key -> anIdempotencyKeyCannotBeReusedForAnotherAmount
-# recognition -> purchasedCreditsDoNotCountTowardsRecognition
-# monthly reset -> theMonthlyAllowanceResetsAtTheNextCalendarMonth
-# concurrent purchases -> concurrentPurchasesCannotExceedTheMonthlyLimit
+# US35 is covered over HTTP against PostgreSQL in PaymentsAcceptanceTest: every scenario below has
+# a test with exactly its name.
 # The provider is replaced with confirmed/rejected outcomes; wallet is observed only through WalletApi.
 
 Feature: Buy credits for a tutoring session

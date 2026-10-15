@@ -1,7 +1,5 @@
-# campus benefit redemption -> aConfirmedCampusBenefitRedemptionSpendsEarnedCreditsAndReturnsAReceipt
-# incoming-student donation -> aConfirmedDonationReducesEarnedCreditsAndIncreasesTheIncomingPool
-# irreversible confirmation -> aRedemptionAndDonationRequireAWarningRoundTripBeforeConfirmation
-# insufficient earned credits -> aBenefitRedemptionRefusesWhenEarnedCreditsAreInsufficient
+# US31 runs over HTTP and PostgreSQL in WalletRedemptionAcceptanceTest: every scenario below has a
+# test with exactly its name.
 
 Feature: Use earned credits for a campus benefit or incoming-student donation
 

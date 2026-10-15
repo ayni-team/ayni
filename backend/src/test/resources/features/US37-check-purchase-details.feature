@@ -1,5 +1,5 @@
-# purchase listing and receipt -> aStudentCanViewPurchaseDetailsAndReceipt
-# purchase isolation -> aStudentCannotViewAnotherStudentsPurchaseDetails
+# US37 runs over HTTP and PostgreSQL in PaymentsAcceptanceTest: every scenario below has a test with
+# exactly its name.
 
 Feature: Check credit purchase details
 
