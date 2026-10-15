@@ -25,6 +25,13 @@ import org.junit.jupiter.api.Test;
 
 class ResilientPaymentProviderTest {
 
+  /**
+   * Long enough that no build machine, however busy, takes it to start a thread or answer a mock,
+   * and still far from forever: what tells a call that returned from one that waits on a provider
+   * that never answers.
+   */
+  private static final Duration UNANSWERED = Duration.ofSeconds(5);
+
   @Test
   void timesOutOpensTheCircuitAndRejectsFurtherCallsWithoutQueuing() {
     PaymentProviderGateway gateway = mock(PaymentProviderGateway.class);
@@ -51,10 +58,18 @@ class ResilientPaymentProviderTest {
           .isInstanceOf(PaymentProviderUnavailable.class);
       long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
 
-      assertThat(elapsedMillis).isLessThan(500);
+      // The provider never answers until the test releases it, so returning at all is the
+      // timeout. The bound only has to tell that apart from waiting forever: a tight one measured
+      // the build machine instead.
+      assertThat(elapsedMillis).isLessThan(UNANSWERED.toMillis());
+      // On a busy machine the worker may not have reached the provider when the timeout cancels
+      // it, so the first call made zero or one attempt. What the open circuit guarantees is that
+      // the second one makes none.
+      int attemptsOfTheFirstCall = attempts.get();
+      assertThat(attemptsOfTheFirstCall).isLessThanOrEqualTo(1);
       assertThatThrownBy(() -> provider.charge(UUID.randomUUID(), BigDecimal.ONE, "PEN"))
           .isInstanceOf(PaymentProviderUnavailable.class);
-      assertThat(attempts).hasValue(1);
+      assertThat(attempts).hasValue(attemptsOfTheFirstCall);
     } finally {
       releaseProvider.countDown();
       provider.close();
@@ -79,24 +94,26 @@ class ResilientPaymentProviderTest {
     PaymentProviderCircuitBreaker breaker =
         new PaymentProviderCircuitBreaker(Clock.systemUTC(), 3, Duration.ofSeconds(30));
     ResilientPaymentProvider provider =
-        new ResilientPaymentProvider(gateway, breaker, Duration.ofSeconds(10), 1);
+        new ResilientPaymentProvider(gateway, breaker, UNANSWERED.multipliedBy(2), 1);
     var requestThread = Executors.newSingleThreadExecutor();
 
     try {
       var activeCall =
           requestThread.submit(
               () -> provider.charge(UUID.randomUUID(), BigDecimal.ONE, "PEN"));
-      assertThat(providerEntered.await(1, TimeUnit.SECONDS)).isTrue();
+      assertThat(providerEntered.await(UNANSWERED.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
       long startedAt = System.nanoTime();
 
       assertThatThrownBy(() -> provider.charge(UUID.randomUUID(), BigDecimal.ONE, "PEN"))
           .isInstanceOf(PaymentProviderUnavailable.class);
 
-      assertThat(Duration.ofNanos(System.nanoTime() - startedAt).toMillis()).isLessThan(500);
+      // Refused without waiting for the provider's timeout, which is twice this bound.
+      assertThat(Duration.ofNanos(System.nanoTime() - startedAt).toMillis())
+          .isLessThan(UNANSWERED.toMillis());
       assertThat(attempts).hasValue(1);
       assertThat(breaker.stateName()).isEqualTo("CLOSED");
       releaseProvider.countDown();
-      assertThat(activeCall.get(1, TimeUnit.SECONDS).outcome())
+      assertThat(activeCall.get(UNANSWERED.toMillis(), TimeUnit.MILLISECONDS).outcome())
           .isEqualTo(PaymentProvider.PaymentResult.Outcome.PENDING);
     } finally {
       releaseProvider.countDown();
@@ -122,7 +139,7 @@ class ResilientPaymentProviderTest {
     PaymentProviderCircuitBreaker breaker =
         new PaymentProviderCircuitBreaker(clock, 1, Duration.ofSeconds(5));
     ResilientPaymentProvider provider =
-        new ResilientPaymentProvider(gateway, breaker, Duration.ofSeconds(1), 1);
+        new ResilientPaymentProvider(gateway, breaker, UNANSWERED, 1);
 
     try {
       assertThatThrownBy(() -> provider.charge(UUID.randomUUID(), BigDecimal.ONE, "PEN"))
@@ -147,7 +164,7 @@ class ResilientPaymentProviderTest {
         new ResilientPaymentProvider(
             gateway,
             new PaymentProviderCircuitBreaker(Clock.systemUTC(), 2, Duration.ofSeconds(1)),
-            Duration.ofSeconds(1),
+            UNANSWERED,
             1);
 
     try {
