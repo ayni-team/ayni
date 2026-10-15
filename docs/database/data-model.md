@@ -1078,6 +1078,11 @@ meet the response time TS07 asks for.
 When several tutors are free at the same hour, several rows come back and the student picks, seeing
 the rating of each. Fed by events from `booking`, `skills` and `reputation`.
 
+The index is the only one the search needs (TS07): the window, its count and the nearest hours
+before and after all read it by its three columns, with the policy of row level security evaluated
+once per query. With 144,000 rows, five universities of 320 courses and 120 tutors, each query takes
+less than a millisecond; see `../performance/TS07-search-response-time.md`.
+
 ---
 
 ## `audit`

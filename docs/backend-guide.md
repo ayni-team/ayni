@@ -770,6 +770,13 @@ new tutors last; the student's own hours are left out. When nothing falls inside
 returns the closest hours outside it, as one page, with `exactMatch: false`. The answer carries the
 university's `timezone`, in which the client shows the UTC instants.
 
+**Response time (TS07).** Measured on the real search over HTTP, with fifty students at once and a
+projection of five universities of 320 courses and 120 tutors each (144,000 offers): p95 about 90 ms
+and the slowest about 140 ms on a laptop, 290 ms and 490 ms on two CPUs, against 500 ms and 2 s.
+Every query of the search reads `ix_available_offers_search` and none the whole table, so no index
+was added. `SearchResponseTimeTest` repeats the measurement in every build and fails it beyond the
+thresholds; the method and the figures are in `performance/TS07-search-response-time.md`.
+
 A hold does not remove an offer. It lasts five minutes and ends either in a booking, which
 `BookingConfirmed` removes, or back in circulation; booking checks the hour again when it is held and
 when it is booked, so a stale offer costs a refusal, never a double booking.
