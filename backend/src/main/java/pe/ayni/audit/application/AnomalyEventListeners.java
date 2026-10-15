@@ -7,11 +7,12 @@ import org.springframework.stereotype.Component;
 import pe.ayni.shared.events.DomainEvent;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.WhiteboardClosed;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * What audit detects as soon as a session ends: a presence that was not verified, and a completed
- * session that lasted far too little.
+ * What audit detects as soon as a session ends: a presence that was not verified, a completed
+ * session that lasted far too little, and a completed session with nothing drawn on its board.
  *
  * <p>Detection runs after the publisher committed and never undoes it. A failure to detect is
  * logged without the data of the event and swallowed, as recording is: what happened has already
@@ -37,6 +38,11 @@ class AnomalyEventListeners {
   @ApplicationModuleListener
   void on(SessionCompleted event) {
     inUniversityOf(event, "SHORT_DURATION", () -> detect.shortDuration(event));
+  }
+
+  @ApplicationModuleListener
+  void on(WhiteboardClosed event) {
+    inUniversityOf(event, "NO_BOARD_ACTIVITY", () -> detect.noBoardActivity(event));
   }
 
   private void inUniversityOf(DomainEvent event, String kind, Runnable detection) {

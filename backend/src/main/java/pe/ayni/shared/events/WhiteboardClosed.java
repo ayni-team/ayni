@@ -8,8 +8,8 @@ import java.util.UUID;
  * its whiteboard (US10).
  *
  * <p>It is what an audit rule about sessions with no activity on the board needs ({@code
- * NO_BOARD_ACTIVITY} in {@code audit.anomalies}), without asking sessions for the content. Nobody
- * listens to it yet.
+ * NO_BOARD_ACTIVITY} in {@code audit.anomalies}), without asking sessions for the content. Audit
+ * listens to it (US47).
  *
  * @param hadActivity whether at least one operation was applied to the board
  */

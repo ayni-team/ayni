@@ -3,16 +3,18 @@
 # step in before recognising hours that nothing supports.
 #
 # Each scenario runs over HTTP against a real PostgreSQL, with the same name, in
-# AnomalousUsageAcceptanceTest. The alerts are produced by publishing the real events inside a
-# transaction, never by inserting rows: the two that audit detects as an event arrives, and the one
-# that a job finds by looking at what the activity log recorded, which the test asks for by calling
-# the use case the job calls. The rules are covered without Spring by ShortSessionRuleTest,
-# RepeatedPairRuleTest and AnomalyTest, and what each listener does by
-# AnomalyEventListenersTest.
+# AnomalousUsageAcceptanceTest, except "No activity on the whiteboard", which runs in
+# NoBoardActivityAcceptanceTest with real session tokens (TS03). The alerts are produced by
+# publishing the real events inside a transaction, never by inserting rows: the three that audit
+# detects as an event arrives, and the one that a job finds by looking at what the activity log
+# recorded, which the test asks for by calling the use case the job calls. The board one is
+# produced further back still: two participants end a real session, and sessions publishes the
+# event. The rules are covered without Spring by ShortSessionRuleTest, RepeatedPairRuleTest and
+# AnomalyTest, and what each listener does by AnomalyEventListenersTest.
 #
 # Two scenarios close what other stories left to audit: an abnormally short session, scenario 5 of
-# US11, and a failed presence verification, scenario 3 of US54. Two patterns of the model are
-# @pending and the pull request lists them under "Still pending".
+# US11, and a failed presence verification, scenario 3 of US54. One pattern of the model is
+# @pending and the pull request lists it under "Still pending".
 
 Feature: Alerts of anomalous usage
 
@@ -77,9 +79,8 @@ Feature: Alerts of anomalous usage
     When the analysis completes
     Then an alert about the frequency is generated
 
-  # Not built. The whiteboard (US10) does not exist yet, so there is no activity to compare a session
-  # with.
-  @pending
+  # The analysis runs as the session closes: sessions publishes WhiteboardClosed with whether
+  # anything was drawn (US10), and only a session that ended COMPLETED raises it.
   Scenario: No activity on the whiteboard
     Given a completed session in which nothing was drawn
     When the analysis completes

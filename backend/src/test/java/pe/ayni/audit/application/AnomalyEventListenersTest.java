@@ -23,11 +23,14 @@ import pe.ayni.audit.domain.model.AnomalySession;
 import pe.ayni.audit.domain.model.Severity;
 import pe.ayni.audit.infrastructure.AnomalyRepository;
 import pe.ayni.audit.infrastructure.AnomalySessionRepository;
+import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.SessionSummary;
+import pe.ayni.sessions.SessionView;
 import pe.ayni.sessions.SessionsApi;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.WhiteboardClosed;
 
 /** What each listener raises, with the real use case over repositories that only collect. */
 class AnomalyEventListenersTest {
@@ -169,6 +172,75 @@ class AnomalyEventListenersTest {
     when(sessions.completedSessionsOf(tutor)).thenThrow(new IllegalStateException("sessions is down"));
 
     assertThatCode(() -> listeners.on(completed())).doesNotThrowAnyException();
+    assertThat(raised).isEmpty();
+  }
+
+  private WhiteboardClosed boardClosed(boolean hadActivity) {
+    return new WhiteboardClosed("UPC", session, tutor, student, hadActivity, AT);
+  }
+
+  private void sessionEnded(SessionStatus status) {
+    when(sessions.requireSession(session))
+        .thenReturn(new SessionView(session, UUID.randomUUID(), student, tutor, AT, AT.plusSeconds(3600), status));
+  }
+
+  @Test
+  @DisplayName("A completed session with nothing drawn raises one alert about its tutor, with the student")
+  void noBoardActivity() {
+    sessionEnded(SessionStatus.COMPLETED);
+
+    listeners.on(boardClosed(false));
+
+    assertThat(raised).hasSize(1);
+    Anomaly anomaly = raised.get(0);
+    assertThat(anomaly.getKind()).isEqualTo(AnomalyKind.NO_BOARD_ACTIVITY);
+    assertThat(anomaly.getTenantId()).isEqualTo("UPC");
+    assertThat(anomaly.getSubjectId()).isEqualTo(tutor);
+    assertThat(anomaly.getSeverity()).isEqualTo(Severity.LOW);
+    assertThat(anomaly.getDetectedAt()).isEqualTo(LATER);
+    assertThat(anomaly.getId()).isEqualTo(Anomaly.idFor("UPC", AnomalyKind.NO_BOARD_ACTIVITY, session));
+    assertThat(anomaly.getDetail()).containsOnlyKeys("tutorId", "studentId").containsEntry("studentId", student.toString());
+    assertThat(supporting).extracting(AnomalySession::getSessionId).containsExactly(session);
+  }
+
+  @Test
+  @DisplayName("A board closed twice without activity raises one alert")
+  void noBoardActivityDeliveredTwice() {
+    sessionEnded(SessionStatus.COMPLETED);
+
+    listeners.on(boardClosed(false));
+    listeners.on(boardClosed(false));
+
+    assertThat(raised).hasSize(1);
+    assertThat(supporting).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("A board with activity, or a session that was not completed, raises nothing about the board")
+  void boardWithActivityOrSessionNotCompleted() {
+    sessionEnded(SessionStatus.COMPLETED);
+    listeners.on(boardClosed(true));
+
+    sessionEnded(SessionStatus.UNVERIFIED);
+    listeners.on(boardClosed(false));
+
+    assertThat(raised).isEmpty();
+  }
+
+  @Test
+  @DisplayName("A board with activity does not even ask sessions how it ended")
+  void aBoardWithActivityAsksNothing() {
+    listeners.on(boardClosed(true));
+
+    verify(sessions, never()).requireSession(any());
+  }
+
+  @Test
+  @DisplayName("A session that sessions cannot find raises nothing and does not reach the publisher")
+  void anUnknownSessionIsSwallowed() {
+    when(sessions.requireSession(session)).thenThrow(new java.util.NoSuchElementException("Session not found"));
+
+    assertThatCode(() -> listeners.on(boardClosed(false))).doesNotThrowAnyException();
     assertThat(raised).isEmpty();
   }
 }

@@ -179,7 +179,7 @@ public class Anomaly {
                   facts.getOrDefault("bookedMinutes", "booked"));
       case FAILED_PRESENCE -> "A session ended without every participant confirming their presence";
       case UNUSUAL_FREQUENCY -> "A tutor teaches far more often than is usual";
-      case NO_BOARD_ACTIVITY -> "A session had no activity on the whiteboard";
+      case NO_BOARD_ACTIVITY -> "A completed session ended with nothing drawn on its whiteboard";
     };
   }
 
