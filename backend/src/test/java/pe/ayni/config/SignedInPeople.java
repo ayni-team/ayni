@@ -100,13 +100,16 @@ public final class SignedInPeople {
     return new Person(id, tenant, tokenOf(tenant, id));
   }
 
-  /** A new session token for that person, valid for a day. */
+  /**
+   * A new session token for that person, valid for a month, so a test may move its clock days
+   * ahead without the session expiring.
+   */
   public String tokenOf(String tenant, UUID userId) {
     String token = tokens.generate().rawToken();
     Instant now = Instant.now();
     userSessions.save(
         new UserSession(
-            UUID.randomUUID(), tenant, userId, tokens.hash(token), now.plus(Duration.ofDays(1)), now));
+            UUID.randomUUID(), tenant, userId, tokens.hash(token), now.plus(Duration.ofDays(30)), now));
     return token;
   }
 }
