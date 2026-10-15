@@ -28,7 +28,12 @@ import pe.ayni.shared.tenancy.MissingUserException;
  * is well formed but wrong, 404 for a session the university does not have. Scoped to this module's
  * controller, like every module's handler.
  */
-@RestControllerAdvice(assignableTypes = {SessionsController.class, WhiteboardController.class})
+@RestControllerAdvice(
+    assignableTypes = {
+      SessionsController.class,
+      WhiteboardController.class,
+      SessionReviewController.class
+    })
 class SessionsExceptionHandler {
 
   private final Clock clock;

@@ -301,6 +301,18 @@ public class Session {
     }
   }
 
+  /**
+   * How long it really lasted: from the moment both participants were in to the moment it closed
+   * (US12). {@code null} for a session that never started or has not closed yet. The same measure
+   * the audit compares with the hours booked.
+   */
+  public Duration realDuration() {
+    if (this.startedAt == null || this.endedAt == null) {
+      return null;
+    }
+    return Duration.between(this.startedAt, this.endedAt);
+  }
+
   /** When the session closes on its own if the participants have not closed it. */
   public Instant closesAt() {
     return this.scheduledEnd.plus(CLOSES_AFTER_END);
