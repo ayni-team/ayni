@@ -69,3 +69,17 @@ Feature: Reviewing recognition requests
   Scenario: A decision always says why
     When the coordinator decides without a reason
     Then it is refused and the request keeps waiting
+
+  # Not a scenario of the card: what a rejection does to the sessions it was made of. These two run in
+  # FreedSessionsAcceptanceTest, with real session tokens (TS03).
+  Scenario: A rejected request gives its sessions back
+    Given a request that the coordinator rejected
+    When the student submits a request again
+    Then the new request is made of the same sessions
+    And the rejected one is still what the student presented, with its sessions and its figures
+    And the sessions of an approved request are never given back
+
+  Scenario: Two requests at once after a rejection take the freed sessions once
+    Given a request that the coordinator rejected
+    When the student submits two requests at the same moment
+    Then one of them takes the sessions and the other is told how many hours it lacks

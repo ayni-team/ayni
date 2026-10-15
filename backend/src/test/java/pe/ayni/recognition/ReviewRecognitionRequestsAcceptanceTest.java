@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.UserView;
 import pe.ayni.recognition.application.SessionAlerts;
@@ -91,6 +93,12 @@ class ReviewRecognitionRequestsAcceptanceTest {
   /** Background: a coordinator and two students of a university of its own who submitted a request each. */
   @BeforeEach
   void aCoordinatorAndTwoStudentsWhoSubmittedARequestEach() throws Exception {
+    // The rule in force is looked for on the university's own day (US29): a university in Lima.
+    when(identity.requireTenant(any()))
+        .thenAnswer(
+            call ->
+                new TenantView(
+                    call.getArgument(0), call.getArgument(0), "America/Lima", new BigDecimal("13.00"), true));
     tenant = "T" + UUID.randomUUID().toString().substring(0, 8);
     taught.clear();
     when(identity.requireUser(any(UUID.class)))

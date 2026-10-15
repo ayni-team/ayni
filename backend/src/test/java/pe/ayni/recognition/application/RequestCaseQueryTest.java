@@ -63,7 +63,7 @@ class RequestCaseQueryTest {
     when(identity.requireUser(ANA))
         .thenReturn(new UserView(ANA, UPC, UserRole.STUDENT, "ana@upc.edu.pe", "U202310949", "Ana Torres", null, null, null));
     when(requests.findByIdAndTenantId(request.getId(), UPC)).thenReturn(Optional.of(request));
-    when(requestedSessions.findByRequestIdOrderByStartedAtAsc(request.getId())).thenReturn(List.of(first, second));
+    when(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(UPC, request.getId())).thenReturn(List.of(first, second));
     when(alerts.alertsOf(any())).thenReturn(Map.of());
   }
 

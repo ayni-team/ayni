@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,9 +18,11 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.recognition.domain.model.RecognitionProgress;
 import pe.ayni.recognition.domain.model.RecognitionRule;
 import pe.ayni.recognition.infrastructure.RecognitionRuleRepository;
@@ -43,8 +46,14 @@ class ProgressQueryTest {
       new ProgressQuery(
           identity,
           new UnclaimedSessions(sessions, requestedSessions),
-          rules,
+          new RuleInForce(rules, identity),
           Clock.fixed(NOW, ZoneOffset.UTC));
+
+  @BeforeEach
+  void aUniversityInLima() {
+    when(identity.requireTenant(UPC))
+        .thenReturn(new TenantView(UPC, "UPC", "America/Lima", new BigDecimal("13.00"), true));
+  }
 
   private static SessionSummary session(int hours) {
     return new SessionSummary(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), NOW, NOW.plusSeconds(3600L * hours), hours);
@@ -130,5 +139,23 @@ class ProgressQueryTest {
     assertThatThrownBy(this::progress).isInstanceOf(NoSuchElementException.class);
 
     verifyNoInteractions(sessions, rules);
+  }
+
+  @Test
+  @DisplayName("the rule in force is looked for on the university's day, not the UTC one")
+  void theRuleOfTheUniversitysDay() {
+    // 02:00 UTC of the 6th is still 21:00 of the 5th in Lima.
+    ProgressQuery lateInLima =
+        new ProgressQuery(
+            identity,
+            new UnclaimedSessions(sessions, requestedSessions),
+            new RuleInForce(rules, identity),
+            Clock.fixed(Instant.parse("2026-10-06T02:00:00Z"), ZoneOffset.UTC));
+    when(sessions.completedSessionsOf(STUDENT)).thenReturn(List.of());
+    when(rules.findInForce(any(), any())).thenReturn(Optional.empty());
+
+    TenantContext.runAs(UPC, () -> lateInLima.of(STUDENT));
+
+    verify(rules).findInForce(UPC, LocalDate.of(2026, 10, 5));
   }
 }

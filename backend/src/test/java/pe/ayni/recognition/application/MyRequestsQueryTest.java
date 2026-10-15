@@ -55,7 +55,7 @@ class MyRequestsQueryTest {
     RecognitionRequest newer = requestOf(NOW, b1);
     RecognitionRequest older = requestOf(NOW.minusSeconds(86400), a1, a2);
     when(requests.findByTenantIdAndStudentIdOrderBySubmittedAtDesc(UPC, STUDENT)).thenReturn(List.of(newer, older));
-    when(requestedSessions.findByRequestIdInOrderByStartedAtAsc(List.of(newer.getId(), older.getId())))
+    when(requestedSessions.findByTenantIdAndRequestIdInOrderByStartedAtAsc(UPC, List.of(newer.getId(), older.getId())))
         .thenReturn(List.of(a1, b1, a2));
 
     List<RequestFile> files = mine();
