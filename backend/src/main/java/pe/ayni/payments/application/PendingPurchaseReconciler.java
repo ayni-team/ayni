@@ -36,9 +36,13 @@ public class PendingPurchaseReconciler {
 
   public void reconcile() {
     for (String tenantId : identity.activeTenantCodes()) {
+      // Listed as the university's own, as row level security requires (TS01).
       for (Purchase purchase :
-          purchases.findByTenantIdAndStatusOrderByCreatedAtAsc(
-              tenantId, PurchaseStatus.PENDING)) {
+          TenantContext.callAs(
+              tenantId,
+              () ->
+                  purchases.findByTenantIdAndStatusOrderByCreatedAtAsc(
+                      tenantId, PurchaseStatus.PENDING))) {
         try {
           TenantContext.runAs(tenantId, () -> reconcile(tenantId, purchase));
         } catch (RuntimeException failure) {

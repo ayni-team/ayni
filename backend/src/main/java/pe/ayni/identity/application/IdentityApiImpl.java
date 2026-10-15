@@ -92,11 +92,15 @@ public class IdentityApiImpl implements IdentityApi {
             String tenantCode,
             PolicyKind kind) {
 
-        return creditPolicies
-                .findByTenantIdAndKindAndSupersededAtIsNull(
-                        tenantCode,
-                        kind)
-                .map(this::toCreditPolicyView);
+        // The caller names the university, so it is read as that one's, whatever is bound (TS01).
+        return TenantContext.callAs(
+                tenantCode,
+                () ->
+                        creditPolicies
+                                .findByTenantIdAndKindAndSupersededAtIsNull(
+                                        tenantCode,
+                                        kind)
+                                .map(this::toCreditPolicyView));
     }
 
     @Override

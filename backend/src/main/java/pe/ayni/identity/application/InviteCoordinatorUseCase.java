@@ -23,6 +23,7 @@ import pe.ayni.identity.infrastructure.AccessLinkRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.events.AccessRequested;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * Invites a coordinator to an active university.
@@ -103,6 +104,19 @@ public class InviteCoordinatorUseCase {
             throw new IdentityRuleViolation(
                     "The coordinator email does not belong to this university");
         }
+
+        // The administrator has no university: the people of this one are read and written as
+        // its own from here on (row level security, TS01).
+        TenantContext.runAs(
+                normalizedCode,
+                () -> invite(normalizedCode, normalizedEmail, normalizedName, requestedIp));
+    }
+
+    private void invite(
+            String normalizedCode,
+            String normalizedEmail,
+            String normalizedName,
+            String requestedIp) {
 
         if (users.existsByTenantIdAndEmailIgnoreCase(
                 normalizedCode,

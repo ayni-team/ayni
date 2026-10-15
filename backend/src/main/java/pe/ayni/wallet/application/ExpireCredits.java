@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.CreditsExpired;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -35,6 +36,7 @@ public class ExpireCredits {
   private final CreditAccountRepository accounts;
   private final LedgerWriter ledger;
   private final ApplicationEventPublisher events;
+  private final IdentityApi identity;
   private final Clock clock;
 
   ExpireCredits(
@@ -42,25 +44,32 @@ public class ExpireCredits {
       CreditAccountRepository accounts,
       LedgerWriter ledger,
       ApplicationEventPublisher events,
+      IdentityApi identity,
       Clock clock) {
     this.lots = lots;
     this.accounts = accounts;
     this.ledger = ledger;
     this.events = events;
+    this.identity = identity;
     this.clock = clock;
   }
 
   /**
    * The universities that have something to expire right now.
    *
-   * <p>The job runs outside any request, so there is no university bound to ask for, and identity
-   * does not exist yet to list them. Wallet answers it from its own groups, which is enough and
-   * does not reach into another module. When identity arrives this becomes {@code
-   * IdentityApi.activeTenantCodes()}.
+   * <p>The job runs outside any request, so there is no university bound to ask for. Row level
+   * security (TS01) answers a query over every university with nothing, so each active university
+   * of {@code IdentityApi.activeTenantCodes()} is asked, as itself, whether it has any.
    */
   @Transactional(readOnly = true)
   public List<String> universitiesWithCreditsToExpire() {
-    return lots.tenantsWithCreditsToExpire(clock.instant());
+    Instant now = clock.instant();
+    return identity.activeTenantCodes().stream()
+        .filter(
+            tenantId ->
+                !TenantContext.callAs(tenantId, () -> lots.tenantsWithCreditsToExpire(now))
+                    .isEmpty())
+        .toList();
   }
 
   /**

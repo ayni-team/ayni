@@ -31,6 +31,7 @@ import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
 import pe.ayni.shared.events.CoordinatorActivated;
 import pe.ayni.shared.events.StudentActivated;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * US38: opening the link received by email either signs an existing student in
@@ -144,31 +145,22 @@ public class ConfirmAccessUseCase {
                     now);
         }
 
-        User user =
-                switch (accessLink.getPurpose()) {
-                    case LOGIN ->
-                            confirmExistingStudent(
-                                    accessLink,
-                                    tenantId,
-                                    now);
-
-                    case ACTIVATION ->
-                            activateStudent(
-                                    accessLink,
-                                    tenantId,
-                                    now);
-
-                    case COORDINATOR_INVITE ->
-                            activateCoordinator(
-                                    accessLink,
-                                    tenantId,
-                                    now);
-                };
-
-        return openSession(
+        // The request has no university: the link says which one it is, and from here on
+        // everything is read and written as that university's (row level security, TS01).
+        return TenantContext.callAs(
                 tenantId,
-                user,
-                now);
+                () -> {
+                    User user =
+                            switch (accessLink.getPurpose()) {
+                                case LOGIN ->
+                                        confirmExistingStudent(accessLink, tenantId, now);
+                                case ACTIVATION ->
+                                        activateStudent(accessLink, tenantId, now);
+                                case COORDINATOR_INVITE ->
+                                        activateCoordinator(accessLink, tenantId, now);
+                            };
+                    return openSession(tenantId, user, now);
+                });
     }
 
     private User confirmExistingStudent(

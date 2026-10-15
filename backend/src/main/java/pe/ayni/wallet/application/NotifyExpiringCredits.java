@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.CreditsExpiring;
 import pe.ayni.shared.tenancy.TenantContext;
@@ -25,6 +26,7 @@ public class NotifyExpiringCredits {
   private final CreditLotRepository lots;
   private final CreditAccountRepository accounts;
   private final ApplicationEventPublisher events;
+  private final IdentityApi identity;
   private final Clock clock;
   private final Duration noticePeriod;
 
@@ -32,6 +34,7 @@ public class NotifyExpiringCredits {
       CreditLotRepository lots,
       CreditAccountRepository accounts,
       ApplicationEventPublisher events,
+      IdentityApi identity,
       Clock clock,
       @Value("${ayni.wallet.expiry-notice-days:7}") int noticeDays) {
     if (noticeDays < 1) {
@@ -40,15 +43,28 @@ public class NotifyExpiringCredits {
     this.lots = lots;
     this.accounts = accounts;
     this.events = events;
+    this.identity = identity;
     this.clock = clock;
     this.noticePeriod = Duration.ofDays(noticeDays);
   }
 
-  /** Universities with an unnotified group inside the notice period. */
+  /**
+   * Universities with an unnotified group inside the notice period.
+   *
+   * <p>Row level security (TS01) answers a query over every university with nothing, so each
+   * active university is asked as itself, the way every job of the guide visits them.
+   */
   @Transactional(readOnly = true)
   public List<String> universitiesWithCreditsExpiring() {
     Instant now = clock.instant();
-    return lots.tenantsWithCreditsExpiring(now, now.plus(noticePeriod));
+    return identity.activeTenantCodes().stream()
+        .filter(
+            tenantId ->
+                !TenantContext.callAs(
+                        tenantId,
+                        () -> lots.tenantsWithCreditsExpiring(now, now.plus(noticePeriod)))
+                    .isEmpty())
+        .toList();
   }
 
   /**
