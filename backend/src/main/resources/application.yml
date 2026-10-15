@@ -65,6 +65,11 @@ server:
   port: ${AYNI_PORT:8080}
   error:
     include-message: always
+  servlet:
+    context-parameters:
+      # The largest message the live channel of a whiteboard takes (ADR 0009). Tomcat's default is
+      # 8 KB, and a long stroke is more.
+      "[org.apache.tomcat.websocket.textBufferSize]": 262144
 
 management:
   endpoints:

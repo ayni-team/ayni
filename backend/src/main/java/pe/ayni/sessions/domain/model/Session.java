@@ -287,6 +287,20 @@ public class Session {
     }
   }
 
+  /**
+   * The whiteboard is drawn on only while the session is in progress (US10): before both
+   * participants are in there is nobody to draw with, and after it closes the board is kept as it
+   * was left.
+   *
+   * @throws SessionNotOpen when the session has not started or is already closed
+   */
+  public void requireInProgressToDraw() {
+    if (this.status != SessionStatus.IN_PROGRESS) {
+      throw new SessionNotOpen("This session is " + this.status.name().toLowerCase(Locale.ROOT)
+          + ": the whiteboard can only be drawn on while the session is in progress");
+    }
+  }
+
   /** When the session closes on its own if the participants have not closed it. */
   public Instant closesAt() {
     return this.scheduledEnd.plus(CLOSES_AFTER_END);

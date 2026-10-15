@@ -692,6 +692,14 @@ updated_at     timestamptz   NOT NULL DEFAULT now()
 Kept so that the student can review it afterwards and download it. `has_activity` answers, cheaply,
 whether anything was drawn at all, which the audit uses.
 
+**Built in US10** (`V202610150041__sessions_create_whiteboards.sql`, with its row level security
+policy). `content` is `{"version": n, "elements": [{"id", "type", "data"}, ...]}`: the elements in
+the order they were first drawn and how many operations the board applied, which is the order both
+participants apply them in (ADR 0009). The version lives in the content rather than in a column of
+its own, so the table stays the one above. The row is created by the first operation, or by the
+closing of a session where nobody drew, which stores it empty with `has_activity` false. Every
+operation updates it under the lock of its session, and nothing changes it once the session closed.
+
 ### `sessions.support_materials`
 
 ```

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.sessions.domain.model.NotAParticipant;
+import pe.ayni.sessions.domain.model.WhiteboardVersionConflict;
 import pe.ayni.sessions.domain.model.PresenceCheckUnavailable;
 import pe.ayni.sessions.domain.model.SessionNotOpen;
 import pe.ayni.sessions.domain.model.SessionRuleViolation;
@@ -27,7 +28,7 @@ import pe.ayni.shared.tenancy.MissingUserException;
  * is well formed but wrong, 404 for a session the university does not have. Scoped to this module's
  * controller, like every module's handler.
  */
-@RestControllerAdvice(assignableTypes = SessionsController.class)
+@RestControllerAdvice(assignableTypes = {SessionsController.class, WhiteboardController.class})
 class SessionsExceptionHandler {
 
   private final Clock clock;
@@ -40,6 +41,12 @@ class SessionsExceptionHandler {
   ResponseEntity<ApiError> handleNotAParticipant(
       NotAParticipant exception, HttpServletRequest request) {
     return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  @ExceptionHandler(WhiteboardVersionConflict.class)
+  ResponseEntity<ApiError> whiteboardChanged(
+      WhiteboardVersionConflict exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   @ExceptionHandler(SessionNotOpen.class)

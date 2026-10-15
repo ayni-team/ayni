@@ -49,7 +49,8 @@ public class IdentityHeadersTestFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
 
-    if (request.getHeader(HttpHeaders.AUTHORIZATION) != null) {
+    if (request.getHeader(HttpHeaders.AUTHORIZATION) != null
+        || AccessControlFilter.bearerToken(request) != null) {
       chain.doFilter(request, response);
       return;
     }

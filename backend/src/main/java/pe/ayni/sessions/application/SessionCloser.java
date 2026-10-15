@@ -9,10 +9,13 @@ import org.springframework.stereotype.Component;
 import pe.ayni.booking.BookingApi;
 import pe.ayni.sessions.domain.model.PresenceCheck;
 import pe.ayni.sessions.domain.model.Session;
+import pe.ayni.sessions.domain.model.Whiteboard;
 import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
+import pe.ayni.sessions.infrastructure.WhiteboardRepository;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.WhiteboardClosed;
 
 /**
  * Closes a session and announces how it ended. Shared by the participants closing it and by the
@@ -27,18 +30,27 @@ import pe.ayni.shared.events.SessionUnverified;
  * to it. {@link SessionUnverified} names who did not confirm; wallet refunds the student on it.
  * Both are published inside the caller's transaction and reach their listeners once it commits.
  *
+ * <p>The whiteboard needs nothing saved: every operation was stored as it was applied (ADR 0009).
+ * A session where nobody drew gets its empty board stored now, so its history says so, and {@link
+ * WhiteboardClosed} tells whether anything was drawn (US10).
+ *
  * <p>Runs inside the caller's transaction, with the session already locked by the caller.
  */
 @Component
 class SessionCloser {
 
   private final PresenceCheckRepository presenceChecks;
+  private final WhiteboardRepository whiteboards;
   private final BookingApi booking;
   private final ApplicationEventPublisher events;
 
   SessionCloser(
-      PresenceCheckRepository presenceChecks, BookingApi booking, ApplicationEventPublisher events) {
+      PresenceCheckRepository presenceChecks,
+      WhiteboardRepository whiteboards,
+      BookingApi booking,
+      ApplicationEventPublisher events) {
     this.presenceChecks = presenceChecks;
+    this.whiteboards = whiteboards;
     this.booking = booking;
     this.events = events;
   }
@@ -59,6 +71,19 @@ class SessionCloser {
             .toList();
 
     session.close(unconfirmed.isEmpty(), now);
+
+    Whiteboard board =
+        whiteboards
+            .findByTenantIdAndSessionId(tenantId, session.getId())
+            .orElseGet(() -> whiteboards.save(Whiteboard.emptyFor(session, now)));
+    events.publishEvent(
+        new WhiteboardClosed(
+            tenantId,
+            session.getId(),
+            session.getTutorId(),
+            session.getStudentId(),
+            board.hasActivity(),
+            now));
 
     if (unconfirmed.isEmpty()) {
       events.publishEvent(

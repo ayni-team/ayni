@@ -70,6 +70,13 @@
       <artifactId>spring-boot-starter-mail</artifactId>
     </dependency>
 
+    <!-- The shared whiteboard (US10, TS08): both participants draw on it in real time over a
+         WebSocket, authenticated with the session token. See ADR 0009. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-websocket</artifactId>
+    </dependency>
+
     <!-- Declares the module boundaries and verifies them in a test -->
     <dependency>
       <groupId>org.springframework.modulith</groupId>
