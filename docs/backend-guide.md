@@ -276,6 +276,18 @@ so the scenarios keep proving their use case. New tests of access control set
 because Ayni issues no certificates yet; its scenario is `@pending` in
 `TS03-access-control.feature`.
 
+### Extracting a module (TS09)
+
+Extracting a module must be a migration, not a redesign (ADR 0002). The four scenarios of
+`TS09-module-extraction.feature` are verified like this:
+
+| Scenario | Verified by |
+|---|---|
+| Isolation in the code | `ModuleExtractionTest` (and `ModularityTest`): Spring Modulith finds no module using another's internal classes, only published interfaces and the events of `shared.events` |
+| No foreign key crosses between the schemas of two modules | `SchemaBoundaryTest`: migrates an empty PostgreSQL and reads `pg_constraint`; a second test adds such a key inside a transaction and proves the check names it |
+| Verification on every integration | CI runs `./mvnw -B verify` on every pull request to `develop` and `main`; `ModuleExtractionTest` analyses a fixture in the test sources where one module reaches into another and asserts the violation names both and the class |
+| The scope of a change is bounded | `ModuleExtractionTest`: every dependency from one module to another targets the root package of the other (its `*Api` and views), so nothing below that root can break another module |
+
 ### Row level security (TS01)
 
 ADR 0007, its part about the database. Every table with `tenant_id` has row level security and one
