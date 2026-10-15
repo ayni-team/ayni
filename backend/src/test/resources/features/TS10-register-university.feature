@@ -2,14 +2,14 @@
 # beyond the first universities does not mean changing or deploying code.
 #
 # Registering and listing universities is built (TS10-T1). Each scenario below with the same name
-# runs over HTTP against a real PostgreSQL in RegisterUniversityAcceptanceTest, and the contract of
-# the two endpoints, with the race on the code and on the domain, in
-# UniversityAdministrationAcceptanceTest.
+# runs over HTTP against a real PostgreSQL in RegisterUniversityAcceptanceTest, except "Onboarding a
+# university by configuration", which runs in OnboardingByConfigurationAcceptanceTest with real
+# session tokens (TS03); the contract of the two endpoints, with the race on the code and on the
+# domain, is in UniversityAdministrationAcceptanceTest.
 #
-# The students of a new university cannot be activated yet: the simulated academic system answers
-# only for UPC and PUCP (ADR 0006), and teaching it another university is a change to its adapter
-# that is not part of this task. Whatever needs a student of the new university to get in for the
-# first time is tagged @pending and says why.
+# The simulated academic system reads one directory file per university from a folder, each time it
+# looks a student up (ADR 0006, amended): a new university's students get in once its file is in
+# the folder, with the application running.
 #
 # Scenarios 2, 3 and 4 run on what identity owns: profiles, the directory, the tenant and its
 # credit policy. What the other modules keep per university is theirs to prove. A student of the
@@ -20,12 +20,8 @@ Feature: Registering a university
   Background:
     Given the university "UPC" is registered and has an active student
 
-  # Pending: the first access of a student is an activation, and the simulated academic system only
-  # knows UPC and PUCP. The registration half, with its domains and its configuration kept and the
-  # domain leading to the university, is covered by "Registering a university creates its baseline
-  # policy and announces it" and "The email domain of a registered university leads to it" in
-  # UniversityAdministrationAcceptanceTest.
-  @pending
+  # The configuration is the registration over HTTP and the university's file in the academic
+  # directory, written while the application runs.
   Scenario: Onboarding a university by configuration
     When the administrator registers a university with its domains and its configuration
     Then a student with an email of that university can request access

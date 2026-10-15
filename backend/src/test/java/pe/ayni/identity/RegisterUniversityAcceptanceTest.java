@@ -53,8 +53,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  * TS10 over HTTP against a real PostgreSQL: one test per scenario of {@code
  * features/TS10-register-university.feature}, with the same display name.
  *
- * <p>Scenario 1 is {@code @pending} and has no test: a student of a university the simulated
- * academic system does not know cannot be activated, and that adapter is not changed here.
+ * <p>Scenario 1 runs in {@link OnboardingByConfigurationAcceptanceTest}, with real session tokens
+ * and an academic directory of its own.
  *
  * <p>The other three check what identity owns. The students of the new university are stored
  * directly, because activating one is that scenario 1. Other modules read the university through
