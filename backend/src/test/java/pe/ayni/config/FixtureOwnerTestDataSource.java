@@ -90,7 +90,9 @@ class FixtureOwnerTestDataSource implements BeanPostProcessor, EnvironmentAware,
       config.setJdbcUrl(application.getJdbcUrl());
       config.setUsername(environment.getProperty("spring.flyway.user", "test"));
       config.setPassword(environment.getProperty("spring.flyway.password", "test"));
-      config.setMaximumPoolSize(4);
+      config.setMaximumPoolSize(3);
+      config.setMinimumIdle(0);
+      config.setIdleTimeout(10_000);
       config.setPoolName("test-fixtures-owner");
       owner = new HikariDataSource(config);
     }
