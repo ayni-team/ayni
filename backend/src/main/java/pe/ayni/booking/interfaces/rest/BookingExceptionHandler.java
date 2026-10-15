@@ -34,7 +34,12 @@ import pe.ayni.wallet.InsufficientCreditsException;
  * request that the state of the tutor's agenda refuses: somebody got to the hour first, the hold ran
  * out, the tutor does not offer those hours.
  */
-@RestControllerAdvice(assignableTypes = {AvailabilityController.class, BookingController.class})
+@RestControllerAdvice(
+    assignableTypes = {
+      AvailabilityController.class,
+      BookingController.class,
+      TutorAgendaController.class
+    })
 class BookingExceptionHandler {
 
   /** What a student is told when they lose the race to hold an hour. */
