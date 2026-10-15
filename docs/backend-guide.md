@@ -766,6 +766,25 @@ arrival is recorded, nothing starts, and the session is abandoned as the next se
 session is locked while it is joined, so two participants arriving at once start it once. Joining
 again changes nothing, the first arrival included. A stranger gets 403, a room that is not open 409.
 
+**The video call (US08, scenario 2).** Joining also answers `video`: a pass to the session's call
+in the self hosted Jitsi, `url` (the room, `ayni.sessions.video.url` plus the room name), `token`
+and `expiresAt`. The token is a JWT signed with HS256 and `AYNI_JITSI_JWT_SECRET`, the secret Jitsi
+shares (`AUTH_TYPE=jwt`): `room` is the session's room and no other, `iss` `ayni`, `aud` `jitsi`,
+`sub` `meet.jitsi`, `context.user` the participant, moderator for the tutor. It lasts
+`ayni.sessions.video.token-ttl` (five minutes) and never past the scheduled end; Jitsi checks it
+when somebody enters, and every join, a reconnection included, issues a new one. Only a participant
+who is let in gets one. The secret has no default in `application.yml`: `docker-compose.yml`
+carries the development one, a deployment sets its own (at least 32 characters), and without it
+joining answers `video: null`, logged once at startup. Jitsi runs under a compose profile, so the
+normal start stays light:
+
+```bash
+docker compose --profile video up
+```
+
+Seeing and hearing each other is checked by hand there and is `@pending` in
+`US08-join-session.feature`.
+
 **What each participant sees of the arrivals.** Both answers, `GET /sessions/{id}` and `POST
 /sessions/{id}/join`, carry `studentJoinedAt` and `tutorJoinedAt`: the first arrival of each, UTC,
 `null` for whoever has not come. Both participants see both, so whoever enters knows whether the
