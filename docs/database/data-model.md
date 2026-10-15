@@ -546,6 +546,11 @@ INDEX (tenant_id, tutor_id, starts_at DESC)
 
 `credits_charged = hours` is the pricing rule written as a constraint: one credit, one hour.
 
+The two indexes are what the lists of US04 and US21 read: a student's bookings and a tutor's, by
+`starts_at`, in both directions, the upcoming half the nearest first and the history the most
+recent first. A booking keeps `CONFIRMED` after its session took place, because booking does not
+hear how a session ended; the lists tell the halves apart by `ends_at`.
+
 A cancellation refunds the student, except when the student themselves cancels inside the twelve
 hour window. `cancelled_late` records whether it happened inside that window, and `cancelled_by`
 who did it: a tutor's cancellation refunds at any hour. A tutor who removes availability over a
