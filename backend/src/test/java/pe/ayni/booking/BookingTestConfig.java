@@ -3,7 +3,6 @@ package pe.ayni.booking;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -28,7 +27,7 @@ public class BookingTestConfig {
   @Bean
   @Primary
   MutableClock mutableClock() {
-    return new MutableClock(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+    return new MutableClock(BookingScenario.middayInLima(Instant.now()));
   }
 
   @Bean
