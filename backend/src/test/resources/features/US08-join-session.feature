@@ -52,3 +52,28 @@ Feature: Meeting in the session's room
 
   Scenario: A session of another university, or one that does not exist, is not found
     Then joining it is answered as not found
+
+  # Scenario 2 of US08: meeting in the video call itself. The passes are proven in
+  # VideoRoomAcceptanceTest, over HTTP against a real PostgreSQL, and the token in
+  # JitsiVideoRoomPassesTest. The self hosted Jitsi runs under `docker compose --profile video`.
+  Scenario: Joining hands a pass to the video call of that room only
+    Given the session starts in five minutes
+    When Ana and then Bruno join
+    Then each gets a pass to the video call, signed for the session's room and nobody else's
+    And Bruno's lets him in as moderator, Ana's does not
+
+  Scenario: The pass lasts a few minutes and never past the end of the session
+    When a participant joins five minutes before the start, or two minutes before the end
+    Then the first pass lasts five minutes, and the second ends with the session
+
+  Scenario: Somebody who is not a participant gets no pass
+    When a student who is neither Ana nor Bruno tries to join
+    Then they are refused, and no pass is handed
+
+  # Seeing and hearing each other needs two browsers with a camera and a microphone against the
+  # Jitsi stack: not something the build can run. It is checked by hand with
+  # `docker compose --profile video up`.
+  @pending
+  Scenario: Both participants see and hear each other in the call
+    Given Ana and Bruno opened the call with their passes
+    Then each sees and hears the other

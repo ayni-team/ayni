@@ -14,6 +14,8 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  *     while it has not
  * @param studentJoinedAt when the student first arrived, {@code null} if they have not
  * @param tutorJoinedAt when the tutor first arrived, {@code null} if they have not
+ * @param video the pass to the session's video call, {@code null} when no video service is
+ *     configured
  */
 public record JoinedSession(
     UUID sessionId,
@@ -24,4 +26,5 @@ public record JoinedSession(
     Instant scheduledStart,
     Instant scheduledEnd,
     Instant studentJoinedAt,
-    Instant tutorJoinedAt) {}
+    Instant tutorJoinedAt,
+    VideoRoomPasses.VideoPass video) {}

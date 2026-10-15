@@ -25,6 +25,7 @@ The first run downloads images and dependencies and takes a few minutes. After t
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Database | `localhost:5432`, database `ayni`, user `ayni`, password `ayni` |
 | Emails sent by the backend | http://localhost:8025 (Mailpit: nothing leaves your machine) |
+| Video calls of the sessions | http://localhost:8000, only with `docker compose --profile video up` |
 
 The home page shows whether the API is answering. If it says `UP`, everything works.
 
@@ -43,6 +44,7 @@ docker compose up -d          # run in the background
 docker compose logs -f backend
 docker compose down           # stop everything
 docker compose down -v        # stop and erase the database
+docker compose --profile video up -d   # also the self hosted Jitsi of the video calls (US08)
 ```
 
 If you prefer running the backend from IntelliJ, start only the database and the mail catcher with

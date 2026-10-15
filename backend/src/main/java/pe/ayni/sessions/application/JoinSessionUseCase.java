@@ -38,15 +38,18 @@ public class JoinSessionUseCase {
   private final SessionRepository sessions;
   private final ParticipationRepository participations;
   private final ApplicationEventPublisher events;
+  private final VideoRoomPasses videoPasses;
   private final Clock clock;
   JoinSessionUseCase(
       SessionRepository sessions,
       ParticipationRepository participations,
       ApplicationEventPublisher events,
+      VideoRoomPasses videoPasses,
       Clock clock) {
     this.sessions = sessions;
     this.participations = participations;
     this.events = events;
+    this.videoPasses = videoPasses;
     this.clock = clock;
   }
 
@@ -90,7 +93,11 @@ public class JoinSessionUseCase {
         session.getScheduledStart(),
         session.getScheduledEnd(),
         arrivalOf(arrivals, session.getStudentId()),
-        arrivalOf(arrivals, session.getTutorId()));
+        arrivalOf(arrivals, session.getTutorId()),
+        // A new pass every time somebody joins: it opens this room only, for a few minutes (US08).
+        videoPasses
+            .issue(session.getRoomName(), userId, role, now, session.getScheduledEnd())
+            .orElse(null));
   }
 
   private static Instant arrivalOf(List<Participation> arrivals, UUID userId) {
