@@ -29,11 +29,15 @@ import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.OnboardingStep;
+import pe.ayni.identity.domain.model.PlatformAdmin;
+import pe.ayni.identity.domain.model.PlatformAdminStatus;
+import pe.ayni.identity.domain.model.AccessRole;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
+import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
 import pe.ayni.shared.events.CoordinatorActivated;
@@ -53,6 +57,7 @@ class ConfirmAccessUseCaseTest {
 
     private AccessLinkRepository accessLinks;
     private UserRepository users;
+    private PlatformAdminRepository admins;
     private UserSessionRepository sessions;
     private AcademicRecordRepository academicRecords;
     private AcademicSystemPort academicSystem;
@@ -68,6 +73,9 @@ class ConfirmAccessUseCaseTest {
 
         users =
                 mock(UserRepository.class);
+
+        admins =
+                mock(PlatformAdminRepository.class);
 
         sessions =
                 mock(UserSessionRepository.class);
@@ -97,6 +105,7 @@ class ConfirmAccessUseCaseTest {
                 new ConfirmAccessUseCase(
                         accessLinks,
                         users,
+                        admins,
                         sessions,
                         academicRecords,
                         academicSystem,
@@ -724,7 +733,7 @@ class ConfirmAccessUseCaseTest {
 
     @Test
     @DisplayName(
-            "a link without a university is refused")
+            "a link without a university whose address is no administrator is refused")
     void aLinkWithoutUniversityIsRefused() {
 
         link(
@@ -766,5 +775,44 @@ class ConfirmAccessUseCaseTest {
                         useCase.execute("  "))
                 .isInstanceOf(
                         IdentityRuleViolation.class);
+    }
+
+    @Test
+    @DisplayName(
+            "a link without a university opens a session with no university for its administrator")
+    void anAdministratorsLinkOpensAnAdministratorsSession() {
+
+        AccessLink link =
+                link(
+                        null,
+                        "admin@ayni.local",
+                        AccessPurpose.LOGIN,
+                        NOW.plusSeconds(600));
+
+        UUID adminId = UUID.randomUUID();
+        when(admins.findByEmailIgnoreCase("admin@ayni.local"))
+                .thenReturn(
+                        Optional.of(
+                                new PlatformAdmin(
+                                        adminId,
+                                        "admin@ayni.local",
+                                        "Admin",
+                                        PlatformAdminStatus.ACTIVE,
+                                        NOW)));
+        when(accessLinks.consume(link.getId(), NOW)).thenReturn(1);
+
+        ConfirmAccessResult result = useCase.execute("raw-access-token");
+
+        assertThat(result.tenantId()).isNull();
+        assertThat(result.userId()).isEqualTo(adminId);
+        assertThat(result.role()).isEqualTo(AccessRole.PLATFORM_ADMIN);
+        assertThat(result.sessionToken()).isEqualTo("raw-session-token");
+
+        ArgumentCaptor<UserSession> saved = ArgumentCaptor.forClass(UserSession.class);
+        verify(sessions).save(saved.capture());
+        assertThat(saved.getValue().getAdminId()).isEqualTo(adminId);
+        assertThat(saved.getValue().getTenantId()).isNull();
+        assertThat(saved.getValue().getUserId()).isNull();
+        assertThat(saved.getValue().getExpiresAt()).isEqualTo(NOW.plus(Duration.ofDays(7)));
     }
 }

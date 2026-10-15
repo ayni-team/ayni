@@ -14,9 +14,20 @@ public record ConfirmAccessResponse(
                                 + " shown again",
                 example = "Zp8wQ4nB1cX7vL2kT9sR6mY3hF0dJ5gA8eU1iO4pW2q")
         String sessionToken,
-        @Schema(description = "University of the account, read from the link", example = "UPC")
+        @Schema(
+                description =
+                        "University of the account, read from the link. Absent for a platform"
+                                + " administrator, who belongs to none",
+                example = "UPC")
         String tenantId,
-        @Schema(example = "11111111-1111-4111-8111-111111111111") UUID userId,
+        @Schema(
+                description = "The student or coordinator, or the platform administrator",
+                example = "11111111-1111-4111-8111-111111111111")
+        UUID userId,
+        @Schema(
+                description = "What the session may call: STUDENT, COORDINATOR or PLATFORM_ADMIN",
+                example = "STUDENT")
+        String role,
         @Schema(description = "When the session ends, UTC", example = "2026-10-06T05:30:00Z")
         Instant expiresAt) {
 
@@ -25,6 +36,7 @@ public record ConfirmAccessResponse(
                 result.sessionToken(),
                 result.tenantId(),
                 result.userId(),
+                result.role().name(),
                 result.expiresAt());
     }
 }

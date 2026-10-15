@@ -15,15 +15,18 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
 import pe.ayni.identity.domain.model.AcademicRecord;
+import pe.ayni.identity.domain.model.AccessRole;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.InvitationConflict;
 import pe.ayni.identity.domain.model.OnboardingStep;
+import pe.ayni.identity.domain.model.PlatformAdmin;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
+import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
 import pe.ayni.shared.events.CoordinatorActivated;
@@ -43,6 +46,10 @@ import pe.ayni.shared.events.StudentActivated;
  * <p>The link is consumed with a conditional database update before account
  * or session data is written. Therefore the same link cannot open two sessions
  * or activate the same student twice.
+ *
+ * <p>A link with no university belongs to a platform administrator (TS03): it
+ * opens a session with no university for the active administrator of that
+ * address, and for nobody else.
  */
 @Service
 public class ConfirmAccessUseCase {
@@ -57,7 +64,7 @@ public class ConfirmAccessUseCase {
             "This invitation does not belong to a coordinator";
 
     static final String NO_UNIVERSITY =
-            "Signing in without a university, as a platform administrator, is not available yet";
+            "This link has no university and its address is not an active platform administrator";
 
     static final String NOT_ACTIVE =
             "This account is not active";
@@ -67,6 +74,7 @@ public class ConfirmAccessUseCase {
 
     private final AccessLinkRepository accessLinks;
     private final UserRepository users;
+    private final PlatformAdminRepository admins;
     private final UserSessionRepository sessions;
     private final AcademicRecordRepository academicRecords;
     private final AcademicSystemPort academicSystem;
@@ -78,6 +86,7 @@ public class ConfirmAccessUseCase {
     ConfirmAccessUseCase(
             AccessLinkRepository accessLinks,
             UserRepository users,
+            PlatformAdminRepository admins,
             UserSessionRepository sessions,
             AcademicRecordRepository academicRecords,
             AcademicSystemPort academicSystem,
@@ -88,6 +97,7 @@ public class ConfirmAccessUseCase {
 
         this.accessLinks = accessLinks;
         this.users = users;
+        this.admins = admins;
         this.sessions = sessions;
         this.academicRecords = academicRecords;
         this.academicSystem = academicSystem;
@@ -129,8 +139,9 @@ public class ConfirmAccessUseCase {
         String tenantId = accessLink.getTenantId();
 
         if (tenantId == null) {
-            throw new IdentityRuleViolation(
-                    NO_UNIVERSITY);
+            return openPlatformAdminSession(
+                    accessLink,
+                    now);
         }
 
         User user =
@@ -353,6 +364,53 @@ public class ConfirmAccessUseCase {
                 sessionToken.rawToken(),
                 tenantId,
                 user.getId(),
+                user.getRole() == UserRole.COORDINATOR
+                        ? AccessRole.COORDINATOR
+                        : AccessRole.STUDENT,
+                expiresAt);
+    }
+
+    /**
+     * An administrator signs in like everybody else, by link, and gets a
+     * session with no university: they read aggregates across universities
+     * and never the rows of one (ADR 0007).
+     */
+    private ConfirmAccessResult openPlatformAdminSession(
+            AccessLink accessLink,
+            Instant now) {
+
+        PlatformAdmin admin =
+                admins.findByEmailIgnoreCase(
+                                accessLink.getEmail())
+                        .filter(PlatformAdmin::isActive)
+                        .orElseThrow(
+                                () ->
+                                        new IdentityRuleViolation(
+                                                NO_UNIVERSITY));
+
+        consume(
+                accessLink,
+                now);
+
+        GeneratedAccessToken sessionToken =
+                tokens.generate();
+
+        Instant expiresAt =
+                now.plus(sessionTtl);
+
+        sessions.save(
+                UserSession.forPlatformAdmin(
+                        UUID.randomUUID(),
+                        admin.getId(),
+                        sessionToken.tokenHash(),
+                        expiresAt,
+                        now));
+
+        return new ConfirmAccessResult(
+                sessionToken.rawToken(),
+                null,
+                admin.getId(),
+                AccessRole.PLATFORM_ADMIN,
                 expiresAt);
     }
 

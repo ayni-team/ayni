@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,9 +23,12 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.PlatformAdmin;
+import pe.ayni.identity.domain.model.PlatformAdminStatus;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
+import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.events.AccessRequested;
@@ -39,6 +43,9 @@ class RequestAccessUseCaseTest {
 
     private final TenantRepository tenants =
             mock(TenantRepository.class);
+
+    private final PlatformAdminRepository admins =
+            mock(PlatformAdminRepository.class);
 
     private final UserRepository users =
             mock(UserRepository.class);
@@ -58,6 +65,7 @@ class RequestAccessUseCaseTest {
     private final RequestAccessUseCase useCase =
             new RequestAccessUseCase(
                     tenants,
+                    admins,
                     users,
                     accessLinks,
                     tokens,
@@ -237,5 +245,54 @@ class RequestAccessUseCaseTest {
 
         verify(events, never())
                 .publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("an active platform administrator gets a sign in link with no university")
+    void anAdministratorGetsALinkWithNoUniversity() {
+        when(admins.findByEmailIgnoreCase("admin@ayni.local"))
+                .thenReturn(
+                        Optional.of(
+                                new PlatformAdmin(
+                                        UUID.randomUUID(),
+                                        "admin@ayni.local",
+                                        "Admin",
+                                        PlatformAdminStatus.ACTIVE,
+                                        NOW)));
+        when(tokens.generate())
+                .thenReturn(new GeneratedAccessToken("raw-token", "c".repeat(64)));
+        when(links.build("raw-token")).thenReturn("https://example.test/access/confirm?token=raw-token");
+
+        useCase.execute("Admin@Ayni.local", null);
+
+        ArgumentCaptor<AccessLink> saved = ArgumentCaptor.forClass(AccessLink.class);
+        verify(accessLinks).save(saved.capture());
+        assertThat(saved.getValue().getTenantId()).isNull();
+        assertThat(saved.getValue().getPurpose().name()).isEqualTo("LOGIN");
+
+        ArgumentCaptor<AccessRequested> published = ArgumentCaptor.forClass(AccessRequested.class);
+        verify(events).publishEvent(published.capture());
+        assertThat(published.getValue().tenantId()).isNull();
+        verify(tenants, never()).findByStatus(any());
+    }
+
+    @Test
+    @DisplayName("a disabled administrator is routed like any other address")
+    void aDisabledAdministratorIsNotAnAdministrator() {
+        when(admins.findByEmailIgnoreCase("admin@ayni.local"))
+                .thenReturn(
+                        Optional.of(
+                                new PlatformAdmin(
+                                        UUID.randomUUID(),
+                                        "admin@ayni.local",
+                                        "Admin",
+                                        PlatformAdminStatus.DISABLED,
+                                        NOW)));
+        when(tenants.findByStatus(TenantStatus.ACTIVE)).thenReturn(List.of(upc()));
+
+        assertThatThrownBy(() -> useCase.execute("admin@ayni.local", null))
+                .isInstanceOf(IdentityRuleViolation.class)
+                .hasMessage("The institution is not affiliated with Ayni");
+        verify(accessLinks, never()).save(any());
     }
 }

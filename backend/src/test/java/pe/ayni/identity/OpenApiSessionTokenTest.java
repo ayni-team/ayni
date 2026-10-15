@@ -1,4 +1,4 @@
-package pe.ayni.skills;
+package pe.ayni.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -18,62 +18,69 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * What Swagger UI is told about the {@code X-Tenant-Id} and {@code X-User-Id} headers.
+ * TS03: what Swagger UI is told about how a request proves who it is.
  *
- * <p>It lives next to the other tests that share {@link SkillsTestDatabase}, because that is the
- * database the application context starts against.
+ * <p>Every route but the two public access routes needs the session token, declared once as the
+ * {@code bearer} scheme, and no route asks for {@code X-Tenant-Id} or {@code X-User-Id} any more,
+ * although some controllers still document them by hand: nothing reads them.
  */
-@SpringBootTest
+@SpringBootTest(properties = "ayni.test.identity-headers=false")
 @AutoConfigureMockMvc
-class OpenApiRequestHeadersTest {
+class OpenApiSessionTokenTest {
 
   @ServiceConnection
-  static final PostgreSQLContainer<?> POSTGRES = SkillsTestDatabase.INSTANCE;
+  static final PostgreSQLContainer<?> POSTGRES = IdentityTestDatabase.INSTANCE;
 
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper json;
 
   @Test
-  @DisplayName("An endpoint of any module declares both headers")
-  void anEndpointOfAnyModuleDeclaresBothHeaders() throws Exception {
-    JsonNode operation = apiDocs().at("/paths/~1api~1v1~1wallet/get");
+  @DisplayName("The session token is declared as a bearer scheme required by default")
+  void theSessionTokenIsABearerScheme() throws Exception {
+    JsonNode docs = apiDocs();
 
-    assertThat(headerNames(operation)).containsExactlyInAnyOrder("X-Tenant-Id", "X-User-Id");
+    assertThat(docs.at("/components/securitySchemes/bearer/type").asText()).isEqualTo("http");
+    assertThat(docs.at("/components/securitySchemes/bearer/scheme").asText()).isEqualTo("bearer");
+    assertThat(docs.at("/security/0").has("bearer")).isTrue();
   }
 
   @Test
-  @DisplayName("A public access endpoint declares neither")
-  void aPublicAccessEndpointDeclaresNeither() throws Exception {
-    JsonNode operation = apiDocs().at("/paths/~1api~1v1~1access~1request/post");
+  @DisplayName("The public access endpoints need no token")
+  void thePublicAccessEndpointsNeedNoToken() throws Exception {
+    JsonNode docs = apiDocs();
 
-    assertThat(operation.isMissingNode()).isFalse();
-    assertThat(headerNames(operation)).isEmpty();
+    for (String path : List.of("/paths/~1api~1v1~1access~1request/post",
+        "/paths/~1api~1v1~1access~1confirm/post")) {
+      JsonNode operation = docs.at(path);
+      assertThat(operation.isMissingNode()).isFalse();
+      assertThat(operation.path("security").isArray()).isTrue();
+      assertThat(operation.path("security")).isEmpty();
+    }
   }
 
   @Test
-  @DisplayName("No skills endpoint declares a header twice")
-  void noSkillsEndpointDeclaresAHeaderTwice() throws Exception {
-    List<String> repeated = new ArrayList<>();
+  @DisplayName("No endpoint declares the identity headers")
+  void noEndpointDeclaresTheIdentityHeaders() throws Exception {
+    List<String> declaring = new ArrayList<>();
     apiDocs()
         .path("paths")
         .fields()
         .forEachRemaining(
-            path -> {
-              if (!path.getKey().startsWith("/api/v1/skills")) {
-                return;
-              }
-              path.getValue()
-                  .fields()
-                  .forEachRemaining(
-                      method -> {
-                        List<String> names = headerNames(method.getValue());
-                        if (names.size() != names.stream().distinct().count()) {
-                          repeated.add(method.getKey() + " " + path.getKey());
-                        }
-                      });
-            });
+            path ->
+                path.getValue()
+                    .fields()
+                    .forEachRemaining(
+                        method -> {
+                          if (headerNames(method.getValue()).stream()
+                              .anyMatch(
+                                  name ->
+                                      name.equalsIgnoreCase("X-Tenant-Id")
+                                          || name.equalsIgnoreCase("X-User-Id"))) {
+                            declaring.add(method.getKey() + " " + path.getKey());
+                          }
+                        }));
 
-    assertThat(repeated).isEmpty();
+    assertThat(declaring).isEmpty();
   }
 
   private JsonNode apiDocs() throws Exception {

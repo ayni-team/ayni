@@ -14,14 +14,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import pe.ayni.identity.application.ConfirmAccessUseCase;
 import pe.ayni.identity.application.RequestAccessUseCase;
+import pe.ayni.identity.application.SignOutUseCase;
+import pe.ayni.identity.interfaces.web.AccessControlFilter;
 
 /**
- * Signing in with the institutional email: asking for a link, and opening it.
+ * Signing in with the institutional email: asking for a link, opening it, and signing out.
  *
- * <p>Neither endpoint needs {@code X-Tenant-Id}. Requesting a link decides the university from the
- * domain of the email, and confirming it reads the university from the link.
+ * <p>Asking for a link and opening it are public: they are how somebody gets a session. Requesting
+ * a link decides the university from the domain of the email, and confirming it reads the
+ * university from the link. Signing out needs the session it closes (TS03).
  */
 @RestController
 @RequestMapping("/api/v1/access")
@@ -30,13 +34,16 @@ public class AccessController {
 
     private final RequestAccessUseCase requestAccess;
     private final ConfirmAccessUseCase confirmAccess;
+    private final SignOutUseCase signOut;
 
     public AccessController(
             RequestAccessUseCase requestAccess,
-            ConfirmAccessUseCase confirmAccess) {
+            ConfirmAccessUseCase confirmAccess,
+            SignOutUseCase signOut) {
 
         this.requestAccess = requestAccess;
         this.confirmAccess = confirmAccess;
+        this.signOut = signOut;
     }
 
     @PostMapping("/request")
@@ -138,5 +145,24 @@ public class AccessController {
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     public ConfirmAccessResponse confirmAccess(@Valid @RequestBody ConfirmAccessRequest request) {
         return ConfirmAccessResponse.from(confirmAccess.execute(request.token()));
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @SecurityRequirement(name = "bearer")
+    @Operation(
+            summary = "Signs out: the session token stops opening anything",
+            description =
+                    """
+                    TS03: revokes the session of the token this request carries. From then on that \
+                    token is answered 401, as any closed session is; nothing else is touched.
+                    """)
+    @ApiResponse(responseCode = "204", description = "The session is closed")
+    @ApiResponse(
+            responseCode = "401",
+            description = "No session token, or one that is unknown, expired or already closed",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    public void signOut(HttpServletRequest httpRequest) {
+        signOut.execute(AccessControlFilter.bearerToken(httpRequest));
     }
 }

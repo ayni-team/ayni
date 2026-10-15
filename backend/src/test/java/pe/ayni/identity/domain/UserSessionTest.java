@@ -54,4 +54,27 @@ class UserSessionTest {
         assertThat(session.getRevokedAt())
                 .isEqualTo(NOW.plusSeconds(30));
     }
+
+    @Test
+    void theInstantOfExpiryIsAlreadyExpired() {
+        UserSession session = session();
+
+        assertThat(session.isExpired(NOW.plusSeconds(3599))).isFalse();
+        assertThat(session.isExpired(NOW.plusSeconds(3600))).isTrue();
+    }
+
+    @Test
+    void anAdministratorsSessionHasNoUniversityAndNoUser() {
+        UUID admin = UUID.randomUUID();
+
+        UserSession session =
+                UserSession.forPlatformAdmin(
+                        UUID.randomUUID(), admin, "b".repeat(64), NOW.plusSeconds(3600), NOW);
+
+        assertThat(session.belongsToPlatformAdmin()).isTrue();
+        assertThat(session.getTenantId()).isNull();
+        assertThat(session.getUserId()).isNull();
+        assertThat(session.getAdminId()).isEqualTo(admin);
+        assertThat(session().belongsToPlatformAdmin()).isFalse();
+    }
 }

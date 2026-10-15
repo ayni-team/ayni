@@ -9,14 +9,13 @@ import java.util.UUID;
  * who. Both are bound by a filter in {@code config}, so that a use case can ask for either without
  * receiving it as a parameter through every method call.
  *
- * <p>The value arrives in the {@code X-User-Id} header today, exactly as the university arrives in
- * {@code X-Tenant-Id}. When sign in is added it will come from a claim of the access token and only
- * the filter changes.
+ * <p>The value comes from the session of the request's token (TS03): identity's {@code
+ * AccessControlFilter} resolves it and binds the student, the coordinator or the platform
+ * administrator it belongs to. It used to arrive in an {@code X-User-Id} header that anyone could
+ * fill in; only the filter changed, and every controller kept reading it from here.
  *
- * <p>Until then anyone can claim to be anybody, and that is precisely why an endpoint reads its
- * subject from here rather than taking it as a parameter: an endpoint that has no way to name
- * another student cannot be pointed at one, so the hole stays in one place instead of in every
- * controller.
+ * <p>That is why an endpoint reads its subject from here rather than taking it as a parameter: an
+ * endpoint that has no way to name another student cannot be pointed at one.
  */
 public final class CurrentUser {
 
