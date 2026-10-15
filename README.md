@@ -133,20 +133,29 @@ than inventing columns.
 
 ### The university and the person of each request
 
-Every request carries two headers:
+Every request carries the session token that opening an access link returns (TS03, ADR 0007):
 
-| Header | Holds | Read it in code with |
-|---|---|---|
-| `X-Tenant-Id` | the university code, for example `UPC` | `TenantContext.require()` |
-| `X-User-Id` | who is asking, as a UUID | `CurrentUser.require()` |
+```
+Authorization: Bearer <sessionToken>
+```
 
-In Postman, add both to the collection once and forget about them. Filter every query by the
-university.
+The backend looks the session up by the hash of the token and binds its university and its person
+for the rest of the request:
 
-This is temporary: when sign in is added both values come from the access token, and only
-`TenantFilter` and `CurrentUserFilter` change. Until then anyone can claim to be anybody, which is
-why an endpoint that answers about a person reads them from `CurrentUser` instead of taking them as
-a parameter: an endpoint with no way to name another student cannot be pointed at one.
+| What | Read it in code with |
+|---|---|
+| the university code, for example `UPC` | `TenantContext.require()` |
+| who is asking, as a UUID | `CurrentUser.require()` |
+
+To get a token locally: `POST /api/v1/access/request` with an institutional email (the demo
+student is `u202400001@upc.edu.pe`, the platform administrator `admin@ayni.local`), open the link
+that arrives at Mailpit (http://localhost:8025), or send its `token` to `POST
+/api/v1/access/confirm`, and paste the `sessionToken` into Swagger UI's **Authorize** button. Filter
+every query by the university anyway.
+
+`X-Tenant-Id` and `X-User-Id` are no longer read by the application. The tests written before TS03
+still send them: a filter that exists only in `src/test` accepts them there, so those scenarios keep
+proving their use case without signing in first.
 
 ---
 
