@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.application.JoinedSession;
+import pe.ayni.sessions.application.VideoRoomPasses;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 
 /** A participant let into the room. */
@@ -28,7 +29,28 @@ public record JoinedSessionResponse(
         Instant studentJoinedAt,
     @Schema(description = "When the tutor first arrived, UTC; null if they have not",
         nullable = true, example = "2026-09-30T19:52:10Z")
-        Instant tutorJoinedAt) {
+        Instant tutorJoinedAt,
+    @Schema(description = "The pass to the video call of this session, for the one who joined; "
+        + "null when no video service is configured", nullable = true)
+        Video video) {
+
+  /** What the client opens the video call with (US08). */
+  @Schema(name = "SessionVideoPass")
+  public record Video(
+      @Schema(description = "The room in the video service; open it with the token",
+          example = "http://localhost:8000/ayni-3f9c2b7e1d4a4c0e9b8f6a2d5c7e1b3a")
+          String url,
+      @Schema(description = "Signed token valid for this room only and a few minutes. Keep it "
+          + "private: whoever holds it can enter the call until it expires")
+          String token,
+      @Schema(description = "When it stops letting anybody in, UTC; join again for a new one",
+          example = "2026-09-30T19:57:10Z")
+          Instant expiresAt) {
+
+    static Video of(VideoRoomPasses.VideoPass pass) {
+      return pass == null ? null : new Video(pass.url(), pass.token(), pass.expiresAt());
+    }
+  }
 
   static JoinedSessionResponse of(JoinedSession joined) {
     return new JoinedSessionResponse(
@@ -40,6 +62,7 @@ public record JoinedSessionResponse(
         joined.scheduledStart(),
         joined.scheduledEnd(),
         joined.studentJoinedAt(),
-        joined.tutorJoinedAt());
+        joined.tutorJoinedAt(),
+        Video.of(joined.video()));
   }
 }

@@ -106,6 +106,17 @@ ayni:
     closing-delay: PT1M
     # How often the sessions whose tutor had not come ten minutes after the start are abandoned.
     no-show-delay: PT1M
+    # The video call of a session (US08): the self hosted Jitsi of docker compose, which only lets
+    # in whoever holds a token signed with this secret. The secret has no default here: compose
+    # sets the development one, and without it joining hands over no video pass.
+    video:
+      url: ${AYNI_JITSI_URL:http://localhost:8000}
+      app-id: ${AYNI_JITSI_APP_ID:ayni}
+      audience: jitsi
+      domain: meet.jitsi
+      jwt-secret: ${AYNI_JITSI_JWT_SECRET:}
+      # A pass lets in for this long, never past the end of the session; joining again issues one.
+      token-ttl: PT5M
   wallet:
     # The daily wallet job warns once for each expiring group this many days in advance.
     expiry-notice-days: 7

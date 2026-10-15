@@ -53,6 +53,10 @@ services:
       AYNI_DB_PASSWORD: ayni
       AYNI_DB_APP_USER: ayni_app
       AYNI_DB_APP_PASSWORD: ayni_app
+      # The secret the video passes are signed with, shared with Jitsi below (US08). Development
+      # value only: a deployment sets its own, of at least 32 characters.
+      AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
+      AYNI_JITSI_URL: ${AYNI_JITSI_URL:-http://localhost:8000}
       AYNI_MAIL_HOST: mailpit
       AYNI_MAIL_PORT: 1025
       AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
@@ -87,6 +91,88 @@ services:
       # operating system, and native packages are not interchangeable.
       - ./web:/app
       - /app/node_modules
+
+  # ---------------------------------------------------------------------------
+  # The video call of the sessions (US08): a self hosted Jitsi that only lets in
+  # whoever holds a token the backend signed for that room. Four containers and a
+  # few hundred megabytes, so it is not part of the normal start. Start it with:
+  #
+  #     docker compose --profile video up
+  #
+  # and open the room at http://localhost:8000/<room>?jwt=<token>, both of which
+  # POST /api/v1/sessions/{id}/join answers.
+  # ---------------------------------------------------------------------------
+
+  jitsi-web:
+    image: jitsi/web:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-web
+    ports:
+      - "8000:80"
+    environment: &jitsi
+      ENABLE_AUTH: "1"
+      AUTH_TYPE: jwt
+      ENABLE_GUESTS: "0"
+      JWT_APP_ID: ayni
+      JWT_APP_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
+      JWT_ACCEPTED_ISSUERS: ayni
+      JWT_ACCEPTED_AUDIENCES: jitsi
+      PUBLIC_URL: http://localhost:8000
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_SERVER: xmpp.meet.jitsi
+      XMPP_BOSH_URL_BASE: http://xmpp.meet.jitsi:5280
+      JICOFO_AUTH_PASSWORD: ayni-development-jicofo
+      JVB_AUTH_PASSWORD: ayni-development-jvb
+      JVB_ADVERTISE_IPS: 127.0.0.1
+      TZ: UTC
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-prosody:
+    image: jitsi/prosody:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-prosody
+    expose:
+      - "5222"
+      - "5280"
+      - "5347"
+    environment: *jitsi
+    networks:
+      jitsi:
+        aliases:
+          - xmpp.meet.jitsi
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-jicofo
+    environment: *jitsi
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-jvb:
+    image: jitsi/jvb:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-jvb
+    ports:
+      - "10000:10000/udp"
+    environment: *jitsi
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+networks:
+  jitsi:
+    name: ayni-jitsi
 
 volumes:
   postgres-data:
