@@ -64,7 +64,7 @@ class SupportingSessionsQueryTest {
     when(identity.requireUser(STUDENT))
         .thenReturn(new UserView(STUDENT, UPC, UserRole.STUDENT, "s@upc.edu.pe", "U1", "S", null, null, null));
     when(requests.findByIdAndTenantId(request.getId(), UPC)).thenReturn(Optional.of(request));
-    when(requestedSessions.findByRequestIdOrderByStartedAtAsc(request.getId())).thenReturn(List.of(first, second));
+    when(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(UPC, request.getId())).thenReturn(List.of(first, second));
     when(skills.requireItem(databases)).thenReturn(new CatalogItemView(databases, CatalogScope.UNIVERSITY, "Databases", "1ASI0616"));
     when(skills.requireItem(figma)).thenReturn(new CatalogItemView(figma, CatalogScope.GLOBAL, "Figma", null));
   }
@@ -102,7 +102,7 @@ class SupportingSessionsQueryTest {
   void aSkillIsLookedUpOnce() {
     RequestedSession again =
         RequestedSession.of(UUID.randomUUID(), UPC, 1, databases, NOW.minusSeconds(50000), NOW.minusSeconds(46000), null);
-    when(requestedSessions.findByRequestIdOrderByStartedAtAsc(request.getId())).thenReturn(List.of(first, second, again));
+    when(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(UPC, request.getId())).thenReturn(List.of(first, second, again));
 
     support(COORDINATOR, request.getId());
 

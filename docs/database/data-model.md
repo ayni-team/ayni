@@ -951,17 +951,28 @@ catalog_item_id  uuid       NOT NULL   -- the skill taught, as it was at submiss
 started_at    timestamptz   NOT NULL   -- when the session began and ended
 ended_at      timestamptz   NOT NULL
 stars         smallint                 -- rating the tutor had received for it, if any
+released_at   timestamptz              -- when the request was rejected and the session freed
 
 PRIMARY KEY (request_id, session_id)
-UNIQUE (tenant_id, session_id)
+UNIQUE (tenant_id, session_id) WHERE released_at IS NULL
 ```
 
 The skill, the period and the rating are copied for the same reason the totals are: the file a
 coordinator reads is what the student presented, even days later.
 
-`UNIQUE (tenant_id, session_id)` is the whole mechanism: a session can appear in **one** request and
-never again. Credits are untouched and remain spendable, which is what you asked for: nobody is
-punished for asking to be recognised.
+`UNIQUE (tenant_id, session_id)` is the whole mechanism: a session can appear in **one** request at a
+time. Credits are untouched and remain spendable, which is what you asked for: nobody is punished
+for asking to be recognised.
+
+**`released_at` was added in US29**
+(`V202610150734__recognition_release_sessions_of_rejected_requests.sql`). The first version made the
+unique key total, so a session of a rejected request could never be presented again and the
+student lost those hours for good. Rejecting a request now sets `released_at` on its rows, which
+stay so the rejected file is still what was presented, and the unique index covers only the rows
+not released: a session backs one request at a time and may back a later one once the earlier was
+rejected. An approved request never releases its sessions. The migration released the sessions of
+the requests already rejected, with the moment of their decision. The entity's key is the primary
+key, the request and the session together.
 
 ---
 

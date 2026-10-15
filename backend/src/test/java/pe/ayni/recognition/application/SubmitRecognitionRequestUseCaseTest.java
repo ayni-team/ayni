@@ -29,6 +29,7 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.recognition.domain.model.InsufficientHours;
 import pe.ayni.recognition.domain.model.RecognitionRequest;
 import pe.ayni.recognition.domain.model.RecognitionRule;
@@ -64,7 +65,7 @@ class SubmitRecognitionRequestUseCaseTest {
           booking,
           new UnclaimedSessions(sessions, requestedSessions),
           ratings,
-          rules,
+          new RuleInForce(rules, identity),
           requests,
           requestedSessions,
           events,
@@ -74,6 +75,8 @@ class SubmitRecognitionRequestUseCaseTest {
 
   @BeforeEach
   void aRuleOfTwentyHours() {
+    when(identity.requireTenant(UPC))
+        .thenReturn(new TenantView(UPC, "UPC", "America/Lima", new BigDecimal("13.00"), true));
     when(rules.findInForce(UPC, LocalDate.of(2026, 10, 5)))
         .thenReturn(
             Optional.of(new RecognitionRule(UUID.randomUUID(), UPC, 20, null, LocalDate.of(2026, 1, 1), NOW)));

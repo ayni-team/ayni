@@ -52,3 +52,11 @@ Feature: Recognition progress
   Scenario: A person who is not of the university
     When someone unknown to the university reads their progress
     Then it is not found
+
+  # Not a scenario of the card: the day a rule starts is a day of the university. It runs in
+  # RecognitionRuleDayAcceptanceTest, with a real session token (TS03) and the clock at 21:00 in Lima,
+  # already the next day in UTC.
+  Scenario: The rule in force is the one of the university's day
+    Given a rule of the university that starts tomorrow in Lima, and the one it replaces
+    When the student reads their progress at nine in the evening in Lima
+    Then the requirement is the one of the rule in force that day in Lima

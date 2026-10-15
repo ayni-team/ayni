@@ -122,6 +122,35 @@ class ResilientPaymentProviderTest {
     }
   }
 
+  /**
+   * A call that arrives the moment the previous one returned finds the bulkhead free, and must not
+   * be turned away because the worker thread has not gone back to waiting for work yet. With a
+   * pool that hands work over without a queue, that race refused it now and then, which opened the
+   * circuit on a provider that was answering.
+   */
+  @Test
+  void aCallRightAfterAnotherIsNeverTurnedAwayByTheWorkers() {
+    PaymentProviderGateway gateway = mock(PaymentProviderGateway.class);
+    when(gateway.charge(any(), any(), any()))
+        .thenReturn(
+            new PaymentProvider.PaymentResult(PaymentProvider.PaymentResult.Outcome.CONFIRMED, "ok"));
+    ResilientPaymentProvider provider =
+        new ResilientPaymentProvider(
+            gateway,
+            new PaymentProviderCircuitBreaker(Clock.systemUTC(), 1, Duration.ofSeconds(30)),
+            UNANSWERED,
+            1);
+
+    try {
+      for (int i = 0; i < 20_000; i++) {
+        assertThat(provider.charge(UUID.randomUUID(), BigDecimal.ONE, "PEN").outcome())
+            .isEqualTo(PaymentProvider.PaymentResult.Outcome.CONFIRMED);
+      }
+    } finally {
+      provider.close();
+    }
+  }
+
   @Test
   void automaticallyRecoversWhenTheHalfOpenRequestSucceeds() {
     PaymentProviderGateway gateway = mock(PaymentProviderGateway.class);

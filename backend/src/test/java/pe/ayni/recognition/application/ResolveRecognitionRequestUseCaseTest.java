@@ -2,6 +2,8 @@ package pe.ayni.recognition.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,6 +33,7 @@ import pe.ayni.recognition.domain.model.RecognitionStateConflict;
 import pe.ayni.recognition.domain.model.RequestStatus;
 import pe.ayni.recognition.domain.model.RequestedSession;
 import pe.ayni.recognition.infrastructure.RecognitionRequestRepository;
+import pe.ayni.recognition.infrastructure.RequestedSessionRepository;
 import pe.ayni.shared.events.RecognitionResolved;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -46,11 +49,17 @@ class ResolveRecognitionRequestUseCaseTest {
   private final IdentityApi identity = mock(IdentityApi.class);
   private final RecognitionRequestRepository requests = mock(RecognitionRequestRepository.class);
   private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+  private final RequestedSessionRepository requestedSessions = mock(RequestedSessionRepository.class);
   private final ResolveRecognitionRequestUseCase useCase =
       new ResolveRecognitionRequestUseCase(
-          new CoordinatorGuard(identity), requests, events, Clock.fixed(NOW.plusSeconds(86400), ZoneOffset.UTC));
+          new CoordinatorGuard(identity),
+          requests,
+          requestedSessions,
+          events,
+          Clock.fixed(NOW.plusSeconds(86400), ZoneOffset.UTC));
 
   private RecognitionRequest request;
+  private RequestedSession presented;
 
   @BeforeEach
   void aRequestWaiting() {
@@ -61,7 +70,10 @@ class ResolveRecognitionRequestUseCaseTest {
     RequestedSession session =
         RequestedSession.of(UUID.randomUUID(), UPC, 20, UUID.randomUUID(), NOW.minusSeconds(7200), NOW.minusSeconds(3600), null);
     request = RecognitionRequest.submit(UUID.randomUUID(), UPC, ANA, List.of(session), NOW);
+    presented = session;
     when(requests.lockByIdAndTenantId(request.getId(), UPC)).thenReturn(Optional.of(request));
+    when(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(UPC, request.getId()))
+        .thenReturn(List.of(session));
   }
 
   private RecognitionRequest decide(UUID asking, Decision decision, String reason) {
@@ -138,5 +150,26 @@ class ResolveRecognitionRequestUseCaseTest {
 
     assertThat(request.getStatus()).isEqualTo(RequestStatus.SUBMITTED);
     verifyNoInteractions(events);
+  }
+
+  @Test
+  @DisplayName("rejecting releases the sessions of the request and keeps them in its file")
+  void rejectingReleasesTheSessions() {
+    decide(COORDINATOR, Decision.REJECT, "The sessions are not related to the programme");
+
+    assertThat(presented.isReleased()).isTrue();
+    assertThat(presented.getReleasedAt()).isEqualTo(NOW.plusSeconds(86400));
+    assertThat(presented.getRequestId()).isEqualTo(request.getId());
+    assertThat(presented.getHours()).isEqualTo(20);
+    assertThat(request.getTotalHours()).isEqualTo(20);
+  }
+
+  @Test
+  @DisplayName("approving keeps the sessions taken by the request")
+  void approvingKeepsTheSessions() {
+    decide(COORDINATOR, Decision.APPROVE, "The hours match the programme");
+
+    assertThat(presented.isReleased()).isFalse();
+    verify(requestedSessions, never()).findByTenantIdAndRequestIdOrderByStartedAtAsc(any(), any());
   }
 }

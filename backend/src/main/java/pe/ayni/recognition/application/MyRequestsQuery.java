@@ -55,7 +55,8 @@ public class MyRequestsQuery {
     }
     Map<UUID, List<RequestedSession>> sessionsByRequest = new HashMap<>();
     requestedSessions
-        .findByRequestIdInOrderByStartedAtAsc(mine.stream().map(RecognitionRequest::getId).toList())
+        .findByTenantIdAndRequestIdInOrderByStartedAtAsc(
+            tenantId, mine.stream().map(RecognitionRequest::getId).toList())
         .forEach(
             session ->
                 sessionsByRequest.computeIfAbsent(session.getRequestId(), id -> new java.util.ArrayList<>()).add(session));

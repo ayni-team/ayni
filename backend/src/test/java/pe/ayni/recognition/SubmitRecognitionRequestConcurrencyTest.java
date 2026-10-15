@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import pe.ayni.booking.BookingApi;
 import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.BookingView;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.recognition.application.SubmitRecognitionRequestUseCase;
 import pe.ayni.recognition.domain.model.InsufficientHours;
 import pe.ayni.recognition.domain.model.RecognitionRule;
@@ -64,6 +66,8 @@ class SubmitRecognitionRequestConcurrencyTest {
   void twoRequestsAtOnce() throws Exception {
     String tenant = "T" + UUID.randomUUID().toString().substring(0, 8);
     rules.save(new RecognitionRule(UUID.randomUUID(), tenant, 10, null, LocalDate.of(2026, 1, 1), NOW));
+    when(identity.requireTenant(tenant))
+        .thenReturn(new TenantView(tenant, tenant, "America/Lima", new BigDecimal("13.00"), true));
     when(booking.requireBooking(any(UUID.class)))
         .thenAnswer(
             call ->

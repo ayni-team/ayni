@@ -67,7 +67,7 @@ class RecognitionRequestDatabaseTest {
     assertThat(read.getSessionsCount()).isEqualTo(2);
     assertThat(read.getAverageRating()).isEqualByComparingTo(new BigDecimal("5.00"));
     assertThat(read.getStatus()).isEqualTo(RequestStatus.SUBMITTED);
-    assertThat(requestedSessions.findByRequestIdOrderByStartedAtAsc(saved.getId()))
+    assertThat(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(tenant, saved.getId()))
         .extracting(RequestedSession::getSessionId)
         .containsExactlyInAnyOrder(first, second);
   }
@@ -156,5 +156,36 @@ class RecognitionRequestDatabaseTest {
         UUID.randomUUID(),
         saved.getId());
     assertThat(requests.findById(saved.getId()).orElseThrow().getStatus()).isEqualTo(RequestStatus.REJECTED);
+  }
+
+  @Test
+  @DisplayName("a session of a rejected request is free again, and backs one request at a time")
+  void aReleasedSessionIsFreeAgain() {
+    UUID shared = UUID.randomUUID();
+    RecognitionRequest rejected = save(student, session(shared, 1, null));
+    jdbc.update(
+        """
+        update recognition.requests set status = 'REJECTED', reviewed_by = ?, reviewed_at = ?,
+          decision_reason = 'Not related' where id = ?
+        """,
+        UUID.randomUUID(),
+        java.sql.Timestamp.from(NOW),
+        rejected.getId());
+    jdbc.update(
+        "update recognition.request_sessions set released_at = ? where request_id = ?",
+        java.sql.Timestamp.from(NOW),
+        rejected.getId());
+
+    assertThat(requestedSessions.findClaimed(tenant, List.of(shared))).isEmpty();
+    RecognitionRequest again = save(student, session(shared, 1, null));
+    assertThat(requestedSessions.findClaimed(tenant, List.of(shared))).containsExactly(shared);
+    // The rejected file keeps the session it was presented with.
+    assertThat(requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(tenant, rejected.getId()))
+        .extracting(RequestedSession::getSessionId, RequestedSession::isReleased)
+        .containsExactly(org.assertj.core.groups.Tuple.tuple(shared, true));
+    // While the new request holds it, a third one cannot.
+    assertThatThrownBy(() -> save(UUID.randomUUID(), session(shared, 1, null)))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThat(again.getId()).isNotEqualTo(rejected.getId());
   }
 }

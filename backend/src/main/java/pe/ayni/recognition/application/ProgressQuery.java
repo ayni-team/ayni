@@ -1,8 +1,6 @@
 package pe.ayni.recognition.application;
 
 import java.time.Clock;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -11,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.recognition.domain.model.RecognitionProgress;
 import pe.ayni.recognition.domain.model.RecognitionRule;
-import pe.ayni.recognition.infrastructure.RecognitionRuleRepository;
 import pe.ayni.sessions.SessionSummary;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -30,13 +27,13 @@ public class ProgressQuery {
 
   private final IdentityApi identity;
   private final UnclaimedSessions unclaimed;
-  private final RecognitionRuleRepository rules;
+  private final RuleInForce rules;
   private final Clock clock;
 
   ProgressQuery(
       IdentityApi identity,
       UnclaimedSessions unclaimed,
-      RecognitionRuleRepository rules,
+      RuleInForce rules,
       Clock clock) {
     this.identity = identity;
     this.unclaimed = unclaimed;
@@ -57,7 +54,7 @@ public class ProgressQuery {
     int hours = taught.stream().mapToInt(SessionSummary::hours).sum();
     Integer required =
         rules
-            .findInForce(tenantId, LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC))
+            .of(tenantId, clock.instant())
             .map(RecognitionRule::getMinimumHours)
             .orElse(null);
     return new RecognitionProgress(hours, taught.size(), required);

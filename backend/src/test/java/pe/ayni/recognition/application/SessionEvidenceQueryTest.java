@@ -70,7 +70,8 @@ class SessionEvidenceQueryTest {
     when(identity.requireUser(LEARNER))
         .thenReturn(new UserView(LEARNER, UPC, UserRole.STUDENT, "luis@upc.edu.pe", "U202110001", "Luis Vega", null, null, null));
     when(requests.findByIdAndTenantId(request.getId(), UPC)).thenReturn(Optional.of(request));
-    when(requestedSessions.findById(backing.getSessionId())).thenReturn(Optional.of(backing));
+    when(requestedSessions.findByTenantIdAndRequestIdAndSessionId(UPC, request.getId(), backing.getSessionId()))
+        .thenReturn(Optional.of(backing));
     when(sessions.requireSession(backing.getSessionId()))
         .thenReturn(
             new SessionView(
@@ -117,7 +118,9 @@ class SessionEvidenceQueryTest {
     RequestedSession foreign =
         RequestedSession.of(UUID.randomUUID(), UPC, 1, databases, NOW.minusSeconds(5000), NOW.minusSeconds(1400), null);
     RecognitionRequest other = RecognitionRequest.submit(UUID.randomUUID(), UPC, TUTOR, List.of(foreign), NOW);
-    when(requestedSessions.findById(foreign.getSessionId())).thenReturn(Optional.of(foreign));
+    // It backs the other request: through this one, the university's query finds nothing.
+    when(requestedSessions.findByTenantIdAndRequestIdAndSessionId(UPC, other.getId(), foreign.getSessionId()))
+        .thenReturn(Optional.of(foreign));
 
     assertThatThrownBy(() -> evidence(COORDINATOR, request.getId(), foreign.getSessionId()))
         .isInstanceOf(NoSuchElementException.class);
@@ -129,7 +132,6 @@ class SessionEvidenceQueryTest {
   @DisplayName("a session that backs no request is not found")
   void aSessionOfNoRequestIsNotFound() {
     UUID stranger = UUID.randomUUID();
-    when(requestedSessions.findById(stranger)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> evidence(COORDINATOR, request.getId(), stranger)).isInstanceOf(NoSuchElementException.class);
   }

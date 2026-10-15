@@ -2,8 +2,6 @@ package pe.ayni.recognition.application;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +18,6 @@ import pe.ayni.recognition.domain.model.RecognitionRule;
 import pe.ayni.recognition.domain.model.RecognitionStateConflict;
 import pe.ayni.recognition.domain.model.RequestedSession;
 import pe.ayni.recognition.infrastructure.RecognitionRequestRepository;
-import pe.ayni.recognition.infrastructure.RecognitionRuleRepository;
 import pe.ayni.recognition.infrastructure.RequestedSessionRepository;
 import pe.ayni.sessions.SessionSummary;
 import pe.ayni.shared.events.RecognitionRequested;
@@ -49,7 +46,7 @@ public class SubmitRecognitionRequestUseCase {
   private final BookingApi booking;
   private final UnclaimedSessions unclaimed;
   private final SessionRatings ratings;
-  private final RecognitionRuleRepository rules;
+  private final RuleInForce rules;
   private final RecognitionRequestRepository requests;
   private final RequestedSessionRepository requestedSessions;
   private final ApplicationEventPublisher events;
@@ -60,7 +57,7 @@ public class SubmitRecognitionRequestUseCase {
       BookingApi booking,
       UnclaimedSessions unclaimed,
       SessionRatings ratings,
-      RecognitionRuleRepository rules,
+      RuleInForce rules,
       RecognitionRequestRepository requests,
       RequestedSessionRepository requestedSessions,
       ApplicationEventPublisher events,
@@ -94,7 +91,7 @@ public class SubmitRecognitionRequestUseCase {
     Instant now = clock.instant();
     RecognitionRule rule =
         rules
-            .findInForce(tenantId, LocalDate.ofInstant(now, ZoneOffset.UTC))
+            .of(tenantId, now)
             .orElseThrow(
                 () ->
                     new RecognitionStateConflict(
