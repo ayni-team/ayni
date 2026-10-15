@@ -7,9 +7,9 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -45,13 +45,18 @@ final class ResilientPaymentProvider implements PaymentProvider, AutoCloseable {
     this.circuitBreaker = circuitBreaker;
     this.timeout = timeout;
     this.bulkhead = new Semaphore(maxConcurrentCalls);
+    // The bulkhead is what bounds the calls: it refuses at once when it is full, and it never lets
+    // in more than the workers can run. The workers only run what it let in, so they keep it in a
+    // queue rather than refusing it. Handing work over without a queue refused a call that arrived
+    // the moment the previous one returned, before its thread was back waiting for work, and that
+    // opened the circuit on a provider that was answering.
     this.workers =
         new ThreadPoolExecutor(
             maxConcurrentCalls,
             maxConcurrentCalls,
             0,
             TimeUnit.MILLISECONDS,
-            new SynchronousQueue<>(),
+            new LinkedBlockingQueue<>(),
             providerThreadFactory(),
             new ThreadPoolExecutor.AbortPolicy());
   }
