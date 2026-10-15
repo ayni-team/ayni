@@ -546,9 +546,60 @@ already depends on skills, and the modules would depend on each other.
 | GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
 | PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
 | GET | `/api/v1/coordinator/validations` | coordinator | pending queue |
+| GET | `/api/v1/coordinator/validations/{id}/files/{fileId}` | coordinator | opens a file of a submission, always as a download (US16) |
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
 A university course is enabled only by grade. A global tool is enabled only by reviewed evidence.
+
+**Evidence for a global tool (US16).** `POST /api/v1/tutor/skills/{id}/validation` is a
+`multipart/form-data` request with `files`, the portfolio or the certificate, and an optional
+`note` for the reviewer. The first submission creates the offer `PENDING` with a `SUBMITTED`
+request; after a rejection the same offer goes back to `PENDING` with a new request, and the
+rejected one stays with its reason. Everything that can be refused is decided before a byte is
+stored, and what was stored is removed if a later step fails, so a refused submission leaves
+neither a row nor a file.
+
+| Limit of one submission | Value | Where it is set |
+|---|---|---|
+| Files | 1 to 3 | `ayni.skills.evidence.max-files` |
+| Size of a file | more than 0 bytes and at most 5 MB | `ayni.skills.evidence.max-file-bytes` (5242880) |
+| Kinds | PDF, PNG or JPEG: the declared type, parameters and case aside, **and** the first bytes of the file must say the same | `EvidenceRules` |
+| Name of a file | 1 to 255 characters | the column |
+| `note` | at most 1000 characters, blank means none | the column |
+| The whole request | 5 MB per part, 16 MB in all; beyond that Spring refuses it before the rules are asked | `spring.servlet.multipart` |
+
+| Status | When |
+|---|---|
+| 201 | Received; it waits in the queue of the university's coordinators |
+| 400 | No files, more than the limit, an empty one, one too big, of another kind or whose content is not what it says, a name or a note too long, or the item is a course |
+| 404 | The item does not exist or is not visible to the university |
+| 409 | Evidence already waits for that tool, or the tool is already enabled |
+
+**Where the files are kept.** `EvidenceStoragePort` with one adapter today, `LocalDiskEvidenceStorageAdapter`,
+under `ayni.skills.evidence-dir` (`AYNI_SKILLS_EVIDENCE_DIR`; the temporary folder by default). The
+key is `<university>/<random uuid>`: nothing of it comes from the student, and every key is checked
+to stay inside the university's folder before it is used. `docker-compose.yml` mounts the named
+volume `ayni-skills-evidence` at `/var/lib/ayni/evidence`, so the files survive the container being
+replaced; a deployment with several instances needs an object store behind the same port.
+
+**Opening a file.** `GET /api/v1/coordinator/validations/{id}/files/{fileId}` answers the content
+with its stored type and length, always as `Content-Disposition: attachment` with the original
+name and `X-Content-Type-Options: nosniff`, since a student uploaded it. The file is found through
+its submission in the coordinator's university: the identifier of a file alone opens nothing, and
+another submission's file or another university's answers `404`, as a file whose content is gone
+from the storage does. A student is answered `403`.
+
+**Deciding.** `POST .../{id}/decision` takes `APPROVE` or `REJECT` and a `reason` of at most 500
+characters, required to reject because the student reads it. The request is locked while it is
+decided (`ResolveValidationConcurrencyTest`), approving enables the offer with `REVIEWED_EVIDENCE`
+and publishes `SkillEnabled`, and both publish `ValidationResolved`. Evidence for a tool retired
+while it waited cannot be approved (`409`), only rejected.
+
+**Every lookup of a catalogue item or an offer by its identifier names the university.** An item is
+read with `findByIdAndTenantVisibility` or `findAllByIdInAndTenantVisibility` (global, or of that
+university) and an offer with `findByTenantIdAndIdIn`, in the queries of the tutor's skills, the
+pending validations and the moderation, in deciding a validation and in declaring interests. Row
+level security is the net; the filter is the query.
 
 ---
 

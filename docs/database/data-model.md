@@ -307,7 +307,14 @@ created_at          timestamptz   NOT NULL DEFAULT now()
 CHECK (status IN ('SUBMITTED','APPROVED','REJECTED'))
 CHECK (status = 'SUBMITTED' OR (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL))
 INDEX (tenant_id, status) WHERE status = 'SUBMITTED'
+INDEX (tenant_id, offered_skill_id, created_at DESC)
 ```
+
+One request is one submission: a tutor whose evidence was rejected submits again and gets a new
+request, so the reason of the first one stays readable. The second index, not in the first version of
+the model (`V202610041930__skills_create_validation_requests.sql`), is how a skill finds its
+submissions, the latest one first, which is the one that says where the skill stands. A rejection
+always has a `decision_reason`; the application requires it, the table does not.
 
 ### `skills.evidence_files`
 
@@ -320,9 +327,18 @@ storage_key            varchar(512)  NOT NULL
 content_type           varchar(100)  NOT NULL
 size_bytes             bigint        NOT NULL
 uploaded_at            timestamptz   NOT NULL DEFAULT now()
+
+CHECK (size_bytes > 0)
+INDEX (tenant_id, validation_request_id)
 ```
 
-The file itself lives in object storage; the database keeps the pointer.
+The file itself lives outside the database; the row keeps the pointer. `storage_key` is
+`<university>/<random uuid>`, never anything the student sent, and it is resolved under
+`ayni.skills.evidence-dir` by the only adapter today, the local disk (a named volume under `docker
+compose`). `file_name` and `content_type` are what the student declared, checked when it was
+received: one to three files of a PDF, a PNG or a JPEG whose first bytes agree, each of at most 5 MB
+(see the guide). The check on the size and the index, by which a submission finds its files, were
+added with the table and were not in the first version of the model.
 
 ### `skills.learning_interests`
 
