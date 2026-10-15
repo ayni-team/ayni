@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.recognition.domain.model.RecognitionRequest;
 import pe.ayni.recognition.infrastructure.RecognitionRequestRepository;
+import pe.ayni.recognition.infrastructure.RequestedSessionRepository;
 import pe.ayni.shared.events.RecognitionResolved;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -19,6 +20,10 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>The decision is recorded with who took it, when and the reason, and the student reads it in
  * their requests. {@code RecognitionResolved} is published so that the student is told: this module
  * does not send notifications. Ayni certifies nothing by itself; it keeps what the university decided.
+ *
+ * <p>Rejecting it releases its sessions, in the same transaction: the rejected file keeps every
+ * session and figure as the student presented them, and the sessions are free to back the student's
+ * next request. An approved request keeps its sessions for good.
  *
  * <p>A request is decided once. The request is locked while it is decided, so two coordinators
  * deciding at once do not both succeed: the second one finds it decided and is refused.
@@ -34,16 +39,19 @@ public class ResolveRecognitionRequestUseCase {
 
   private final CoordinatorGuard coordinators;
   private final RecognitionRequestRepository requests;
+  private final RequestedSessionRepository requestedSessions;
   private final ApplicationEventPublisher events;
   private final Clock clock;
 
   ResolveRecognitionRequestUseCase(
       CoordinatorGuard coordinators,
       RecognitionRequestRepository requests,
+      RequestedSessionRepository requestedSessions,
       ApplicationEventPublisher events,
       Clock clock) {
     this.coordinators = coordinators;
     this.requests = requests;
+    this.requestedSessions = requestedSessions;
     this.events = events;
     this.clock = clock;
   }
@@ -75,6 +83,10 @@ public class ResolveRecognitionRequestUseCase {
       request.approve(coordinatorId, reason, now);
     } else {
       request.reject(coordinatorId, reason, now);
+      // The file stays as it was presented; its sessions are free to back another request.
+      requestedSessions
+          .findByTenantIdAndRequestIdOrderByStartedAtAsc(tenantId, request.getId())
+          .forEach(session -> session.release(now));
     }
 
     events.publishEvent(

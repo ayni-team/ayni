@@ -72,7 +72,7 @@ public class RequestCaseQuery {
         requests
             .findByIdAndTenantId(requestId, tenantId)
             .orElseThrow(() -> new NoSuchElementException("recognition request %s not found".formatted(requestId)));
-    List<RequestedSession> sessions = requestedSessions.findByRequestIdOrderByStartedAtAsc(request.getId());
+    List<RequestedSession> sessions = requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(tenantId, request.getId());
     Map<UUID, List<Alert>> found = alerts.alertsOf(sessions.stream().map(RequestedSession::getSessionId).toList());
 
     return new Case(

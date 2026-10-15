@@ -87,8 +87,7 @@ public class SessionEvidenceQuery {
             .orElseThrow(() -> new NoSuchElementException("recognition request %s not found".formatted(requestId)));
     RequestedSession session =
         requestedSessions
-            .findById(sessionId)
-            .filter(found -> found.getRequestId().equals(request.getId()))
+            .findByTenantIdAndRequestIdAndSessionId(tenantId, request.getId(), sessionId)
             .orElseThrow(
                 () ->
                     new NoSuchElementException(

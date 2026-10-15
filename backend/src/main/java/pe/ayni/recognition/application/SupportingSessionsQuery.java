@@ -67,7 +67,7 @@ public class SupportingSessionsQuery {
 
     Map<UUID, CatalogItemView> taught = new HashMap<>();
     List<SupportingSession> sessions =
-        requestedSessions.findByRequestIdOrderByStartedAtAsc(request.getId()).stream()
+        requestedSessions.findByTenantIdAndRequestIdOrderByStartedAtAsc(tenantId, request.getId()).stream()
             .map(
                 session ->
                     new SupportingSession(
