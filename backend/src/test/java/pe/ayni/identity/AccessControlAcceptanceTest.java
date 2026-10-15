@@ -411,6 +411,10 @@ class AccessControlAcceptanceTest {
                                 .content("{\"email\": \"%s\"}".formatted(ANAS_EMAIL)))
                 .andExpect(status().isAccepted());
         mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
-        mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+        // Health answers whatever it finds (503 when, as in CI, no mail server is reachable): what
+        // matters here is that it answers without asking for an account.
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(
+                        result -> assertThat(result.getResponse().getStatus()).isNotIn(401, 403));
     }
 }
