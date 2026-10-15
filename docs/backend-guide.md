@@ -740,8 +740,8 @@ were booked, one credit each, not the minutes the call lasted.
 
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `SessionAbandoned`,
 `PresenceCodeIssued`, `WhiteboardClosed`.
-**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session
-and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
+**Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session,
+for the support material prepared from it (US07), and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
 that look at every university.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
@@ -828,6 +828,19 @@ and an abandoned one refuses to be joined or confirmed: both jobs only look at s
 progress, and the status says it is over.
 
 Only participants may read a session. Anyone else gets a refusal, link or no link.
+
+**Support material (US07).** When a confirmed booking creates its session, and once that is
+committed, sessions prepares the session's support material from the need the student wrote: the
+need is read through `BookingApi.requireBooking` and handed to the `SupportMaterialGenerator` port,
+in a transaction of its own. Today a simulated adapter answers it (the first sentence as the
+`summary`, and `suggestions` from the main words of the need, in Spanish);
+`ayni.sessions.support-material.simulated-outcome=UNAVAILABLE` makes it fail. When it fails nothing
+is stored and the session shows only the need: a degraded answer, noted at `INFO`, never an error,
+and the session is scheduled all the same. `GET /api/v1/sessions/{id}` carries it as
+`supportMaterial` (`summary`, `suggestions`, `generatedAt`), `null` when there is none. One per
+session (`UNIQUE (session_id)`); the same confirmation heard twice creates one session and prepares
+one material. A material that failed is not retried. Neither the need nor the material goes to a
+log.
 
 **The shared whiteboard (US10, TS08).** The model and the order of the operations are ADR 0009. A
 board is a set of elements (`id`, `type`, opaque `data`) stored in `sessions.whiteboards.content` as

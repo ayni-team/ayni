@@ -7,6 +7,7 @@ import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.application.PresenceState;
 import pe.ayni.sessions.application.SessionDetails;
+import pe.ayni.sessions.application.SupportMaterialView;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 
 /**
@@ -60,7 +61,30 @@ public record SessionResponse(
         Instant endedAt,
     @Schema(description = "When the session closes on its own if the participants do not close "
         + "it: fifteen minutes after the booked hour, UTC", example = "2026-09-30T21:15:00Z")
-        Instant closesAt) {
+        Instant closesAt,
+    @Schema(description = "What was prepared from the need so the tutor arrives prepared (US07); "
+        + "null when the service did not prepare it, and then the session shows only the need",
+        nullable = true)
+        Material supportMaterial) {
+
+  /** The support material of the session, prepared from the student's need (US07). */
+  @Schema(name = "SessionSupportMaterial")
+  public record Material(
+      @Schema(description = "What the student needs, in short",
+          example = "Formas normales antes del examen del viernes.")
+          String summary,
+      @Schema(description = "What the tutor could prepare",
+          example = "[\"Prepara un ejemplo resuelto sobre normalización\"]")
+          List<String> suggestions,
+      @Schema(description = "When it was prepared, UTC", example = "2026-09-29T16:00:02Z")
+          Instant generatedAt) {
+
+    static Material of(SupportMaterialView material) {
+      return material == null
+          ? null
+          : new Material(material.summary(), material.suggestions(), material.generatedAt());
+    }
+  }
 
   /** The reader's presence code as the screen needs it. The code itself only travels by email. */
   @Schema(name = "SessionPresence")
@@ -105,6 +129,7 @@ public record SessionResponse(
         Presence.of(session.presence()),
         session.endConfirmedAt(),
         session.endedAt(),
-        session.closesAt());
+        session.closesAt(),
+        Material.of(session.supportMaterial()));
   }
 }

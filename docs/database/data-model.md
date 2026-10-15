@@ -711,8 +711,13 @@ suggestions    jsonb
 generated_at   timestamptz   NOT NULL DEFAULT now()
 ```
 
-Generated from the need description so the tutor arrives prepared. Belongs to a later iteration; the
-table is here because the session it hangs from is modelled now.
+Generated from the need description so the tutor arrives prepared.
+
+**Built in US07** (`V202610150056__sessions_create_support_materials.sql`, with its row level
+security policy), with one addition: `UNIQUE (session_id)`. A session has one material, and the
+same booking confirmation delivered twice must not prepare two. `suggestions` is a JSON array of
+strings. No row means the service that prepares it did not answer, and the session shows only the
+need.
 
 ---
 
