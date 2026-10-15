@@ -1,6 +1,7 @@
 package pe.ayni.skills.infrastructure;
 
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -103,6 +104,9 @@ public interface OfferedSkillRepository extends JpaRepository<OfferedSkill, UUID
 
   /** Everything the tutor offers or ever offered, whatever its status. */
   List<OfferedSkill> findByTenantIdAndTutorId(String tenantId, UUID tutorId);
+
+  /** The offers of the university among these identifiers; another university's are left out. */
+  List<OfferedSkill> findByTenantIdAndIdIn(String tenantId, Collection<UUID> ids);
 
   /**
    * The tutor's skill for an item, locked until the transaction ends.

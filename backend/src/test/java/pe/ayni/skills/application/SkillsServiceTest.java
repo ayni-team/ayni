@@ -3,6 +3,7 @@ package pe.ayni.skills.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -121,7 +122,7 @@ class SkillsServiceTest {
   @Test
   @DisplayName("declareLearningInterests registers a new interest")
   void declareLearningInterestsRegistersANewInterest() {
-    when(catalogItems.findAllById(any()))
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC)))
         .thenReturn(
             List.of(
                 new CatalogItem(

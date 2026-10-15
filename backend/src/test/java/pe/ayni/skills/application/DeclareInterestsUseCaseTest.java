@@ -3,6 +3,7 @@ package pe.ayni.skills.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -94,7 +95,7 @@ class DeclareInterestsUseCaseTest {
   @Test
   @DisplayName("a new interest is saved")
   void aNewInterestIsSaved() {
-    when(catalogItems.findAllById(any())).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC))).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
     when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of());
     when(learningInterests.save(any())).thenAnswer(call -> call.getArgument(0));
 
@@ -109,7 +110,7 @@ class DeclareInterestsUseCaseTest {
   @DisplayName("declaring the same interest twice does not insert a second row")
   void declaringTheSameInterestTwiceDoesNotInsertASecondRow() {
     LearningInterest existing = new LearningInterest(UUID.randomUUID(), UPC, STUDENT, ITEM_A, NOW);
-    when(catalogItems.findAllById(any())).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC))).thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
     when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of(existing));
 
     List<LearningInterest> result =
@@ -122,11 +123,9 @@ class DeclareInterestsUseCaseTest {
   @Test
   @DisplayName("an interest in another university's course is refused and nothing is saved")
   void anInterestInAnotherUniversitysCourseIsRefused() {
-    CatalogItem foreign =
-        new CatalogItem(
-            ITEM_B, CatalogScope.UNIVERSITY, "UTEC", UUID.randomUUID(), "Course", null, "UT100", NOW);
-    when(catalogItems.findAllById(any()))
-        .thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657"), foreign));
+    // ITEM_B is a course of UTEC: the query of what UPC can see leaves it out.
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC)))
+        .thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657")));
 
     assertThatThrownBy(
             () -> asUpc(() -> useCase.declareLearningInterests(STUDENT, List.of(ITEM_A, ITEM_B))))

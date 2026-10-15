@@ -151,7 +151,7 @@ class ModerationQueryTest {
     rejected.reject(COORDINATOR, "Not a tool we teach", NOW.plusSeconds(30));
     when(proposals.findByTenantIdAndStatus(eq(UPC), eq(ProposalStatus.MERGED), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(merged), PageRequest.of(0, 20), 1));
-    when(catalogItems.findAllById(List.of(nodeJs.getId()))).thenReturn(List.of(nodeJs));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(nodeJs.getId()), UPC)).thenReturn(List.of(nodeJs));
 
     ModerationItem item = page(COORDINATOR, ProposalStatus.MERGED).getContent().get(0);
 
@@ -174,7 +174,7 @@ class ModerationQueryTest {
     assertThat(item.catalogItem()).isNull();
     assertThat(item.proposal().getDecisionReason()).isEqualTo("Not a tool we teach");
     assertThat(item.resolver().fullName()).isEqualTo("Carla Ríos");
-    verify(catalogItems, never()).findAllById(any());
+    verify(catalogItems, never()).findAllByIdInAndTenantVisibility(any(), any());
   }
 
   @Test

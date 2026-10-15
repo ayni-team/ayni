@@ -148,6 +148,10 @@ ayni:
       open-duration: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:PT30S}
       timeout: ${AYNI_PAYMENTS_TIMEOUT:PT2S}
       max-concurrent-calls: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:2}
+  skills:
+    # Where the evidence files of US16 are kept, one folder per university. docker compose mounts a
+    # named volume here, so the files survive the container; without it, the temporary folder.
+    evidence-dir: ${AYNI_SKILLS_EVIDENCE_DIR:${java.io.tmpdir}/ayni/evidence}
   identity:
     # The simulated academic system (ADR 0006): one file per university, <CODE>.json, read each
     # time a student is looked up. docker compose mounts the folder; relative to where the backend

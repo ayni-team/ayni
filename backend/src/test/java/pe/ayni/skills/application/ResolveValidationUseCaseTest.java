@@ -208,7 +208,7 @@ class ResolveValidationUseCaseTest {
     CatalogItem retired =
         new CatalogItem(TOOL_ID, CatalogScope.GLOBAL, null, UUID.randomUUID(), "Old tool", null, null, NOW);
     retired.retire();
-    when(catalogItems.findById(TOOL_ID)).thenReturn(Optional.of(retired));
+    when(catalogItems.findByIdAndTenantVisibility(TOOL_ID, UPC)).thenReturn(Optional.of(retired));
 
     assertThatThrownBy(() -> decide(true, "Solid portfolio")).isInstanceOf(SkillsStateConflict.class);
     assertThat(request.isWaiting()).isTrue();

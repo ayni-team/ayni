@@ -73,6 +73,19 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
       @Param("id") UUID id, @Param("tenantId") String tenantId);
 
   /**
+   * The items among these identifiers that the university can see: the global ones and its own.
+   * An identifier of another university's course is left out, as if it did not exist.
+   */
+  @Query(
+      """
+      select item from CatalogItem item
+      where item.id in :ids
+        and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
+      """)
+  List<CatalogItem> findAllByIdInAndTenantVisibility(
+      @Param("ids") Collection<UUID> ids, @Param("tenantId") String tenantId);
+
+  /**
    * An item visible to the university, locked for writing until the transaction ends. Whoever
    * retires or joins an item takes this lock, so nobody can start offering it in the meantime.
    */
