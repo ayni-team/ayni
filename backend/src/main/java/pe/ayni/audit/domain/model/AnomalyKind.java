@@ -3,9 +3,8 @@ package pe.ayni.audit.domain.model;
 /**
  * The patterns that suggest credits are being piled up artificially.
  *
- * <p>Three are detected today. {@code UNUSUAL_FREQUENCY} and {@code NO_BOARD_ACTIVITY} are part of
- * the model but nothing raises them yet: the first needs a baseline of what is usual for a tutor,
- * and the second the whiteboard, which does not exist.
+ * <p>Four are detected today. {@code UNUSUAL_FREQUENCY} is part of the model but nothing raises it
+ * yet: it needs a baseline of what is usual for a tutor.
  */
 public enum AnomalyKind {
   /** The same tutor and the same student completed more sessions than usual in a period. */
@@ -15,5 +14,6 @@ public enum AnomalyKind {
   SHORT_DURATION,
   /** A session ended without every participant confirming they were there. */
   FAILED_PRESENCE,
+  /** A completed session ended with nothing drawn on its whiteboard. */
   NO_BOARD_ACTIVITY
 }

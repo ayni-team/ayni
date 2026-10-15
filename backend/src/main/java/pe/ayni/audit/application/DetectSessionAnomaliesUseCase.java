@@ -20,15 +20,18 @@ import pe.ayni.audit.domain.model.Severity;
 import pe.ayni.audit.domain.services.ShortSessionRule;
 import pe.ayni.audit.infrastructure.AnomalyRepository;
 import pe.ayni.audit.infrastructure.AnomalySessionRepository;
+import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.SessionSummary;
 import pe.ayni.sessions.SessionsApi;
 import pe.ayni.shared.events.SessionCompleted;
 import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.WhiteboardClosed;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * Points out what a single session says about itself: that its presence could not be verified, or
- * that it lasted far less than what was booked.
+ * Points out what a single session says about itself: that its presence could not be verified,
+ * that it lasted far less than what was booked, or that it was completed with nothing drawn on its
+ * whiteboard.
  *
  * <p>Each method runs in a transaction of its own, so a failure here rolls back only the alert and
  * reaches the listener as an exception it can swallow. The alert of one kind of one session has a
@@ -133,6 +136,35 @@ public class DetectSessionAnomaliesUseCase {
         event.tutorId(),
         shortSession.severityOf(booked, actual),
         detail);
+  }
+
+  /**
+   * The whiteboard of a session closed. It is an anomaly when nothing was drawn on it and the
+   * session ended {@code COMPLETED}, the outcome that earns the tutor credits. A session that ended
+   * {@code UNVERIFIED} raises {@code FAILED_PRESENCE} instead, and pays nothing to put in question.
+   *
+   * <p>The event does not say how the session ended, so it is asked of {@link SessionsApi}: the
+   * event reaches this listener after the closing committed, when the status is already the final
+   * one.
+   *
+   * @return whether an alert was raised; {@code false} when something was drawn, when the session
+   *     was not completed, or when the alert already existed
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public boolean noBoardActivity(WhiteboardClosed event) {
+    if (event.hadActivity() || event.sessionId() == null || event.tutorId() == null) {
+      return false;
+    }
+    if (sessions.requireSession(event.sessionId()).status() != SessionStatus.COMPLETED) {
+      return false;
+    }
+    Map<String, String> detail = new LinkedHashMap<>();
+    detail.put("tutorId", event.tutorId().toString());
+    if (event.studentId() != null) {
+      detail.put("studentId", event.studentId().toString());
+    }
+    return raise(
+        AnomalyKind.NO_BOARD_ACTIVITY, event.sessionId(), event.tutorId(), Severity.LOW, detail);
   }
 
   private boolean raise(
