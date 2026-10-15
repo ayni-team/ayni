@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
 import pe.ayni.skills.domain.model.Category;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * A catalogue to look at while nothing else fills it.
@@ -56,6 +57,11 @@ class DemoSkillsData implements ApplicationRunner {
   @Override
   @Transactional
   public void run(ApplicationArguments args) {
+    // Row level security (TS01): its rows are written, and looked for, as the demo university's.
+    TenantContext.runAs(TENANT, this::fill);
+  }
+
+  private void fill() {
     if (categories.existsById(TECHNOLOGY)) {
       return;
     }

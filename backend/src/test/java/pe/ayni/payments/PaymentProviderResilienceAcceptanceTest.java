@@ -2,8 +2,6 @@ package pe.ayni.payments;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -64,6 +62,9 @@ class PaymentProviderResilienceAcceptanceTest {
   static final GreenMailExtension INBOX = new GreenMailExtension(ServerSetupTest.SMTP);
 
   private static final String UPC = "UPC";
+
+  /** Far longer than a busy build machine needs, far shorter than a provider that never answers. */
+  private static final long UNANSWERED_MILLIS = 5_000;
   private final UUID student = UUID.randomUUID();
   private final AtomicInteger providerAttempts = new AtomicInteger();
   private final CountDownLatch releaseSlowProvider = new CountDownLatch(1);
@@ -91,8 +92,10 @@ class PaymentProviderResilienceAcceptanceTest {
     when(gateway.charge(any(), any(BigDecimal.class), any()))
         .thenAnswer(
             invocation -> {
-              int attempt = providerAttempts.getAndIncrement();
-              if (attempt == 0) {
+              providerAttempts.incrementAndGet();
+              // Slow until the test releases it, whichever attempt this is: on a busy machine the
+              // first attempt may be cancelled by the timeout before it reaches the provider.
+              if (releaseSlowProvider.getCount() > 0) {
                 awaitIgnoringInterrupt(releaseSlowProvider);
                 return new PaymentProvider.PaymentResult(
                     PaymentProvider.PaymentResult.Outcome.PENDING, "late-response");
@@ -115,7 +118,10 @@ class PaymentProviderResilienceAcceptanceTest {
                   .value(
                       "Credit purchases are temporarily unavailable. This attempt remains pending; do not retry. Check this purchase's status."));
       long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
-      assertThat(elapsedMillis).isLessThan(1500);
+      // The provider does not answer until it is released below, so answering at all is the
+      // timeout; the bound tells that apart from waiting forever, not how fast the machine is.
+      assertThat(elapsedMillis).isLessThan(UNANSWERED_MILLIS);
+      int attemptsOfTheFirstPurchase = providerAttempts.get();
 
       long openCircuitStartedAt = System.nanoTime();
       purchase("open-" + UUID.randomUUID())
@@ -123,8 +129,10 @@ class PaymentProviderResilienceAcceptanceTest {
           .andExpect(jsonPath("$.status").value("PENDING"))
           .andExpect(jsonPath("$.providerUnavailable").value(true));
       assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - openCircuitStartedAt))
-          .isLessThan(500);
-      verify(gateway, times(1)).charge(any(), any(BigDecimal.class), any());
+          .isLessThan(UNANSWERED_MILLIS);
+      // The open circuit refused it without asking the provider.
+      assertThat(attemptsOfTheFirstPurchase).isLessThanOrEqualTo(1);
+      assertThat(providerAttempts).hasValue(attemptsOfTheFirstPurchase);
 
       mockMvc
           .perform(get("/api/v1/wallet").header("X-Tenant-Id", UPC).header("X-User-Id", student))

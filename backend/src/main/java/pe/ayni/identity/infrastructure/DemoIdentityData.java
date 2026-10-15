@@ -61,6 +61,11 @@ public class DemoIdentityData implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        // Row level security (TS01): the students are written, and looked for, as UPC's.
+        TenantContext.runAs(TENANT, this::fill);
+    }
+
+    private void fill() {
         Instant now = clock.instant();
 
         if (tenants.findByCode(TENANT).isEmpty()) {

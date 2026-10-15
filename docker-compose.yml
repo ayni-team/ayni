@@ -46,8 +46,13 @@ services:
         condition: service_started
     environment:
       AYNI_DB_URL: jdbc:postgresql://postgres:5432/ayni
+      # Two roles (TS01): Flyway migrates as the owner, ayni; the application connects as
+      # ayni_app, which has no BYPASSRLS, so row level security applies to it. The first migration
+      # that needs ayni_app creates it with this password. Development values only.
       AYNI_DB_USER: ayni
       AYNI_DB_PASSWORD: ayni
+      AYNI_DB_APP_USER: ayni_app
+      AYNI_DB_APP_PASSWORD: ayni_app
       AYNI_MAIL_HOST: mailpit
       AYNI_MAIL_PORT: 1025
       AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}

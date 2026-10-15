@@ -22,6 +22,7 @@ import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.events.AccessRequested;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * US38 and TS03: asking for a single use access link.
@@ -80,9 +81,13 @@ public class RequestAccessUseCase {
 
         Tenant tenant = findTenant(normalizedEmail);
 
+        // The address decided the university; its accounts are read as that university's (TS01).
         AccessPurpose purpose =
-                users.existsByTenantIdAndEmailIgnoreCase(
-                        tenant.getCode(), normalizedEmail)
+                TenantContext.callAs(
+                                tenant.getCode(),
+                                () ->
+                                        users.existsByTenantIdAndEmailIgnoreCase(
+                                                tenant.getCode(), normalizedEmail))
                         ? AccessPurpose.LOGIN
                         : AccessPurpose.ACTIVATION;
 

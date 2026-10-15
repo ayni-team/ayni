@@ -47,8 +47,8 @@ by it:
 List<Booking> findByTenantIdAndStudentId(String tenantId, UUID studentId);
 ```
 
-A query without that filter reads another university's data. Until the database enforces it, review
-is the only thing preventing it.
+A query without that filter is still a mistake, and since TS01 the database refuses it: it answers
+nothing instead of another university's rows (see "Row level security" below).
 
 **Time.** Inject `java.time.Clock` and read time from it. Never `Instant.now()` inside domain or
 application code: a rule that depends on the clock cannot be tested if it reads it statically.
@@ -275,6 +275,65 @@ so the scenarios keep proving their use case. New tests of access control set
 **Not built.** A deliberately public resource, the verification of a certificate, has no route
 because Ayni issues no certificates yet; its scenario is `@pending` in
 `TS03-access-control.feature`.
+
+### Row level security (TS01)
+
+ADR 0007, its part about the database. Every table with `tenant_id` has row level security and one
+policy, `tenant_isolation`, which compares `tenant_id` with `app.tenant_id`, the university of the
+transaction. Four tables are exempt, as the ADR says: `identity.tenants`,
+`identity.platform_admins`, `identity.access_links` and `identity.user_sessions`. Two policies
+accept a `NULL` `tenant_id`: the global items of `skills.catalog_items`, which are every
+university's, and the notices of `notifications.notifications` that belong to no university (an
+administrator's access link), seen only from a transaction without a university.
+
+**Per transaction, never per connection.** `config.TenantTransactionManager` is the application's
+transaction manager: every transaction begins with `set_config('app.tenant_id', <university>, true)`,
+the function form of `SET LOCAL`, from `TenantContext`. When `TenantContext` changes while a
+transaction is open (a listener binding the university of its event, a job binding one university
+after another), what the transaction wrote so far is flushed and the value is set again. A
+transaction without a university sets it empty, and every tenant scoped table answers nothing.
+
+**Every repository call runs in a transaction** (`config.TransactionalRepositoriesConfig`), read only
+unless it joins one. Spring Data alone leaves query methods declared on an interface without one,
+and a query on a connection with no university returns nothing even with the university bound.
+
+**Two roles.** Flyway migrates as the owner (`AYNI_DB_USER`, `ayni`); the application connects as
+`AYNI_DB_APP_USER` (`ayni_app`), which owns no table, is no superuser and has no `BYPASSRLS`.
+`V202610150020__tenancy_enable_row_level_security.sql` creates that role when it does not exist,
+with the password of the Flyway placeholder `app_password` (`AYNI_DB_APP_PASSWORD`), grants it the
+tables of the twelve schemas and the ones created later, and does not let it `UPDATE` or `DELETE`
+`wallet.ledger_entries` and `audit.activity_log`. `docker compose` sets both; the values are for
+development only.
+
+**What this means for your code.**
+
+- **A new table with `tenant_id` needs, in its own migration, `ALTER TABLE ... ENABLE ROW LEVEL
+  SECURITY` and its `tenant_isolation` policy**, like the ones of the migration above.
+  `RowLevelSecurityPolicyTest` fails the build otherwise.
+- **Keep filtering by `tenant_id` anyway.** The policy is the net, the filter is the query: it uses
+  the indexes and says what the code means.
+- **Bind the university before you read or write**, whenever the work does not come from a request.
+  A job loops over `IdentityApi.activeTenantCodes()` and binds each one with `TenantContext.runAs`
+  or `TenantContext.callAs`, also to list what it will process: a query over every university at
+  once answers nothing. The administrator has no university, so whatever it writes for one, the
+  baseline policy of a new university or an invited coordinator, is written inside `runAs` of that
+  university, and its listing counts each university as itself. `IdentityApi.currentPolicy` names its
+  university and reads as that one.
+- **What crosses universities on purpose and was adapted**: the payments reconciliation lists the
+  pending purchases of each university as itself, and the wallet expiry job finds the universities
+  with work by asking each active one, instead of one query over all of them.
+- A listener with `@ApplicationModuleListener` keeps binding the university of its event with
+  `TenantContext.runAs(event.tenantId(), ...)`, which now also reaches the database.
+
+**In tests.** Every integration test connects as `ayni_app` too
+(`pe.ayni.config.ApplicationRoleTestConnection` replaces the user of the `@ServiceConnection`), and
+Flyway runs as the container's user (`spring.flyway.user=test` in
+`src/test/resources/config/application.properties`). The fixtures written before TS01 prepare and
+check rows straight in the tables without naming a university, so
+`pe.ayni.config.FixtureOwnerTestDataSource` hands the owner's connection to a test class and the
+application's role to every class of the application, even one a test calls directly. A test about
+isolation itself reads as the application with `FixtureOwnerTestDataSource.asApplication`. The
+scenarios are in `TS01-row-level-security.feature`.
 - A story that moves credits (charge, grant, refund) is reviewed with extra care and needs an
   idempotency test.
 - One pull request per story, small enough to review in one sitting. A story too big for that is

@@ -6,8 +6,11 @@ spring:
     # Inside docker compose the host is "postgres"; running from an IDE it is
     # localhost. The default below covers the second case.
     url: ${AYNI_DB_URL:jdbc:postgresql://localhost:5432/ayni}
-    username: ${AYNI_DB_USER:ayni}
-    password: ${AYNI_DB_PASSWORD:ayni}
+    # The application connects with its own role, which owns no table and has no BYPASSRLS, so the
+    # row level security policies apply to every query it makes (TS01, ADR 0007). Flyway creates
+    # it on the first migration that needs it, with the name and password below.
+    username: ${AYNI_DB_APP_USER:ayni_app}
+    password: ${AYNI_DB_APP_PASSWORD:ayni_app}
 
   jpa:
     open-in-view: false
@@ -37,6 +40,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Migrations run as the owner of the schemas, which the policies do not restrict.
+    user: ${AYNI_DB_USER:ayni}
+    password: ${AYNI_DB_PASSWORD:ayni}
+    placeholders:
+      app_user: ${AYNI_DB_APP_USER:ayni_app}
+      app_password: ${AYNI_DB_APP_PASSWORD:ayni_app}
 
   # Where notifications hands its emails. Mailpit under docker compose, which shows every email at
   # http://localhost:8025 instead of delivering it; from the IDE, the same Mailpit on localhost.
@@ -73,6 +82,8 @@ springdoc:
 logging:
   level:
     pe.ayni: DEBUG
+    # The transaction manager lives in pe.ayni.config and would log every transaction at DEBUG.
+    pe.ayni.config.TenantTransactionManager: INFO
 
 
 ayni:

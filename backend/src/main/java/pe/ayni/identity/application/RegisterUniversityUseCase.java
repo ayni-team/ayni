@@ -20,6 +20,7 @@ import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.shared.events.UniversityRegistered;
+import pe.ayni.shared.tenancy.TenantContext;
 
 @Service
 public class RegisterUniversityUseCase {
@@ -106,8 +107,10 @@ public class RegisterUniversityUseCase {
                         null,
                         now);
 
-        creditPolicies.save(
-                initialPolicy);
+        // The administrator has no university; the policy is the new one's (row level security).
+        TenantContext.runAs(
+                normalizedCode,
+                () -> creditPolicies.save(initialPolicy));
 
         events.publishEvent(
                 new UniversityRegistered(

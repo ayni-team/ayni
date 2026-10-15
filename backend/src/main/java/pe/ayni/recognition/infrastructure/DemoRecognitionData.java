@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.recognition.domain.model.RecognitionRule;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * A recognition rule to look at while no story lets a university set its own.
@@ -45,6 +46,11 @@ class DemoRecognitionData implements ApplicationRunner {
   @Override
   @Transactional
   public void run(ApplicationArguments args) {
+    // Row level security (TS01): its rows are written, and looked for, as the demo university's.
+    TenantContext.runAs(TENANT, this::fill);
+  }
+
+  private void fill() {
     if (rules.existsById(RULE)) {
       return;
     }

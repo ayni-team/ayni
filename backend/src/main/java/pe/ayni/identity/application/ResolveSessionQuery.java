@@ -14,6 +14,7 @@ import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
+import pe.ayni.shared.tenancy.TenantContext;
 
 /**
  * TS03: who a session token belongs to, and in which university.
@@ -80,9 +81,18 @@ public class ResolveSessionQuery {
                     .orElse(SessionResolution.refused(Outcome.UNKNOWN));
         }
 
-        return users.findByTenantIdAndId(session.getTenantId(), session.getUserId())
-                .map(user -> SessionResolution.open(user.getTenantId(), user.getId(), roleOf(user)))
-                .orElse(SessionResolution.refused(Outcome.UNKNOWN));
+        // identity.users is tenant scoped (TS01): the person is read as their university's, the
+        // one the session says. The sessions table is not, which is what lets it be read first.
+        SessionResolution[] resolution = new SessionResolution[1];
+        TenantContext.runAs(
+                session.getTenantId(),
+                () ->
+                        resolution[0] =
+                                users.findByTenantIdAndId(session.getTenantId(), session.getUserId())
+                                        .map(user -> SessionResolution.open(
+                                                user.getTenantId(), user.getId(), roleOf(user)))
+                                        .orElse(SessionResolution.refused(Outcome.UNKNOWN)));
+        return resolution[0];
     }
 
     private static AccessRole roleOf(User user) {

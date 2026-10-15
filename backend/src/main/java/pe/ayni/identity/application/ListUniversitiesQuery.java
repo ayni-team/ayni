@@ -8,6 +8,7 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.tenancy.TenantContext;
 
 @Service
 @Transactional(readOnly = true)
@@ -38,15 +39,17 @@ public class ListUniversitiesQuery {
     private UniversityAdminView toView(
             Tenant tenant) {
 
+        // The administrator reads counts, never people, and each university's are counted as
+        // that university's: row level security shows nobody a university it is not bound to.
         long students =
-                users.countByTenantIdAndRole(
+                TenantContext.callAs(
                         tenant.getCode(),
-                        UserRole.STUDENT);
+                        () -> users.countByTenantIdAndRole(tenant.getCode(), UserRole.STUDENT));
 
         long coordinators =
-                users.countByTenantIdAndRole(
+                TenantContext.callAs(
                         tenant.getCode(),
-                        UserRole.COORDINATOR);
+                        () -> users.countByTenantIdAndRole(tenant.getCode(), UserRole.COORDINATOR));
 
         return new UniversityAdminView(
                 tenant.getCode(),
