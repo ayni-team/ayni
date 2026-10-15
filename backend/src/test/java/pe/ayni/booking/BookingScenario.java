@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,7 +90,7 @@ public abstract class BookingScenario {
 
   @BeforeEach
   void aTutorFreeTomorrowMorning() throws Exception {
-    clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+    clock.set(middayInLima(Instant.now()));
 
     when(identity.requireTenant(UPC))
         .thenReturn(new TenantView(UPC, "UPC", LIMA.getId(), new BigDecimal("13.00"), true));
@@ -120,6 +119,16 @@ public abstract class BookingScenario {
                     """
                         .formatted(weekday, today())))
         .andExpect(status().isCreated());
+  }
+
+  /**
+   * Noon of the day that instant falls on in Lima. The scenarios move the clock by minutes and
+   * hours and read {@link #today()} again, so a clock started close to midnight in Lima, around
+   * 05:00 UTC, crossed into the next day halfway through a scenario and its hours were no longer
+   * there. Starting at noon keeps every scenario inside one day, whatever the hour of the build.
+   */
+  static Instant middayInLima(Instant instant) {
+    return ZonedDateTime.of(instant.atZone(LIMA).toLocalDate(), LocalTime.NOON, LIMA).toInstant();
   }
 
   protected LocalDate today() {
