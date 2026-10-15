@@ -24,6 +24,8 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * @param endConfirmedAt when the reader confirmed the end, {@code null} if they have not
  * @param endedAt when the session closed, {@code null} while it has not
  * @param closesAt when it closes on its own if the participants do not close it
+ * @param supportMaterial what was prepared from the need for the tutor (US07), {@code null} when
+ *     the service did not prepare any: the session then shows only the need
  */
 public record SessionDetails(
     UUID id,
@@ -45,4 +47,5 @@ public record SessionDetails(
     PresenceState presence,
     Instant endConfirmedAt,
     Instant endedAt,
-    Instant closesAt) {}
+    Instant closesAt,
+    SupportMaterialView supportMaterial) {}

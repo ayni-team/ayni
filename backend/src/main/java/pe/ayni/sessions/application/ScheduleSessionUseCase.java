@@ -3,6 +3,7 @@ package pe.ayni.sessions.application;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.booking.BookingApi;
@@ -22,11 +23,14 @@ public class ScheduleSessionUseCase {
   private final SessionRepository sessions;
   private final Clock clock;
   private final BookingApi booking;
+  private final ApplicationEventPublisher events;
 
-  ScheduleSessionUseCase(SessionRepository sessions, Clock clock, BookingApi booking) {
+  ScheduleSessionUseCase(
+      SessionRepository sessions, Clock clock, BookingApi booking, ApplicationEventPublisher events) {
     this.sessions = sessions;
     this.clock = clock;
     this.booking = booking;
+    this.events = events;
   }
 
   /** @return {@code true} when the session was created now, {@code false} when it existed */
@@ -42,16 +46,19 @@ public class ScheduleSessionUseCase {
     if (sessions.existsByTenantIdAndBookingId(tenantId, bookingId)) {
       return false;
     }
-    sessions.save(
-        Session.schedule(
-            UUID.randomUUID(),
-            tenantId,
-            bookingId,
-            studentId,
-            tutorId,
-            startsAt,
-            endsAt,
-            clock.instant()));
+    Session session =
+        sessions.save(
+            Session.schedule(
+                UUID.randomUUID(),
+                tenantId,
+                bookingId,
+                studentId,
+                tutorId,
+                startsAt,
+                endsAt,
+                clock.instant()));
+    // The support material is prepared once this commits, apart from it (US07).
+    events.publishEvent(new SessionScheduled(tenantId, session.getId(), bookingId));
     return true;
   }
 }

@@ -17,6 +17,7 @@ import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.ParticipationRepository;
 import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
+import pe.ayni.sessions.infrastructure.SupportMaterialRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -30,7 +31,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  * handed over by joining, inside the window the room is open. Nor is the presence code, which only
  * travels by email: the answer says whether it was sent, until when it can be typed in and whether
  * it was, for the reader alone. The first arrival of each participant is visible to both, and once
- * the session was abandoned so is who did not check in.
+ * the session was abandoned so is who did not check in. The support material prepared from the
+ * need comes with it, when there is any (US07).
  */
 @Service
 public class SessionDetailsQuery {
@@ -38,16 +40,19 @@ public class SessionDetailsQuery {
   private final SessionRepository sessions;
   private final ParticipationRepository participations;
   private final PresenceCheckRepository presenceChecks;
+  private final SupportMaterialRepository materials;
   private final BookingApi booking;
 
   SessionDetailsQuery(
       SessionRepository sessions,
       ParticipationRepository participations,
       PresenceCheckRepository presenceChecks,
+      SupportMaterialRepository materials,
       BookingApi booking) {
     this.sessions = sessions;
     this.participations = participations;
     this.presenceChecks = presenceChecks;
+    this.materials = materials;
     this.booking = booking;
   }
 
@@ -110,7 +115,16 @@ public class SessionDetailsQuery {
         presence,
         endConfirmedAt,
         session.getEndedAt(),
-        session.closesAt());
+        session.closesAt(),
+        materials
+            .findByTenantIdAndSessionId(tenantId, sessionId)
+            .map(
+                material ->
+                    new SupportMaterialView(
+                        material.getSummary(),
+                        material.getSuggestions(),
+                        material.getGeneratedAt()))
+            .orElse(null));
   }
 
   private static Instant arrivalOf(List<Participation> arrivals, UUID userId) {
