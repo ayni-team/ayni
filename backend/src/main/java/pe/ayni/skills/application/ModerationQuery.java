@@ -101,7 +101,7 @@ public class ModerationQuery {
       return found.map(proposal -> null);
     }
     Map<UUID, ModerationItem> byId =
-        describe(found.getContent()).stream()
+        describe(tenantId, found.getContent()).stream()
             .collect(Collectors.toMap(item -> item.proposal().getId(), Function.identity()));
     return found.map(proposal -> byId.get(proposal.getId()));
   }
@@ -119,13 +119,13 @@ public class ModerationQuery {
         proposals
             .findByTenantIdAndId(tenantId, proposalId)
             .orElseThrow(() -> new NoSuchElementException("proposal " + proposalId + " does not exist"));
-    ModerationItem item = describe(List.of(proposal)).get(0);
+    ModerationItem item = describe(tenantId, List.of(proposal)).get(0);
     List<CatalogItem> similar =
         proposal.isWaiting() ? similarItems.similarTo(proposal.getName()) : List.of();
     return new ModerationDetail(item, similar);
   }
 
-  private List<ModerationItem> describe(List<SkillProposal> found) {
+  private List<ModerationItem> describe(String tenantId, List<SkillProposal> found) {
     Map<UUID, String> categoryNames =
         categories.findAllById(found.stream().map(SkillProposal::getCategoryId).distinct().toList()).stream()
             .collect(Collectors.toMap(Category::getId, Category::getName, (first, second) -> first));
@@ -134,7 +134,7 @@ public class ModerationQuery {
     Map<UUID, CatalogItem> items =
         itemIds.isEmpty()
             ? Map.of()
-            : catalogItems.findAllById(itemIds).stream()
+            : catalogItems.findAllByIdInAndTenantVisibility(itemIds, tenantId).stream()
                 .collect(Collectors.toMap(CatalogItem::getId, Function.identity()));
     Map<UUID, UserView> people =
         found.stream()

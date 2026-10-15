@@ -90,7 +90,7 @@ public class ResolveValidationUseCase {
       // A tool retired while the evidence waited cannot be enabled: that would put it back in the
       // search. The coordinator can still reject the evidence.
       catalogItems
-          .findById(skill.getCatalogItemId())
+          .findByIdAndTenantVisibility(skill.getCatalogItemId(), tenantId)
           .filter(item -> !item.isActive())
           .ifPresent(
               retired -> {

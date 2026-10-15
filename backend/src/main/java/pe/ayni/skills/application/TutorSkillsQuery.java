@@ -56,7 +56,10 @@ public class TutorSkillsQuery {
       return List.of();
     }
     Map<UUID, CatalogItem> items =
-        catalogItems.findAllById(skills.stream().map(OfferedSkill::getCatalogItemId).toList()).stream()
+        catalogItems
+            .findAllByIdInAndTenantVisibility(
+                skills.stream().map(OfferedSkill::getCatalogItemId).toList(), tenantId)
+            .stream()
             .collect(Collectors.toMap(CatalogItem::getId, Function.identity()));
     // A tutor whose evidence was rejected submits again: only the last submission says where the
     // skill stands now, and the earlier ones stay in the table as history.

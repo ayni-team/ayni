@@ -77,12 +77,15 @@ public class PendingValidationsQuery {
     List<UUID> requestIds = found.getContent().stream().map(ValidationRequest::getId).toList();
     Map<UUID, OfferedSkill> skills =
         offeredSkills
-            .findAllById(found.getContent().stream().map(ValidationRequest::getOfferedSkillId).toList())
+            .findByTenantIdAndIdIn(
+                tenantId, found.getContent().stream().map(ValidationRequest::getOfferedSkillId).toList())
             .stream()
             .collect(Collectors.toMap(OfferedSkill::getId, Function.identity()));
     Map<UUID, CatalogItem> items =
         catalogItems
-            .findAllById(skills.values().stream().map(OfferedSkill::getCatalogItemId).distinct().toList())
+            .findAllByIdInAndTenantVisibility(
+                skills.values().stream().map(OfferedSkill::getCatalogItemId).distinct().toList(),
+                tenantId)
             .stream()
             .collect(Collectors.toMap(CatalogItem::getId, Function.identity()));
     Map<UUID, List<EvidenceFile>> files =

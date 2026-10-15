@@ -67,8 +67,7 @@ public class DeclareInterestsUseCase {
     Set<UUID> requested = new LinkedHashSet<>(catalogItemIds);
 
     Set<UUID> visible =
-        catalogItems.findAllById(requested).stream()
-            .filter(item -> item.isVisibleTo(tenantId))
+        catalogItems.findAllByIdInAndTenantVisibility(requested, tenantId).stream()
             .map(CatalogItem::getId)
             .collect(Collectors.toSet());
     for (UUID catalogItemId : requested) {
