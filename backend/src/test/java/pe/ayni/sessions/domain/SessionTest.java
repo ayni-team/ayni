@@ -330,4 +330,28 @@ class SessionTest {
     assertThat(twoHours.bookedHours()).isEqualTo(2);
     assertThat(aSessionAtNine().bookedHours()).isEqualTo(1);
   }
+
+  @Test
+  @DisplayName("the real duration runs from both being in to the close, and only once it closed")
+  void theRealDurationRunsFromBothInToTheClose() {
+    Instant tutorIn = NINE.plus(Duration.ofMinutes(4));
+    Session session = aSessionStartedAt(NINE.minus(Duration.ofMinutes(2)), tutorIn);
+    assertThat(session.realDuration()).as("still open").isNull();
+
+    session.close(true, tutorIn.plus(Duration.ofMinutes(50)));
+
+    assertThat(session.realDuration()).isEqualTo(Duration.ofMinutes(50));
+  }
+
+  @Test
+  @DisplayName("a session that never started has no real duration")
+  void aSessionThatNeverStartedHasNoRealDuration() {
+    Session cancelled = aSessionAtNine();
+    cancelled.cancel(NOW);
+    Session abandoned = aSessionAtNine();
+    abandoned.abandon(NINE.plus(Duration.ofMinutes(10)));
+
+    assertThat(cancelled.realDuration()).isNull();
+    assertThat(abandoned.realDuration()).isNull();
+  }
 }

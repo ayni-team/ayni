@@ -752,6 +752,7 @@ that look at every university.
 | POST | `/api/v1/sessions/{id}/presence` | participant — submits the six digit code |
 | POST | `/api/v1/sessions/{id}/end` | participant |
 | GET/PUT | `/api/v1/sessions/{id}/whiteboard` | participant |
+| GET | `/api/v1/sessions/{id}/review` | participant — a session of their history, as it was left (US12) |
 | WebSocket | `/api/v1/sessions/{id}/whiteboard/live` | participant, while the session is in progress |
 
 **Joining.** `GET /sessions/{id}` shows a participant the session and the student's need, read
@@ -841,6 +842,18 @@ and the session is scheduled all the same. `GET /api/v1/sessions/{id}` carries i
 session (`UNIQUE (session_id)`); the same confirmation heard twice creates one session and prepares
 one material. A material that failed is not retried. Neither the need nor the material goes to a
 log.
+
+**Reviewing a past session (US12).** `GET /api/v1/sessions/{id}/review` answers a participant what
+is left of a session of their history: `status`, a `statusNote` saying what happened to it, the
+scheduled and real times, `bookedMinutes`, `realDurationMinutes`, the `needDescription`, the
+`supportMaterial` and the `whiteboard` as it was left. The real duration runs from `startedAt`, both
+participants in, to `endedAt`, its close, the same measure the audit compares with the booked hours;
+it is `null` for a session that never took place. A session that did not take place answers its
+state instead of an empty workspace: `CANCELLED` and `ABANDONED` (with `absentParticipantIds`) carry
+their note and no `whiteboard`, because they never had one; one that took place with nothing drawn
+answers an empty board with `hasActivity` false. Somebody who did not take part is refused with
+`403`, and another university's session answers `404`. The real duration is that of the room,
+not of each person's connection: `participations.connected_seconds` is still not measured.
 
 **The shared whiteboard (US10, TS08).** The model and the order of the operations are ADR 0009. A
 board is a set of elements (`id`, `type`, opaque `data`) stored in `sessions.whiteboards.content` as
