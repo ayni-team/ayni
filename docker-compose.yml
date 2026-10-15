@@ -57,6 +57,10 @@ services:
       # value only: a deployment sets its own, of at least 32 characters.
       AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
       AYNI_JITSI_URL: ${AYNI_JITSI_URL:-http://localhost:8000}
+      # The simulated academic system (ADR 0006): one <CODE>.json per university in the folder
+      # mounted below, read each time a student is looked up. Adding a university's file needs no
+      # restart.
+      AYNI_ACADEMIC_DIRECTORY: /app/academic-directory
       AYNI_MAIL_HOST: mailpit
       AYNI_MAIL_PORT: 1025
       AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
@@ -77,6 +81,7 @@ services:
       # download the internet again.
       - ./backend/src:/app/src
       - ./backend/pom.xml:/app/pom.xml
+      - ./backend/academic-directory:/app/academic-directory:ro
       - maven-cache:/root/.m2
 
   web:

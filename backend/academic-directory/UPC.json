@@ -1,0 +1,85 @@
+{
+  "students": [
+    {
+      "email": "u202400001@upc.edu.pe",
+      "studentCode": "U202400001",
+      "fullName": "Ana Torres",
+      "career": "Software Engineering",
+      "currentTerm": "2026-2",
+      "approvedCourses": [
+        {
+          "courseCode": "1ASI0657",
+          "courseName": "Software Architecture Fundamentals",
+          "grade": 18.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "1ASI0616",
+          "courseName": "Databases I",
+          "grade": 16.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "1MAT0101",
+          "courseName": "Calculus I",
+          "grade": 11.0,
+          "term": "2025-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300002@upc.edu.pe",
+      "studentCode": "U202300002",
+      "fullName": "Bruno Salas",
+      "career": "Software Engineering",
+      "currentTerm": "2026-2",
+      "approvedCourses": [
+        {
+          "courseCode": "1ASI0657",
+          "courseName": "Software Architecture Fundamentals",
+          "grade": 18.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "1ASI0616",
+          "courseName": "Databases I",
+          "grade": 16.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "1MAT0101",
+          "courseName": "Calculus I",
+          "grade": 11.0,
+          "term": "2025-1"
+        }
+      ]
+    },
+    {
+      "email": "u202500003@upc.edu.pe",
+      "studentCode": "U202500003",
+      "fullName": "Carla Mendoza",
+      "career": "Software Engineering",
+      "currentTerm": "2026-2",
+      "approvedCourses": [
+        {
+          "courseCode": "1ASI0657",
+          "courseName": "Software Architecture Fundamentals",
+          "grade": 18.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "1ASI0616",
+          "courseName": "Databases I",
+          "grade": 16.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "1MAT0101",
+          "courseName": "Calculus I",
+          "grade": 11.0,
+          "term": "2025-1"
+        }
+      ]
+    }
+  ]
+}

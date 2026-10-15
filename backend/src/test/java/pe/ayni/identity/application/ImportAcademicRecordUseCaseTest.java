@@ -113,9 +113,10 @@ class ImportAcademicRecordUseCaseTest {
 
         when(academicSystem.fetchProfile(
                 "UPC",
-                "U202612345"))
+                "u202612345@upc.edu.pe"))
                 .thenReturn(
                         new AcademicProfile(
+                                "U202612345",
                                 "Juan Sanchez",
                                 "Software Engineering",
                                 "7",
