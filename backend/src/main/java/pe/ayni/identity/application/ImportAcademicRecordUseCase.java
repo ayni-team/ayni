@@ -60,7 +60,7 @@ public class ImportAcademicRecordUseCase {
         AcademicProfile profile =
                 academicSystem.fetchProfile(
                         tenantId,
-                        user.getStudentCode());
+                        user.getEmail());
 
         if (profile == null) {
             throw new IdentityRuleViolation(

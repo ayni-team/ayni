@@ -149,6 +149,10 @@ ayni:
       timeout: ${AYNI_PAYMENTS_TIMEOUT:PT2S}
       max-concurrent-calls: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:2}
   identity:
+    # The simulated academic system (ADR 0006): one file per university, <CODE>.json, read each
+    # time a student is looked up. docker compose mounts the folder; relative to where the backend
+    # runs otherwise, which is backend/ for ./mvnw.
+    academic-directory: ${AYNI_ACADEMIC_DIRECTORY:academic-directory}
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M
     session-ttl: P7D

@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,9 +39,9 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>The token identifies the access link. The tenant is read from that link,
  * never supplied by the client.
  *
- * <p>An activation obtains the student code from the local part of the
- * institutional email and uses the academic-system boundary to obtain the
- * student's name, career, current term and approved courses.
+ * <p>An activation asks the academic-system boundary for the student with that
+ * institutional email, which answers their student code, name, career, current
+ * term and approved courses (ADR 0006).
  *
  * <p>The link is consumed with a conditional database update before account
  * or session data is written. Therefore the same link cannot open two sessions
@@ -204,13 +203,17 @@ public class ConfirmAccessUseCase {
                     ACCOUNT_ALREADY_EXISTS);
         }
 
-        String studentCode =
-                studentCodeFromEmail(email);
-
+        /*
+         * The academic system finds the student by their institutional
+         * email and answers the code the university assigned them (ADR
+         * 0006): Ayni neither derives it nor checks its format.
+         */
         AcademicProfile profile =
                 academicSystem.fetchProfile(
                         tenantId,
-                        studentCode);
+                        email);
+
+        String studentCode = profile.studentCode();
 
         /*
          * The potentially external academic lookup happens before the
@@ -418,20 +421,5 @@ public class ConfirmAccessUseCase {
             throw new IdentityRuleViolation(
                     EXPIRED_OR_USED);
         }
-    }
-
-    private String studentCodeFromEmail(
-            String email) {
-
-        int separator = email.indexOf('@');
-
-        if (separator <= 0) {
-            throw new IdentityRuleViolation(
-                    "Institutional email does not contain a student code");
-        }
-
-        return email
-                .substring(0, separator)
-                .toUpperCase(Locale.ROOT);
     }
 }

@@ -286,9 +286,10 @@ class ConfirmAccessUseCaseTest {
         when(
                 academicSystem.fetchProfile(
                         "UPC",
-                        "U202500003"))
+                        "u202500003@upc.edu.pe"))
                 .thenReturn(
                         new AcademicProfile(
+                                "U202500003",
                                 "Carla Mendoza",
                                 "Software Engineering",
                                 "2026-2",
@@ -415,7 +416,7 @@ class ConfirmAccessUseCaseTest {
         when(
                 academicSystem.fetchProfile(
                         "UPC",
-                        "U202599999"))
+                        "u202599999@upc.edu.pe"))
                 .thenThrow(
                         new IdentityRuleViolation(
                                 "The student was not found in the academic system"));
@@ -477,7 +478,7 @@ class ConfirmAccessUseCaseTest {
         verify(academicSystem, never())
                 .fetchProfile(
                         "UPC",
-                        "U202500003");
+                        "u202500003@upc.edu.pe");
 
         verify(events, never())
                 .publishEvent(
