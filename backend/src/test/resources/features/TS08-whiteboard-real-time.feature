@@ -3,6 +3,9 @@
 # Each scenario runs with real WebSocket clients against the running backend and a real PostgreSQL,
 # with the same name, in WhiteboardRealTimeTest. The times are measured by the clients, from
 # sending an operation to the other participant receiving it.
+#
+# The 300 ms are measured on the 95th percentile of the changes, and no single change may take a
+# second or more: a latency target is a percentile, and a shared machine has pauses of its own.
 
 Feature: Real time of the shared whiteboard
 
