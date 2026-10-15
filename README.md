@@ -153,6 +153,11 @@ that arrives at Mailpit (http://localhost:8025), or send its `token` to `POST
 /api/v1/access/confirm`, and paste the `sessionToken` into Swagger UI's **Authorize** button. Filter
 every query by the university anyway.
 
+The database enforces the same separation (TS01): the application connects as `ayni_app`, a role
+row level security applies to, and every transaction tells PostgreSQL its university. A query that
+forgets the filter answers nothing. A new table with `tenant_id` needs its policy in the same
+migration; the backend guide says how.
+
 `X-Tenant-Id` and `X-User-Id` are no longer read by the application. The tests written before TS03
 still send them: a filter that exists only in `src/test` accepts them there, so those scenarios keep
 proving their use case without signing in first.

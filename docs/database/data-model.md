@@ -15,6 +15,17 @@ every query filters by it. Four tables are exceptions and say so: `identity.tena
 `identity.platform_admins`, `skills.catalog_items` when the item is global, and
 `skills.categories`.
 
+**Row level security (TS01).** Every table with `tenant_id` has row level security enabled and one
+policy, `tenant_isolation`: a row is visible and writable only when `tenant_id` equals
+`app.tenant_id`, which the application sets per transaction (`SET LOCAL`). Exempt, as ADR 0007
+decides: `identity.tenants`, `identity.platform_admins`, `identity.access_links` and
+`identity.user_sessions`. `skills.catalog_items` also accepts its global rows (`tenant_id IS
+NULL`) from any university, and `notifications.notifications` its rows without a university only
+from a transaction without one. A new table with `tenant_id` creates its policy in the same
+migration. The application connects as a role without `BYPASSRLS` (`ayni_app`); the migrations run
+as the owner. `reputation.rating_tags` has no `tenant_id` and no policy: it is reached through its
+rating.
+
 `identity.access_links` and `identity.user_sessions` have a nullable `tenant_id`: it is NULL when the
 row belongs to a platform administrator, who has no university.
 
