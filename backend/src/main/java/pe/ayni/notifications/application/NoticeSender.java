@@ -86,6 +86,10 @@ class NoticeSender {
     try {
       recipient = identity.requireUser(notice.recipientId());
     } catch (NoSuchElementException unknown) {
+      recipient = null;
+    }
+    // Identity throws for somebody it does not know; an answer of nobody is read the same way.
+    if (recipient == null) {
       log.warn(
           "No {} notice for {}: recipient {} does not exist",
           notice.kind(),

@@ -85,6 +85,18 @@ class NoticeSenderTest {
   }
 
   @Test
+  @DisplayName("an identity that answers nobody is the same as a recipient that does not exist")
+  void anIdentityThatAnswersNobodyIsAnUnknownRecipient() {
+    UUID nobody = UUID.randomUUID();
+    when(harness.identity.requireUser(nobody)).thenReturn(null);
+
+    harness.sender.deliver(List.of(noticeTo(nobody, "event-1")));
+
+    assertThat(harness.recorded).isEmpty();
+    assertThat(harness.sent).isEmpty();
+  }
+
+  @Test
   @DisplayName("a notice already written is not sent again")
   void aNoticeAlreadyWrittenIsNotSentAgain() {
     UUID ana = harness.personAt(ADDRESS);
