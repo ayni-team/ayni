@@ -46,6 +46,11 @@ class IndicatorsController {
           The active students of the totals are distinct people over the whole period, not the sum \
           of the days. Only figures of the university of the request are returned, and never the \
           name or the identifier of a person.
+
+          uncoveredDemand lists the courses that students searched for in the period without \
+          finding an hour inside their window: the catalogue item and the number of searches, the \
+          most searched first, at most 20. Names are not returned; GET /api/v1/catalog has them. \
+          The export does not carry it.
           """)
   @TenantAndUser
   @ApiResponse(

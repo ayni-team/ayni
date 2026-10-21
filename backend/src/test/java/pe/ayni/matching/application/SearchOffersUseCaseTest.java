@@ -35,6 +35,7 @@ import pe.ayni.identity.TenantView;
 import pe.ayni.matching.domain.model.AvailableOffer;
 import pe.ayni.matching.domain.model.MatchingRuleViolation;
 import pe.ayni.matching.infrastructure.AvailableOfferRepository;
+import pe.ayni.shared.events.DemandUncovered;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /** US01's search without Spring: what it asks the projection, and what it makes of the answer. */
@@ -159,6 +160,74 @@ class SearchOffersUseCaseTest {
     assertThat(found.exactMatch()).isFalse();
     assertThat(found.offers()).isEmpty();
     assertThat(found.totalPages()).isZero();
+  }
+
+  @Test
+  @DisplayName("an empty window publishes the uncovered demand, with the course and the window")
+  void anEmptyWindowPublishesTheUncoveredDemand() {
+
+    inTheWindow(List.of(), 0);
+    when(offers.findClosestBefore(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+    when(offers.findClosestAfter(any(), any(), any(), any(), any(), any()))
+        .thenReturn(List.of(newTutor("Carla Ruiz", TO.plus(Duration.ofHours(2)))));
+
+    OfferSearch found = searchAs(0, 20);
+
+    // What the student reads is what it was without the event.
+    assertThat(found.exactMatch()).isFalse();
+    assertThat(found.offers()).hasSize(1);
+    verify(events).publishEvent(new DemandUncovered(UPC, DATABASES, FROM, TO, NOW));
+  }
+
+  @Test
+  @DisplayName("nothing anywhere also publishes the uncovered demand")
+  void nothingAnywhereAlsoPublishesTheUncoveredDemand() {
+
+    inTheWindow(List.of(), 0);
+    when(offers.findClosestBefore(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+    when(offers.findClosestAfter(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+
+    searchAs(0, 20);
+
+    verify(events).publishEvent(new DemandUncovered(UPC, DATABASES, FROM, TO, NOW));
+  }
+
+  @Test
+  @DisplayName("an exact match publishes nothing")
+  void anExactMatchPublishesNothing() {
+
+    inTheWindow(List.of(rated("Bruno Salas", FROM, "4.80")), 1);
+
+    searchAs(0, 20);
+
+    verifyNoInteractions(events);
+  }
+
+  @Test
+  @DisplayName("a later page of an empty search publishes nothing: it is the same search")
+  void aLaterPageOfAnEmptySearchPublishesNothing() {
+
+    inTheWindow(List.of(), 0);
+    when(offers.findClosestBefore(any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+    when(offers.findClosestAfter(any(), any(), any(), any(), any(), any()))
+        .thenReturn(List.of(rated("Ana Torres", TO, "4.00")));
+
+    searchAs(1, 5);
+
+    verifyNoInteractions(events);
+  }
+
+  @Test
+  @DisplayName("a refused search publishes nothing")
+  void aRefusedSearchPublishesNothing() {
+
+    TenantContext.runAs(
+        UPC,
+        () ->
+            assertThatThrownBy(() -> search.execute(student, DATABASES, TO, FROM, 0, 20))
+                .isInstanceOf(MatchingRuleViolation.class));
+
+    verifyNoInteractions(events);
   }
 
   @Test

@@ -7,6 +7,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -33,15 +34,20 @@ public class UncoveredDemandQueue {
   private final Object monitor = new Object();
   private int pending;
 
+  @Autowired
   UncoveredDemandQueue() {
+    this(WORKERS, CAPACITY);
+  }
+
+  UncoveredDemandQueue(int threads, int capacity) {
     AtomicInteger numbers = new AtomicInteger();
     workers =
         new ThreadPoolExecutor(
-            WORKERS,
-            WORKERS,
+            threads,
+            threads,
             0L,
             TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(CAPACITY),
+            new ArrayBlockingQueue<>(capacity),
             task -> {
               Thread worker = new Thread(task, "uncovered-demand-" + numbers.incrementAndGet());
               worker.setDaemon(true);
