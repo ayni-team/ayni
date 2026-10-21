@@ -24,9 +24,13 @@ public class OpenApiConfig {
   /** The name the session token scheme is declared with, and referenced by. */
   public static final String BEARER_SCHEME = "bearer";
 
-  /** The routes that need no session: they are how somebody gets one (ADR 0007). */
+  /**
+   * The routes that need no session: they are how somebody gets one, or the university an email
+   * belongs to (ADR 0007).
+   */
   private static final Set<String> PUBLIC_PATHS =
-      Set.of("/api/v1/access/request", "/api/v1/access/confirm");
+      Set.of(
+          "/api/v1/access/request", "/api/v1/access/confirm", "/api/v1/access/university");
 
   /** The headers the API trusted before TS03. Nothing reads them any more. */
   private static final Set<String> RETIRED_HEADERS = Set.of("x-tenant-id", "x-user-id");
@@ -64,7 +68,7 @@ public class OpenApiConfig {
    *
    * <p>Several controllers still document {@code X-Tenant-Id} and {@code X-User-Id} by hand. They
    * are no longer read, so they are taken out of the description here, once, rather than leaving
-   * Swagger UI offering fields that change nothing. The two access routes that are public declare
+   * Swagger UI offering fields that change nothing. The access routes that are public declare
    * that they need no token.
    *
    * <p>It decides by path and by header name, not by controller type, because {@code config} must

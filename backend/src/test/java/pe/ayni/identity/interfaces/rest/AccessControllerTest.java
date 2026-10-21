@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,8 +24,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.ConfirmAccessResult;
 import pe.ayni.identity.application.ConfirmAccessUseCase;
+import pe.ayni.identity.application.FindUniversityByEmailQuery;
 import pe.ayni.identity.application.RequestAccessUseCase;
 import pe.ayni.identity.application.SignOutUseCase;
+import pe.ayni.identity.application.UniversityIdentityView;
 import pe.ayni.identity.domain.model.AccessRole;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 
@@ -31,12 +35,14 @@ class AccessControllerTest {
 
     private RequestAccessUseCase requestAccess;
     private ConfirmAccessUseCase confirmAccess;
+    private FindUniversityByEmailQuery findUniversity;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         requestAccess = mock(RequestAccessUseCase.class);
         confirmAccess = mock(ConfirmAccessUseCase.class);
+        findUniversity = mock(FindUniversityByEmailQuery.class);
 
         Clock clock =
                 Clock.fixed(
@@ -47,7 +53,8 @@ class AccessControllerTest {
                 new AccessController(
                         requestAccess,
                         confirmAccess,
-                        mock(SignOutUseCase.class));
+                        mock(SignOutUseCase.class),
+                        findUniversity);
 
         IdentityExceptionHandler handler =
                 new IdentityExceptionHandler(clock);
@@ -155,5 +162,46 @@ class AccessControllerTest {
                 .andExpect(jsonPath("$.path").value("/api/v1/access/confirm"));
 
         verifyNoInteractions(confirmAccess);
+    }
+
+    @Test
+    @DisplayName("shows the identity of the university of an email")
+    void showsTheIdentityOfTheUniversityOfAnEmail() throws Exception {
+        when(findUniversity.execute("u202400001@upc.edu.pe"))
+                .thenReturn(
+                        new UniversityIdentityView(
+                                "UPC", "Universidad Peruana", "https://cdn.ayni.pe/upc.png", "#E30613", "#1A1A1A"));
+
+        mvc.perform(get("/api/v1/access/university").param("email", "u202400001@upc.edu.pe"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("UPC"))
+                .andExpect(jsonPath("$.logoUrl").value("https://cdn.ayni.pe/upc.png"))
+                .andExpect(jsonPath("$.primaryColor").value("#E30613"));
+    }
+
+    @Test
+    @DisplayName("answers 404 in the common error shape when no university claims the email")
+    void answersNotFoundWhenNoUniversityClaimsTheEmail() throws Exception {
+        when(findUniversity.execute("student@gmail.com"))
+                .thenThrow(new NoSuchElementException("The institution is not affiliated with Ayni"));
+
+        mvc.perform(get("/api/v1/access/university").param("email", "student@gmail.com"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message").value("The institution is not affiliated with Ayni"))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+    }
+
+    @Test
+    @DisplayName("answers 400 in the common error shape when the email is missing")
+    void answersBadRequestWhenTheEmailIsMissing() throws Exception {
+        mvc.perform(get("/api/v1/access/university"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("email is required"))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+
+        verifyNoInteractions(findUniversity);
     }
 }

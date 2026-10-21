@@ -1,6 +1,7 @@
 package pe.ayni.identity.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -9,15 +10,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import pe.ayni.identity.application.ConfirmAccessUseCase;
+import pe.ayni.identity.application.FindUniversityByEmailQuery;
 import pe.ayni.identity.application.RequestAccessUseCase;
 import pe.ayni.identity.application.SignOutUseCase;
+import pe.ayni.identity.application.UniversityIdentityView;
 import pe.ayni.identity.interfaces.web.AccessControlFilter;
 
 /**
@@ -25,7 +30,9 @@ import pe.ayni.identity.interfaces.web.AccessControlFilter;
  *
  * <p>Asking for a link and opening it are public: they are how somebody gets a session. Requesting
  * a link decides the university from the domain of the email, and confirming it reads the
- * university from the link. Signing out needs the session it closes (TS03).
+ * university from the link. Seeing the university an email belongs to is public too, so the person
+ * knows it is the right one before asking for the link (US39). Signing out needs the session it
+ * closes (TS03).
  */
 @RestController
 @RequestMapping("/api/v1/access")
@@ -35,15 +42,18 @@ public class AccessController {
     private final RequestAccessUseCase requestAccess;
     private final ConfirmAccessUseCase confirmAccess;
     private final SignOutUseCase signOut;
+    private final FindUniversityByEmailQuery findUniversityByEmail;
 
     public AccessController(
             RequestAccessUseCase requestAccess,
             ConfirmAccessUseCase confirmAccess,
-            SignOutUseCase signOut) {
+            SignOutUseCase signOut,
+            FindUniversityByEmailQuery findUniversityByEmail) {
 
         this.requestAccess = requestAccess;
         this.confirmAccess = confirmAccess;
         this.signOut = signOut;
+        this.findUniversityByEmail = findUniversityByEmail;
     }
 
     @PostMapping("/request")
@@ -145,6 +155,44 @@ public class AccessController {
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     public ConfirmAccessResponse confirmAccess(@Valid @RequestBody ConfirmAccessRequest request) {
         return ConfirmAccessResponse.from(confirmAccess.execute(request.token()));
+    }
+
+    @GetMapping("/university")
+    @Operation(
+            summary = "Shows the name, logo and colours of the university an email belongs to",
+            description =
+                    """
+                    US39: so that the person sees their university before signing in. Only the \
+                    domain of the email decides, as when a link is requested; nothing says whether \
+                    the address has an account, and nothing about its people is returned. A domain \
+                    that belongs to no active university, a suspended one included, is answered \
+                    404.
+                    """)
+    @ApiResponse(
+            responseCode = "200",
+            description = "The university that claims the domain of the email",
+            content =
+                    @Content(
+                            schema = @Schema(implementation = UniversityIdentityView.class),
+                            examples =
+                                    @ExampleObject(
+                                            value =
+                                                    """
+                                                    {"code":"UPC","name":"Universidad Peruana de Ciencias Aplicadas",
+                                                     "logoUrl":"https://cdn.ayni.pe/upc.png",
+                                                     "primaryColor":"#E30613","secondaryColor":"#1A1A1A"}
+                                                    """)))
+    @ApiResponse(
+            responseCode = "400",
+            description = "The email is missing or is not an address",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "The domain of the email belongs to no active university",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    public UniversityIdentityView findUniversity(
+            @Parameter(example = "u202400001@upc.edu.pe") @RequestParam String email) {
+        return findUniversityByEmail.execute(email);
     }
 
     @PostMapping("/logout")

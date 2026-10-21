@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,7 +25,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.ListUniversitiesQuery;
 import pe.ayni.identity.application.RegisterUniversityUseCase;
+import pe.ayni.identity.application.ReplaceEmailDomainsUseCase;
 import pe.ayni.identity.application.UniversityAdminView;
+import pe.ayni.identity.application.UniversityEmailDomainsView;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -33,6 +36,7 @@ class AdminUniversitiesControllerTest {
 
     private RegisterUniversityUseCase registerUniversity;
     private ListUniversitiesQuery listUniversities;
+    private ReplaceEmailDomainsUseCase replaceEmailDomains;
     private MockMvc mvc;
 
     private final UUID adminId =
@@ -49,10 +53,13 @@ class AdminUniversitiesControllerTest {
                 mock(
                         ListUniversitiesQuery.class);
 
+        replaceEmailDomains = mock(ReplaceEmailDomainsUseCase.class);
+
         AdminUniversitiesController controller =
                 new AdminUniversitiesController(
                         registerUniversity,
-                        listUniversities);
+                        listUniversities,
+                        replaceEmailDomains);
 
         IdentityExceptionHandler handler =
                 new IdentityExceptionHandler(
@@ -280,5 +287,46 @@ class AdminUniversitiesControllerTest {
                                         REQUEST))
                 .andExpect(
                         status().isBadRequest());
+    }
+
+    @Test
+    void replacesTheEmailDomains() throws Exception {
+
+        when(replaceEmailDomains.execute("UPC", List.of("upc.edu.pe", "upc.pe")))
+                .thenReturn(new UniversityEmailDomainsView("UPC", "Universidad Peruana", List.of("upc.edu.pe", "upc.pe")));
+
+        mvc.perform(
+                        put("/api/v1/admin/universities/UPC/email-domains")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"emailDomains\": [\"upc.edu.pe\", \"upc.pe\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("UPC"))
+                .andExpect(jsonPath("$.emailDomains[1]").value("upc.pe"));
+    }
+
+    @Test
+    void refusesAnEmptyListOfDomains() throws Exception {
+
+        mvc.perform(
+                        put("/api/v1/admin/universities/UPC/email-domains")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"emailDomains\": []}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.path").value("/api/v1/admin/universities/UPC/email-domains"));
+    }
+
+    @Test
+    void answersConflictWhenAnotherUniversityHoldsTheDomain() throws Exception {
+
+        when(replaceEmailDomains.execute(eq("UPC"), any()))
+                .thenThrow(UniversityAlreadyRegistered.emailDomain());
+
+        mvc.perform(
+                        put("/api/v1/admin/universities/UPC/email-domains")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"emailDomains\": [\"pucp.edu.pe\"]}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
     }
 }
