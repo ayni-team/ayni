@@ -29,9 +29,14 @@ class RecordActivityUseCase {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   void record(NewActivity activity) {
+    // An entry with an identifier of its own is written once: delivering its event again finds it
+    // there. Two deliveries at the same moment end at the primary key, and the loser fails.
+    if (activity.id() != null && log.existsById(activity.id())) {
+      return;
+    }
     log.save(
         ActivityEntry.of(
-            UUID.randomUUID(),
+            activity.id() != null ? activity.id() : UUID.randomUUID(),
             TenantContext.require(),
             activity.actorId(),
             activity.role(),

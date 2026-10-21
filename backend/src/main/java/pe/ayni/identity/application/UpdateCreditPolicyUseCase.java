@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.PolicyKind;
@@ -18,6 +19,7 @@ import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.events.CreditPolicyChanged;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -33,12 +35,14 @@ public class UpdateCreditPolicyUseCase {
     private final TenantRepository tenants;
     private final UserRepository users;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     UpdateCreditPolicyUseCase(
             CreditPolicyRepository creditPolicies,
             TenantRepository tenants,
             UserRepository users,
-            Clock clock) {
+            Clock clock,
+            ApplicationEventPublisher events) {
 
         this.creditPolicies =
                 creditPolicies;
@@ -51,6 +55,9 @@ public class UpdateCreditPolicyUseCase {
 
         this.clock =
                 clock;
+
+        this.events =
+                events;
     }
 
     @Transactional
@@ -150,6 +157,17 @@ public class UpdateCreditPolicyUseCase {
 
         creditPolicies.save(
                 replacement);
+
+        // Inside the transaction: a change that is rolled back publishes nothing.
+        events.publishEvent(
+                new CreditPolicyChanged(
+                        tenantId,
+                        replacement.getId(),
+                        PolicyKind.BASELINE.name(),
+                        creditsAmount,
+                        validityDays,
+                        coordinator.getId(),
+                        now));
 
         return CreditPolicyConfigurationView.from(
                 replacement);

@@ -2,6 +2,7 @@ package pe.ayni.identity.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
@@ -31,6 +34,7 @@ import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.events.CreditPolicyChanged;
 import pe.ayni.shared.tenancy.TenantContext;
 
 class UpdateCreditPolicyUseCaseTest {
@@ -51,6 +55,10 @@ class UpdateCreditPolicyUseCaseTest {
             mock(
                     UserRepository.class);
 
+    private final ApplicationEventPublisher events =
+            mock(
+                    ApplicationEventPublisher.class);
+
     private final UpdateCreditPolicyUseCase useCase =
             new UpdateCreditPolicyUseCase(
                     policies,
@@ -58,7 +66,8 @@ class UpdateCreditPolicyUseCaseTest {
                     users,
                     Clock.fixed(
                             NOW,
-                            ZoneOffset.UTC));
+                            ZoneOffset.UTC),
+                    events);
 
     @Test
     void coordinatorSupersedesBaselinePolicy() {
@@ -143,6 +152,27 @@ class UpdateCreditPolicyUseCaseTest {
                                                 && policy.getSupersededAt()
                                                 == null));
 
+        // The event names the policy that became current, and carries the quantities.
+        ArgumentCaptor<Object> published =
+                ArgumentCaptor.forClass(
+                        Object.class);
+
+        verify(events)
+                .publishEvent(
+                        published.capture());
+
+        assertThat(
+                published.getValue())
+                .isEqualTo(
+                        new CreditPolicyChanged(
+                                "UPC",
+                                result.get().id(),
+                                "BASELINE",
+                                8,
+                                45,
+                                coordinatorId,
+                                NOW));
+
         assertThat(
                 result.get())
                 .isNotNull();
@@ -203,6 +233,13 @@ class UpdateCreditPolicyUseCaseTest {
                 .findByTenantIdAndKindAndSupersededAtIsNull(
                         "UPC",
                         PolicyKind.BASELINE);
+
+        verify(
+                events,
+                never())
+                .publishEvent(
+                        any(
+                                Object.class));
     }
 
     @Test
@@ -286,6 +323,13 @@ class UpdateCreditPolicyUseCaseTest {
                         CreditPolicyConflict.class)
                 .hasMessageContaining(
                         "does not have a baseline");
+
+        verify(
+                events,
+                never())
+                .publishEvent(
+                        any(
+                                Object.class));
 
         verify(
                 policies,

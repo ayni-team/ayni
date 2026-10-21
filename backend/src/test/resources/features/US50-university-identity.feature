@@ -5,7 +5,9 @@
 # in UniversityIdentityAcceptanceTest, with the rules of the use case in
 # UpdateUniversityIdentityUseCaseTest. The ones about reading the university and editing its email
 # domains run in UniversityEmailDomainsAcceptanceTest with real session tokens, with the rules of
-# the domains in EmailDomainsTest and ReplaceEmailDomainsUseCaseTest. Nothing here is @pending.
+# the domains in EmailDomainsTest and ReplaceEmailDomainsUseCaseTest. The scenarios about the audit log
+# run in ConfigurationChangesAuditAcceptanceTest with real session tokens, and the events are
+# published by the use cases inside their transaction. Nothing here is @pending.
 
 Feature: Configure university identity
 
@@ -66,3 +68,29 @@ Feature: Configure university identity
     When either of them tries to replace the email domains
     Then the request is rejected
     And the domains of the university do not change
+
+  Scenario: A change of the university identity is recorded in the audit log
+    Given an active coordinator belongs to a university
+    When the coordinator updates the university logo and colours
+    Then the coordinator reads an entry of the audit log about the university
+    And the entry names the coordinator as who acted and holds neither the logo nor the colours
+    And another university does not see it
+
+  Scenario: A change of the email domains is recorded in the audit log
+    Given a coordinator belongs to a registered university
+    When the administrator replaces the email domains of the university
+    Then the coordinator reads an entry of the audit log about the university
+    And the entry names the administrator as who acted and holds no domain
+
+  Scenario: A rejected change of the university identity leaves no entry
+    Given a coordinator and a student belong to a university, and another university holds a domain
+    When the coordinator sends a colour that is too long, the student tries to update the identity, and the administrator gives the university that domain
+    Then every request is rejected
+    And the audit log has no entry about the university
+
+  # Not a scenario of the story: the contract of the listener, which an event delivered again must
+  # not write twice.
+  Scenario: The same identity change delivered twice is recorded once
+    Given a coordinator updated the identity and the audit log has its entry
+    When the same event is delivered twice more
+    Then the audit log still has one entry about the university

@@ -1,15 +1,19 @@
 package pe.ayni.identity.application;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.domain.model.EmailDomains;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.identity.infrastructure.TenantRepository;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 
 /**
  * US50: the platform administrator replaces the whole list of institutional email domains of a
@@ -23,14 +27,17 @@ public class ReplaceEmailDomainsUseCase {
 
     private final TenantRepository tenants;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
-    ReplaceEmailDomainsUseCase(TenantRepository tenants, Clock clock) {
+    ReplaceEmailDomainsUseCase(
+            TenantRepository tenants, Clock clock, ApplicationEventPublisher events) {
         this.tenants = tenants;
         this.clock = clock;
+        this.events = events;
     }
 
     @Transactional
-    public UniversityEmailDomainsView execute(String code, List<String> emailDomains) {
+    public UniversityEmailDomainsView execute(UUID administratorId, String code, List<String> emailDomains) {
         List<String> domains = EmailDomains.normalize(emailDomains);
 
         // The lock of registering a university: the domains of every university are read after it,
@@ -51,8 +58,13 @@ public class ReplaceEmailDomainsUseCase {
             throw UniversityAlreadyRegistered.emailDomain();
         }
 
-        tenant.replaceEmailDomains(domains, clock.instant());
+        Instant now = clock.instant();
+        tenant.replaceEmailDomains(domains, now);
         tenants.save(tenant);
+
+        // The administrator's session has no university, so the university of the change is the
+        // one that was edited. The event says that it changed and who did it, not the domains.
+        events.publishEvent(new UniversityIdentityChanged(tenant.getCode(), administratorId, now));
 
         return UniversityEmailDomainsView.from(tenant);
     }

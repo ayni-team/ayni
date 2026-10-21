@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.Tenant;
@@ -25,6 +26,7 @@ import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 import pe.ayni.shared.tenancy.TenantContext;
 
 class UpdateUniversityIdentityUseCaseTest {
@@ -39,13 +41,17 @@ class UpdateUniversityIdentityUseCaseTest {
     private final UserRepository users =
             mock(UserRepository.class);
 
+    private final ApplicationEventPublisher events =
+            mock(ApplicationEventPublisher.class);
+
     private final UpdateUniversityIdentityUseCase useCase =
             new UpdateUniversityIdentityUseCase(
                     tenants,
                     users,
                     Clock.fixed(
                             NOW,
-                            ZoneOffset.UTC));
+                            ZoneOffset.UTC),
+                    events);
 
     @Test
     void activeCoordinatorUpdatesOwnUniversity() {
@@ -119,6 +125,14 @@ class UpdateUniversityIdentityUseCaseTest {
 
         verify(tenants)
                 .save(tenant);
+
+        // It tells that the identity changed and who did it, and nothing of the logo or the colours.
+        verify(events)
+                .publishEvent(
+                        new UniversityIdentityChanged(
+                                "UPC",
+                                coordinatorId,
+                                NOW));
     }
 
     @Test
