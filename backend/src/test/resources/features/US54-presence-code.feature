@@ -61,3 +61,40 @@ Feature: Proving presence with a code sent by email
     And a participant cannot confirm while the other participant has not joined
     And a stranger is refused
     And a code that is not six digits is refused without spending an attempt
+
+  # Resending the code (task US54-T4). Asked by the participant whose email did not arrive, at
+  # POST /api/v1/sessions/{id}/presence/resend. They run in PresenceCodeResendAcceptanceTest, with
+  # real session tokens and a clock the test moves, and the rule of the limits without Spring in
+  # PresenceCheckTest. Every refusal is a 409, the wait between two resends included.
+
+  Scenario: Asking for the code again sends a new one and the old one stops working
+    Given the presence codes were sent and Ana's email did not arrive
+    When Ana asks for her code again
+    Then she is answered that it is on its way, and the answer does not carry the code
+    And a new six digit code is sent to her alone, valid for fifteen minutes from now
+    And the old code is refused as a wrong code
+    And the new code confirms her presence
+
+  Scenario: A code can be sent again three times, at least a minute apart
+    When Ana asks again right after a resend
+    Then she is refused until a minute has passed since the last one
+    When she asks three times a minute apart
+    Then the fourth time is refused for good
+
+  Scenario: A code that cannot be used cannot be sent again
+    Then a resend is refused when her presence is already confirmed
+    And when she already spent her five attempts, which a new code does not give back
+    And when no code was sent yet, when she never joined, or when the session is not in progress
+
+  Scenario: Only a participant asks for their own code
+    Then a stranger is refused
+    And a person of another university finds no such session
+
+  Scenario: Two requests to resend at once send one new code
+    When Ana asks for her code again twice at the same moment
+    Then one is answered and the other refused, and only one new code is sent
+
+  Scenario: A resent code travels only by email
+    When Ana asks for her code again
+    Then the notice she receives keeps the session and the expiry but never the code
+    And only the hash of the new code is stored
