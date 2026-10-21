@@ -1222,9 +1222,11 @@ Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCo
 `SessionAbandoned`, `CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever
 is added later.
 
-| Method | Path | Who |
-|---|---|---|
-| GET | `/api/v1/notifications` | signed in — own notices |
+| Method | Path | Who | Does |
+|---|---|---|---|
+| GET | `/api/v1/notifications?page=&size=&unread=` | student or coordinator | own notices, newest first, with `unreadCount` |
+| POST | `/api/v1/notifications/{id}/read` | student or coordinator | marks one of their own as read (204) |
+| POST | `/api/v1/notifications/read-all` | student or coordinator | marks every unread one of theirs as read (204) |
 
 The row is written before the email leaves, and a failure is recorded. Two things depend on delivery
 working: getting in, and confirming presence.
@@ -1243,8 +1245,35 @@ missing, or when nobody came. The notice
 is a `TUTOR_NO_SHOW`, committed before the email leaves like the others, and keeps the session and
 nothing else; neither the address nor the email goes to a log.
 `PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice
-stores the purchase identifier and amount, not payment credentials. The other events above, and
-`GET /api/v1/notifications`, are still to do.
+stores the purchase identifier and amount, not payment credentials. The other events above are
+still to do.
+
+**The inbox.** The person reads their own notices, those with their `recipient_id` in the university
+of their session; no endpoint takes a recipient. `GET /api/v1/notifications` answers `items`
+(`id`, `kind`, `payload`, `createdAt`, `readAt`), `page`, `size` (20 by default, 100 at most),
+`total` and `unreadCount`, newest first; `unread=true` keeps the ones not read yet, and
+`unreadCount` counts all of them whatever the filter. What it leaves out:
+
+- `ACCESS_LINK` and `PRESENCE_CODE` (`NotificationKind.isListed`): they travel by email and carry a
+  secret, so they are not notices of the application. They cannot be marked as read either.
+- Rows without a `recipient_id`, which have nobody to show them to.
+- `recipient_email` and `failed_reason`. The list belongs to the application, not to the delivery:
+  a notice whose email failed is listed all the same.
+
+Marking is idempotent: `Notification.markRead` keeps the date of the first time, which comes from
+the `Clock`. The notice is read with a pessimistic lock (`lockOwned`, `lockUnread`), so two requests
+at once take turns and the second finds the date the first set (`NotificationsInboxAcceptanceTest`
+holds the lock from one transaction and fails when it is removed). The scenarios are in
+`notifications-inbox.feature`, which has no story number because the inbox is no story of the
+backlog.
+
+| Status | When |
+|---|---|
+| 204 | Marked, or it already was; `read-all` also answers 204 when nothing was unread |
+| 400 | A `page` below 0, a `size` outside 1 to 100, or an identifier that is not a UUID |
+| 401 | No session (the access filter) |
+| 403 | A platform administrator, who belongs to no university (the access filter) |
+| 404 | The notice is somebody else's, another university's, of a kind that is not listed, or does not exist |
 
 ---
 

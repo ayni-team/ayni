@@ -121,6 +121,22 @@ public class Notification {
         why.length() <= MAX_REASON_LENGTH ? why : why.substring(0, MAX_REASON_LENGTH);
   }
 
+  /**
+   * Records that the recipient has seen it. Reading a notice that was already read changes
+   * nothing, so the date stays the one of the first time.
+   */
+  public void markRead(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (readAt == null) {
+      this.readAt = now;
+    }
+  }
+
+  /** Whether the recipient has seen it. */
+  public boolean isRead() {
+    return readAt != null;
+  }
+
   private void requirePending() {
     if (!isPending()) {
       throw new IllegalStateException("The outcome of notification " + id + " is already recorded");
