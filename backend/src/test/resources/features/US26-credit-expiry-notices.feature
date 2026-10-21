@@ -2,6 +2,10 @@
 #
 # Each scenario is exercised against PostgreSQL by a test of the same name in
 # WalletCreditExpiryNoticeAcceptanceTest.
+#
+# Wallet publishes the notice; the email and the notice that reach the student are the scenario
+# "Expiring credits tell the student" of notifications-notices.feature.
+
 Feature: Advance notices for expiring credits
 
   Background:

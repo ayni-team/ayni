@@ -11,6 +11,10 @@
 # Every scenario names the test that runs it, against a real PostgreSQL with the real wallet, in
 # CloseSessionAcceptanceTest, with the same name. The session's rules are covered without Spring by
 # SessionTest, and the refund by WalletEventListenersTest.
+#
+# Both participants are told how the session ended: the scenarios "A completed session tells both and
+# invites the student to rate it" and "An unverified session tells both that nobody earns and the
+# student is refunded" of notifications-notices.feature.
 
 Feature: Closing a session
 

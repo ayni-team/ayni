@@ -1239,7 +1239,9 @@ recipient_id   uuid                     -- NULL when the recipient has no accoun
 recipient_email varchar(160) NOT NULL
 kind           varchar(40)   NOT NULL   -- ACCESS_LINK | BOOKING_CONFIRMED | SESSION_REMINDER |
                                         -- PRESENCE_CODE | CREDITS_EXPIRING | PURCHASE_CONFIRMED |
-                                        -- TUTOR_NO_SHOW | REQUEST_RESOLVED …
+                                        -- TUTOR_NO_SHOW | REQUEST_RESOLVED |
+                                        -- BOOKING_CANCELLED | SESSION_CLOSED |
+                                        -- VALIDATION_RESOLVED
 payload        jsonb         NOT NULL
 sent_at        timestamptz
 failed_reason  varchar(500)
@@ -1253,6 +1255,10 @@ INDEX (kind) WHERE sent_at IS NULL
 The row is written before the email leaves. A notice that was never sent has to be visible, because
 two things that matter depend on email arriving: getting in, and confirming presence.
 Purchase confirmations are also emailed after `PurchaseConfirmed` is delivered from payments.
+The notices of a booking, credits about to expire, a closed session and the decision on a request or
+on the evidence for a tool are written the same way. Their `id` is derived from the kind, the event
+and the recipient (a name based UUID), so the same event delivered twice finds the row it wrote.
+`SESSION_REMINDER` is allowed by the CHECK and written by nothing yet.
 
 A person reads their own notices through `GET /api/v1/notifications`, by `(tenant_id, recipient_id,
 created_at DESC)`, which is the first index. `ACCESS_LINK` and `PRESENCE_CODE` rows are never

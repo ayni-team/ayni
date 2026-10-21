@@ -1274,11 +1274,15 @@ tutor in the same skill at once are both counted.
 
 **No published interface, and nothing depends on it.** It only listens.
 
-**Calls:** `IdentityApi.requireUser` — for the address of the person an event names.
+**Calls:** `IdentityApi.requireUser` — for the address of the person an event names — and
+`IdentityApi.requireTenant`, for the zone in which a date reads in an email.
 
-Reacts to `AccessRequested`, `BookingConfirmed`, `BookingCancelled`, `PresenceCodeIssued`,
-`SessionAbandoned`, `CreditsExpiring`, `RecognitionResolved`, `ValidationResolved`, and whatever
-is added later.
+Reacts to `AccessRequested`, `PresenceCodeIssued`, `SessionAbandoned`, `PurchaseConfirmed`,
+`BookingConfirmed`, `BookingCancelled`, `CreditsExpiring`, `SessionCompleted`, `SessionUnverified`,
+`RecognitionResolved` and `ValidationResolved`: exactly the listeners of `NotificationEventListeners`,
+which `NotificationEventListenersTest` pins. A new event is a new listener, a new `Deliver...` use
+case and, when it is a new kind of notice, a migration of `ck_notifications_kind` and a constant of
+`NotificationKind`.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -1303,8 +1307,39 @@ missing, or when nobody came. The notice
 is a `TUTOR_NO_SHOW`, committed before the email leaves like the others, and keeps the session and
 nothing else; neither the address nor the email goes to a log.
 `PurchaseConfirmed` sends the student a receipt of the confirmed credit amount (US36); the notice
-stores the purchase identifier and amount, not payment credentials. The other events above are
-still to do.
+stores the purchase identifier and amount, not payment credentials.
+
+**The notices that follow an event.** Each is delivered by a use case of its own, over a shared
+`NoticeSender`, and all are written in Spanish like the rest:
+
+| Event | Who is told | Kind | Payload |
+|---|---|---|---|
+| `BookingConfirmed` | the student and the tutor (US03) | `BOOKING_CONFIRMED` | `bookingId`, `startsAt`, `role` |
+| `BookingCancelled` | the other party: the tutor when `cancelledBy` is `STUDENT`, the student when it is `TUTOR` or `SYSTEM` (US05) | `BOOKING_CANCELLED` | `bookingId`, `cancelledBy`, `late` |
+| `CreditsExpiring` | the student (US26) | `CREDITS_EXPIRING` | `amount`, `expiresAt` |
+| `SessionCompleted`, `SessionUnverified` | the student and the tutor (US11) | `SESSION_CLOSED` | `sessionId`, `outcome` (`COMPLETED` or `UNVERIFIED`), `role`, and `creditsEarned` for the tutor |
+| `RecognitionResolved` | the student (US29) | `REQUEST_RESOLVED` | `requestId`, `approved` |
+| `ValidationResolved` | the tutor (US16) | `VALIDATION_RESOLVED` | `validationRequestId`, `catalogItemId`, `approved` |
+
+- **No free text.** The reason of a decision is not in the payload nor in the email: the person reads
+  it where the decision is kept (`GET /api/v1/recognition/requests/mine`, their skills). Neither is an
+  address in a payload or a log.
+- **Dates read in the university's zone**, taken from identity and named in the email; if identity
+  cannot say, UTC. The email of a booking says where to enter the session, in the application: no
+  link to the room travels by email, and the student's `SESSION_CLOSED` email invites them to rate
+  without a link, because the frontend builds it. An unverified session invites nobody to rate.
+- **Once per event and recipient.** The identifier of a notice is derived from the kind, the thing
+  the event is about (the booking, the session, the request) and the recipient, so an event
+  delivered twice finds its notice written (`NotificationLog.recordOnce`) and tells nobody again. A
+  notice left pending by a delivery that stopped halfway is sent on the second one; one that is
+  already sent or failed is not. `CreditsExpiring` has no identifier of its own, so a group is
+  named by the student, the expiry, the amount and the instant of the job.
+- **A failure stays where it happened.** A refused email marks its notice failed. A recipient that
+  identity does not know is logged by identifier and skipped, and the next recipient is still told.
+  Any other failure to write a notice is thrown only after every recipient was tried, so the event
+  is delivered again and the notices already written are skipped.
+- `SESSION_REMINDER` is a kind of the table that nothing writes yet; reminders, preferences and
+  reputation at risk are not built.
 
 **The inbox.** The person reads their own notices, those with their `recipient_id` in the university
 of their session; no endpoint takes a recipient. `GET /api/v1/notifications` answers `items`

@@ -12,6 +12,9 @@
 #
 # The scenarios after the fourth are not on the card. They pin down what the card leaves out: who
 # may review, what is refused, and what a tutor can do after the tool was approved.
+#
+# The tutor is told of the decision by email and by a notice: the scenario "A decision on the
+# evidence for a tool tells the tutor without its reason" of notifications-notices.feature.
 
 Feature: Evidence for a global tool
 
