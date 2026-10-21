@@ -26,7 +26,10 @@ import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.wallet.application.ExpireCredits;
+import pe.ayni.wallet.domain.model.LedgerDirection;
 import pe.ayni.wallet.domain.model.LedgerEntry;
+import pe.ayni.wallet.domain.model.LedgerReason;
+import pe.ayni.wallet.domain.model.ReferenceType;
 import pe.ayni.wallet.domain.services.LedgerChain;
 import pe.ayni.wallet.infrastructure.LedgerEntryRepository;
 
@@ -54,8 +57,8 @@ class WalletLedgerTest {
   @Autowired private JdbcTemplate jdbc;
 
   @Test
-  @DisplayName("the database refuses to change or remove a ledger entry")
-  void theLedgerIsAppendOnly() {
+  @DisplayName("Immutable movements")
+  void immutableMovements() {
 
     grant(4, CreditType.EARNED, null);
     UUID anEntry = lastEntryOfThisStudent();
@@ -78,8 +81,8 @@ class WalletLedgerTest {
   }
 
   @Test
-  @DisplayName("the balance equals the movements added up")
-  void theBalanceAgreesWithTheHistory() {
+  @DisplayName("Rebuildable balance")
+  void rebuildableBalance() {
 
     UUID booking = UUID.randomUUID();
 
@@ -106,6 +109,43 @@ class WalletLedgerTest {
     assertThat(available.amount()).isEqualTo(credited - debited);
     // 10 granted, 5 that expired, 4 earned: everything except the expired grant.
     assertThat(available).isEqualTo(Credits.of(14));
+  }
+
+  @Test
+  @DisplayName("Correction by compensation")
+  void correctionByCompensation() {
+
+    UUID booking = UUID.randomUUID();
+    grant(10, CreditType.SEED, Instant.now().plus(Duration.ofDays(30)));
+
+    TenantContext.runAs(UPC, () -> wallet.charge(student, Credits.of(3), booking));
+    LedgerEntry charge = onlyEntryOf(booking);
+    String chargeHash = charge.entryHash();
+    int before = entries.findByTenantIdAndAccountIdOrderBySequenceNumberAsc(UPC, accountId()).size();
+
+    // The charge was a mistake: cancelling the booking puts the credits back.
+    TenantContext.runAs(UPC, () -> wallet.refund(booking));
+
+    List<LedgerEntry> history =
+        entries.findByTenantIdAndReferenceTypeAndReferenceIdOrderBySequenceNumberAsc(
+            UPC, ReferenceType.BOOKING, booking);
+
+    // A new entry compensates the charge, and the charge is exactly what it was.
+    assertThat(history).hasSize(2);
+    LedgerEntry original = history.getFirst();
+    LedgerEntry compensation = history.getLast();
+    assertThat(original.id()).isEqualTo(charge.id());
+    assertThat(original.entryHash()).isEqualTo(chargeHash);
+    assertThat(original.direction()).isEqualTo(LedgerDirection.DEBIT);
+    assertThat(original.amount()).isEqualTo(Credits.of(3));
+    assertThat(compensation.direction()).isEqualTo(LedgerDirection.CREDIT);
+    assertThat(compensation.amount()).isEqualTo(Credits.of(3));
+    assertThat(compensation.reason()).isEqualTo(LedgerReason.BOOKING_REFUND);
+    assertThat(compensation.sequenceNumber()).isGreaterThan(original.sequenceNumber());
+    assertThat(entries.findByTenantIdAndAccountIdOrderBySequenceNumberAsc(UPC, accountId()))
+        .hasSize(before + 1);
+    assertThat(LedgerChain.firstTamperedEntry(entries.findByTenantIdOrderBySequenceNumberAsc(UPC)))
+        .isEmpty();
   }
 
   @Test
@@ -177,6 +217,14 @@ class WalletLedgerTest {
   private void grant(int amount, CreditType type, Instant expiresAt) {
     TenantContext.runAs(
         UPC, () -> wallet.grant(student, Credits.of(amount), type, expiresAt, UUID.randomUUID()));
+  }
+
+  private LedgerEntry onlyEntryOf(UUID booking) {
+    List<LedgerEntry> found =
+        entries.findByTenantIdAndReferenceTypeAndReferenceIdOrderBySequenceNumberAsc(
+            UPC, ReferenceType.BOOKING, booking);
+    assertThat(found).hasSize(1);
+    return found.getFirst();
   }
 
   private Credits balanceOf() {

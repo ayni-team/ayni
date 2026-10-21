@@ -673,6 +673,7 @@ the student was present, which means the tutor was the one missing) and `Purchas
 | POST | `/api/v1/wallet/donations` | student — donate earned credits to the incoming-student pool |
 | GET | `/api/v1/wallet/donation-pool` | student — total donated credits and contribution count |
 | GET | `/api/v1/wallet/donations` | student — their own donation history |
+| GET | `/api/v1/coordinator/ledger/integrity` | coordinator — verifies the whole ledger chain of their university and counts the balances the history does not explain (TS02) |
 
 Redemptions and donations first return an irreversible-operation warning with a confirmation
 identifier. The student must send that identifier in a second request within ten minutes. Confirmed
@@ -690,6 +691,39 @@ The daily expiry job publishes one `CreditsExpiring` event per unspent credit gr
 configured `ayni.wallet.expiry-notice-days` window (seven days by default). Wallet stores the
 publication time on the group, so subsequent runs do not publish a duplicate notice. This job only
 publishes the event; email delivery in `notifications` is a separate responsibility.
+
+**Integrity of the ledger (TS02).** `GET /coordinator/ledger/integrity` walks the chain of the
+caller's university in order, `ayni.wallet.integrity-page-size` entries at a time (500 by default)
+with a cursor on `sequence_number`, so the chain is never held whole in memory: only the last entry
+of each page is kept, to check the next page against, and the persistence context is emptied
+between pages. For every entry `LedgerChain` checks that it matches its own hash and that it
+carries the hash of the one before it; the hash rule and the way the ledger is written are the
+same as ever. The caller must be an active coordinator (`IdentityApi.requireUser` and `isActive`):
+a student, or a coordinator who is restricted, gets a 403.
+
+| Field | Meaning |
+|---|---|
+| `intact` | whether the whole chain holds |
+| `entriesChecked` | entries read; when the chain fails, up to and including the first inconsistent one |
+| `checkedAt` | the moment of the check, from the `Clock` |
+| `firstInconsistentEntryId`, `firstInconsistentPosition`, `firstInconsistentSequenceNumber` | only when it fails: the first entry that does not add up, its place in the chain as read (from 1), and the sequence number it carries |
+| `balanceMismatches` | accounts whose entries, credits minus debits, differ from the balance `GET /wallet` shows |
+
+An edited row is reported at that row; a deleted row is reported at the entry that followed it,
+whose position is then one less than its sequence number. The answer holds no amount and no person.
+`balanceMismatches` is one SQL count that compares, for each account, the net of its entries with
+the remaining credits of its live groups, plus the groups that reached their expiry and that the
+nightly job has not yet written down (they are still credits in the history), so the hours between
+an expiry and the job are not a mismatch. It never lists the accounts. `intact` speaks of the chain
+alone; a chain can be intact while a balance is wrong, and the other way round.
+
+A daily job (`ayni.wallet.integrity-check-delay`, `PT24H`) does the same for every university of
+`IdentityApi.activeTenantCodes()`, one at a time, and writes an `ERROR` that names the university
+and the position of the break, with no amount and no person. It does not repair anything: a broken
+chain is found, not fixed. A deleted last entry leaves a chain that is still consistent; only the
+balance count notices it. The four scenarios of
+`TS02-ledger-integrity.feature` are verified by `WalletLedgerTest` (the first three) and
+`LedgerIntegrityAcceptanceTest` (tampering is detected).
 
 A refund is idempotent, and it has to be. `booking` calls `WalletApi.refund` inside its own
 transaction, and the `BookingCancelled` listener above is a net behind that call, not a second one.

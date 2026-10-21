@@ -121,6 +121,10 @@ ayni:
     # The daily wallet job warns once for each expiring group this many days in advance.
     expiry-notice-days: 7
     expiry-cron: "0 0 3 * * *"
+    # How often the chain of every university's ledger is verified (TS02), and how many entries
+    # are read at a time while doing it.
+    integrity-check-delay: PT24H
+    integrity-page-size: 500
     # How long a student has to confirm a redemption or a donation after reading the warning.
     credit-use-confirmation-validity: PT10M
   audit:

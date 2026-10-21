@@ -89,6 +89,27 @@ class LedgerChainTest {
         .isTrue();
   }
 
+  @Test
+  @DisplayName("verifies a stretch of the chain as the continuation of the entry before it")
+  void verifiesAStretchAsTheContinuationOfThePreviousEntry() {
+
+    List<LedgerEntry> ledger = ledgerOfThreeEntries();
+
+    assertThat(LedgerChain.firstTamperedEntry(ledger.getFirst(), ledger.subList(1, 3))).isEmpty();
+  }
+
+  @Test
+  @DisplayName("finds the first entry of a stretch when it does not point at the entry before it")
+  void findsAStretchThatDoesNotContinueThePreviousEntry() {
+
+    List<LedgerEntry> ledger = ledgerOfThreeEntries();
+
+    // The third entry is well formed, but the entry handed over as its predecessor is not the one
+    // it points at: what a deleted entry between two pages looks like.
+    assertThat(LedgerChain.firstTamperedEntry(ledger.getFirst(), ledger.subList(2, 3)))
+        .contains(ledger.get(2));
+  }
+
   private static List<LedgerEntry> ledgerOfThreeEntries() {
 
     CreditLot lot = seedExpiringInDays(10, 30);

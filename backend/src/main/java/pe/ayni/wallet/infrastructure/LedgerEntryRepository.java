@@ -102,4 +102,52 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
 
   List<LedgerEntry> findByTenantIdAndAccountIdOrderBySequenceNumberAsc(
       String tenantId, UUID accountId);
+
+  /**
+   * The next stretch of a university's chain, after the given sequence number.
+   *
+   * <p>A cursor and not an offset: the verification asks for the entries that follow the last one
+   * it checked, so each page costs one indexed range read however far into the chain it is, and
+   * the chain is never held whole in memory.
+   */
+  List<LedgerEntry> findByTenantIdAndSequenceNumberGreaterThanOrderBySequenceNumberAsc(
+      String tenantId, long afterSequenceNumber, Pageable pageable);
+
+  /**
+   * How many accounts of a university whose history does not add up to what the wallet shows.
+   *
+   * <p>For each account, the credits minus the debits of its entries are compared with what {@code
+   * GET /wallet} would show: the remaining credits of the groups that are still alive. The groups
+   * that reached their expiry and that the nightly job has not yet written down still sit in the
+   * history as credits, so they are added to what is shown; otherwise every account would read as
+   * wrong for the hours between an expiry and the job. Only the count leaves the database, never
+   * who the accounts belong to.
+   */
+  @Query(
+      value =
+          """
+          select count(*)
+          from wallet.credit_accounts a
+          left join (
+              select account_id,
+                     sum(case direction when 'CREDIT' then amount else -amount end) as net
+              from wallet.ledger_entries
+              where tenant_id = :tenantId
+              group by account_id) history on history.account_id = a.id
+          left join (
+              select account_id,
+                     sum(remaining_amount)
+                         filter (where expires_at is null or expires_at > :now) as shown,
+                     sum(remaining_amount)
+                         filter (where expires_at is not null and expires_at <= :now) as overdue
+              from wallet.credit_lots
+              where tenant_id = :tenantId
+              group by account_id) holdings on holdings.account_id = a.id
+          where a.tenant_id = :tenantId
+            and coalesce(history.net, 0)
+                <> coalesce(holdings.shown, 0) + coalesce(holdings.overdue, 0)
+          """,
+      nativeQuery = true)
+  long countAccountsWhoseBalanceDisagrees(
+      @Param("tenantId") String tenantId, @Param("now") Instant now);
 }
