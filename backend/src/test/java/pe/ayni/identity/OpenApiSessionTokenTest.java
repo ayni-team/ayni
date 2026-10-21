@@ -50,11 +50,26 @@ class OpenApiSessionTokenTest {
     JsonNode docs = apiDocs();
 
     for (String path : List.of("/paths/~1api~1v1~1access~1request/post",
-        "/paths/~1api~1v1~1access~1confirm/post")) {
+        "/paths/~1api~1v1~1access~1confirm/post",
+        "/paths/~1api~1v1~1access~1university/get")) {
       JsonNode operation = docs.at(path);
       assertThat(operation.isMissingNode()).isFalse();
       assertThat(operation.path("security").isArray()).isTrue();
       assertThat(operation.path("security")).isEmpty();
+    }
+  }
+
+  @Test
+  @DisplayName("The endpoints that read and edit the university are in Swagger and ask for the token")
+  void theUniversityEndpointsAreInSwagger() throws Exception {
+    JsonNode docs = apiDocs();
+
+    for (String path : List.of("/paths/~1api~1v1~1university/get",
+        "/paths/~1api~1v1~1admin~1universities~1{code}~1email-domains/put")) {
+      JsonNode operation = docs.at(path);
+      assertThat(operation.isMissingNode()).isFalse();
+      assertThat(operation.path("summary").asText()).isNotBlank();
+      assertThat(operation.has("security")).isFalse();
     }
   }
 

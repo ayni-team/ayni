@@ -5,6 +5,7 @@ import java.time.Clock;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
@@ -23,7 +24,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
                 AdminUniversitiesController.class,
                 CoordinatorInvitationController.class,
                 CreditPolicyController.class,
-                UniversityIdentityController.class
+                UniversityIdentityController.class,
+                UniversityController.class
         })
 class IdentityExceptionHandler {
 
@@ -102,6 +104,17 @@ class IdentityExceptionHandler {
         return answer(
                 HttpStatus.BAD_REQUEST,
                 message,
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ApiError> handleMissingParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                exception.getParameterName() + " is required",
                 request);
     }
 

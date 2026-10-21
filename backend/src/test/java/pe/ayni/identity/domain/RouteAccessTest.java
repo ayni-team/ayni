@@ -16,6 +16,7 @@ class RouteAccessTest {
     @CsvSource({
         "POST, /api/v1/access/request",
         "POST, /api/v1/access/confirm",
+        "GET, /api/v1/access/university",
         "GET, /swagger-ui.html",
         "GET, /swagger-ui/index.html",
         "GET, /v3/api-docs",
@@ -31,6 +32,7 @@ class RouteAccessTest {
     @CsvSource({
         "POST, /api/v1/admin/universities, PLATFORM_ADMIN",
         "GET, /api/v1/admin/universities, PLATFORM_ADMIN",
+        "PUT, /api/v1/admin/universities/UPC/email-domains, PLATFORM_ADMIN",
         "PUT, /api/v1/coordinator/credit-policy, COORDINATOR",
         "GET, /api/v1/coordinator/indicators, COORDINATOR",
         "GET, /api/v1/wallet, STUDENT",
@@ -52,13 +54,20 @@ class RouteAccessTest {
         assertThat(RouteAccess.of("GET", "/api/v1/administrators").allowedRoles())
                 .containsExactly(AccessRole.STUDENT);
         assertThat(RouteAccess.of("POST", "/api/v1/access/requests").isPublic()).isFalse();
+        assertThat(RouteAccess.of("GET", "/api/v1/access/universities").isPublic()).isFalse();
+        assertThat(RouteAccess.of("PUT", "/api/v1/university").allowedRoles())
+                .containsExactly(AccessRole.STUDENT);
     }
 
     @Test
-    @DisplayName("the own profile and the notices are for whoever belongs to a university")
+    @DisplayName("the own profile, the own university and the notices are for whoever belongs to a university")
     void membersRoutes() {
         assertThat(RouteAccess.of("GET", "/api/v1/me").allowedRoles())
                 .containsExactlyInAnyOrder(AccessRole.STUDENT, AccessRole.COORDINATOR);
+        assertThat(RouteAccess.of("GET", "/api/v1/university").allowedRoles())
+                .containsExactlyInAnyOrder(AccessRole.STUDENT, AccessRole.COORDINATOR);
+        assertThat(RouteAccess.of("GET", "/api/v1/university").allows(AccessRole.PLATFORM_ADMIN))
+                .isFalse();
         assertThat(RouteAccess.of("GET", "/api/v1/notifications").allowedRoles())
                 .containsExactlyInAnyOrder(AccessRole.STUDENT, AccessRole.COORDINATOR);
     }

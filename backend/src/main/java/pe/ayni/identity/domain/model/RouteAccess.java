@@ -13,13 +13,16 @@ import java.util.Set;
  * everybody without a session out of everything that is not deliberately public.
  *
  * <ul>
- *   <li>{@code /api/v1/access/request} and {@code /api/v1/access/confirm}, Swagger and the health
- *       check are public: they are how somebody gets a session, or they describe the platform.
+ *   <li>{@code /api/v1/access/request}, {@code /api/v1/access/confirm} and {@code
+ *       /api/v1/access/university}, Swagger and the health check are public: they are how somebody
+ *       gets a session, the name and colours of the university an email belongs to, or they
+ *       describe the platform.
  *   <li>{@code /api/v1/admin/**} requires {@code PLATFORM_ADMIN}.
  *   <li>{@code /api/v1/coordinator/**} requires {@code COORDINATOR}.
  *   <li>Signing out, and any path outside {@code /api}, requires a session of any kind.
- *   <li>{@code GET /api/v1/me} and {@code /api/v1/notifications/**} are for a student or a
- *       coordinator: the backend guide gives them to whoever is signed in into a university.
+ *   <li>{@code GET /api/v1/me}, {@code GET /api/v1/university} and {@code
+ *       /api/v1/notifications/**} are for a student or a coordinator: the backend guide gives them
+ *       to whoever is signed in into a university.
  *   <li>Every other {@code /api} route requires {@code STUDENT}.
  * </ul>
  */
@@ -29,6 +32,7 @@ public final class RouteAccess {
             List.of(
                     "/api/v1/access/request",
                     "/api/v1/access/confirm",
+                    "/api/v1/access/university",
                     "/swagger-ui.html",
                     "/swagger-ui",
                     "/v3/api-docs",
@@ -59,7 +63,8 @@ public final class RouteAccess {
         if (within(path, "/api/v1/access") || !within(path, "/api")) {
             return new RouteAccess(ANYBODY);
         }
-        if (("GET".equalsIgnoreCase(method) && path.equals("/api/v1/me"))
+        if (("GET".equalsIgnoreCase(method)
+                        && (path.equals("/api/v1/me") || path.equals("/api/v1/university")))
                 || within(path, "/api/v1/notifications")) {
             return new RouteAccess(MEMBERS);
         }

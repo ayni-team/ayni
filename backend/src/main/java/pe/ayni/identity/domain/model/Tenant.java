@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -120,6 +121,24 @@ public class Tenant {
         return emailDomains.stream()
                 .map(value -> value.toLowerCase(Locale.ROOT))
                 .anyMatch(domain::equals);
+    }
+
+    /** Whether this university already holds at least one of the domains, whatever their case. */
+    public boolean holdsAnyOf(Collection<String> domains) {
+        return emailDomains.stream()
+                .map(value -> value.toLowerCase(Locale.ROOT))
+                .anyMatch(domains::contains);
+    }
+
+    /**
+     * Replaces the whole list of institutional domains.
+     *
+     * <p>The domains are the ones this university will be recognised by from now on, so none may be
+     * left out by mistake: the list must have one at least.
+     */
+    public void replaceEmailDomains(List<String> domains, Instant now) {
+        this.emailDomains = EmailDomains.normalize(domains);
+        this.updatedAt = Objects.requireNonNull(now, "now must not be null");
     }
 
     public boolean isActive() {

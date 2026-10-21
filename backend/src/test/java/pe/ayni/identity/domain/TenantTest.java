@@ -1,6 +1,7 @@
 package pe.ayni.identity.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 
@@ -76,5 +78,38 @@ class TenantTest {
         assertThat(tenant.isActive()).isFalse();
         assertThat(tenant.getStatus()).isEqualTo(TenantStatus.SUSPENDED);
         assertThat(tenant.getUpdatedAt()).isEqualTo(NOW.plusSeconds(60));
+    }
+
+    @Test
+    @DisplayName("replacing the domains keeps exactly the new list and tells when it changed")
+    void replacingTheDomainsKeepsTheNewList() {
+        Tenant tenant = activeTenant();
+
+        tenant.replaceEmailDomains(List.of("UPC.pe", "upc.edu.pe", "upc.pe"), NOW.plusSeconds(60));
+
+        assertThat(tenant.getEmailDomains()).containsExactly("upc.pe", "upc.edu.pe");
+        assertThat(tenant.getUpdatedAt()).isEqualTo(NOW.plusSeconds(60));
+        assertThat(tenant.claims("someone@upc.pe")).isTrue();
+    }
+
+    @Test
+    @DisplayName("replacing the domains with none keeps the old ones")
+    void replacingTheDomainsWithNoneKeepsTheOldOnes() {
+        Tenant tenant = activeTenant();
+
+        assertThatThrownBy(() -> tenant.replaceEmailDomains(List.of(), NOW.plusSeconds(60)))
+                .isInstanceOf(IdentityRuleViolation.class);
+
+        assertThat(tenant.getEmailDomains()).containsExactly("upc.edu.pe");
+        assertThat(tenant.getUpdatedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    @DisplayName("holds a domain whatever the case it is asked in the list")
+    void holdsAnyOfTheDomains() {
+        Tenant tenant = activeTenant();
+
+        assertThat(tenant.holdsAnyOf(List.of("other.edu.pe", "upc.edu.pe"))).isTrue();
+        assertThat(tenant.holdsAnyOf(List.of("other.edu.pe"))).isFalse();
     }
 }

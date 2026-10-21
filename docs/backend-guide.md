@@ -232,10 +232,10 @@ runs, because there is no session; the `400` of the use case stays for the tests
 
 | Routes | Who |
 |---|---|
-| `/api/v1/access/request`, `/api/v1/access/confirm`, Swagger (`/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`), `/actuator/health` | anyone, without a session |
+| `/api/v1/access/request`, `/api/v1/access/confirm`, `GET /api/v1/access/university`, Swagger (`/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**`), `/actuator/health` | anyone, without a session |
 | `/api/v1/admin/**` | `PLATFORM_ADMIN` |
 | `/api/v1/coordinator/**` | `COORDINATOR` |
-| `GET /api/v1/me`, `/api/v1/notifications/**` | a student or a coordinator: whoever is signed in into a university |
+| `GET /api/v1/me`, `GET /api/v1/university`, `/api/v1/notifications/**` | a student or a coordinator: whoever is signed in into a university |
 | `POST /api/v1/access/logout`, anything outside `/api` | any session |
 | every other `/api` route | `STUDENT` |
 
@@ -383,11 +383,14 @@ public interface IdentityApi {
 | POST | `/api/v1/access/request` | anyone | receives an email, decides the university, sends the link |
 | POST | `/api/v1/access/confirm` | anyone | consumes the token, opens the session, returns the profile |
 | POST | `/api/v1/access/logout` | signed in | revokes the session of the token it carries (TS03) |
+| GET | `/api/v1/access/university?email=` | anyone | name, logo and colours of the university that claims the domain of the email (US39) |
+| GET | `/api/v1/university` | student, coordinator | the university of the session, with its email domains and time zone (US39) |
 | GET | `/api/v1/me` | signed in | own profile |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
 | POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
+| PUT | `/api/v1/admin/universities/{code}/email-domains` | admin | replaces the whole list of email domains of a university (US50) |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
 | PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
 | PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
@@ -486,15 +489,51 @@ current, never two and never a `500`.
 
 **University identity (US50).** `PUT /api/v1/coordinator/university-identity` takes `logoUrl`,
 `primaryColor` and `secondaryColor`, each optional and replaced as a whole: a field that is missing
-or blank leaves the university with none. The university is the one of the request
-(`X-Tenant-Id`); the body has no field for it and a code that appears there is ignored. It answers
-the university's `code`, `name` and the three values as they are stored.
+or blank leaves the university with none. The university is the one of the session; the body has
+no field for it and a code that appears there is ignored. It answers the university's `code`,
+`name` and the three values as they are stored.
 
 | Status | When |
 |---|---|
 | 200 | Updated |
-| 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour), or `X-Tenant-Id` or `X-User-Id` is missing |
+| 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour) |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
+
+**Seeing the university before signing in (US39).** `GET /api/v1/access/university?email=<address>`
+is public. It looks at the domain of the address only, the way `POST /api/v1/access/request` does
+(`IdentityApi.findTenantByEmailDomain` resolves the same university: the active one that claims the
+domain), and answers `code`, `name`, `logoUrl`, `primaryColor` and `secondaryColor` of that
+university, so a person knows it is the right one before asking for the link. It says nothing
+about whether the address has an account and nothing about people: an address with an account and
+one without answer alike.
+
+| Status | When |
+|---|---|
+| 200 | An active university claims the domain |
+| 400 | `email` is missing, blank or not an address: it needs exactly one `@` with something on each side and no spaces |
+| 404 | No active university claims the domain. A suspended university is answered exactly as one that is not affiliated |
+
+**Reading my university (US39).** `GET /api/v1/university` answers a student or a coordinator the
+same as above plus `emailDomains` and `timezone`. The university is the one of the session and the
+request cannot name another. A platform administrator belongs to none: the access filter answers
+`403` before the controller runs, and `401` answers a request without a session.
+
+**Editing the email domains (US50).** `PUT /api/v1/admin/universities/{code}/email-domains` takes
+`emailDomains`, the complete list the university will be recognised by from then on, and answers
+the university's `code`, `name` and `emailDomains`. Only a platform administrator edits it (the
+route is under `/api/v1/admin`): the coordinator of the university cannot, by decision. The domains
+are trimmed, kept in lower case and without repeats, in the order they came.
+
+| Status | When |
+|---|---|
+| 200 | Replaced. Keeping a domain the university already has is not a conflict |
+| 400 | The list is empty or missing, or a domain is blank or has an `@` or spaces |
+| 404 | The university does not exist |
+| 409 | A domain already belongs to another university, active or suspended |
+
+It takes the same database lock as registering a university before it reads the domains of the
+others, so two requests for the same domain end with one `200` and one `409`, never a `500`. The
+audit event of a change of domains or identity is not published yet (audit, W12).
 
 ---
 

@@ -36,7 +36,10 @@ sees another's data. Both rest on the same structure: modules with their own sch
 
 - **Role by route group.** `/api/v1/admin/**` requires `PLATFORM_ADMIN`, `/api/v1/coordinator/**`
   requires `COORDINATOR`, and everything else requires `STUDENT`. `/api/v1/access/request` and
-  `/api/v1/access/confirm` are public, because they are how somebody gets a session.
+  `/api/v1/access/confirm` are public, because they are how somebody gets a session, and so is
+  `GET /api/v1/access/university`, which shows the name and colours of the university an email
+  belongs to before the person signs in (US39). `GET /api/v1/me` and `GET /api/v1/university` are
+  for a student or a coordinator.
 - **Ownership is checked in the use case.** A role says what kind of person you are, not that this
   booking is yours. Only the use case has the data to decide that.
 
