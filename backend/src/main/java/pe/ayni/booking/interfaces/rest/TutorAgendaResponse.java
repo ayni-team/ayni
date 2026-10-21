@@ -48,7 +48,7 @@ public record TutorAgendaResponse(
       @Schema(example = "1") int hours,
       @Schema(description = "CONFIRMED, CANCELLED, COMPLETED or NO_SHOW.", example = "CONFIRMED")
       BookingStatus status,
-      Party student,
+      Student student,
       @Schema(description = "The course or skill the session is about.") Party catalogItem,
       @Schema(description = "What the student said they need help with.",
           example = "Normal forms before Friday's exam")
@@ -65,12 +65,23 @@ public record TutorAgendaResponse(
           booking.endsAt(),
           booking.hours(),
           booking.status(),
-          new Party(booking.studentId(), booking.studentName()),
+          new Student(booking.studentId(), booking.studentName(), booking.studentAbsences()),
           new Party(booking.catalogItemId(), booking.catalogItemName()),
           booking.needDescription(),
           booking.joinable());
     }
   }
+
+  /** The student of a booking as the tutor sees them. */
+  @Schema(name = "TutorBookingStudent")
+  public record Student(
+      @Schema(example = "4b0c9d9e-1f55-4d0e-9a5e-2f3a7c1b8d10") UUID id,
+      @Schema(description = "Null when identity no longer knows the student.", example = "Ana Torres")
+      String name,
+      @Schema(description =
+          "How many sessions this student did not come to in this university, the ones before this"
+              + " booking included. Only the number: never when, with whom or why.", example = "2")
+      int absenceCount) {}
 
   static TutorAgendaResponse of(TutorAgendaView agenda) {
     return new TutorAgendaResponse(

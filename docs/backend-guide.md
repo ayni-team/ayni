@@ -731,7 +731,8 @@ because a hold ends either in a booking, which is announced, or back in circulat
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
 **Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
 records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`, which means the tutor
-was the one missing.
+was the one missing. When the student was not present it also records the student's absence in
+`booking.student_absences` (US34), see "Student absences" below.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -834,6 +835,20 @@ its session", is no longer `@pending`; its test is in sessions.
 
 Both read only the bookings of the person who asks, in the university of their session: there is no
 way to name another student or tutor.
+
+**Student absences (US34).** The second half of `SessionAbandoned`: when `studentCheckedIn` is false
+the student did not come, whether or not the tutor did, and `RecordStudentAbsence` writes one row to
+`booking.student_absences` for that booking. A student who came is never recorded. It is a listener
+of its own in `BookingEventListeners`, next to the one that marks the booking, so a failure in one
+does not cost the other. The booking is locked while it is recorded and `UNIQUE (tenant_id,
+booking_id)` stands behind the check, so the event delivered twice, or at once, records one absence;
+a booking cancelled or completed in the meantime records none. Every `booking` of `GET
+/api/v1/tutor/agenda` (its `BOOKED` lines) and of `/history` carries `student.absenceCount`: how many
+absences that student has in this university, earlier bookings included, read with one grouped query
+for the whole list. The tutor sees only the number, never when, with whom or why, and nothing is held
+against the student because of it. The field exists only in the tutor's lists: `GET /bookings/mine`
+is the student's own and does not carry it. The scenario "A tutor sees the student's absences before
+the session" of `US32-rate-session.feature` is no longer `@pending`; its test is in booking.
 
 **A tutor no-show (US06).** When sessions abandons a session because a participant did not come,
 the booking becomes `NO_SHOW` in every case, and only when the student was present, so the tutor was

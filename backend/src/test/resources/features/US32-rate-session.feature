@@ -81,7 +81,6 @@ Feature: Rating a tutoring session
     When the tutor tries to assess them again
     Then the system shows the assessment that was registered instead of a new one
 
-  @pending
   Scenario: A tutor sees the student's absences before the session
     Given a student with registered absences books the tutor
     When the tutor reviews the session in their agenda
