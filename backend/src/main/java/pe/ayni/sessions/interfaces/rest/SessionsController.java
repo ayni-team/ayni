@@ -15,9 +15,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.sessions.application.ConfirmPresenceUseCase;
 import pe.ayni.sessions.application.EndSessionUseCase;
+import pe.ayni.sessions.application.FindSessionOfBookingQuery;
 import pe.ayni.sessions.application.JoinSessionUseCase;
 import pe.ayni.sessions.application.SessionDetailsQuery;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -35,19 +37,67 @@ import pe.ayni.shared.tenancy.CurrentUser;
 class SessionsController {
 
   private final SessionDetailsQuery sessionDetails;
+  private final FindSessionOfBookingQuery sessionOfBooking;
   private final JoinSessionUseCase joinSession;
   private final ConfirmPresenceUseCase confirmPresence;
   private final EndSessionUseCase endSession;
 
   SessionsController(
       SessionDetailsQuery sessionDetails,
+      FindSessionOfBookingQuery sessionOfBooking,
       JoinSessionUseCase joinSession,
       ConfirmPresenceUseCase confirmPresence,
       EndSessionUseCase endSession) {
     this.sessionDetails = sessionDetails;
+    this.sessionOfBooking = sessionOfBooking;
     this.joinSession = joinSession;
     this.confirmPresence = confirmPresence;
     this.endSession = endSession;
+  }
+
+  @GetMapping
+  @Operation(
+      summary = "The session of a booking, for its student or its tutor",
+      description =
+          "Lists of tutorings (US04, US21) point out the ones that can be joined but only know "
+              + "the booking. This answers the session of that booking, with when its room opens "
+              + "and when the booked hours end, so the person can read and join it. Only the "
+              + "student and the tutor of the session can ask. The room name is not included: "
+              + "joining hands it over.")
+  @ApiResponse(
+      responseCode = "200",
+      description = "The session of the booking",
+      content =
+          @Content(
+              schema = @Schema(implementation = SessionOfBookingResponse.class),
+              examples =
+                  @ExampleObject(
+                      value =
+                          """
+                          {"sessionId":"5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f",
+                           "bookingId":"d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f",
+                           "status":"SCHEDULED","joinOpensAt":"2026-09-30T19:45:00Z",
+                           "scheduledEnd":"2026-09-30T21:00:00Z"}
+                          """)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The booking is missing or is not a UUID",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The reader is neither the student nor the tutor of the session",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The booking has no session in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  SessionOfBookingResponse sessionOfBooking(
+      @Parameter(description = "Booking identifier",
+              example = "d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f")
+          @RequestParam("bookingId")
+          UUID bookingId) {
+    return SessionOfBookingResponse.of(
+        sessionOfBooking.execute(bookingId, CurrentUser.require()));
   }
 
   @GetMapping("/{id}")

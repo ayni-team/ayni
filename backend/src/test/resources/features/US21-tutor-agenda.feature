@@ -40,9 +40,8 @@ Feature: The tutor's agenda
     Then it is on that day, with its time in Lima
     And a period backwards or longer than a month is refused
 
-  # Not built, for the same reason as in US04: the session's identifier is sessions', and booking
-  # cannot ask sessions for it without the two modules depending on each other.
-  @pending
+  # The agenda only knows the booking, as in US04: sessions answers the session of a booking
+  # (GET /api/v1/sessions?bookingId=), and the tutor joins it with that identifier.
   Scenario: The highlighted tutoring opens its session
     Given one of my tutorings starts in less than fifteen minutes
     When I choose it in my agenda
