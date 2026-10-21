@@ -892,6 +892,13 @@ Every query of the search reads `ix_available_offers_search` and none the whole 
 was added. `SearchResponseTimeTest` repeats the measurement in every build and fails it beyond the
 thresholds; the method and the figures are in `performance/TS07-search-response-time.md`.
 
+The `DemandUncovered` of an empty window does not slow the search: analytics counts it on threads
+of its own (see "The search does not wait for this" under analytics). In the same run of
+`SearchResponseTimeTest`, the searches that publish it (`NARROW`, `UNTAUGHT`) measured as the ones
+that do not (`WEEK`): p95 between 140 and 185 ms for all three kinds, the noise of a build that
+shares the machine with others, against the 500 ms threshold. Counting it on the search's own thread
+did not pass: it exhausted the connection pool.
+
 **Uncovered demand (US53).** When nothing falls inside the window, the first page of the search
 publishes `DemandUncovered` with the university, the course, the start and the end of the window
 and the moment. It names no one: the student is not in it. It is published inside the transaction of
