@@ -28,7 +28,12 @@ class RuleInForce {
   }
 
   Optional<RecognitionRule> of(String tenantId, Instant now) {
+    return rules.findInForce(tenantId, today(tenantId, now));
+  }
+
+  /** The day it is for the university at that moment, which may not be the day in UTC. */
+  LocalDate today(String tenantId, Instant now) {
     ZoneId zone = ZoneId.of(identity.requireTenant(tenantId).timezone());
-    return rules.findInForce(tenantId, LocalDate.ofInstant(now, zone));
+    return LocalDate.ofInstant(now, zone);
   }
 }

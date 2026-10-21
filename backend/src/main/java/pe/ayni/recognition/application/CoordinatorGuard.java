@@ -39,4 +39,18 @@ class CoordinatorGuard {
     }
     return user;
   }
+
+  /**
+   * Like {@link #require}, and the coordinator must also be active: a restricted one can still sign
+   * in but cannot change what the university asks of its students.
+   *
+   * @throws NotACoordinator when they are not a coordinator, or are one who is not active
+   */
+  UserView requireActive(UUID userId) {
+    UserView user = require(userId);
+    if (!identity.isActive(userId)) {
+      throw new NotACoordinator();
+    }
+    return user;
+  }
 }
