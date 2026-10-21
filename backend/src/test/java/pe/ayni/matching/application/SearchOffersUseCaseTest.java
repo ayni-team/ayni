@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -46,8 +47,9 @@ class SearchOffersUseCaseTest {
   private final UUID student = UUID.randomUUID();
   private final AvailableOfferRepository offers = mock(AvailableOfferRepository.class);
   private final IdentityApi identity = mock(IdentityApi.class);
+  private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
   private final SearchOffersUseCase search =
-      new SearchOffersUseCase(offers, identity, Clock.fixed(NOW, ZoneOffset.UTC));
+      new SearchOffersUseCase(offers, identity, Clock.fixed(NOW, ZoneOffset.UTC), events);
 
   @BeforeEach
   void aUniversityInLima() {

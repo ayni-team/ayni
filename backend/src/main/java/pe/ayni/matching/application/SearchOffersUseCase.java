@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +17,7 @@ import pe.ayni.matching.domain.model.MatchingRuleViolation;
 import pe.ayni.matching.domain.model.SearchWindow;
 import pe.ayni.matching.domain.services.NearestOffers;
 import pe.ayni.matching.infrastructure.AvailableOfferRepository;
+import pe.ayni.shared.events.DemandUncovered;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -33,6 +35,12 @@ import pe.ayni.shared.tenancy.TenantContext;
  * {@link OfferSearch#exactMatch()} false so the client can say the window was empty (scenario 2).
  * That answer is a single page of at most {@code size} hours: paging through "the closest" would
  * only mean moving further from what the student asked for.
+ *
+ * <p>An empty window is also a fact other modules care about: nobody offers that course at that
+ * time. The first page of such a search publishes {@link DemandUncovered}, naming the course and
+ * the window and no one, so analytics can count what the university asks for and does not get. The
+ * search is read only and answers exactly what it would without the event; the event is published
+ * inside its transaction and heard once it commits.
  */
 @Service
 public class SearchOffersUseCase {
@@ -43,11 +51,17 @@ public class SearchOffersUseCase {
   private final AvailableOfferRepository offers;
   private final IdentityApi identity;
   private final Clock clock;
+  private final ApplicationEventPublisher events;
 
-  SearchOffersUseCase(AvailableOfferRepository offers, IdentityApi identity, Clock clock) {
+  SearchOffersUseCase(
+      AvailableOfferRepository offers,
+      IdentityApi identity,
+      Clock clock,
+      ApplicationEventPublisher events) {
     this.offers = offers;
     this.identity = identity;
     this.clock = clock;
+    this.events = events;
   }
 
   /**
@@ -86,6 +100,11 @@ public class SearchOffersUseCase {
           size,
           within.getTotalElements(),
           within.getTotalPages());
+    }
+
+    // The same search paged again is not new demand: only its first page counts.
+    if (page == 0) {
+      events.publishEvent(new DemandUncovered(tenantId, catalogItemId, from, to, now));
     }
 
     List<AvailableOffer> nearest =

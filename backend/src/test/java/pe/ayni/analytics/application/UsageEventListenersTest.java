@@ -20,7 +20,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 class UsageEventListenersTest {
 
   private final ProjectUsageUseCase projection = mock(ProjectUsageUseCase.class);
-  private final UsageEventListeners listeners = new UsageEventListeners(projection);
+  private final UsageEventListeners listeners = new UsageEventListeners(projection, new UncoveredDemandQueue());
 
   private final SessionCompleted completed =
       new SessionCompleted(
