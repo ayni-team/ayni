@@ -81,6 +81,29 @@ public class TutorStanding {
         return isNew() ? null : averageStars;
     }
 
+    /** How many more ratings the tutor needs in this skill before an average is shown. */
+    public int ratingsMissingForAverage() {
+        return Math.max(0, RATINGS_BEFORE_AVERAGE - ratingsCount);
+    }
+
+    /**
+     * The average of the few ratings a new tutor has so far, which only the tutor sees: {@code
+     * null} once the average is shown, and while nobody rated yet.
+     */
+    public BigDecimal provisionalAverageStars() {
+        return isNew() && ratingsCount > 0 ? averageStars : null;
+    }
+
+    /**
+     * Whether the shown average is below the minimum the university expects. A new tutor is never
+     * at risk: without three ratings there is no average to fall short. It is only a mark to read;
+     * it withdraws no skill and notifies nobody.
+     */
+    public boolean isAtRisk(BigDecimal minimumAverage) {
+        BigDecimal average = visibleAverageStars();
+        return average != null && average.compareTo(minimumAverage) < 0;
+    }
+
     public void recordCompletedSession(Instant occurredOn) {
         this.sessionsTaught++;
         this.updatedAt = occurredOn;

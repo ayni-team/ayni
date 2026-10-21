@@ -1021,6 +1021,7 @@ comment            varchar(500)
 created_at         timestamptz   NOT NULL DEFAULT now()
 
 UNIQUE (session_id, direction)
+INDEX  (tenant_id, rated_user, direction)
 CHECK  (direction IN ('STUDENT_TO_TUTOR','TUTOR_TO_STUDENT'))
 CHECK  (stars IS NULL OR stars BETWEEN 1 AND 5)
 CHECK  ((direction = 'STUDENT_TO_TUTOR') = (stars IS NOT NULL))
@@ -1030,6 +1031,9 @@ The two directions ask different questions. A student says how good the tutoring
 reports whether the other person turned up on time, whether the connection held and whether the
 session could flow. The second is not an opinion about the person, which is why it is three facts
 and not a score.
+
+The index on `rated_user` finds the ratings a tutor received, whose tags their own reputation counts
+per skill (US33); the unique key, by session, cannot.
 
 ### `reputation.rating_tags`
 

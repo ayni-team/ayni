@@ -29,7 +29,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
 @RestControllerAdvice(
         assignableTypes = {
                 TutorStandingController.class,
-                RatingController.class
+                RatingController.class,
+                TutorReputationController.class
         })
 class ReputationExceptionHandler {
 

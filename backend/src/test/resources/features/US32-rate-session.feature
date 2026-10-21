@@ -8,13 +8,22 @@
 # deliberately not an opinion about the person. The window to rate opens when reputation hears
 # SessionCompleted, so a session that did not complete cannot be rated.
 #
-# Each scenario that is not tagged @pending is covered by a test method with the same display name:
-# RateSessionAcceptanceTest runs the story scenarios over HTTP against a real PostgreSQL, one test per
-# scenario; RateSessionConcurrencyTest and RecordCompletedSessionIdempotencyTest run the last three,
-# which are not on the cards.
+# What a participant registered is read back with GET /api/v1/sessions/{id}/rating, which answers
+# only the caller's own direction: the student reads their stars and tags, the tutor their three
+# facts. A second POST still answers a conflict; the client reads the GET to show what was
+# registered. Neither the tutor nor the student reads what the other left, and nothing says who
+# rated: the tutor learns their stars and tags only through GET /api/v1/tutor/reputation (US33),
+# counted per skill.
 #
-# A scenario tagged @pending is a criterion of the card that nothing in reputation can show yet,
-# because the endpoint that would show it does not exist in this module.
+# Each scenario that is not tagged @pending is covered by a test method with the same display name:
+# RateSessionAcceptanceTest runs the story scenarios that register a rating over HTTP against a real
+# PostgreSQL, one test per scenario; RegisteredRatingAcceptanceTest runs those that read one back,
+# signed in with real session tokens (TS03); RateSessionConcurrencyTest and
+# RecordCompletedSessionIdempotencyTest run the last three, which are not on the cards.
+#
+# Two scenarios stay @pending because reputation is not where they are built: offering the rating
+# when the session closes is the client's, and the student's absences before a session are
+# booking's.
 
 Feature: Rating a tutoring session
 
@@ -40,7 +49,6 @@ Feature: Rating a tutoring session
     When the student rates it again
     Then the answer is a conflict and the tutor's standing does not change
 
-  @pending
   Scenario: A student sees the rating they registered
     Given the student already rated the session
     When the student tries to rate it again
@@ -51,7 +59,6 @@ Feature: Rating a tutoring session
     When the student tries to rate it
     Then the answer is not found
 
-  @pending
   Scenario: The tutor does not learn who rated them
     Given the student rated the session
     When the tutor looks at the rating
@@ -64,7 +71,6 @@ Feature: Rating a tutoring session
     Then the assessment is registered for that session
     And it does not touch the tutor's own standing
 
-  @pending
   Scenario: The student does not see the assessment of the tutor
     Given the tutor assessed the student
     When the student looks at the session
@@ -75,7 +81,6 @@ Feature: Rating a tutoring session
     When the tutor assesses them again
     Then the answer is a conflict
 
-  @pending
   Scenario: A tutor sees the assessment they registered
     Given the tutor already assessed the student
     When the tutor tries to assess them again
@@ -104,6 +109,24 @@ Feature: Rating a tutoring session
   Scenario: Another university's session is not found
     Given the session completed at the university "PUCP"
     When the student of "UPC" rates it
+    Then the answer is not found, never forbidden
+
+  Scenario: A participant who has not rated yet reads that nothing was registered
+    When the student and the tutor look at the session before rating it
+    Then each reads that they have not rated it
+
+  Scenario: Somebody who was not in the session cannot read its rating
+    Given the student rated the session
+    When a person who is neither the tutor nor the student looks at its rating
+    Then the answer is forbidden
+
+  Scenario: A session that did not complete has no rating to read
+    When the student looks at the rating of a session that never completed
+    Then the answer is not found
+
+  Scenario: Another university's session is not found when reading its rating
+    Given the session completed and was rated at another university
+    When a student of "UPC" looks at its rating
     Then the answer is not found, never forbidden
 
   Scenario: Two ratings of the same session at once end with one rating and one refusal

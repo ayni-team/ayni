@@ -1,6 +1,7 @@
 package pe.ayni.reputation.infrastructure;
 
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,9 @@ public interface TutorStandingRepository
 
     Optional<TutorStanding> findByTenantIdAndTutorIdAndCatalogItemId(
             String tenantId, UUID tutorId, UUID catalogItemId);
+
+    /** Every skill a tutor has a standing in, read by the first two columns of the primary key. */
+    List<TutorStanding> findByTenantIdAndTutorId(String tenantId, UUID tutorId);
 
     /**
      * A tutor's standing in one skill, locked for writing until the transaction ends. The count and

@@ -44,6 +44,53 @@ class TutorStandingTest {
     }
 
     @Test
+    @DisplayName("a new tutor sees how many ratings are missing and the provisional average")
+    void aNewTutorSeesWhatIsMissing() {
+        TutorStanding standing = withRatings(1, "4.00");
+
+        assertThat(standing.ratingsMissingForAverage()).isEqualTo(2);
+        assertThat(standing.provisionalAverageStars()).isEqualByComparingTo("4.00");
+        assertThat(standing.visibleAverageStars()).isNull();
+    }
+
+    @Test
+    @DisplayName("nobody rated yet: three ratings missing and no provisional average")
+    void nobodyRatedYet() {
+        TutorStanding standing = TutorStanding.initial("UPC", UUID.randomUUID(), UUID.randomUUID(), NOW);
+
+        assertThat(standing.ratingsMissingForAverage()).isEqualTo(3);
+        assertThat(standing.provisionalAverageStars()).isNull();
+        assertThat(standing.isAtRisk(new BigDecimal("3.0"))).isFalse();
+    }
+
+    @Test
+    @DisplayName("once the average is shown nothing is missing and nothing is provisional")
+    void onceTheAverageIsShown() {
+        TutorStanding standing = withRatings(4, "4.25");
+
+        assertThat(standing.ratingsMissingForAverage()).isZero();
+        assertThat(standing.provisionalAverageStars()).isNull();
+    }
+
+    @Test
+    @DisplayName("a shown average below the minimum is at risk")
+    void aShownAverageBelowTheMinimumIsAtRisk() {
+        assertThat(withRatings(3, "2.99").isAtRisk(new BigDecimal("3.0"))).isTrue();
+    }
+
+    @Test
+    @DisplayName("an average equal to the minimum is not at risk")
+    void anAverageEqualToTheMinimumIsNotAtRisk() {
+        assertThat(withRatings(3, "3.00").isAtRisk(new BigDecimal("3.0"))).isFalse();
+    }
+
+    @Test
+    @DisplayName("a new tutor with a low provisional average is not at risk")
+    void aNewTutorIsNeverAtRisk() {
+        assertThat(withRatings(2, "1.50").isAtRisk(new BigDecimal("3.0"))).isFalse();
+    }
+
+    @Test
     @DisplayName("a first completed session opens the standing as new and counts it")
     void aFirstCompletedSessionCountsAsNew() {
         TutorStanding standing = TutorStanding.initial("UPC", UUID.randomUUID(), UUID.randomUUID(), NOW);
