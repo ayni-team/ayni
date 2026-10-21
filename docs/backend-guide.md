@@ -370,8 +370,16 @@ public interface IdentityApi {
   Optional<CreditPolicyView> currentPolicy(String tenantCode, PolicyKind kind);
   List<ApprovedCourseView> approvedCourses(UUID userId);   // used by skills to enable by grade
   List<String> activeTenantCodes();              // used by scheduled jobs
+  void completeOnboarding(UUID userId);          // used by skills at the last step of US40
 }
 ```
+
+`completeOnboarding` moves a student of the current university from `LEARNING_INTERESTS` to
+`COMPLETED`, leaves one already `COMPLETED` as they are, and throws `IllegalStateException` from
+`PROFILE` or `ACADEMIC_RECORD` and for a coordinator, who has no onboarding;
+`NoSuchElementException` when the person is not of the current university. The rule is
+`User.completeOnboarding`. Skills calls it inside the transaction that declares the interests, so a
+refusal leaves nothing declared.
 
 **Publishes:** `AccessRequested`, `StudentActivated`, `CoordinatorActivated`,
 `UniversityRegistered`, `UniversitySuspended`.
@@ -387,7 +395,7 @@ public interface IdentityApi {
 | GET | `/api/v1/university` | student, coordinator | the university of the session, with its email domains and time zone (US39) |
 | GET | `/api/v1/me` | signed in | own profile |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
-| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40) |
+| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40), and again whenever the student brings the record up to date (US41) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | PUT | `/api/v1/admin/universities/{code}/email-domains` | admin | replaces the whole list of email domains of a university (US50) |
@@ -397,6 +405,23 @@ public interface IdentityApi {
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
 is the reason `platform_admins` is a separate table.
+
+**The onboarding (US40).** A student goes through `PROFILE → ACADEMIC_RECORD → LEARNING_INTERESTS →
+COMPLETED`, and `GET /api/v1/me` answers the step they are in as `onboardingStep`, so whoever
+signs in again resumes where they stopped and one who finished goes straight in. A student with no
+step yet is at `PROFILE`. A coordinator has no onboarding: their step stays empty.
+
+| Step | Moved by | To |
+|---|---|---|
+| `PROFILE` | `PUT /api/v1/me/profile` | `ACADEMIC_RECORD` |
+| `ACADEMIC_RECORD` | `POST /api/v1/me/academic-record/import` (refused with `400` from `PROFILE`) | `LEARNING_INTERESTS` |
+| `LEARNING_INTERESTS` | skills' `POST /api/v1/me/onboarding/interests`, through `IdentityApi.completeOnboarding` | `COMPLETED` |
+
+Neither the profile nor the import moves a step back, so both can be repeated after the onboarding.
+Importing again replaces the approved courses with what the academic system reports that day; the
+old ones are deleted with one statement before the new ones are written, so a course the record
+already had is imported again instead of breaking `uq_identity_academic_records` (it did until
+US41).
 
 **The academic system (ADR 0006).** Identity asks `AcademicSystemPort` for the profile of a
 student by the university and the institutional email, at activation (US38) and when the record is
@@ -553,10 +578,12 @@ public interface SkillsApi {
 
 The two `declare…` methods are the skills half of US40's initial configuration. Teaching interests
 go through the same academic record path as `POST /api/v1/tutor/skills`: items that do not qualify
-are skipped, not refused, and the answer lists the ones that ended up enabled.
+are skipped, not refused, and the answer lists the ones that ended up enabled. The student's own
+endpoint for it is `POST /api/v1/me/onboarding/interests` below.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
-**Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold.
+**Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold,
+`IdentityApi.requireUser` and `IdentityApi.completeOnboarding` at the last step of the onboarding.
 **Listens to:** `StudentActivated` — to enable the courses their grades already justify;
 `SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
 catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
@@ -568,6 +595,9 @@ already depends on skills, and the modules would depend on each other.
 | GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
 | POST | `/api/v1/tutor/skills/proposals` | student | proposes a tool the catalogue does not have. 409 with the similar items until `confirmDistinct` is sent (US42) |
 | GET | `/api/v1/tutor/skills/proposals` | student | own proposals with their status and decision (US42) |
+| POST | `/api/v1/me/onboarding/interests` | student | the last step of the onboarding: what the student needs (`learning`) and can teach (`teaching`); the step becomes `COMPLETED` (US40) |
+| GET | `/api/v1/me/learning-interests` | student | the items the student needs help with, sorted by name (US41) |
+| PUT | `/api/v1/me/learning-interests` | student | replaces that whole set, at any moment; teaching and confirmed bookings are not touched (US41) |
 | GET | `/api/v1/tutor/skills` | student | own skills with their status |
 | GET | `/api/v1/tutor/skills/suggestions` | student | approved courses whose grade clears the threshold and are not offered yet |
 | POST | `/api/v1/tutor/skills` | student | offers a skill. A course enables itself if the grade allows |
@@ -589,6 +619,44 @@ already depends on skills, and the modules would depend on each other.
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
 A university course is enabled only by grade. A global tool is enabled only by reviewed evidence.
+
+**The last step of the onboarding (US40).** `POST /api/v1/me/onboarding/interests` takes `learning`
+and `teaching`, lists of catalogue item identifiers. Both are asked of every student, whatever their
+term: either may be empty, but a body without one of the two keys, or with `null`, is `400`. In one
+transaction it asks identity for the person (`IdentityApi.requireUser`), moves the step with
+`IdentityApi.completeOnboarding`, registers `learning` as learning interests and offers each item of
+`teaching` through the academic record (`DeclareInterestsUseCase`): a course the record does not
+back, a grade below the threshold, a global tool or an item already offered is skipped, not refused.
+Every item must be visible to the university. It answers `learning`, the saved items, and
+`teaching`, the student's enabled skills among the items sent. What the record suggests to teach is
+`GET /api/v1/tutor/skills/suggestions`, which the screen asks at this step (US40 scenario 3).
+
+Identity is asked before anything is declared and refuses unless the step is `LEARNING_INTERESTS`
+or already `COMPLETED`: the step sent again once completed changes nothing that is there and
+answers the same. `UserView` carries no step, so skills cannot tell `COMPLETED` from
+`LEARNING_INTERESTS` before asking, and does not refuse the first one.
+
+| Status | When |
+|---|---|
+| 200 | Completed, or it already was |
+| 400 | `learning` or `teaching` missing or `null`, more than 50 items, or an item that is not an identifier |
+| 403 | A coordinator (the access filter) |
+| 404 | An item does not exist or belongs to another university; nothing is saved and the step stays |
+| 409 | The profile or the academic record is not done yet; nothing is saved |
+
+**What a student needs (US41).** `GET /api/v1/me/learning-interests` answers the items the student
+needs help with, sorted by name, and `PUT` with `catalogItemIds` makes them the whole set: those left
+out are dropped, the missing ones added, an empty list leaves none. It is the whole set and not a
+page because the student edits it and sends it back whole, at most 50 items. It touches nothing the
+student teaches, still managed with `POST` and `DELETE /api/v1/tutor/skills`, and nothing of
+booking: a confirmed tutoring stands. An item not visible to the university is `404` and nothing
+changes. The step of the onboarding is not checked, since `UserView` does not carry it.
+
+Both the last step and `PUT` take `LearningInterestRepository.lockInterestsOf` first, an advisory
+lock of the database per student, so two requests of the same student at once (a double click) run
+one after the other and the second finds what the first saved instead of failing on
+`uq_learning_interests_student_item` with a `500` (`LearningInterestsConcurrencyTest` fails without
+it).
 
 **Evidence for a global tool (US16).** `POST /api/v1/tutor/skills/{id}/validation` is a
 `multipart/form-data` request with `files`, the portfolio or the certificate, and an optional

@@ -18,6 +18,25 @@ public interface LearningInterestRepository extends JpaRepository<LearningIntere
   List<LearningInterest> findByTenantIdAndStudentId(String tenantId, UUID studentId);
 
   /**
+   * Waits for its turn to change the interests of one student, until the transaction ends.
+   *
+   * <p>Declaring an interest is reading which ones the student has and adding the rest, two steps.
+   * Two requests of the same student at once, a double click on the last step of the onboarding or
+   * on saving the interests, would each find an item missing and each add it, and the unique key
+   * would answer the second with an error. Whoever changes them takes this lock first, so the second
+   * one finds what the first one saved. There is no row of the student in this module to lock, so
+   * the lock is taken from the database, which also holds across several instances. It is per
+   * student: nobody else waits.
+   *
+   * @return nothing useful: only the wait matters
+   */
+  @Query(
+      value =
+          "select cast(pg_advisory_xact_lock(7043003, hashtext(:tenantId || ':' || cast(:studentId as text))) as text)",
+      nativeQuery = true)
+  String lockInterestsOf(@Param("tenantId") String tenantId, @Param("studentId") UUID studentId);
+
+  /**
    * Drops the interests of the university in {@code source} of the students who already have one in
    * {@code target}. Joining two items must not leave a student interested twice in what is now one
    * skill.
