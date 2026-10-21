@@ -3,6 +3,7 @@ package pe.ayni.config;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * The clock the application reads time from.
@@ -13,11 +14,15 @@ import org.springframework.context.annotation.Configuration;
  * tested by waiting.
  *
  * <p>UTC, because every instant stored and returned by the API is in UTC.
+ *
+ * <p>Every profile but {@code demo}, which replaces it with a clock the platform administrator can
+ * move while the application runs ({@code config.demo.DemoClockConfig}, {@code docs/demo.md}).
  */
 @Configuration
 public class TimeConfig {
 
   @Bean
+  @Profile("!demo")
   Clock clock() {
     return Clock.systemUTC();
   }

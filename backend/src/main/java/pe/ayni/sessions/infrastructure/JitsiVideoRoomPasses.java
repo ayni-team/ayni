@@ -34,6 +34,13 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
  * <p>The secret comes from {@code AYNI_JITSI_JWT_SECRET} and has no default here: {@code
  * docker-compose.yml} carries the one of development. Without it the application issues no passes,
  * says so once at startup, and joining still hands over the room.
+ *
+ * <p>Under the {@code demo} profile the clock of the application can be moved, while Jitsi checks
+ * {@code iat}, {@code nbf} and {@code exp} against the real time and would refuse a pass signed
+ * days ahead. There {@code ayni.sessions.video.sign-with-real-time} is on: the pass is signed with
+ * the real time and keeps the length it has by the application's clock, the ttl or what is left of
+ * the session. The {@code expiresAt} answered stays on the application's clock, like every other
+ * instant of the answer. Every other profile signs with the instant the use case reads.
  */
 @Component
 class JitsiVideoRoomPasses implements VideoRoomPasses {
@@ -52,6 +59,7 @@ class JitsiVideoRoomPasses implements VideoRoomPasses {
   private final String domain;
   private final byte[] secret;
   private final Duration ttl;
+  private final boolean signWithRealTime;
 
   JitsiVideoRoomPasses(
       ObjectMapper json,
@@ -60,7 +68,8 @@ class JitsiVideoRoomPasses implements VideoRoomPasses {
       @Value("${ayni.sessions.video.audience:jitsi}") String audience,
       @Value("${ayni.sessions.video.domain:meet.jitsi}") String domain,
       @Value("${ayni.sessions.video.jwt-secret:}") String secret,
-      @Value("${ayni.sessions.video.token-ttl:PT5M}") Duration ttl) {
+      @Value("${ayni.sessions.video.token-ttl:PT5M}") Duration ttl,
+      @Value("${ayni.sessions.video.sign-with-real-time:false}") boolean signWithRealTime) {
     this.json = json;
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
     this.appId = appId;
@@ -68,6 +77,7 @@ class JitsiVideoRoomPasses implements VideoRoomPasses {
     this.domain = domain;
     this.secret = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
     this.ttl = ttl;
+    this.signWithRealTime = signWithRealTime;
     if (this.secret.length == 0) {
       log.warn("No AYNI_JITSI_JWT_SECRET is set: joining a session hands over no video pass");
     } else if (this.secret.length < 32) {
@@ -82,6 +92,8 @@ class JitsiVideoRoomPasses implements VideoRoomPasses {
       return Optional.empty();
     }
     Instant expiresAt = now.plus(ttl).isBefore(notAfter) ? now.plus(ttl) : notAfter;
+    Instant signedAt = signWithRealTime ? realNow() : now;
+    Instant signedUntil = signedAt.plus(Duration.between(now, expiresAt));
 
     Map<String, Object> user = new LinkedHashMap<>();
     user.put("id", userId.toString());
@@ -93,12 +105,23 @@ class JitsiVideoRoomPasses implements VideoRoomPasses {
     claims.put("aud", audience);
     claims.put("sub", domain);
     claims.put("room", roomName);
-    claims.put("iat", now.getEpochSecond());
-    claims.put("nbf", now.minus(CLOCK_SKEW).getEpochSecond());
-    claims.put("exp", expiresAt.getEpochSecond());
+    claims.put("iat", signedAt.getEpochSecond());
+    claims.put("nbf", signedAt.minus(CLOCK_SKEW).getEpochSecond());
+    claims.put("exp", signedUntil.getEpochSecond());
     claims.put("context", Map.of("user", user));
 
     return Optional.of(new VideoPass(baseUrl + roomName, sign(claims), expiresAt));
+  }
+
+  /**
+   * The real time, for the demo profile only.
+   *
+   * <p>The one place of the application that reads the time without the injected clock, on
+   * purpose: under {@code demo} that clock may be days ahead, and the token is checked by Jitsi
+   * against the real time, which no clock of the application can stand for once it is moved.
+   */
+  private static Instant realNow() {
+    return Instant.now();
   }
 
   private String sign(Map<String, Object> claims) {

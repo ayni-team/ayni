@@ -1,0 +1,33 @@
+# The demo profile: everything dev seeds (spring.profiles.group in application.yml), a clock the
+# platform administrator moves over HTTP (pe.ayni.config.demo), and jobs that react to a move
+# within a minute. Never set in a deployment. How to present with it: docs/demo.md.
+
+ayni:
+  booking:
+    # A job with a cron decides when it runs by the real time, not by the application's clock:
+    # moving the clock to 02:00 does not run it. Every minute, so a jump shows within a minute.
+    generation-cron: "0 * * * * *"
+    hold-release-delay: PT5S
+  wallet:
+    # Same as above: at 03:00 of the real night otherwise, whatever the clock says.
+    expiry-cron: "0 * * * * *"
+  sessions:
+    presence-check-delay: PT5S
+    closing-delay: PT5S
+    no-show-delay: PT5S
+    video:
+      # Jitsi checks a pass against the real time, so a pass signed with a moved clock would be
+      # refused. The pass keeps its length and never outlives the session (JitsiVideoRoomPasses).
+      sign-with-real-time: true
+  audit:
+    analysis-delay: PT10S
+  payments:
+    # docker compose always sets AYNI_PAYMENTS_RECONCILIATION_DELAY, which wins over this value:
+    # pass AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S to compose too (docs/demo.md).
+    reconciliation-delay: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:PT5S}
+  identity:
+    # A session lasts a year so that moving the clock weeks ahead does not sign the presenter out.
+    # The access links keep their ten minutes and expire with the clock.
+    session-ttl: P365D
+    # The active coordinator of UPC that DemoCoordinatorData creates. It must be of a domain of UPC.
+    demo-coordinator-email: ${AYNI_DEMO_COORDINATOR_EMAIL:coordinator@upc.edu.pe}

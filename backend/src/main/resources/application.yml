@@ -2,6 +2,12 @@ spring:
   application:
     name: ayni-backend
 
+  profiles:
+    group:
+      # The demo profile (docs/demo.md) starts with everything dev seeds, and adds a clock that can
+      # be moved while the application runs.
+      demo: dev
+
   datasource:
     # Inside docker compose the host is "postgres"; running from an IDE it is
     # localhost. The default below covers the second case.
