@@ -923,6 +923,7 @@ that look at every university.
 | GET | `/api/v1/sessions/{id}` | participant |
 | POST | `/api/v1/sessions/{id}/join` | participant — only from fifteen minutes before |
 | POST | `/api/v1/sessions/{id}/presence` | participant — submits the six digit code |
+| POST | `/api/v1/sessions/{id}/presence/resend` | participant — sends their own presence code again; answers 202 with no body (US54) |
 | POST | `/api/v1/sessions/{id}/end` | participant |
 | GET/PUT | `/api/v1/sessions/{id}/whiteboard` | participant |
 | GET | `/api/v1/sessions/{id}/review` | participant — a session of their history, as it was left (US12) |
@@ -1001,6 +1002,32 @@ counts, so the transaction commits on it. `POST /sessions/{id}/presence` only ac
 who joined, while the session is in progress: with only one of them in the room it is `SCHEDULED`
 and the answer is 409. `GET /sessions/{id}` tells the reader when the codes
 go out and the state of their own code, never the code.
+
+**Sending the code again (US54, task T4).** When the email does not arrive the person cannot
+confirm, and the session would end `UNVERIFIED` with the tutor unpaid. `POST
+/api/v1/sessions/{id}/presence/resend` lets a participant who joined ask for their own code again,
+while the session is in progress, after their code was issued and before it is confirmed. It is
+`IssuePresenceCodesUseCase.resend`, the use case that issues the codes, so the code is made and
+hashed the same way: the person's row in `sessions.presence_checks` takes a new code (never equal
+to the old one, so the old one is a wrong code from then on), a full fifteen minutes from now, and
+`PresenceCodeIssued` is published again for that person alone, which notifications emails. The
+answer is `202` with no body: the code travels only by email, and neither it, an email address nor
+its hash reaches a log or the notice's payload. The session and the person's code are locked while
+it is resent, so two requests at once replace the code once and the second is refused.
+
+The limits are `ayni.sessions.presence-resend-max` (3 per person and session) and
+`ayni.sessions.presence-resend-min-interval` (`PT60S` between one resend and the next; the first
+needs no wait), read with the `Clock`; `presence_checks.resend_count` and `last_resent_at` keep them.
+**The attempts already spent are kept** when the code is replaced, so a resend is no way to get
+more guesses: a person with five wrong codes cannot get another.
+
+| Status | When |
+|---|---|
+| 202 | The new code was issued and is on its way by email |
+| 401 | No session token (the access filter) |
+| 403 | The person is neither the student nor the tutor |
+| 404 | The session does not exist in this university, another university's included |
+| 409 | The session is not in progress; the person never joined; no code was issued yet; presence is already confirmed; the five attempts are spent; the three resends are used up; or the last resend was less than sixty seconds ago. Every refusal is a 409, the wait included: there is no 429 |
 
 **Closing (US11).** `POST /sessions/{id}/end` records that a participant who joined confirms the end.
 The second confirmation closes the session; with only one, or none, a job that runs every minute

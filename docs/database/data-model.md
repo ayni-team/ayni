@@ -689,10 +689,18 @@ issued_at      timestamptz   NOT NULL DEFAULT now()
 expires_at     timestamptz   NOT NULL
 confirmed_at   timestamptz
 attempts       smallint      NOT NULL DEFAULT 0
+resend_count   smallint      NOT NULL DEFAULT 0
+last_resent_at timestamptz
 
 UNIQUE (session_id, user_id)
 CHECK  (attempts <= 5)
+CHECK  (resend_count >= 0)
 ```
+
+**Resending (US54-T4, `V202610210306__sessions_count_presence_code_resends.sql`).** Sending the
+code again replaces `code_hash`, `issued_at` and `expires_at` in the same row, so it stays one code
+per participant and per session. `resend_count` and `last_resent_at` hold the limits (three resends,
+sixty seconds apart); `attempts` is not reset.
 
 Five minutes after the session starts, each participant receives a six digit code by email and has
 to type it into the platform. Whoever is not actually in the session does not have the code, which
