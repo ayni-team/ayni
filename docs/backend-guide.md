@@ -782,8 +782,10 @@ listed only the agenda, while the story asks for what was already taught apart f
 `joinable` is true from fifteen minutes before the start until the end of the last hour, the window
 in which sessions lets the participants in. Both lists only point it out: entering takes the
 session's identifier, which sessions keeps and booking cannot ask for, since sessions already
-depends on booking. That part is `@pending` in `US04-upcoming-tutorings.feature` and
-`US21-tutor-agenda.feature`.
+depends on booking. So the screen takes the `bookingId` of the highlighted item to sessions'
+`GET /api/v1/sessions?bookingId=` (see "Finding the session of a booking" under sessions), and
+joins with the `sessionId` it answers. The scenario of each story, "The highlighted tutoring opens
+its session", is no longer `@pending`; its test is in sessions.
 
 | Status | When |
 |---|---|
@@ -878,6 +880,7 @@ that look at every university.
 
 | Method | Path | Who |
 |---|---|---|
+| GET | `/api/v1/sessions?bookingId={uuid}` | participant — the session of a booking (US04, US21) |
 | GET | `/api/v1/sessions/{id}` | participant |
 | POST | `/api/v1/sessions/{id}/join` | participant — only from fifteen minutes before |
 | POST | `/api/v1/sessions/{id}/presence` | participant — submits the six digit code |
@@ -896,6 +899,24 @@ moment the second of them arrived. Somebody who arrives at the ten minute mark o
 arrival is recorded, nothing starts, and the session is abandoned as the next section says. The
 session is locked while it is joined, so two participants arriving at once start it once. Joining
 again changes nothing, the first arrival included. A stranger gets 403, a room that is not open 409.
+
+**Finding the session of a booking (US04, US21).** The lists of tutorings, a student's
+(`GET /bookings/mine`) and a tutor's (`GET /tutor/agenda`), mark a booking as `joinable` but cannot
+name its session. `GET /api/v1/sessions?bookingId={uuid}` answers it: `sessionId`, `bookingId`,
+`status`, `joinOpensAt` and `scheduledEnd` (UTC, named as in `GET /sessions/{id}`, except that the
+session's own identifier is `sessionId`, as in the answer of joining), and never the room name,
+which only joining hands over. The session is looked up by university and booking
+(`sessions.sessions` has `UNIQUE (booking_id)`) and the same rule as reading a session decides who
+may ask: the student and the tutor of it, `Session.roleOf`. It is `FindSessionOfBookingQuery`; no
+module depends on another for it.
+
+| Status | When |
+|---|---|
+| 200 | The session of the booking |
+| 400 | `bookingId` is missing or is not a UUID |
+| 401 | No session token (the access filter) |
+| 403 | The person is neither the student nor the tutor |
+| 404 | The booking has no session in this university, another university's included |
 
 **The video call (US08, scenario 2).** Joining also answers `video`: a pass to the session's call
 in the self hosted Jitsi, `url` (the room, `ayni.sessions.video.url` plus the room name), `token`

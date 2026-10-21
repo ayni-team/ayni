@@ -34,12 +34,8 @@ Feature: The student's tutorings
     When I open my tutorings
     Then I see only mine
 
-  # Not built. The highlighted tutoring should open its session, and joining needs the session's
-  # identifier, which sessions creates when it hears BookingConfirmed. Booking cannot ask sessions
-  # for it, because sessions already depends on booking and the modules would depend on each
-  # other. It needs a decision of the lead: sessions answering the session of a booking, or the
-  # list being assembled by the client from both.
-  @pending
+  # The list only knows the booking. Sessions answers the session of a booking
+  # (GET /api/v1/sessions?bookingId=), and the student joins it with that identifier.
   Scenario: The highlighted tutoring opens its session
     Given one of my tutorings starts in less than fifteen minutes
     When I choose it in the list
