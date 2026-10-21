@@ -1249,6 +1249,10 @@ The row is written before the email leaves. A notice that was never sent has to 
 two things that matter depend on email arriving: getting in, and confirming presence.
 Purchase confirmations are also emailed after `PurchaseConfirmed` is delivered from payments.
 
+A person reads their own notices through `GET /api/v1/notifications`, by `(tenant_id, recipient_id,
+created_at DESC)`, which is the first index. `ACCESS_LINK` and `PRESENCE_CODE` rows are never
+listed, and `read_at` is set once, by the first reading.
+
 `recipient_id` is nullable because the first notice of all has nobody to point at: an activation
 link goes to an email with no account yet, and `AccessRequested` carries the email, not a user. The
 address is always known. `payload` never holds a secret: an access link is delivered and forgotten,

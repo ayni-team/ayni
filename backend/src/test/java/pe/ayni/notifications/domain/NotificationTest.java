@@ -80,4 +80,40 @@ class NotificationTest {
                     Map.of(), NOW))
         .isInstanceOf(NullPointerException.class);
   }
+
+  @Test
+  @DisplayName("a notice starts unread and keeps the date it was first read")
+  void aNoticeIsReadOnce() {
+
+    Notification notice = pending();
+    assertThat(notice.isRead()).isFalse();
+    assertThat(notice.getReadAt()).isNull();
+
+    notice.markRead(NOW.plusSeconds(60));
+    notice.markRead(NOW.plusSeconds(3600));
+
+    assertThat(notice.isRead()).isTrue();
+    assertThat(notice.getReadAt()).isEqualTo(NOW.plusSeconds(60));
+  }
+
+  @Test
+  @DisplayName("reading says nothing about how the delivery went")
+  void readingIsIndependentOfDelivery() {
+
+    Notification notice = pending();
+    notice.markFailed("SMTP unavailable");
+
+    notice.markRead(NOW.plusSeconds(60));
+
+    assertThat(notice.isRead()).isTrue();
+    assertThat(notice.getFailedReason()).isEqualTo("SMTP unavailable");
+    assertThat(notice.getSentAt()).isNull();
+  }
+
+  @Test
+  @DisplayName("a notice cannot be read at no instant")
+  void readingNeedsAnInstant() {
+
+    assertThatThrownBy(() -> pending().markRead(null)).isInstanceOf(NullPointerException.class);
+  }
 }
