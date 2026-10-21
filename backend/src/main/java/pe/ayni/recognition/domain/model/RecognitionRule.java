@@ -70,6 +70,36 @@ public class RecognitionRule {
     this.createdAt = Objects.requireNonNull(now, "now must not be null");
   }
 
+  /**
+   * The rule a coordinator sets: the hours the university asks for, from the day it says or from
+   * today, the university's day. It cannot start in the past: nothing would be in force on that day
+   * that was not already.
+   *
+   * @param validFrom the first day it applies, or {@code null} for today
+   * @param today the current day in the zone of the university
+   * @throws RecognitionRuleViolation when the hours are not positive or the day is already gone
+   */
+  public static RecognitionRule start(
+      UUID id, String tenantId, int minimumHours, LocalDate validFrom, LocalDate today, Instant now) {
+    if (minimumHours < 1) {
+      throw new RecognitionRuleViolation("minimumHours must be at least 1");
+    }
+    LocalDate from = validFrom == null ? today : validFrom;
+    if (from.isBefore(today)) {
+      throw new RecognitionRuleViolation("validFrom cannot be before today");
+    }
+    return new RecognitionRule(id, tenantId, minimumHours, null, from, now);
+  }
+
+  /**
+   * Whether a rule that starts on {@code nextFrom} takes this one's place. A rule starting today or
+   * earlier replaces everything open; one starting later leaves the rules that start before it
+   * running until then, and replaces the ones that would start on or after it.
+   */
+  public boolean isReplacedBy(LocalDate nextFrom, LocalDate today) {
+    return supersededAt == null && (!nextFrom.isAfter(today) || !validFrom.isBefore(nextFrom));
+  }
+
   /** Replaces this rule by a later one, which the caller adds. */
   public void supersede(Instant now) {
     this.supersededAt = Objects.requireNonNull(now, "now must not be null");

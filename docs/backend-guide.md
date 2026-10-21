@@ -1082,6 +1082,8 @@ of the university's day.
 
 | Method | Path | Who |
 |---|---|---|
+| GET | `/api/v1/coordinator/recognition/rule` | coordinator — the rule in force of the university: `minimumHours` and `validFrom`; 404 until one is set (US27, US28) |
+| PUT | `/api/v1/coordinator/recognition/rule` | coordinator — sets the rule: `minimumHours` (at least 1) and an optional `validFrom`, today by default; closes the one in force and adds the next (US27, US28) |
 | GET | `/api/v1/recognition/progress` | student — hours taught against what the university asks for (US27) |
 | POST | `/api/v1/recognition/requests` | student — submits the request with the sessions that back it (US28) |
 | GET | `/api/v1/recognition/requests/mine` | student — own requests with state, decision and reason (US28) |
@@ -1090,6 +1092,23 @@ of the university's day.
 | GET | `/api/v1/coordinator/recognition/requests/{id}/sessions` | coordinator — the sessions behind it: date, duration, course or skill taught; their hours add up to the total (US30) |
 | GET | `/api/v1/coordinator/recognition/requests/{id}/sessions/{sessionId}` | coordinator — one session's evidence: attendance of both parties, presence verified, the tutor's rating (US30) |
 | POST | `/api/v1/coordinator/recognition/requests/{id}/decision` | coordinator — approve or reject with a reason; decided once (US29) |
+
+**Setting the rule (US27, US28).** `PUT /coordinator/recognition/rule` is what opens recognition in a
+university: until a coordinator sets a rule (outside the `dev` profile nothing else writes one) the
+student has no requirement and `POST /recognition/requests` answers 409. The caller must be an
+active coordinator of the university (`IdentityApi.requireUser` and `isActive`): a student, or a
+coordinator who is restricted, gets a 403. `minimumHours` is a whole number of at least 1 and
+`validFrom` a date of the university's calendar, today (in the university's zone) when omitted;
+a day that already passed is a 400. A rule is never edited: in one transaction the rules it replaces
+get `superseded_at` and the new row is added, and the answer is the new rule. A rule that starts today
+replaces every open rule; one that starts later leaves the rule in force running until its day and
+replaces only the ones scheduled for that day or after. `GET` answers the rule in force today, and
+404 when there is none; the rule of another university is never seen. Requests already submitted keep
+the hours, count and ratings they were submitted with, so setting a rule changes none of them nor
+their reading. Two coordinators at once wait for each other under a `pg_advisory_xact_lock` per
+university (`RecognitionRuleRepository.lockTenant`), taken before reading the open rules: both are
+answered and one rule stays in force. `minimum_rating` is not set by this endpoint, since nothing
+reads it yet.
 
 **Progress (US27).** `GET /recognition/progress` adds up the booked hours of the student's
 `COMPLETED` sessions, read from `SessionsApi` at the moment of asking, and compares them with the

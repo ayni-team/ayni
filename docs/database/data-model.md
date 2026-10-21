@@ -934,6 +934,11 @@ created_at            timestamptz   NOT NULL DEFAULT now()
 CHECK (minimum_hours > 0)
 ```
 
+A coordinator sets a rule with `PUT /api/v1/coordinator/recognition/rule`: the rules it replaces
+get `superseded_at` and a new row is added, in one transaction under a per-university advisory
+lock. Rows are never edited. A rule is in force on a day when it started and was not superseded; a
+rule with a later `valid_from` waits, and a university has no rule in force until one is set.
+
 ### `recognition.requests`
 
 ```
