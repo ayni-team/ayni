@@ -12,6 +12,7 @@ import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.CreditPolicyConflict;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.InvitationConflict;
+import pe.ayni.identity.domain.model.OnboardingConflict;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import java.util.NoSuchElementException;
 import pe.ayni.shared.tenancy.MissingTenantException;
@@ -71,6 +72,17 @@ class IdentityExceptionHandler {
     @ExceptionHandler(CreditPolicyConflict.class)
     ResponseEntity<ApiError> handleCreditPolicyConflict(
             CreditPolicyConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(OnboardingConflict.class)
+    ResponseEntity<ApiError> handleOnboardingConflict(
+            OnboardingConflict exception,
             HttpServletRequest request) {
 
         return answer(

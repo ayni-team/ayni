@@ -35,4 +35,19 @@ public interface IdentityApi {
 
   /** Codes of every active university. Used by scheduled jobs, which run without a request. */
   List<String> activeTenantCodes();
+
+  /**
+   * Finishes the onboarding of a student of the current tenant (US40): their step becomes
+   * COMPLETED.
+   *
+   * <p>Only from the step of the learning interests, which follows the profile and the academic
+   * record. A student already COMPLETED is left as they are, so calling it twice is harmless. Skills
+   * calls it inside the transaction that declares the interests, so a refusal leaves nothing
+   * declared.
+   *
+   * @throws java.util.NoSuchElementException when the user does not exist in the current tenant
+   * @throws IllegalStateException when the profile or the academic record is still missing, or the
+   *     user is a coordinator, who has no onboarding
+   */
+  void completeOnboarding(UUID userId);
 }

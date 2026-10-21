@@ -1,5 +1,6 @@
 package pe.ayni.identity.application;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -31,17 +32,20 @@ public class IdentityApiImpl implements IdentityApi {
     private final UserRepository users;
     private final AcademicRecordRepository academicRecords;
     private final CreditPolicyRepository creditPolicies;
+    private final Clock clock;
 
     public IdentityApiImpl(
             TenantRepository tenants,
             UserRepository users,
             AcademicRecordRepository academicRecords,
-            CreditPolicyRepository creditPolicies) {
+            CreditPolicyRepository creditPolicies,
+            Clock clock) {
 
         this.tenants = tenants;
         this.users = users;
         this.academicRecords = academicRecords;
         this.creditPolicies = creditPolicies;
+        this.clock = clock;
     }
 
     @Override
@@ -126,6 +130,23 @@ public class IdentityApiImpl implements IdentityApi {
                 .stream()
                 .map(Tenant::getCode)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void completeOnboarding(UUID userId) {
+        String tenantId = TenantContext.require();
+
+        User user =
+                users.findByTenantIdAndId(tenantId, userId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found: " + userId));
+
+        // The rule is the user's: it refuses with an OnboardingConflict, an IllegalStateException
+        // as the published interface says.
+        user.completeOnboarding(clock.instant());
     }
 
     private TenantView toTenantView(Tenant tenant) {
