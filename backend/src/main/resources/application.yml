@@ -102,6 +102,10 @@ ayni:
   sessions:
     # How often the presence codes that are due (five minutes into a session) are looked for.
     presence-check-delay: PT1M
+    # A participant whose email with the presence code did not arrive may ask for it again: this
+    # many times per person and session, with at least this long between one and the next (US54).
+    presence-resend-max: 3
+    presence-resend-min-interval: PT60S
     # How often the sessions left open fifteen minutes past their booked hour are closed.
     closing-delay: PT1M
     # How often the sessions whose tutor had not come ten minutes after the start are abandoned.
