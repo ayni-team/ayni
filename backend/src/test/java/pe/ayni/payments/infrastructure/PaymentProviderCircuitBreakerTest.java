@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import pe.ayni.payments.application.PaymentCircuit;
 
 class PaymentProviderCircuitBreakerTest {
 
@@ -50,6 +51,31 @@ class PaymentProviderCircuitBreakerTest {
 
     assertThat(breaker.stateName()).isEqualTo("OPEN");
     assertThat(breaker.tryAcquire()).isFalse();
+  }
+
+  @Test
+  void reportsItsStateAndFailuresAndClosesWhenReset() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-10-06T12:00:00Z"));
+    PaymentProviderCircuitBreaker breaker =
+        new PaymentProviderCircuitBreaker(clock, 2, Duration.ofSeconds(30));
+
+    assertThat(breaker.status())
+        .isEqualTo(new PaymentCircuit.Status(PaymentCircuit.State.CLOSED, 0, null));
+    breaker.tryAcquire();
+    breaker.recordFailure();
+    assertThat(breaker.status().consecutiveFailures()).isEqualTo(1);
+    breaker.tryAcquire();
+    breaker.recordFailure();
+    assertThat(breaker.status())
+        .isEqualTo(
+            new PaymentCircuit.Status(
+                PaymentCircuit.State.OPEN, 2, Instant.parse("2026-10-06T12:00:30Z")));
+
+    breaker.reset();
+
+    assertThat(breaker.status())
+        .isEqualTo(new PaymentCircuit.Status(PaymentCircuit.State.CLOSED, 0, null));
+    assertThat(breaker.tryAcquire()).isTrue();
   }
 
   private static final class MutableClock extends Clock {
