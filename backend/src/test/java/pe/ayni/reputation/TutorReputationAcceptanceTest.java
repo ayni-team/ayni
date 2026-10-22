@@ -192,14 +192,19 @@ class TutorReputationAcceptanceTest {
                 .andExpect(jsonPath("$.skills[1].averageStars").value(2.33))
                 .andExpect(jsonPath("$.skills[1].atRisk").value(true));
 
-        // A mark only: reading it again changes nothing, and nothing was written about it.
+        // A mark only: reading it again changes nothing, and nothing was written about it. The
+        // notices that closing the rated sessions wrote are not about the mark, so what is checked
+        // is that reading adds none.
+        int noticesBefore = noticesOf(tutor);
         reputationOf(tutor).andExpect(jsonPath("$.skills[1].atRisk").value(true));
-        assertThat(
-                        jdbc.queryForObject(
-                                "select count(*) from notifications.notifications where recipient_id = ?",
-                                Integer.class,
-                                tutor.id()))
-                .isZero();
+        assertThat(noticesOf(tutor)).isEqualTo(noticesBefore);
+    }
+
+    private int noticesOf(Person person) {
+        return jdbc.queryForObject(
+                "select count(*) from notifications.notifications where recipient_id = ?",
+                Integer.class,
+                person.id());
     }
 
     @Test
