@@ -7,12 +7,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import pe.ayni.audit.domain.services.ActivityChain;
 
 /**
  * One thing that happened, written once and never changed: who acted and in what role, what they
@@ -25,6 +27,11 @@ import org.hibernate.type.SqlTypes;
  * <p>The metadata is a flat map of strings that describe the fact. It never carries an email
  * address, a link or a code: whoever builds an entry decides what goes in it, and this class refuses
  * a detail that looks like an address or a link.
+ *
+ * <p>Every entry written since the log was chained carries its place in the chain of its
+ * university and the hash of the entry before it, so one changed, removed or slipped in behind the
+ * application no longer fits (see {@link ActivityChain}). The entries written before that carry
+ * none, and the chain starts after them.
  */
 @Entity
 @Immutable
@@ -64,6 +71,15 @@ public class ActivityEntry {
   @Column(name = "occurred_at", nullable = false, updatable = false)
   private Instant occurredAt;
 
+  @Column(name = "sequence_number", updatable = false)
+  private Long sequenceNumber;
+
+  @Column(name = "previous_hash", length = 64, updatable = false)
+  private String previousHash;
+
+  @Column(name = "entry_hash", length = 64, updatable = false)
+  private String entryHash;
+
   protected ActivityEntry() {
     // Required by JPA
   }
@@ -98,8 +114,30 @@ public class ActivityEntry {
     entry.resourceType = bounded(resourceType, MAX_RESOURCE_TYPE_LENGTH, "resourceType");
     entry.resourceId = resourceId;
     entry.metadata = metadata == null || metadata.isEmpty() ? null : withoutPersonalData(metadata);
-    entry.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt must not be null");
+    // PostgreSQL keeps microseconds, so a moment with more precision would come back different
+    // from what was hashed and the entry would look altered on the first verification.
+    entry.occurredAt =
+        Objects.requireNonNull(occurredAt, "occurredAt must not be null").truncatedTo(ChronoUnit.MICROS);
     return entry;
+  }
+
+  /**
+   * Puts the entry at the end of its university's chain, right after the one that ends it now.
+   *
+   * <p>Called once, by whoever writes the entry, while holding the university's turn to write, so
+   * no other entry can take the same place in between.
+   *
+   * @param lastSequenceNumber the place of the entry that ends the chain now, 0 when there is none
+   * @param lastHash the hash of that entry, {@code null} when there is none
+   * @throws IllegalStateException when the entry is already chained
+   */
+  public void chainAfter(long lastSequenceNumber, String lastHash) {
+    if (entryHash != null) {
+      throw new IllegalStateException("An entry takes its place in the chain once");
+    }
+    sequenceNumber = lastSequenceNumber + 1;
+    previousHash = lastHash;
+    entryHash = ActivityChain.hashOf(this);
   }
 
   private static Map<String, String> withoutPersonalData(Map<String, String> metadata) {
@@ -157,5 +195,25 @@ public class ActivityEntry {
 
   public Instant getOccurredAt() {
     return occurredAt;
+  }
+
+  /** Its place in the chain of its university, {@code null} for an entry from before the chain. */
+  public Long getSequenceNumber() {
+    return sequenceNumber;
+  }
+
+  /** The hash of the entry before it, {@code null} for the first of the chain. */
+  public String getPreviousHash() {
+    return previousHash;
+  }
+
+  /** Its own hash, {@code null} for an entry from before the chain. */
+  public String getEntryHash() {
+    return entryHash;
+  }
+
+  /** Whether it was written once the log was chained. */
+  public boolean isChained() {
+    return entryHash != null;
   }
 }

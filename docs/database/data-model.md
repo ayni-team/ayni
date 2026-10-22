@@ -1182,7 +1182,12 @@ resource_type  varchar(32)   NOT NULL
 resource_id    uuid
 metadata       jsonb
 occurred_at    timestamptz   NOT NULL DEFAULT now()
+sequence_number bigint                  -- NULL for an entry from before the chain
+previous_hash  varchar(64)
+entry_hash     varchar(64)              -- NULL for an entry from before the chain
 
+UNIQUE (tenant_id, sequence_number)
+CHECK  ((sequence_number IS NULL) = (entry_hash IS NULL))
 INDEX (tenant_id, occurred_at DESC)
 INDEX (tenant_id, resource_type, resource_id)
 ```
@@ -1196,7 +1201,37 @@ triggers. Both call `audit.reject_activity_log_change()`, the counterpart of
 `wallet.reject_ledger_change()`. The refusal does not depend on the application, so somebody with a
 `psql` prompt is refused too. A correction is a new row. The trigger can be dropped by whoever owns
 the table, so it stops accidents and the application, not an administrator of the database: telling
-an alteration apart is the pending scenario of US48, which needs the rows chained.
+an alteration apart is what the chain below is for.
+
+**The chain (US48).** Like `wallet.ledger_entries`, every entry carries the hash of the entry before
+it, chained per university. `entry_hash` is the SHA-256, in hexadecimal, of every column the entry
+owns (`id`, `tenant_id`, `sequence_number`, `actor_id`, `actor_role`, `action`, `resource_type`,
+`resource_id`, the details of `metadata` in the order of their names, `occurred_at`) plus
+`previous_hash`, each value written with its length in front so two fields cannot blur into one.
+`previous_hash` is `NULL` for the first entry of a chain. An entry changed behind the application no
+longer matches its own hash; one removed leaves the next one pointing at a hash that is not there;
+one slipped in points at an entry that is not the one before it. `GET
+/api/v1/coordinator/audit-log/integrity` walks the chain and names the first entry that does not
+fit. The hashes are not anchored outside the database, so whoever rewrites every hash from an entry
+to the end can still hide a change; that is out of scope for now.
+
+**`sequence_number` was added by US48**, on top of the two hash columns. A chain needs the order in
+which its entries were written, and no column had it: `occurred_at` is the moment the event says
+the fact happened, and an event is written down after its publisher commits, so a later entry may
+carry an earlier moment. It is the cursor the verification walks a page at a time, by
+`UNIQUE (tenant_id, sequence_number)`, and the place where a removed entry leaves a gap. The
+application assigns it inside the transaction of the entry, under an advisory lock held per
+university (`pg_advisory_xact_lock(7048001, hashtext(tenant_id))`), never with a database sequence,
+which leaves gaps after a rollback that would look like removed entries.
+
+**The entries from before the chain.** The three columns are nullable: the rows written before
+`V202610210250__audit_chain_activity_log.sql` have no hash and keep none, since nothing may edit them
+and a hash computed now would vouch for rows nobody checked when they were written. The chain of a
+university starts at its first entry with a hash, at `sequence_number` 1, and the verification
+neither reads nor counts the older ones, so they are never reported as altered. The check keeps an
+entry either chained as a whole or not chained at all. The application never writes an entry
+without a hash any more; one inserted that way behind it looks like an entry from before the chain,
+which is the price of not inventing hashes for those.
 
 **What the columns hold.**
 

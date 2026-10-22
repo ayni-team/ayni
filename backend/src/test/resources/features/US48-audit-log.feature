@@ -2,11 +2,12 @@
 # credits, accreditations and requests, so that I can answer with facts.
 #
 # Each scenario runs over HTTP against a real PostgreSQL, with the same name, in
-# AuditLogAcceptanceTest. The entries are produced by publishing the real events inside a
-# transaction, never by inserting rows. The rules of the listeners are in AuditEventListenersTest,
-# the ones of the use case in ConsultActivityLogUseCaseTest and the one of the entry in
-# ActivityEntryTest. The last scenario is @pending and the pull request lists it under "Still
-# pending".
+# AuditLogAcceptanceTest, except "Detecting tampering", which runs in
+# ActivityLogIntegrityAcceptanceTest with real session tokens. The entries are produced by
+# publishing the real events inside a transaction, never by inserting rows. The rules of the
+# listeners are in AuditEventListenersTest, the ones of the use case in
+# ConsultActivityLogUseCaseTest, the one of the entry in ActivityEntryTest and the ones of the chain
+# in ActivityChainTest; ActivityLogChainConcurrencyTest writes many entries at once.
 
 Feature: Audit log
 
@@ -33,11 +34,10 @@ Feature: Audit log
     When it is published
     Then the operation that published it is not affected
 
-  # Not built. Pointing out an entry that does not fit the sequence requires chaining the entries,
-  # each one carrying the hash of the previous one, and audit.activity_log in data-model.md has no
-  # columns for that. It is a design decision of its own: where the hash lives, how it is computed
-  # and who checks it.
-  @pending
+  # Every entry carries its place in the chain of its university and the SHA-256 of its fields plus
+  # the hash of the entry before it. GET /api/v1/coordinator/audit-log/integrity walks the chain and
+  # names the first entry that does not fit: one changed, the one after an entry removed, or one
+  # slipped in. The entries written before the log was chained carry no hash and are not judged.
   Scenario: Detecting tampering
     Given the entries of the log are chained in sequence
     When one of them was altered behind the application

@@ -74,7 +74,10 @@ class AuditEventListenersTest {
             });
     Clock clock = Clock.fixed(LATER, ZoneOffset.UTC);
     identity = mock(IdentityApi.class);
-    listeners = new AuditEventListeners(new RecordActivityUseCase(repository, clock), new ChangeAuthors(identity));
+    listeners =
+        new AuditEventListeners(
+            new RecordActivityUseCase(new ActivityLogWriter(repository), clock),
+            new ChangeAuthors(identity));
   }
 
   private ActivityEntry only() {

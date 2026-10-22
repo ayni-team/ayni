@@ -47,7 +47,7 @@ class ConsultActivityLogUseCaseTest {
 
   @BeforeEach
   void aUseCaseOverAMockedIdentity() {
-    consult = new ConsultActivityLogUseCase(new CoordinatorGuard(identity), repository, Clock.fixed(NOW, ZoneOffset.UTC));
+    consult = new ConsultActivityLogUseCase(new CoordinatorGuard(identity), repository, new ActivityLogWriter(repository), Clock.fixed(NOW, ZoneOffset.UTC));
     when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
   }
 
