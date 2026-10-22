@@ -239,6 +239,10 @@ name         varchar(80)   NOT NULL UNIQUE
 sort_order   smallint      NOT NULL DEFAULT 0
 ```
 
+Technology, Languages and Design are reference data, inserted by a migration in every installation
+with fixed identifiers. University courses is created the first time a university loads its
+curriculum.
+
 ### `skills.catalog_items`
 
 One table for two kinds of thing, told apart by `scope`.

@@ -61,6 +61,27 @@ public class PlatformAdmin {
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
     }
 
+    /**
+     * The first administrator of an installation, named by its configuration: active from now,
+     * with an address that is one and a name that is not blank. Anything else is refused, so a
+     * typing mistake in a deployment stops the startup instead of creating an administrator
+     * nobody can sign in as.
+     */
+    public static PlatformAdmin first(UUID id, String email, String fullName, Instant now) {
+        String address = EmailDomains.requireAddress(email);
+        if (address.length() > 160) {
+            throw new IdentityRuleViolation("Email is not valid");
+        }
+        if (fullName == null || fullName.isBlank()) {
+            throw new IdentityRuleViolation("Full name must not be blank");
+        }
+        String name = fullName.trim();
+        if (name.length() > 160) {
+            throw new IdentityRuleViolation("Full name must be at most 160 characters");
+        }
+        return new PlatformAdmin(id, address, name, PlatformAdminStatus.ACTIVE, now);
+    }
+
     /** Whether this administrator may still sign in. */
     public boolean isActive() {
         return status == PlatformAdminStatus.ACTIVE;

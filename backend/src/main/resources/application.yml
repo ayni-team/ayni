@@ -183,3 +183,12 @@ ayni:
     access-link-ttl: PT10M
     session-ttl: P7D
     access-link-base-url: http://localhost:5173/access/confirm
+  cors:
+    # The origins a browser may call the API and open a whiteboard's live channel from, comma
+    # separated. The web application of development by default; a deployment sets its own address.
+    allowed-origins: ${AYNI_ALLOWED_ORIGINS:http://localhost:5173}
+  bootstrap:
+    # The first platform administrator of an empty installation (PlatformAdminBootstrap): created
+    # ACTIVE at startup unless an administrator with this address exists. Empty, nothing happens.
+    admin-email: ${AYNI_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-full-name: ${AYNI_BOOTSTRAP_ADMIN_FULL_NAME:Ayni Platform Administrator}

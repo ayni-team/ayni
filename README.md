@@ -53,6 +53,44 @@ that.
 
 ---
 
+## Production
+
+The deployable image is `backend/Dockerfile.prod`; it runs the `prod` profile as an unprivileged
+user on port 8080:
+
+```bash
+docker build -f backend/Dockerfile.prod -t ayni-backend backend
+```
+
+`prod` has no development defaults. It refuses to start, naming what is missing, without these
+**required** variables (secrets in bold):
+
+`AYNI_DB_URL`, `AYNI_DB_USER`, **`AYNI_DB_PASSWORD`**, `AYNI_DB_APP_USER`,
+**`AYNI_DB_APP_PASSWORD`**, **`AYNI_JITSI_JWT_SECRET`** (32 characters or more),
+`AYNI_IDENTITY_ACCESS_LINK_BASE_URL`.
+
+**Set them too** in a real deployment, though they have defaults: `AYNI_ALLOWED_ORIGINS`,
+`AYNI_MAIL_HOST`, `AYNI_MAIL_PORT`, `AYNI_JITSI_URL`, and `AYNI_BOOTSTRAP_ADMIN_EMAIL` on the first
+start. **Optional:** `AYNI_BOOTSTRAP_ADMIN_FULL_NAME`, `AYNI_MAIL_USER`, **`AYNI_MAIL_PASSWORD`**,
+`AYNI_MAIL_FROM`, `AYNI_JITSI_APP_ID`, `AYNI_ACADEMIC_DIRECTORY`, `AYNI_SKILLS_EVIDENCE_DIR`,
+`AYNI_DB_POOL_SIZE`, `AYNI_API_DOCS_ENABLED`, `AYNI_PORT`, the ten `AYNI_PAYMENTS_*` settings
+(`MONTHLY_CREDIT_LIMIT`, `PRICE_PER_CREDIT`, `PENDING_TIMEOUT`, `RECONCILIATION_DELAY`,
+`SIMULATED_OUTCOME`, `SIMULATED_RESOLUTION_OUTCOME`, `FAILURE_THRESHOLD`, `CIRCUIT_OPEN_DURATION`,
+`TIMEOUT`, `MAX_CONCURRENT_CALLS`), `SPRING_PROFILES_ACTIVE` and `JAVA_TOOL_OPTIONS`.
+
+- **Two database roles.** Flyway migrates first as the owner (`AYNI_DB_USER`), which creates the
+  schemas and, if it does not exist, the application's role with `AYNI_DB_APP_PASSWORD`; then the
+  application connects as `AYNI_DB_APP_USER`, which has no `BYPASSRLS` and owns nothing.
+- **The first administrator.** With `AYNI_BOOTSTRAP_ADMIN_EMAIL` set, the first start creates that
+  platform administrator. They ask for an access link with that address and register the first
+  university.
+- **Health.** `/actuator/health/liveness` and `/actuator/health/readiness` (the database) are public.
+
+Defaults, descriptions and permissions of every variable: "Deployment (prod profile)" in
+`docs/backend-guide.md`. Never commit a real value of any of them.
+
+---
+
 ## How the project is organised
 
 ```

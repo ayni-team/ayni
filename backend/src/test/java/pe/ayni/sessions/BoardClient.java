@@ -64,6 +64,15 @@ final class BoardClient implements AutoCloseable {
     return connect(port, sessionId, headers);
   }
 
+  /** Opens the channel the way a browser on a page of that origin does: it sends its origin. */
+  static BoardClient connectFrom(int port, java.util.UUID sessionId, String token, String origin)
+      throws Exception {
+    WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+    headers.setSecWebSocketProtocol(List.of("bearer", token));
+    headers.setOrigin(origin);
+    return connect(port, sessionId, headers);
+  }
+
   /** Opens the channel with the token in {@code Authorization}, as a non browser client may. */
   static BoardClient connectWithHeader(int port, java.util.UUID sessionId, String token)
       throws Exception {

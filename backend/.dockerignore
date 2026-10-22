@@ -1,0 +1,14 @@
+# What neither image needs from backend/. Dockerfile copies pom.xml and src, Dockerfile.prod the
+# Maven wrapper too; docker compose mounts the academic directory instead of copying it.
+target/
+build/
+academic-directory/
+*.log
+.idea/
+.vscode/
+*.iml
+.DS_Store
+.env
+.env.*
+Dockerfile*
+.dockerignore

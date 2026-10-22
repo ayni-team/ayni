@@ -27,8 +27,13 @@ import pe.ayni.shared.tenancy.TenantContext;
  * can never be taken back; demonstration data belongs to the developer's machine only, the same
  * way {@code DemoWalletData} does for wallet.
  *
- * <p>It runs once. A second start finds the categories already there and leaves them alone. The
- * identifiers are fixed so that requests saved in Swagger or in the frontend keep working.
+ * <p>The three global categories are reference data and come from a migration in every
+ * environment; this only makes sure they are there and adds the category of university courses.
+ *
+ * <p>It runs once. A second start finds the first global tool already there and leaves everything
+ * alone; it looks for the tool and not for a category, because the categories exist from the
+ * migration before anything here has run. The identifiers are fixed so that requests saved in
+ * Swagger or in the frontend keep working.
  */
 @Component
 @Profile("dev")
@@ -43,6 +48,9 @@ class DemoSkillsData implements ApplicationRunner {
   private static final UUID DESIGN = UUID.fromString("a0000000-0000-4000-8000-000000000003");
   private static final UUID UNIVERSITY_COURSES =
       UUID.fromString("a0000000-0000-4000-8000-000000000004");
+
+  /** The first global tool: once it is there, the demo catalogue has been filled. */
+  private static final UUID PYTHON = UUID.fromString("b0000000-0000-4000-8000-000000000001");
 
   private final CategoryRepository categories;
   private final CatalogItemRepository catalogItems;
@@ -62,14 +70,19 @@ class DemoSkillsData implements ApplicationRunner {
   }
 
   private void fill() {
-    if (categories.existsById(TECHNOLOGY)) {
+    if (catalogItems.existsById(PYTHON)) {
       return;
     }
 
-    categories.save(new Category(TECHNOLOGY, "Technology", (short) 1));
-    categories.save(new Category(LANGUAGES, "Languages", (short) 2));
-    categories.save(new Category(DESIGN, "Design", (short) 3));
-    categories.save(new Category(UNIVERSITY_COURSES, "University courses", (short) 4));
+    // Each one unless it exists, by its identifier or by its name: the global three come from the
+    // migration, and the category of courses may already have been created by loading a
+    // curriculum (US51), with an identifier of its own.
+    categories.createIfMissing(TECHNOLOGY, "Technology", (short) 1);
+    categories.createIfMissing(LANGUAGES, "Languages", (short) 2);
+    categories.createIfMissing(DESIGN, "Design", (short) 3);
+    categories.createIfMissing(UNIVERSITY_COURSES, "University courses", (short) 4);
+    UUID universityCourses =
+        categories.findByName("University courses").map(Category::getId).orElseThrow();
 
     Instant now = clock.instant();
 
@@ -84,13 +97,13 @@ class DemoSkillsData implements ApplicationRunner {
         "Interface design and prototyping in Figma.", now);
 
     // University courses, each with the code its academic system reports on an approved course.
-    course("b0000000-0000-4000-8000-000000000101", "1ASI0657",
+    course("b0000000-0000-4000-8000-000000000101", universityCourses, "1ASI0657",
         "Software Architecture Fundamentals", "Architectural styles, patterns and views.", now);
-    course("b0000000-0000-4000-8000-000000000102", "1ASI0616",
+    course("b0000000-0000-4000-8000-000000000102", universityCourses, "1ASI0616",
         "Databases I", "Relational modelling, SQL and normalisation.", now);
-    course("b0000000-0000-4000-8000-000000000103", "1MAT0101",
+    course("b0000000-0000-4000-8000-000000000103", universityCourses, "1MAT0101",
         "Calculus I", "Limits, derivatives and integrals of one variable.", now);
-    course("b0000000-0000-4000-8000-000000000104", "1ASI0625",
+    course("b0000000-0000-4000-8000-000000000104", universityCourses, "1ASI0625",
         "Backend Development", "Designing and building server side services.", now);
 
     log.info("Demo catalogue ready: 4 global tools and 4 courses of {}", TENANT);
@@ -103,13 +116,14 @@ class DemoSkillsData implements ApplicationRunner {
             now));
   }
 
-  private void course(String id, String courseCode, String name, String description, Instant now) {
+  private void course(
+      String id, UUID category, String courseCode, String name, String description, Instant now) {
     catalogItems.save(
         new CatalogItem(
             UUID.fromString(id),
             CatalogScope.UNIVERSITY,
             TENANT,
-            UNIVERSITY_COURSES,
+            category,
             name,
             description,
             courseCode,
