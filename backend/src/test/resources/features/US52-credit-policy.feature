@@ -66,3 +66,15 @@ Feature: Configure university credit policy
     Given a coordinator changed the credit policy and the audit log has its entry
     When the same event is delivered twice more
     Then the audit log still has one entry about that policy
+
+  # Not a scenario of the story: the console of the coordinator has to show the policy it changes.
+  Scenario: A coordinator reads the current baseline credit policy
+    Given an active coordinator belongs to a university
+    When the coordinator asks for the credit policy
+    Then the current baseline policy is returned
+    And after changing it the new one is what is returned
+
+  Scenario: Only an active coordinator of the university reads its credit policy
+    Given a student, a restricted coordinator and a coordinator of another university
+    When any of them asks for the credit policy
+    Then the answer is forbidden

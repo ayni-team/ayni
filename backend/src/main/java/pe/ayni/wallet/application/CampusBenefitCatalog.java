@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.UserRole;
+import pe.ayni.identity.UserView;
 import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.wallet.domain.model.CampusBenefitNotFoundException;
@@ -31,6 +32,15 @@ public class CampusBenefitCatalog {
   @Transactional(readOnly = true)
   public List<CampusBenefitView> available() {
     return benefits.findByTenantIdAndActiveTrueOrderByNameAsc(TenantContext.require()).stream()
+        .map(CampusBenefitView::of)
+        .toList();
+  }
+
+  /** Every benefit of the university, the deactivated ones too, for the coordinator who manages them. */
+  @Transactional(readOnly = true)
+  public List<CampusBenefitView> allOfTheUniversity() {
+    requireCoordinator();
+    return benefits.findByTenantIdOrderByNameAsc(TenantContext.require()).stream()
         .map(CampusBenefitView::of)
         .toList();
   }
@@ -60,7 +70,8 @@ public class CampusBenefitCatalog {
   }
 
   private void requireCoordinator() {
-    if (identity.requireUser(CurrentUser.require()).role() != UserRole.COORDINATOR) {
+    UserView user = identity.requireUser(CurrentUser.require());
+    if (user.role() != UserRole.COORDINATOR || !identity.isActive(user.id())) {
       throw new WalletAccessDeniedException();
     }
   }

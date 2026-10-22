@@ -450,6 +450,7 @@ refusal leaves nothing declared.
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | PUT | `/api/v1/admin/universities/{code}/email-domains` | admin | replaces the whole list of email domains of a university (US50) |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
+| GET | `/api/v1/coordinator/credit-policy` | coordinator | the baseline credit policy their university applies today (`id`, `kind`, `creditsAmount`, `validityDays`, `validFrom`); 404 when it has none, 403 to anybody who is not an active coordinator of it (US52) |
 | PUT | `/api/v1/coordinator/credit-policy` | coordinator | supersedes the baseline credit policy of their university: new students are granted the new one (US52) |
 | PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
@@ -806,8 +807,9 @@ the student was present, which means the tutor was the one missing) and `Purchas
 | GET | `/api/v1/wallet` | student — balance broken down by origin with expiry dates |
 | GET | `/api/v1/wallet/movements` | student — history, filterable by period and type |
 | GET | `/api/v1/wallet/benefits` | student — active benefits offered by their university |
+| GET | `/api/v1/coordinator/benefits` | coordinator — every benefit of their university, the deactivated ones included, by name; the students' `GET /wallet/benefits` lists only the active ones |
 | POST | `/api/v1/coordinator/benefits` | coordinator — create a benefit and its earned-credit cost |
-| PUT | `/api/v1/coordinator/benefits/{benefitId}` | coordinator — update or deactivate a benefit |
+| PUT | `/api/v1/coordinator/benefits/{benefitId}` | coordinator — update or deactivate a benefit. Every coordinator route of the benefits asks the use case for an active coordinator: a restricted one is refused with `403` |
 | POST | `/api/v1/wallet/benefits/{benefitId}/redemptions` | student — redeem earned credits |
 | POST | `/api/v1/wallet/donations` | student — donate earned credits to the incoming-student pool |
 | GET | `/api/v1/wallet/donation-pool` | student — total donated credits and contribution count |
