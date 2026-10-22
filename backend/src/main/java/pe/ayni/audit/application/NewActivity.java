@@ -48,6 +48,36 @@ record NewActivity(
     return UUID.nameUUIDFromBytes(key.toString().getBytes(StandardCharsets.UTF_8));
   }
 
+  /**
+   * The identifier of the entry this activity becomes, the same however many times its event is
+   * delivered (TS04): a delivery resumed from the event publication registry finds the entry the
+   * first one wrote and adds nothing. It is worked out from everything the event said, so two
+   * different facts never share it. An entry that was given an identifier keeps it. Without an
+   * instant from the event there is nothing stable to work it out from, and the entry gets a new
+   * identifier.
+   */
+  UUID entryId(String tenantId) {
+    if (id != null) {
+      return id;
+    }
+    if (occurredAt == null) {
+      return UUID.randomUUID();
+    }
+    String fact =
+        String.join(
+            "|",
+            "audit",
+            tenantId,
+            action,
+            resourceType,
+            String.valueOf(resourceId),
+            String.valueOf(actorId),
+            String.valueOf(role),
+            occurredAt.toString(),
+            String.valueOf(details));
+    return UUID.nameUUIDFromBytes(fact.getBytes(StandardCharsets.UTF_8));
+  }
+
   /** Builds a map from name and value pairs, leaving out what has no value. */
   static Map<String, String> details(Object... namesAndValues) {
     Map<String, String> details = new LinkedHashMap<>();

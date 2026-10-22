@@ -1,5 +1,6 @@
 package pe.ayni.notifications.application;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
@@ -12,6 +13,12 @@ import pe.ayni.notifications.domain.model.Notification;
 import pe.ayni.notifications.domain.model.NotificationKind;
 import pe.ayni.shared.events.PurchaseConfirmed;
 
+/**
+ * Tells the student that the credits they bought were placed.
+ *
+ * <p>Once per purchase (TS04): the notice takes its identifier from the purchase, so the same event
+ * delivered again finds it already written and sends nothing.
+ */
 @Service
 public class DeliverPurchaseConfirmationUseCase {
 
@@ -32,11 +39,15 @@ public class DeliverPurchaseConfirmationUseCase {
   }
 
   public UUID execute(PurchaseConfirmed purchase) {
+    UUID noticeId = noticeIdOf(purchase);
+    if (notifications.alreadyRecorded(noticeId)) {
+      return noticeId;
+    }
     UserView student = identity.requireUser(purchase.studentId());
     Notification notice =
         notifications.record(
             Notification.pending(
-                UUID.randomUUID(),
+                noticeId,
                 purchase.tenantId(),
                 student.id(),
                 student.email(),
@@ -58,5 +69,12 @@ public class DeliverPurchaseConfirmationUseCase {
       notifications.markFailed(notice.getId(), failure.getMessage());
     }
     return notice.getId();
+  }
+
+  /** The same for every delivery of the same purchase. */
+  static UUID noticeIdOf(PurchaseConfirmed purchase) {
+    return UUID.nameUUIDFromBytes(
+        ("PURCHASE_CONFIRMED|" + purchase.tenantId() + "|" + purchase.purchaseId())
+            .getBytes(StandardCharsets.UTF_8));
   }
 }

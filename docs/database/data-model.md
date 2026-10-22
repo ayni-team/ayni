@@ -1453,8 +1453,9 @@ PRIMARY KEY (tenant_id, kind, source_id)
 CHECK (kind IN ('SESSION_COMPLETED','STUDENT_ACTIVATED','RECOGNITION_APPROVED'))
 ```
 
-Not in the first version of the model. Events are delivered in memory and may arrive twice
-(ADR 0005), and a bare counter cannot tell a repeat from a new fact. `source_id` is the session, the
+Not in the first version of the model. An event may arrive twice (ADR 0005; since TS04 the
+event publication registry delivers again what was not completed), and a bare counter cannot tell a
+repeat from a new fact. `source_id` is the session, the
 student or the recognition request the event is about; inserting it with `ON CONFLICT DO NOTHING`
 decides, by the primary key, which delivery counts. Identifiers only, and no endpoint returns it.
 
@@ -1476,9 +1477,43 @@ answer counts.
 
 ---
 
+## Outside the modules
+
+### `public.event_publication`
+
+```
+id                uuid          NOT NULL
+listener_id       text          NOT NULL
+event_type        text          NOT NULL
+serialized_event  text          NOT NULL
+publication_date  timestamptz   NOT NULL
+completion_date   timestamptz
+
+PRIMARY KEY (id)
+INDEX event_publication_serialized_event_hash_idx USING hash (serialized_event)
+INDEX event_publication_by_completion_date_idx (completion_date)
+```
+
+TS04, the amendment of ADR 0005. The event publication registry of Spring Modulith: one row per
+event and per listener, written in the transaction of the change that produced the event, and
+deleted once that listener completes (`spring.modulith.events.completion-mode=delete`). A row that
+stays is a delivery still owed, and it is delivered again at startup and by the periodic
+resubmission. The table is exactly the one the library defines for PostgreSQL, because Hibernate
+validates the library's entity against it; nothing in Ayni maps it.
+
+It belongs to no module, so it lives in `public`, next to `flyway_schema_history`, where the
+library's entity looks for it: the schema of the connection. No `tenant_id` and no policy: each
+listener binds the university of its event when it runs. `serialized_event` is the event as JSON
+without what must never be stored: `AccessRequested` is written without its email and its link,
+`PresenceCodeIssued` without its code and `StudentActivated` without its email and its student
+code. The application's role may read, insert, update and delete it.
+
+---
+
 ## Counts
 
-Twelve modules, twelve schemas, forty one tables. No table exists without a flow that needs it, and
+Twelve modules, twelve schemas, forty one tables, and one table in `public` that belongs to none
+(`public.event_publication`, TS04). No table exists without a flow that needs it, and
 no flow from the session is left without tables. `diagrams/schema-overview.png` shows all of them on
 one page, drawn from `diagrams/schema-overview.puml`: a solid line is a foreign key inside a schema,
 a dashed one a reference by uuid, and none crosses a schema. The diagram predates the two auxiliary

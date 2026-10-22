@@ -76,3 +76,61 @@ twice if nothing went wrong.
 
 Belt and braces is free here only because the operation is idempotent. A consequence that were not
 idempotent would still have to choose one mechanism, and by this record it would choose the call.
+
+## Amendment, 2026-10-22: events are stored and delivered again (TS04)
+
+The consequence above that says events are delivered in memory and are not persisted is no longer
+true. The original text stays as written, as ADR 0001 asks; this is what replaces it.
+
+**The decision.** Spring Modulith's event publication registry, through
+`spring-modulith-starter-jpa`, at the version the BOM already pinned. Publishing an event stores one
+row per `@ApplicationModuleListener` (and per `@TransactionalEventListener` that runs after the
+commit) in `public.event_publication`, in the same transaction as the change that produced the
+event: a change that rolls back stores nothing, and a change that commits cannot lose its event.
+The row is deleted once its listener returns. A row that stays is a delivery still owed, and it is
+delivered again in two ways: when the application starts
+(`spring.modulith.events.republish-outstanding-events-on-restart=true`), and every five minutes for
+the publications older than a minute (`config.EventPublicationResubmission`, whose delay is
+`ayni.events.resubmit-delay`).
+
+**Listeners keep running on the publisher's thread, right after the commit.** The library switches
+`@Async` on; `config.ReliableEventsConfig` gives it an executor that runs on the calling thread, so
+a request, a test and its listeners keep the order they had. Moving listeners to a pool is a
+separate decision, with costs of its own.
+
+**Completed publications are deleted, not archived** (`spring.modulith.events.completion-mode=delete`).
+What happened is already kept where it belongs: the ledger keeps every movement and audit keeps
+every fact. A finished delivery has nothing left to say, and an archive would be a second copy of
+every event, identifiers of people included, growing with every request and read by nobody.
+
+**The registry is not tenant scoped, and its table has no `tenant_id`.** It lives in `public`, next
+to `flyway_schema_history`, because it belongs to none of the twelve modules. Each listener binds
+the university of its event with `TenantContext.runAs`, the first time and every time again, which
+is why the resubmission does not loop over the universities as the other jobs do.
+
+**Secrets are not stored.** `config.RedactingEventSerializer` writes `AccessRequested` without its
+email and its link, `PresenceCodeIssued` without its code, and `StudentActivated` without its email
+and its student code. The first delivery receives the event from memory, in full. A delivery
+resumed from the registry receives the stored copy: notifications drops a resumed link or code,
+which is what it already did with one that failed, and the listeners of `StudentActivated` never
+read either field.
+
+**Delivering again requires every listener to be idempotent**, and the ones that were not were made
+so: wallet's credit for a completed session and for a confirmed purchase (the session and the
+purchase are the idempotency key, and the ledger turn of the university is taken before looking),
+the no-show and the purchase notices (their identifier comes from the event), and the activity log
+(its entry identifier comes from the event).
+
+**What it costs.** One insert per listener in the publisher's transaction, and one delete per
+listener after it. `SessionCompleted` has six listeners, so closing a session writes twelve rows
+more than before. Measured on a laptop, publishing it with all its listeners went from a median of
+7.2 ms to 11.1 ms, the new idempotency checks included. Reads, the search among them, publish
+nothing and pay nothing.
+
+**What it does not do.** Events are not sent to a broker, and no event or `*Api` changed. A
+listener that swallows its own failures, as audit, analytics and the detection of anomalies do on
+purpose, completes its publication and is not retried. The compensation of the reservation saga
+that ADR 0004 lists next to TS04 is not part of this change.
+
+The last consequence above still holds for a different reason: a refund stays a synchronous call
+because the caller needs the answer, not because an event could be lost.

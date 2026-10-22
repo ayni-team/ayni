@@ -84,13 +84,26 @@
     </dependency>
     <!--
       @ApplicationModuleListener: a listener that runs after the publisher's transaction
-      commits, in a transaction of its own. Events are still delivered in memory and lost on
-      failure, as ADR 0005 says; when the publication registry arrives, these listeners are
-      already the ones it retries.
+      commits, in a transaction of its own.
     -->
     <dependency>
       <groupId>org.springframework.modulith</groupId>
       <artifactId>spring-modulith-events-api</artifactId>
+    </dependency>
+    <!--
+      The event publication registry (TS04, amendment of ADR 0005): every publication to an
+      @ApplicationModuleListener is stored in public.event_publication in the publisher's own
+      transaction, and removed once the listener completes. What failed, or what the process did
+      not get to deliver before it stopped, is delivered again. events-core is declared on its own
+      because the starter brings it only at runtime, and config implements its EventSerializer.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-starter-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-events-core</artifactId>
     </dependency>
 
     <!-- Database. Flyway creates the schema, Hibernate only validates it. -->

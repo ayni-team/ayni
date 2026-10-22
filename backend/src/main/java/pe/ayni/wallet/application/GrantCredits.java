@@ -70,4 +70,28 @@ class GrantCredits {
     // notifications exists.
     events.publishEvent(new CreditsGranted(tenantId, userId, amount, type, expiresAt, now));
   }
+
+  /**
+   * Grants credits for something that happened once, however many times it is announced (TS04).
+   *
+   * <p>The source is the idempotency key: a session taught credits its tutor once, a purchase its
+   * buyer once, a baseline policy each student once. The same event delivered again, by the event
+   * publication registry after a failure or a restart, finds the group it created and grants
+   * nothing. The university's turn to append to the ledger is taken before looking, so two
+   * deliveries at the same moment are told apart too: the second one waits, then finds the first.
+   *
+   * @return whether credits were granted now
+   */
+  @Transactional
+  boolean grantOnce(UUID userId, Credits amount, CreditType type, Instant expiresAt, UUID sourceId) {
+    String tenantId = TenantContext.require();
+    ledger.takeTurn(tenantId);
+    CreditAccount account = accounts.openIfAbsent(userId);
+    if (lots.existsByTenantIdAndAccountIdAndCreditTypeAndSourceTypeAndSourceId(
+        tenantId, account.id(), type, CreditSource.of(type), sourceId)) {
+      return false;
+    }
+    grant(userId, amount, type, expiresAt, sourceId);
+    return true;
+  }
 }
