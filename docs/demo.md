@@ -289,3 +289,130 @@ approved request. To start over, start from an empty database.
 
 Every switch of the demonstration lives under `/api/v1/admin/demo/`, is answered only under the
 `demo` profile and only to a platform administrator, and adds its own section here.
+
+### The payment provider (TS06)
+
+The simulated payment provider answers what `ayni.payments.simulated-outcome` (the first charge of a
+purchase) and `ayni.payments.simulated-resolution-outcome` (the later check of a pending purchase)
+say. Under `demo` the administrator changes them while the application runs, from the next call on,
+and reads or closes the circuit in front of the provider. The values are `CONFIRMED`, `REJECTED`,
+`PENDING` and `UNAVAILABLE`; anything else answers `400` and changes nothing. Like the clock, the
+state lives in memory: a restart takes it back to the properties.
+
+```bash
+# Read both outcomes and the circuit: CLOSED, OPEN or HALF_OPEN, the failures in a row, and until
+# when it stays open
+curl -s localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN"
+
+# Switch one outcome or both (at least one)
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"chargeOutcome": "REJECTED"}'
+
+# Close the circuit without waiting for its 30 seconds
+curl -s -X POST localhost:8080/api/v1/admin/demo/payments/circuit/reset -H "Authorization: Bearer $ADMIN"
+```
+
+A student or a coordinator gets `403`; without a session, `401`.
+
+Ana buys one credit the same way in every step below, with a new `Idempotency-Key` each time:
+
+```bash
+buy() {
+  curl -s -X POST localhost:8080/api/v1/payments/purchases -H "Authorization: Bearer $ANA" \
+    -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' -d '{"credits": 1}'
+}
+```
+
+Start with the provider confirming (`{"chargeOutcome": "CONFIRMED", "resolutionOutcome":
+"CONFIRMED"}`, which is what the properties say by default) and `buy` once: `201`, `CONFIRMED`, and
+`GET /api/v1/wallet` shows the credit.
+
+#### A rejected purchase
+
+```bash
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"chargeOutcome": "REJECTED"}'
+buy
+```
+
+**What to see:** `201` with `status: FAILED` and no credit in the wallet. A rejected attempt does not
+count against the monthly allowance of five credits, so Ana can try again after the next switch.
+
+#### A pending purchase that is resolved later
+
+The provider takes the charge without a final answer, and keeps saying so when it is asked again:
+
+```bash
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"chargeOutcome": "PENDING", "resolutionOutcome": "PENDING"}'
+buy                                                # 202, status PENDING, "do not retry"
+curl -s localhost:8080/api/v1/payments/purchases -H "Authorization: Bearer $ANA"   # PENDING
+```
+
+Now the provider decides. The reconciliation job asks about every pending purchase (every five
+seconds under `demo`, see "Starting it"):
+
+```bash
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"resolutionOutcome": "CONFIRMED"}'
+sleep 6
+curl -s localhost:8080/api/v1/payments/purchases -H "Authorization: Bearer $ANA"   # CONFIRMED
+curl -s localhost:8080/api/v1/wallet -H "Authorization: Bearer $ANA"
+```
+
+**What to see:** the purchase turns `CONFIRMED`, the wallet has one credit more (`PURCHASED`, never
+expires) and Mailpit has the confirmation email. A pending purchase keeps its place in the monthly
+allowance meanwhile. `{"resolutionOutcome": "REJECTED"}` instead shows the other ending: the
+purchase turns `FAILED` and the allowance is released.
+
+#### The provider goes down
+
+Both outcomes `UNAVAILABLE`, so that neither the purchase nor the reconciliation reaches it:
+
+```bash
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"chargeOutcome": "UNAVAILABLE", "resolutionOutcome": "UNAVAILABLE"}'
+buy; buy; buy
+curl -s localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN"
+```
+
+**What to see:** each `buy` answers `202` with `providerUnavailable: true` and the guidance that
+purchases are temporarily unavailable and must not be retried. After the third, the circuit reads
+`"state": "OPEN"` with `consecutiveFailures: 3` and `openUntil` thirty seconds ahead: from then on a
+purchase is refused without asking the provider.
+
+Everything else keeps working, because nothing else depends on the provider:
+
+```bash
+curl -s "localhost:8080/api/v1/search/offers?catalogItemId=b0000000-0000-4000-8000-000000000102&from=${DAY}T13:00:00Z&to=${DAY}T23:59:00Z" \
+  -H "Authorization: Bearer $ANA"
+curl -s localhost:8080/api/v1/bookings/mine -H "Authorization: Bearer $ANA"
+curl -s localhost:8080/api/v1/wallet -H "Authorization: Bearer $ANA"
+```
+
+**What to see:** search, bookings and the wallet answer as usual. To recover, bring the provider
+back and close the circuit instead of waiting for it:
+
+```bash
+curl -s -X PUT localhost:8080/api/v1/admin/demo/payments -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"chargeOutcome": "CONFIRMED", "resolutionOutcome": "CONFIRMED"}'
+curl -s -X POST localhost:8080/api/v1/admin/demo/payments/circuit/reset -H "Authorization: Bearer $ADMIN"
+sleep 6
+curl -s localhost:8080/api/v1/payments/purchases -H "Authorization: Bearer $ANA"
+```
+
+**What to see:** `state: CLOSED`, and within five seconds the three pending purchases are
+`CONFIRMED` by the reconciliation. Without the reset, the circuit lets one probe through when its
+thirty seconds pass: it reads `OPEN` until the next call, and closes if that probe is answered.
+
+Traps of this section:
+
+- **Five credits a month.** Pending purchases count against the allowance of five confirmed credits
+  per student and UTC month, rejected ones do not. The steps above add up to exactly five (the
+  first purchase, the pending one and the three of the outage); for a second run use another
+  student or start from an empty database.
+- **Leave the provider confirming.** `PENDING` or `UNAVAILABLE` left on makes the next person's
+  purchase stay pending. A restart also puts it back.
+- **Do not leave only the first outcome `UNAVAILABLE`.** The reconciliation job would then confirm
+  the pending purchases while the circuit is still closed, and the failures in a row would start
+  over before reaching three.
