@@ -2051,6 +2051,15 @@ The scenarios are in `features/production-packaging.feature`: `ProductionProfile
 over an empty PostgreSQL with only these variables, signs the bootstrapped administrator in by the
 emailed link and registers a first university.
 
+**The stack that runs it.** `deploy/` holds the production stack and its runbook: a
+`docker-compose.prod.yml` with the backend image, a Caddy proxy (`api.`, `app.` and `meet.`
+hostnames, TLS by itself), the four Jitsi containers always on with `10000/udp` published, and an
+optional Mailpit behind a password; a commented `.env.example` with every variable above; and
+`deploy/README.md`, the step by step guide from an empty virtual machine to a healthy backend, with
+the database roles, backup and restore, updating, rolling back and the two ways to send email. The
+`Release` workflow publishes `ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the
+manual `Deploy` workflow runs `deploy/update.sh` on the machine over SSH.
+
 ---
 
 ## Definition of done

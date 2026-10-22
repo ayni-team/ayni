@@ -1,0 +1,235 @@
+# =============================================================================
+# The production stack: one Linux virtual machine running docker compose.
+#
+#   backend  the production image (backend/Dockerfile.prod), profile prod
+#   proxy    Caddy: TLS certificates for the api. app. and meet. hostnames
+#   jitsi-*  the video of the sessions (US08), self hosted, always on
+#   mailpit  optional, only with --profile mailpit (see "Mail" in README.md)
+#
+# PostgreSQL is not here: it is the managed server the DB variables point to.
+#
+# Everything is configured from deploy/.env (copy .env.example). Run it from this folder:
+#
+#     docker compose pull && docker compose up -d --wait
+#
+# Never `docker compose down -v`: it erases the volumes below (README.md, "What not to do").
+# =============================================================================
+
+name: ayni
+
+services:
+
+  backend:
+    image: ${AYNI_IMAGE_REPOSITORY:?Set AYNI_IMAGE_REPOSITORY in deploy/.env}:${AYNI_IMAGE_TAG:?Set AYNI_IMAGE_TAG in deploy/.env}
+    restart: unless-stopped
+    environment:
+      # Under prod the application refuses to start, naming it, when a required variable is
+      # missing. The ones below with ":?" fail here first, before any container is touched.
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75}
+      AYNI_PORT: ${AYNI_PORT:-8080}
+
+      AYNI_DB_URL: ${AYNI_DB_URL:?Set AYNI_DB_URL in deploy/.env}
+      AYNI_DB_USER: ${AYNI_DB_USER:?Set AYNI_DB_USER in deploy/.env}
+      AYNI_DB_PASSWORD: ${AYNI_DB_PASSWORD:?Set AYNI_DB_PASSWORD in deploy/.env}
+      AYNI_DB_APP_USER: ${AYNI_DB_APP_USER:?Set AYNI_DB_APP_USER in deploy/.env}
+      AYNI_DB_APP_PASSWORD: ${AYNI_DB_APP_PASSWORD:?Set AYNI_DB_APP_PASSWORD in deploy/.env}
+      AYNI_DB_POOL_SIZE: ${AYNI_DB_POOL_SIZE:-10}
+
+      AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:?Set AYNI_JITSI_JWT_SECRET in deploy/.env}
+      AYNI_JITSI_URL: ${AYNI_JITSI_URL:?Set AYNI_JITSI_URL in deploy/.env}
+      AYNI_JITSI_APP_ID: ${AYNI_JITSI_APP_ID:-ayni}
+
+      AYNI_IDENTITY_ACCESS_LINK_BASE_URL: ${AYNI_IDENTITY_ACCESS_LINK_BASE_URL:?Set AYNI_IDENTITY_ACCESS_LINK_BASE_URL in deploy/.env}
+      AYNI_ALLOWED_ORIGINS: ${AYNI_ALLOWED_ORIGINS:?Set AYNI_ALLOWED_ORIGINS in deploy/.env}
+      AYNI_BOOTSTRAP_ADMIN_EMAIL: ${AYNI_BOOTSTRAP_ADMIN_EMAIL:-}
+      AYNI_BOOTSTRAP_ADMIN_FULL_NAME: ${AYNI_BOOTSTRAP_ADMIN_FULL_NAME:-Ayni Platform Administrator}
+      AYNI_API_DOCS_ENABLED: ${AYNI_API_DOCS_ENABLED:-false}
+
+      AYNI_MAIL_HOST: ${AYNI_MAIL_HOST:?Set AYNI_MAIL_HOST in deploy/.env}
+      AYNI_MAIL_PORT: ${AYNI_MAIL_PORT:?Set AYNI_MAIL_PORT in deploy/.env}
+      AYNI_MAIL_USER: ${AYNI_MAIL_USER:-}
+      AYNI_MAIL_PASSWORD: ${AYNI_MAIL_PASSWORD:-}
+      AYNI_MAIL_FROM: ${AYNI_MAIL_FROM:-Ayni <no-reply@ayni.local>}
+      # Spring's own names for two JavaMail switches a real SMTP server usually needs: port 587
+      # asks for STARTTLS, port 465 for TLS from the first byte. Off by default, as in the
+      # application, which is what Mailpit expects.
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${AYNI_MAIL_STARTTLS:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: ${AYNI_MAIL_SSL:-false}
+
+      AYNI_ACADEMIC_DIRECTORY: ${AYNI_ACADEMIC_DIRECTORY:-/var/lib/ayni/academic-directory}
+      AYNI_SKILLS_EVIDENCE_DIR: ${AYNI_SKILLS_EVIDENCE_DIR:-/var/lib/ayni/evidence}
+
+      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
+      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
+      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
+      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
+      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_FAILURE_THRESHOLD: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:-3}
+      AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:-PT30S}
+      AYNI_PAYMENTS_TIMEOUT: ${AYNI_PAYMENTS_TIMEOUT:-PT2S}
+      AYNI_PAYMENTS_MAX_CONCURRENT_CALLS: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:-2}
+    volumes:
+      # The evidence files (US16) and the simulated academic system (ADR 0006). Named volumes keep
+      # them when the container is replaced by an update. They start with the ownership of the
+      # image's folders, which belong to the unprivileged user of the image.
+      - evidence:${AYNI_SKILLS_EVIDENCE_DIR:-/var/lib/ayni/evidence}
+      - academic-directory:${AYNI_ACADEMIC_DIRECTORY:-/var/lib/ayni/academic-directory}
+    healthcheck:
+      # Readiness (the database answers). The probe speaks HTTP by hand through bash, so the image
+      # does not need curl. The first start runs every migration, hence the long start period.
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/$${AYNI_PORT:-8080} && printf 'GET /actuator/health/readiness HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200'"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    # A stop lets the requests in flight finish (server.shutdown: graceful).
+    stop_grace_period: 40s
+    networks: [edge]
+
+  # ---------------------------------------------------------------------------
+  # The proxy: the only service that publishes web ports. Caddy asks a certificate authority for a
+  # certificate for each hostname the first time it needs one, which needs the DNS records to
+  # point at this machine and ports 80 and 443 to be open.
+  # ---------------------------------------------------------------------------
+  proxy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      AYNI_DOMAIN: ${AYNI_DOMAIN:?Set AYNI_DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in deploy/.env}
+      AYNI_PORT: ${AYNI_PORT:-8080}
+      # The address of the Mailpit page. While the mailpit profile is off it stays an address that
+      # no certificate is asked for and nothing outside the container can reach. The hash is that
+      # of a random password nobody knows, so a forgotten value locks the page instead of opening it.
+      MAILPIT_SITE: ${MAILPIT_SITE:-http://mailpit.internal:8081}
+      MAILPIT_BASIC_AUTH_USER: ${MAILPIT_BASIC_AUTH_USER:-ayni}
+      MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH:-$$2a$$14$$JxrZe/D8eza7Y5aznxiU5.qzDJI0V4WsrZy8EOVgeB1sMlfH319yO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The web application, built into web/dist (README.md, "The web application").
+      - ../web/dist:/srv/app:ro
+      # Certificates and Caddy's account. Losing them means asking for every certificate again,
+      # and certificate authorities limit how often that can be done.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+      - jitsi-web
+    networks: [edge]
+
+  # ---------------------------------------------------------------------------
+  # The video call of the sessions (US08): the same four containers as the video profile of the
+  # development docker-compose.yml, always on. It only lets in whoever holds a token the backend
+  # signed with AYNI_JITSI_JWT_SECRET for that room. Browsers reach it at https://meet.<domain>
+  # through the proxy; the media travels straight to the videobridge on 10000/udp.
+  # ---------------------------------------------------------------------------
+
+  jitsi-web:
+    image: jitsi/web:stable-9584
+    restart: unless-stopped
+    environment: &jitsi
+      ENABLE_AUTH: "1"
+      AUTH_TYPE: jwt
+      ENABLE_GUESTS: "0"
+      JWT_APP_ID: ${AYNI_JITSI_APP_ID:-ayni}
+      JWT_APP_SECRET: ${AYNI_JITSI_JWT_SECRET:?Set AYNI_JITSI_JWT_SECRET in deploy/.env}
+      JWT_ACCEPTED_ISSUERS: ${AYNI_JITSI_APP_ID:-ayni}
+      JWT_ACCEPTED_AUDIENCES: jitsi
+      # The address the browser is told to use. TLS ends at the proxy, so this container speaks
+      # plain HTTP to it.
+      PUBLIC_URL: https://meet.${AYNI_DOMAIN:?Set AYNI_DOMAIN in deploy/.env}
+      DISABLE_HTTPS: "1"
+      ENABLE_HTTP_REDIRECT: "0"
+      # Internal names of the XMPP server. They never reach a browser, and the backend signs its
+      # passes for this subject (ayni.sessions.video.domain), so keep them as they are.
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_SERVER: xmpp.meet.jitsi
+      XMPP_BOSH_URL_BASE: http://xmpp.meet.jitsi:5280
+      JICOFO_AUTH_PASSWORD: ${JICOFO_AUTH_PASSWORD:?Set JICOFO_AUTH_PASSWORD in deploy/.env}
+      JICOFO_COMPONENT_SECRET: ${JICOFO_COMPONENT_SECRET:?Set JICOFO_COMPONENT_SECRET in deploy/.env}
+      JVB_AUTH_PASSWORD: ${JVB_AUTH_PASSWORD:?Set JVB_AUTH_PASSWORD in deploy/.env}
+      # The address the videobridge tells the browsers to send the media to: the public one of
+      # this machine.
+      JVB_ADVERTISE_IPS: ${AYNI_PUBLIC_IP:?Set AYNI_PUBLIC_IP in deploy/.env}
+      TZ: UTC
+    networks: [edge, jitsi]
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-prosody:
+    image: jitsi/prosody:stable-9584
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5280"
+      - "5347"
+    environment: *jitsi
+    networks:
+      jitsi:
+        aliases:
+          - xmpp.meet.jitsi
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable-9584
+    restart: unless-stopped
+    environment: *jitsi
+    networks: [jitsi]
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-jvb:
+    image: jitsi/jvb:stable-9584
+    restart: unless-stopped
+    ports:
+      # The media of every call. With this port closed to the Internet a call connects and nobody
+      # hears or sees anything. The TCP fallback on 4443 is off; README.md, "Firewall", says how
+      # to turn it on.
+      - "10000:10000/udp"
+    environment: *jitsi
+    networks: [jitsi]
+    depends_on:
+      - jitsi-prosody
+
+  # ---------------------------------------------------------------------------
+  # Optional: catches every email instead of delivering it, and shows them at
+  # https://<MAILPIT_SITE> behind a user and a password the proxy asks for. For a demonstration
+  # only: the emails hold the links that sign people in. Read "Mail" in README.md first.
+  #
+  #     docker compose --profile mailpit up -d
+  # ---------------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: [mailpit]
+    restart: unless-stopped
+    networks: [edge]
+
+networks:
+  # The proxy, the backend and whatever the proxy forwards to.
+  edge:
+    name: ayni-edge
+  # The XMPP side of Jitsi, closed to everything else.
+  jitsi:
+    name: ayni-jitsi
+
+volumes:
+  evidence:
+    name: ayni-prod-evidence
+  academic-directory:
+    name: ayni-prod-academic-directory
+  caddy-data:
+    name: ayni-prod-caddy-data
+  caddy-config:
+    name: ayni-prod-caddy-config
