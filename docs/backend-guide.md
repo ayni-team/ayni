@@ -1877,6 +1877,27 @@ explicitly says purchases are temporarily unavailable and must not be retried. T
 reconciliation checks the provider later; after the open period one half-open request probes for
 recovery. Search, booking, sessions, and wallet do not depend on the payment provider.
 
+**Switching the simulator at runtime (demo profile only).** The two simulated outcomes live in
+`SimulatedPaymentSettings` (`payments.application`), not in fields of the provider: they start from
+`AYNI_PAYMENTS_SIMULATED_OUTCOME` and `AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME`, are read by
+`SimulatedPaymentProvider` on every call, and a value other than `CONFIRMED`, `REJECTED`, `PENDING`
+or `UNAVAILABLE` stops the application from starting with a message that says so. With the default
+properties nothing changes. Under the `demo` profile alone (`@Profile("demo")`, nothing of this
+exists under `dev` or in a deployment) a platform administrator can change them without a restart:
+
+| Route | Does |
+|---|---|
+| `GET /api/v1/admin/demo/payments` | `chargeOutcome`, `resolutionOutcome` and the circuit: `state` (`CLOSED`, `OPEN`, `HALF_OPEN`), `consecutiveFailures`, `openUntil` |
+| `PUT /api/v1/admin/demo/payments` | switches `chargeOutcome` and/or `resolutionOutcome` from the next call; 400 for an unknown value or for none, and nothing changes |
+| `POST /api/v1/admin/demo/payments/circuit/reset` | closes the circuit and forgets the failures |
+
+The routes sit under `/api/v1/admin/**`, so the access filter already asks for `PLATFORM_ADMIN` (403
+for anybody else). The controller lives in `payments/interfaces/rest` and calls
+`SwitchSimulatedPaymentsUseCase`; the circuit breaker implements the port
+`PaymentCircuit` (a read and a reset) and is a bean of its own. The state is in memory. The
+script to present it, a rejected purchase, a pending one resolved later and an outage of the
+provider, is in `docs/demo.md`.
+
 ---
 
 ## Definition of done

@@ -3,8 +3,9 @@ package pe.ayni.payments.infrastructure;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import pe.ayni.payments.application.PaymentCircuit;
 
-final class PaymentProviderCircuitBreaker {
+final class PaymentProviderCircuitBreaker implements PaymentCircuit {
 
   private enum State {
     CLOSED,
@@ -83,5 +84,15 @@ final class PaymentProviderCircuitBreaker {
 
   synchronized String stateName() {
     return state.name();
+  }
+
+  @Override
+  public synchronized Status status() {
+    return new Status(PaymentCircuit.State.valueOf(state.name()), consecutiveFailures, openUntil);
+  }
+
+  @Override
+  public synchronized void reset() {
+    close();
   }
 }
