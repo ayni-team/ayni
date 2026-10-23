@@ -81,4 +81,15 @@ class AvailabilityExceptionTest {
         .isInstanceOf(BookingRuleViolation.class)
         .hasMessageContaining("ends_at_time");
   }
+
+  @Test
+  @DisplayName("an exception governs its own day and is over the day after")
+  void anExceptionIsInForceUntilItsDate() {
+
+    AvailabilityException removed = removeWindow(MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0));
+
+    assertThat(removed.isStillInForceOn(MONDAY.minusDays(3))).isTrue();
+    assertThat(removed.isStillInForceOn(MONDAY)).isTrue();
+    assertThat(removed.isStillInForceOn(MONDAY.plusDays(1))).isFalse();
+  }
 }

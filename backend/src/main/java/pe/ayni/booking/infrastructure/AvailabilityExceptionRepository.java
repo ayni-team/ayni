@@ -20,6 +20,14 @@ public interface AvailabilityExceptionRepository
 
   Optional<AvailabilityException> findByTenantIdAndId(String tenantId, UUID id);
 
+  /**
+   * The tutor's exceptions on a day or later, for reading back what they declared. It only narrows
+   * the candidates by the index; whether one is still in force is {@link
+   * AvailabilityException#isStillInForceOn}.
+   */
+  List<AvailabilityException> findByTenantIdAndTutorIdAndExceptionDateGreaterThanEqual(
+      String tenantId, UUID tutorId, LocalDate from);
+
   /** The exceptions falling on a range of dates, both ends included, for generating blocks. */
   @Query(
       """

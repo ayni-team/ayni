@@ -126,6 +126,16 @@ public class AvailabilityPattern {
         && other.startsAtTime.isBefore(this.endsAtTime);
   }
 
+  /**
+   * Whether the window still governs the tutor's weeks on or after a day: it has no end date, or it
+   * ends on that day or later. A window that already ended gives no more hours, so the tutor no
+   * longer reads it among what they declared. One that starts later still counts.
+   */
+  public boolean isStillInForceOn(LocalDate today) {
+    Objects.requireNonNull(today, "today must not be null");
+    return this.validUntil == null || !this.validUntil.isBefore(today);
+  }
+
   public UUID getId() {
     return id;
   }

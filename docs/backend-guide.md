@@ -918,6 +918,7 @@ was the one missing. When the student was not present it also records the studen
 | DELETE | `/api/v1/bookings/{id}` | student or tutor of the booking | cancels. The student is refunded unless they cancel inside twelve hours of the start; the tutor's cancellation always refunds. `confirmLate=true` confirms a cancellation inside twelve hours. 204, 400, 403, 404 and 409 |
 | GET | `/api/v1/tutor/agenda` | tutor | what is booked and what is still free, in days of the university (US21) |
 | GET | `/api/v1/tutor/agenda/history` | tutor | the sessions already over or called off, a page at a time (US21) |
+| GET | `/api/v1/tutor/availability` | tutor | what the tutor declared and still governs their hours: `timezone`, the weekly `patterns`, the date `exceptions` from today on and the `pauses` under way or to come; any list may be empty (US19, US20, US22) |
 | POST | `/api/v1/tutor/availability` | tutor | weekly ranges |
 | DELETE | `/api/v1/tutor/availability/{id}` | tutor | removes a weekly range; its free hours are withdrawn, the booked ones stand (US19) |
 | POST | `/api/v1/tutor/availability/exceptions` | tutor | add or remove a specific date |
@@ -1010,6 +1011,22 @@ its session", is no longer `@pending`; its test is in sessions.
 
 Both read only the bookings of the person who asks, in the university of their session: there is no
 way to name another student or tutor.
+
+**Reading back what a tutor declared (US19, US20, US22).** `GET /api/v1/tutor/availability`
+answers the rules the agenda's hours are generated from, which the agenda does not show:
+`timezone`, the university's (`IdentityApi.requireTenant`), in which every date and time is;
+`patterns`, each with `id`, `dayOfWeek`, `startsAtTime`, `endsAtTime`, `validFrom` and `validUntil`
+(`null` without an end), by day of the week and hour; `exceptions`, each with `id`,
+`exceptionDate`, `startsAtTime` and `endsAtTime` (both `null` for a whole day) and `kind`, `ADD` or
+`REMOVE`, by date and hour, a whole day first; and `pauses`, each with `id`, `startsOn` and
+`endsOn`, by first day. Only what still governs from today, the university's day, is listed, and
+each entity says so with `isStillInForceOn`: a range with no last day or one still to come
+(one that starts later is listed), an exception of today or later, a pause under way or still to
+come. Removing a range and ending a pause early delete the row, so neither is there. It is always
+`200`, never `404`, and never paged: it holds only what one tutor declared, a handful of ranges and
+the exceptions and pauses ahead. The tutor is the one of the session and only their rows of that
+university are read, as in the agenda. It changes nothing: the `id`s are the ones the `DELETE`s
+above take.
 
 **Student absences (US34).** The second half of `SessionAbandoned`: when `studentCheckedIn` is false
 the student did not come, whether or not the tutor did, and `RecordStudentAbsence` writes one row to

@@ -47,4 +47,16 @@ class AvailabilityPauseTest {
         .isInstanceOf(BookingRuleViolation.class)
         .hasMessageContaining("ends_on");
   }
+
+  @Test
+  @DisplayName("a pause governs while it is under way or still to come, and not once its last day is gone")
+  void aPauseIsInForceUntilItsLastDay() {
+
+    AvailabilityPause away = pause(MONDAY, MONDAY.plusDays(6));
+
+    assertThat(away.isStillInForceOn(MONDAY.minusDays(10))).isTrue();
+    assertThat(away.isStillInForceOn(MONDAY.plusDays(3))).isTrue();
+    assertThat(away.isStillInForceOn(MONDAY.plusDays(6))).isTrue();
+    assertThat(away.isStillInForceOn(MONDAY.plusDays(7))).isFalse();
+  }
 }

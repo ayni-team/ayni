@@ -167,6 +167,15 @@ public class AvailabilityException {
         id, tenantId, tutorId, exceptionDate, startsAtTime, endsAtTime, ExceptionKind.ADD, now);
   }
 
+  /**
+   * Whether the exception still changes a day to come: its date is that day or later. An
+   * exception of a day already gone changes nothing any more.
+   */
+  public boolean isStillInForceOn(LocalDate today) {
+    Objects.requireNonNull(today, "today must not be null");
+    return !this.exceptionDate.isBefore(today);
+  }
+
   public UUID getId() {
     return id;
   }

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,12 +23,13 @@ import pe.ayni.booking.application.AddAvailabilityExceptionUseCase;
 import pe.ayni.booking.application.AddAvailabilityPauseUseCase;
 import pe.ayni.booking.application.DeclareWeeklyAvailabilityUseCase;
 import pe.ayni.booking.application.GetCurrentAvailabilityPauseUseCase;
+import pe.ayni.booking.application.ReadTutorAvailabilityQuery;
 import pe.ayni.booking.application.ReactivateAvailabilityPauseUseCase;
 import pe.ayni.booking.application.RemoveAvailabilityPatternUseCase;
 import pe.ayni.shared.tenancy.CurrentUser;
 
 /**
- * Tutor availability commands.
+ * Tutor availability commands, and the read back of what the tutor declared.
  *
  * <p>The controller only translates HTTP requests into application commands. The tutor is always
  * read from {@link CurrentUser}; it is never accepted in the request body.
@@ -43,6 +45,7 @@ class AvailabilityController {
   private final GetCurrentAvailabilityPauseUseCase getCurrentAvailabilityPause;
   private final ReactivateAvailabilityPauseUseCase reactivateAvailabilityPause;
   private final RemoveAvailabilityPatternUseCase removeAvailabilityPattern;
+  private final ReadTutorAvailabilityQuery readTutorAvailability;
 
   AvailabilityController(
       DeclareWeeklyAvailabilityUseCase declareWeeklyAvailability,
@@ -50,13 +53,55 @@ class AvailabilityController {
       AddAvailabilityPauseUseCase addAvailabilityPause,
       GetCurrentAvailabilityPauseUseCase getCurrentAvailabilityPause,
       ReactivateAvailabilityPauseUseCase reactivateAvailabilityPause,
-      RemoveAvailabilityPatternUseCase removeAvailabilityPattern) {
+      RemoveAvailabilityPatternUseCase removeAvailabilityPattern,
+      ReadTutorAvailabilityQuery readTutorAvailability) {
     this.declareWeeklyAvailability = declareWeeklyAvailability;
     this.addAvailabilityException = addAvailabilityException;
     this.addAvailabilityPause = addAvailabilityPause;
     this.getCurrentAvailabilityPause = getCurrentAvailabilityPause;
     this.reactivateAvailabilityPause = reactivateAvailabilityPause;
     this.removeAvailabilityPattern = removeAvailabilityPattern;
+    this.readTutorAvailability = readTutorAvailability;
+  }
+
+  @GetMapping("/tutor/availability")
+  @Operation(
+      summary = "Read back the availability the tutor declared",
+      description =
+          """
+          The rules the signed in tutor's hours are generated from, not the hours themselves
+          (those are the agenda): their weekly ranges, their date exceptions and their pauses, in
+          the university's time zone. Only what still governs from today on, today being the
+          university's day: a range removed, or with a last day already gone, is not listed; an
+          exception of a past date is not; a pause ended early or already over is not, while the
+          one under way and the ones to come are. Ranges are sorted by day of the week and hour,
+          exceptions by date and hour (a whole day first), pauses by their first day. Any list
+          may be empty. It is never paged: it holds only what one tutor declared.
+          """)
+  @ApiResponse(
+      responseCode = "200",
+      description = "What the tutor declared, possibly nothing",
+      content =
+          @Content(
+              schema = @Schema(implementation = TutorAvailabilityResponse.class),
+              examples =
+                  @ExampleObject(
+                      name = "A range, a removed hour and a pause",
+                      value =
+                          """
+                          {"timezone":"America/Lima",
+                           "patterns":[{"id":"a0000000-0000-4000-8000-000000000001",
+                             "dayOfWeek":"MONDAY","startsAtTime":"17:00:00",
+                             "endsAtTime":"19:00:00","validFrom":"2026-09-28",
+                             "validUntil":null}],
+                           "exceptions":[{"id":"b0000000-0000-4000-8000-000000000002",
+                             "exceptionDate":"2026-10-26","startsAtTime":"17:00:00",
+                             "endsAtTime":"18:00:00","kind":"REMOVE"}],
+                           "pauses":[{"id":"c0000000-0000-4000-8000-000000000003",
+                             "startsOn":"2026-11-02","endsOn":"2026-11-08"}]}
+                          """)))
+  TutorAvailabilityResponse readAvailability() {
+    return TutorAvailabilityResponse.of(readTutorAvailability.execute(CurrentUser.require()));
   }
 
   @PostMapping("/tutor/availability")
