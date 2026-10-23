@@ -89,6 +89,9 @@ start. **Optional:** `AYNI_BOOTSTRAP_ADMIN_FULL_NAME`, `AYNI_MAIL_USER`, **`AYNI
 Defaults, descriptions and permissions of every variable: "Deployment (prod profile)" in
 `docs/backend-guide.md`. Never commit a real value of any of them.
 
+The whole production stack (proxy with TLS, Jitsi, the managed database) and the steps to put it on
+a virtual machine are in [`deploy/README.md`](deploy/README.md).
+
 ---
 
 ## How the project is organised
