@@ -455,7 +455,8 @@ refusal leaves nothing declared.
 | PUT | `/api/v1/coordinator/university-identity` | coordinator | sets the logo and the colours of their own university (US50) |
 
 The administrator endpoints must never return a student's name, email or courses. That restriction
-is the reason `platform_admins` is a separate table.
+is the reason `platform_admins` is a separate table. The one exception is the demonstration's list
+of personas below, which exists only under the `demo` profile.
 
 **The onboarding (US40).** A student goes through `PROFILE → ACADEMIC_RECORD → LEARNING_INTERESTS →
 COMPLETED`, and `GET /api/v1/me` answers the step they are in as `onboardingStep`, so whoever
@@ -631,6 +632,34 @@ and the log says so without the address. It runs when the application is ready, 
 event is published, as for the students of `DemoIdentityData`. Under `demo` a session lasts a year
 (`ayni.identity.session-ttl: P365D`), so moving the clock weeks ahead does not sign anybody out,
 while an access link keeps its ten minutes and expires with the moved clock.
+
+**Acting as a persona (demo profile only).** Two routes, both `@Profile("demo")` so that under
+`dev` and in a deployment they do not exist (`404`), and both under `/api/v1/admin`, which the
+access filter already restricts to `PLATFORM_ADMIN` (`RouteAccess` is untouched). `docs/demo.md`,
+"Switching persona", has the `curl`s.
+
+| Method | Path | Does |
+|---|---|---|
+| GET | `/api/v1/admin/demo/personas` | the active students and coordinators of every university: `email`, `fullName`, `role`, `universityCode`, `universityName`, `career` and `onboardingStep`, the last two empty when the profile has none. Ordered by university code, then role name, then person's name |
+| POST | `/api/v1/admin/demo/login-as` | takes `{ "email": ... }` and opens a session for that active person, answering what `POST /api/v1/access/confirm` answers (`OpenedSession`) |
+
+`ListDemoPersonasQuery` loops over `IdentityApi.activeTenantCodes()` and reads each university with
+`TenantContext.callAs`, one at a time: the administrator has no university and row level security
+shows it the rows of none. `OpenPersonaSessionUseCase` looks for the active person the same way,
+issues the session as `ConfirmAccessUseCase` does (same token generator, only the hash stored, the
+duration `ayni.identity.session-ttl`, the application's clock), consumes and creates no access link
+and writes no notice, and logs the university and the role, never the address. The copy of the
+session issuing is deliberate: `ConfirmAccessUseCase` was being changed by another pull request,
+and the two can share one class afterwards.
+
+| Status | When |
+|---|---|
+| 200 | `personas`: the list, empty when nobody is active. `login-as`: the session is open |
+| 400 | `login-as` with no body, no `email`, a blank one or one that is not an address |
+| 403 | A student or a coordinator (the access filter) |
+| 404 | `login-as` with an email no active student or coordinator has, a pending or restricted person included. Without the `demo` profile, both routes |
+
+The scenarios are in `demo-personas.feature`.
 
 ---
 
@@ -1648,6 +1677,30 @@ stores the purchase identifier and amount, not payment credentials.
 - `SESSION_REMINDER` is a kind of the table that nothing writes yet; reminders, preferences and
   reputation at risk are not built.
 
+**Where an email leaves from.** Every email goes out through `EmailDelivery`, which
+`MailRoutingConfig` builds at startup. By default it is the main server, the one `spring.mail.*`
+names: Mailpit in development, the relay of a deployment. With `ayni.notifications.real-relay.*`
+(`AYNI_REAL_RELAY_*`, see the table of variables under "Deployment (prod profile)") a second server
+is added, and `RoutingEmailDelivery` sends through it only to the addresses of
+`allowed-recipients`. The reason is the demonstration: its people are invented and carry the domain
+of real universities, so no relay that really delivers may ever receive them.
+
+| Case | What happens |
+|---|---|
+| The list and the host are both empty | Nothing changes: everything leaves through the main server |
+| The list and the host are both set | An address of the list leaves through the real relay, every other one through the main server |
+| Only one of them is set | The application does not start. The message says which one is missing and names no address |
+| The real relay fails for an address of the list | The email is not delivered and its notice is marked failed, as for any refusal. It is **not** sent through the main server in its place |
+
+The address is compared whole, trimmed and without regard to case, never by domain. The real relay
+is a second `JavaMailSender` that is not a bean, because a second one in the context would make
+Spring Boot give up the main one. The environment variables are mapped one by one in
+`application.yml`: Spring's relaxed binding would not find `AYNI_REAL_RELAY_*` by itself, as it did
+not for `AYNI_BOOTSTRAP_ADMIN_EMAIL`. The log counts how many emails left through each server and
+never names an address, a link or a code; the reason a server gave for a refusal has the address
+taken out of it before it is kept on the notice. The scenarios are in
+`notifications-mail-routing.feature`.
+
 **The inbox.** The person reads their own notices, those with their `recipient_id` in the university
 of their session; no endpoint takes a recipient. `GET /api/v1/notifications` answers `items`
 (`id`, `kind`, `payload`, `createdAt`, `readAt`), `page`, `size` (20 by default, 100 at most),
@@ -2106,6 +2159,13 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_MAIL_USER` | no | no | empty | SMTP user, when the server asks for one |
 | `AYNI_MAIL_PASSWORD` | no | yes | empty | SMTP password |
 | `AYNI_MAIL_FROM` | no | no | `Ayni <no-reply@ayni.local>` | Sender of the emails |
+| `AYNI_REAL_RELAY_ALLOWED_RECIPIENTS` | no | no (personal data) | empty | Comma separated addresses whose emails leave through the real relay; every other address leaves through `AYNI_MAIL_HOST`. Compared whole, without regard to case. Set it together with the host |
+| `AYNI_REAL_RELAY_HOST` | no | no | empty | SMTP server of the real relay. Set it together with the list: one without the other stops the startup |
+| `AYNI_REAL_RELAY_PORT` | no | no | empty (25) | Its port |
+| `AYNI_REAL_RELAY_USERNAME` | no | no | empty | Its SMTP user, when it asks for one |
+| `AYNI_REAL_RELAY_PASSWORD` | no | yes | empty | Its SMTP password |
+| `AYNI_REAL_RELAY_STARTTLS` | no | no | empty (false) | `true` on port 587 |
+| `AYNI_REAL_RELAY_SSL` | no | no | empty (false) | `true` on port 465 |
 | `AYNI_JITSI_URL` | set it | no | `http://localhost:8000` | Public address of Jitsi |
 | `AYNI_JITSI_APP_ID` | no | no | `ayni` | Application id the video passes carry |
 | `AYNI_ACADEMIC_DIRECTORY` | no | no | `/var/lib/ayni/academic-directory` in the image | Folder of the simulated academic system (ADR 0006), one `<CODE>.json` per university; mount it |

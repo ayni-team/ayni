@@ -56,6 +56,16 @@ services:
       # application, which is what Mailpit expects.
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${AYNI_MAIL_STARTTLS:-false}
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: ${AYNI_MAIL_SSL:-false}
+      # An optional second server for a short list of addresses, the rest still leaving through the
+      # one above (README.md, "Mail"). Empty means no real relay; one of the host and the list
+      # without the other stops the startup.
+      AYNI_REAL_RELAY_ALLOWED_RECIPIENTS: ${AYNI_REAL_RELAY_ALLOWED_RECIPIENTS:-}
+      AYNI_REAL_RELAY_HOST: ${AYNI_REAL_RELAY_HOST:-}
+      AYNI_REAL_RELAY_PORT: ${AYNI_REAL_RELAY_PORT:-}
+      AYNI_REAL_RELAY_USERNAME: ${AYNI_REAL_RELAY_USERNAME:-}
+      AYNI_REAL_RELAY_PASSWORD: ${AYNI_REAL_RELAY_PASSWORD:-}
+      AYNI_REAL_RELAY_STARTTLS: ${AYNI_REAL_RELAY_STARTTLS:-}
+      AYNI_REAL_RELAY_SSL: ${AYNI_REAL_RELAY_SSL:-}
 
       AYNI_ACADEMIC_DIRECTORY: ${AYNI_ACADEMIC_DIRECTORY:-/var/lib/ayni/academic-directory}
       AYNI_SKILLS_EVIDENCE_DIR: ${AYNI_SKILLS_EVIDENCE_DIR:-/var/lib/ayni/evidence}
