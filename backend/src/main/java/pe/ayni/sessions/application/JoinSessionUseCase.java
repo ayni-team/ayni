@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.booking.BookingApi;
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 import pe.ayni.sessions.domain.model.Participation;
@@ -39,17 +40,24 @@ public class JoinSessionUseCase {
   private final ParticipationRepository participations;
   private final ApplicationEventPublisher events;
   private final VideoRoomPasses videoPasses;
+  private final BookingApi booking;
+  private final SessionParties parties;
   private final Clock clock;
+
   JoinSessionUseCase(
       SessionRepository sessions,
       ParticipationRepository participations,
       ApplicationEventPublisher events,
       VideoRoomPasses videoPasses,
+      BookingApi booking,
+      SessionParties parties,
       Clock clock) {
     this.sessions = sessions;
     this.participations = participations;
     this.events = events;
     this.videoPasses = videoPasses;
+    this.booking = booking;
+    this.parties = parties;
     this.clock = clock;
   }
 
@@ -87,6 +95,8 @@ public class JoinSessionUseCase {
     return new JoinedSession(
         session.getId(),
         role,
+        parties.courseOf(booking.requireBooking(session.getBookingId()).catalogItemId()),
+        parties.counterpartOf(session, role),
         session.getRoomName(),
         session.getStatus(),
         session.getStartedAt(),

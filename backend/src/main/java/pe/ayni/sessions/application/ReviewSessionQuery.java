@@ -8,8 +8,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.booking.BookingApi;
+import pe.ayni.booking.BookingView;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.domain.model.BoardContent;
+import pe.ayni.sessions.domain.model.ParticipantRole;
 import pe.ayni.sessions.domain.model.Session;
 import pe.ayni.sessions.infrastructure.ParticipationRepository;
 import pe.ayni.sessions.infrastructure.SessionRepository;
@@ -34,18 +36,21 @@ public class ReviewSessionQuery {
   private final SupportMaterialRepository materials;
   private final ParticipationRepository participations;
   private final BookingApi booking;
+  private final SessionParties parties;
 
   ReviewSessionQuery(
       SessionRepository sessions,
       WhiteboardRepository whiteboards,
       SupportMaterialRepository materials,
       ParticipationRepository participations,
-      BookingApi booking) {
+      BookingApi booking,
+      SessionParties parties) {
     this.sessions = sessions;
     this.whiteboards = whiteboards;
     this.materials = materials;
     this.participations = participations;
     this.booking = booking;
+    this.parties = parties;
   }
 
   /**
@@ -62,7 +67,8 @@ public class ReviewSessionQuery {
         sessions
             .findByTenantIdAndId(tenantId, sessionId)
             .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
-    session.roleOf(userId);
+    ParticipantRole role = session.roleOf(userId);
+    BookingView booked = booking.requireBooking(session.getBookingId());
 
     WhiteboardView board =
         session.getStartedAt() == null
@@ -103,6 +109,8 @@ public class ReviewSessionQuery {
 
     return new SessionReview(
         sessionId,
+        parties.courseOf(booked.catalogItemId()),
+        parties.counterpartOf(session, role),
         session.getStatus(),
         noteOf(session.getStatus()),
         session.getScheduledStart(),
@@ -111,7 +119,7 @@ public class ReviewSessionQuery {
         session.getEndedAt(),
         Duration.between(session.getScheduledStart(), session.getScheduledEnd()).toMinutes(),
         real == null ? null : real.toMinutes(),
-        booking.requireBooking(session.getBookingId()).needDescription(),
+        booked.needDescription(),
         material,
         board,
         absent);

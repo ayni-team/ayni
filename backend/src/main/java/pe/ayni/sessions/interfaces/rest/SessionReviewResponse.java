@@ -11,6 +11,11 @@ import pe.ayni.sessions.application.SessionReview;
 @Schema(name = "SessionReview")
 public record SessionReviewResponse(
     UUID sessionId,
+    @Schema(description = "The course the session was about, with its name")
+        SessionResponse.CatalogItem catalogItem,
+    @Schema(description = "The other person of the session: the tutor when the reader is the "
+        + "student, the student when the reader is the tutor")
+        SessionResponse.Counterpart counterpart,
     @Schema(example = "COMPLETED") SessionStatus status,
     @Schema(description = "What happened to it, so a session that did not take place shows why",
         example = "The booking was cancelled before the session started")
@@ -40,6 +45,8 @@ public record SessionReviewResponse(
   static SessionReviewResponse of(SessionReview review) {
     return new SessionReviewResponse(
         review.sessionId(),
+        SessionResponse.CatalogItem.of(review.catalogItem()),
+        SessionResponse.Counterpart.of(review.counterpart()),
         review.status(),
         review.statusNote(),
         review.scheduledStart(),

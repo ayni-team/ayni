@@ -1,6 +1,7 @@
 package pe.ayni.sessions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,9 +20,13 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.booking.BookingApi;
+import pe.ayni.booking.BookingStatus;
+import pe.ayni.booking.BookingView;
 import pe.ayni.config.SignedInPeople;
 import pe.ayni.config.SignedInPeople.Person;
 import pe.ayni.identity.application.AccessTokenGenerator;
@@ -52,6 +57,7 @@ class SessionOfBookingAcceptanceTest {
   @Autowired private UserRepository users;
   @Autowired private UserSessionRepository userSessions;
   @Autowired private AccessTokenGenerator tokens;
+  @MockitoBean private BookingApi bookings;
 
   private SignedInPeople people() {
     return new SignedInPeople(tenants, users, userSessions, tokens);
@@ -248,6 +254,19 @@ class SessionOfBookingAcceptanceTest {
         Timestamp.from(start),
         Timestamp.from(start.plus(length)),
         "room-" + session);
+    // Joining names the course of the booking (W23), which is booking's to answer.
+    when(bookings.requireBooking(booking))
+        .thenReturn(
+            new BookingView(
+                booking,
+                student.id(),
+                tutor.id(),
+                UUID.randomUUID(),
+                start,
+                start.plus(length),
+                1,
+                "Normal forms",
+                BookingStatus.CONFIRMED));
     return session;
   }
 }
