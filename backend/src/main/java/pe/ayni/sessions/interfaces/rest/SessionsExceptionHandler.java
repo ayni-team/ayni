@@ -14,6 +14,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import pe.ayni.sessions.domain.model.NotAParticipant;
 import pe.ayni.sessions.domain.model.WhiteboardVersionConflict;
 import pe.ayni.sessions.domain.model.PresenceCheckUnavailable;
+import pe.ayni.sessions.domain.model.PresenceResendRefused;
 import pe.ayni.sessions.domain.model.SessionNotOpen;
 import pe.ayni.sessions.domain.model.SessionRuleViolation;
 import pe.ayni.sessions.domain.model.WrongPresenceCode;
@@ -25,7 +26,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
  * error, message, path.
  *
  * <p>403 for somebody who does not belong to the session, 409 for a participant arriving when the
- * room is not open or confirming presence when it cannot be confirmed, 422 for a presence code that
+ * room is not open, confirming presence when it cannot be confirmed or asking for a code again when
+ * it cannot be sent again (too soon after the last resend included, never a 429), 422 for a presence code that
  * is well formed but wrong, 404 for a session the university does not have. Scoped to this module's
  * controller, like every module's handler.
  */
@@ -63,6 +65,13 @@ class SessionsExceptionHandler {
   @ExceptionHandler(PresenceCheckUnavailable.class)
   ResponseEntity<ApiError> handlePresenceUnavailable(
       PresenceCheckUnavailable exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+  }
+
+  /** A resend the state of the check refuses, the interval between resends included. */
+  @ExceptionHandler(PresenceResendRefused.class)
+  ResponseEntity<ApiError> handleResendRefused(
+      PresenceResendRefused exception, HttpServletRequest request) {
     return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 

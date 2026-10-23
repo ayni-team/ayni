@@ -50,13 +50,13 @@ public class PresenceCheck {
   @Column(name = "user_id", nullable = false, updatable = false)
   private UUID userId;
 
-  @Column(name = "code_hash", length = 64, nullable = false, updatable = false)
+  @Column(name = "code_hash", length = 64, nullable = false)
   private String codeHash;
 
-  @Column(name = "issued_at", nullable = false, updatable = false)
+  @Column(name = "issued_at", nullable = false)
   private Instant issuedAt;
 
-  @Column(name = "expires_at", nullable = false, updatable = false)
+  @Column(name = "expires_at", nullable = false)
   private Instant expiresAt;
 
   @Column(name = "confirmed_at")
@@ -64,6 +64,12 @@ public class PresenceCheck {
 
   @Column(name = "attempts", nullable = false)
   private short attempts;
+
+  @Column(name = "resend_count", nullable = false)
+  private short resendCount;
+
+  @Column(name = "last_resent_at")
+  private Instant lastResentAt;
 
   protected PresenceCheck() {
     // Required by JPA
@@ -124,6 +130,57 @@ public class PresenceCheck {
     return true;
   }
 
+  /**
+   * Replaces the code with a new one, because the email with the first did not arrive (US54-T4).
+   *
+   * <p>The old code stops being valid at once: only the hash of the new one is kept, and the new
+   * code is never equal to the old, so typing the old one is a wrong code. The new one lives the
+   * full {@link #LIFETIME} from now. The attempts already spent are kept, so a resend is no way to
+   * get five more guesses.
+   *
+   * @param maxResends how many times a code may be replaced in the whole session
+   * @param minInterval the least time between two resends; the first one has no predecessor
+   * @return the new code in clear, for the caller to publish; it is not stored
+   * @throws PresenceResendRefused when presence is already confirmed, the attempts are spent, the
+   *     resends are used up or the last one was too recent
+   */
+  public String reissue(Instant now, int maxResends, Duration minInterval) {
+    Objects.requireNonNull(now, "now must not be null");
+    Objects.requireNonNull(minInterval, "minInterval must not be null");
+
+    if (isConfirmed()) {
+      throw new PresenceResendRefused("Presence is already confirmed: there is no code to resend");
+    }
+    if (attemptsLeft() == 0) {
+      throw new PresenceResendRefused(
+          "This presence code can no longer be used: it was entered wrong " + MAX_ATTEMPTS
+              + " times, and a new code does not give the attempts back");
+    }
+    if (resendCount >= maxResends) {
+      throw new PresenceResendRefused(
+          "The presence code was already resent " + maxResends + " times in this session");
+    }
+    if (lastResentAt != null && now.isBefore(lastResentAt.plus(minInterval))) {
+      throw new PresenceResendRefused(
+          "The presence code was resent a moment ago. Try again at "
+              + lastResentAt.plus(minInterval));
+    }
+
+    String fresh;
+    String freshHash;
+    do {
+      fresh = newCode();
+      freshHash = hash(id, fresh);
+    } while (freshHash.equals(codeHash));
+
+    codeHash = freshHash;
+    issuedAt = now;
+    expiresAt = now.plus(LIFETIME);
+    resendCount++;
+    lastResentAt = now;
+    return fresh;
+  }
+
   public boolean isConfirmed() {
     return confirmedAt != null;
   }
@@ -172,5 +229,13 @@ public class PresenceCheck {
 
   public int getAttempts() {
     return attempts;
+  }
+
+  public int getResendCount() {
+    return resendCount;
+  }
+
+  public Instant getLastResentAt() {
+    return lastResentAt;
   }
 }

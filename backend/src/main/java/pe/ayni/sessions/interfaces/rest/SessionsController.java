@@ -10,16 +10,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import pe.ayni.sessions.application.ConfirmPresenceUseCase;
 import pe.ayni.sessions.application.EndSessionUseCase;
 import pe.ayni.sessions.application.FindSessionOfBookingQuery;
+import pe.ayni.sessions.application.IssuePresenceCodesUseCase;
 import pe.ayni.sessions.application.JoinSessionUseCase;
 import pe.ayni.sessions.application.SessionDetailsQuery;
 import pe.ayni.shared.tenancy.CurrentUser;
@@ -40,6 +43,7 @@ class SessionsController {
   private final FindSessionOfBookingQuery sessionOfBooking;
   private final JoinSessionUseCase joinSession;
   private final ConfirmPresenceUseCase confirmPresence;
+  private final IssuePresenceCodesUseCase issuePresenceCodes;
   private final EndSessionUseCase endSession;
 
   SessionsController(
@@ -47,11 +51,13 @@ class SessionsController {
       FindSessionOfBookingQuery sessionOfBooking,
       JoinSessionUseCase joinSession,
       ConfirmPresenceUseCase confirmPresence,
+      IssuePresenceCodesUseCase issuePresenceCodes,
       EndSessionUseCase endSession) {
     this.sessionDetails = sessionDetails;
     this.sessionOfBooking = sessionOfBooking;
     this.joinSession = joinSession;
     this.confirmPresence = confirmPresence;
+    this.issuePresenceCodes = issuePresenceCodes;
     this.endSession = endSession;
   }
 
@@ -289,6 +295,62 @@ class SessionsController {
       @Valid @RequestBody ConfirmPresenceRequest request) {
     return PresenceResponse.of(
         confirmPresence.execute(sessionId, CurrentUser.require(), request.code()));
+  }
+
+  @PostMapping("/{id}/presence/resend")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  @Operation(
+      summary = "Send my presence code again",
+      description =
+          "For a participant whose email with the presence code did not arrive. Replaces the code "
+              + "with a new one that lives the full fifteen minutes, and sends it by email: the "
+              + "old code stops working at once and the answer never carries the code. Only a "
+              + "participant who joined can ask, for their own code, while the session is in "
+              + "progress, after the code was issued and before it is confirmed. A code can be "
+              + "sent again three times per person and session, at least sixty seconds apart "
+              + "(ayni.sessions.presence-resend-max and presence-resend-min-interval). The wrong "
+              + "attempts already spent are kept: a person who spent all five cannot get another "
+              + "code.")
+  @ApiResponse(
+      responseCode = "202",
+      description = "The new code is on its way by email. Nothing is answered")
+  @ApiResponse(
+      responseCode = "400",
+      description = "The id is not a UUID",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person is neither the student nor the tutor of the session",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The session does not exist in this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "The code cannot be sent again now: the session is not in progress, the person never "
+              + "joined, the code was not issued yet, presence is already confirmed, the five "
+              + "attempts are spent, the three resends are used up, or the last one was less "
+              + "than sixty seconds ago",
+      content =
+          @Content(
+              schema = @Schema(implementation = ApiError.class),
+              examples =
+                  @ExampleObject(
+                      name = "Too soon",
+                      value =
+                          """
+                          {"timestamp":"2026-09-30T20:07:00Z","status":409,"error":"Conflict",
+                           "message":"The presence code was resent a moment ago. Try again at 2026-09-30T20:07:45Z",
+                           "path":"/api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/presence/resend"}
+                          """)))
+  void resendPresenceCode(
+      @Parameter(description = "Session identifier",
+              example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
+          @PathVariable("id")
+          UUID sessionId) {
+    issuePresenceCodes.resend(sessionId, CurrentUser.require());
   }
 
   @PostMapping("/{id}/end")
