@@ -132,6 +132,7 @@ public class AdminUniversitiesController {
             ReplaceEmailDomainsRequest request) {
 
         return replaceEmailDomains.execute(
+                CurrentUser.require(),
                 code,
                 request.emailDomains());
     }

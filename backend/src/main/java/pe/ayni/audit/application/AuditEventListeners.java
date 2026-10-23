@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import pe.ayni.audit.domain.model.ActorRole;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.BookingConfirmed;
+import pe.ayni.shared.events.CreditPolicyChanged;
 import pe.ayni.shared.events.CreditsExpired;
 import pe.ayni.shared.events.CreditsGranted;
 import pe.ayni.shared.events.DomainEvent;
@@ -21,6 +22,7 @@ import pe.ayni.shared.events.SessionStarted;
 import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.events.SkillWithdrawn;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 import pe.ayni.shared.events.ValidationResolved;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -29,7 +31,7 @@ import pe.ayni.shared.tenancy.TenantContext;
  * acted and in what role, what happened, to which resource, and when.
  *
  * <p>Only the events that tell what happened to credits, bookings, sessions, skills and
- * recognition are heard. {@code AccessRequested} and {@code PresenceCodeIssued} are never heard
+ * recognition, and the changes of the credit policy and of the identity of a university, are heard. {@code AccessRequested} and {@code PresenceCodeIssued} are never heard
  * because they carry the access link and the presence code in clear, and nothing audit stores holds
  * an email address, a link or a code. Neither is {@code StudentActivated}, which carries the email.
  *
@@ -47,9 +49,11 @@ class AuditEventListeners {
   private static final Logger log = LoggerFactory.getLogger(AuditEventListeners.class);
 
   private final RecordActivityUseCase recorder;
+  private final ChangeAuthors authors;
 
-  AuditEventListeners(RecordActivityUseCase recorder) {
+  AuditEventListeners(RecordActivityUseCase recorder, ChangeAuthors authors) {
     this.recorder = recorder;
+    this.authors = authors;
   }
 
   @ApplicationModuleListener
@@ -276,15 +280,70 @@ class AuditEventListeners {
             event.occurredOn()));
   }
 
+  /**
+   * A coordinator replaced the credit policy of their university. The entry holds the kind of
+   * policy and the quantities, and its identifier comes from the policy the change created, so the
+   * same event delivered again is not written again.
+   */
+  @ApplicationModuleListener
+  void on(CreditPolicyChanged event) {
+    record(
+        event,
+        new NewActivity(
+            event.changedBy(),
+            ActorRole.COORDINATOR,
+            "CREDIT_POLICY_CHANGED",
+            "CREDIT_POLICY",
+            event.policyId(),
+            details(
+                "kind", event.kind(),
+                "creditsAmount", event.creditsAmount(),
+                "validityDays", event.validityDays()),
+            event.occurredOn(),
+            NewActivity.idOf(event.tenantId(), "CREDIT_POLICY_CHANGED", event.policyId())));
+  }
+
+  /**
+   * The identity of the university changed: its logo, its colours or its email domains. The event
+   * says who and when, never the values, so the entry has no details. A coordinator changes the logo
+   * and the colours, and the platform administrator the domains; the event does not say which, so
+   * audit asks who the person is, within the university of the event.
+   */
+  @ApplicationModuleListener
+  void on(UniversityIdentityChanged event) {
+    attempt(
+        event,
+        "UNIVERSITY_IDENTITY_CHANGED",
+        () ->
+            recorder.record(
+                new NewActivity(
+                    event.changedBy(),
+                    authors.roleOf(event.changedBy()),
+                    "UNIVERSITY_IDENTITY_CHANGED",
+                    "UNIVERSITY",
+                    null,
+                    details(),
+                    event.occurredOn(),
+                    NewActivity.idOf(
+                        event.tenantId(),
+                        "UNIVERSITY_IDENTITY_CHANGED",
+                        event.changedBy(),
+                        event.occurredOn()))));
+  }
+
   private void record(DomainEvent event, NewActivity activity) {
+    attempt(event, activity.action(), () -> recorder.record(activity));
+  }
+
+  private void attempt(DomainEvent event, String action, Runnable work) {
     try {
-      TenantContext.runAs(event.tenantId(), () -> recorder.record(activity));
+      TenantContext.runAs(event.tenantId(), work);
     } catch (RuntimeException failure) {
       // What was published has already happened: an entry that could not be written must not
       // undo it. The data of the event stays out of the log, whatever the failure says.
       log.warn(
           "Could not record {} of university {}: {}",
-          activity.action(),
+          action,
           event.tenantId(),
           failure.getClass().getSimpleName());
     }

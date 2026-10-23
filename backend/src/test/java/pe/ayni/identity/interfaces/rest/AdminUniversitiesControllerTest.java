@@ -292,7 +292,7 @@ class AdminUniversitiesControllerTest {
     @Test
     void replacesTheEmailDomains() throws Exception {
 
-        when(replaceEmailDomains.execute("UPC", List.of("upc.edu.pe", "upc.pe")))
+        when(replaceEmailDomains.execute(adminId, "UPC", List.of("upc.edu.pe", "upc.pe")))
                 .thenReturn(new UniversityEmailDomainsView("UPC", "Universidad Peruana", List.of("upc.edu.pe", "upc.pe")));
 
         mvc.perform(
@@ -319,7 +319,7 @@ class AdminUniversitiesControllerTest {
     @Test
     void answersConflictWhenAnotherUniversityHoldsTheDomain() throws Exception {
 
-        when(replaceEmailDomains.execute(eq("UPC"), any()))
+        when(replaceEmailDomains.execute(eq(adminId), eq("UPC"), any()))
                 .thenThrow(UniversityAlreadyRegistered.emailDomain());
 
         mvc.perform(

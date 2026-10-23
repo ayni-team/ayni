@@ -1194,14 +1194,19 @@ an alteration apart is the pending scenario of US48, which needs the rows chaine
 
 - `actor_id` is `NULL` when nobody is named: the system closing a session, or a decision whose event
   does not say which coordinator took it.
-- `actor_role` is `STUDENT`, `TUTOR`, `COORDINATOR`, `SYSTEM`, or `UNKNOWN` for somebody who claimed
-  to be a person the university does not know.
+- `actor_role` is `STUDENT`, `TUTOR`, `COORDINATOR`, `PLATFORM_ADMIN` (the administrator of the
+  platform, who belongs to no university), `SYSTEM`, or `UNKNOWN` for somebody who claimed to be a
+  person the university does not know. There is no `CHECK`, so a new role needs no migration.
 - `action` is what happened, in upper case, with the outcome in the name when there is one
   (`RECOGNITION_APPROVED`, `RECOGNITION_REJECTED`). `AUDIT_LOG_ACCESS_DENIED` is a refused attempt
   to read the log.
 - `resource_type` and `resource_id` say what it happened to: `BOOKING`, `SESSION`, `WALLET` (the
   account of the person), `CATALOG_ITEM`, `VALIDATION_REQUEST`, `RECOGNITION_REQUEST`, `AUDIT_LOG`,
-  `ANOMALY` (an alert, with `ANOMALY_DISMISSED` as its action).
+  `ANOMALY` (an alert, with `ANOMALY_DISMISSED` as its action), `CREDIT_POLICY` (the new policy,
+  with `CREDIT_POLICY_CHANGED`) and `UNIVERSITY` (the university itself, with no `resource_id`, and
+  `UNIVERSITY_IDENTITY_CHANGED`).
+- `id` of an entry that its event can deliver twice is derived from the event, so the second
+  delivery is the same row: `CREDIT_POLICY_CHANGED` and `UNIVERSITY_IDENTITY_CHANGED`.
 - `metadata` is a flat object of strings that describes the fact: the other people involved, the
   amount, whether it was late. **It never holds an email address, a link or a code, nor the free
   text of a reason.**

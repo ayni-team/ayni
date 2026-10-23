@@ -4,7 +4,9 @@
 # Each scenario runs over HTTP against a real PostgreSQL, with the same name, in
 # CreditPolicyAcceptanceTest, with the rules of the use case in UpdateCreditPolicyUseCaseTest and
 # of the entity in CreditPolicyTest. The same file holds the race of two coordinators replacing the
-# policy at once. Nothing here is @pending.
+# policy at once. The scenarios about the audit log run in ConfigurationChangesAuditAcceptanceTest
+# with real session tokens, and the events are published by the use case inside its transaction
+# (UpdateCreditPolicyUseCaseTest). Nothing here is @pending.
 
 Feature: Configure university credit policy
 
@@ -40,3 +42,27 @@ Feature: Configure university credit policy
     When both replace the policy at the same time
     Then both are answered 200 and none is answered 500
     And exactly one baseline policy of the university is current
+
+  Scenario: A credit policy change is recorded in the audit log
+    Given an active coordinator belongs to a university
+    When the coordinator changes the baseline credit policy
+    Then the coordinator reads an entry of the audit log about the policy
+    And the entry names the coordinator as who acted, the kind of policy, the credits and the validity days
+
+  Scenario: A rejected credit policy change leaves no entry
+    Given an active coordinator and a student belong to a university
+    When the coordinator sends a credit amount of zero and the student tries to change the policy
+    Then both requests are rejected
+    And the audit log has no entry about the credit policy
+
+  Scenario: The entry of a credit policy change is not seen by another university
+    Given a coordinator changed the credit policy of their university
+    When the coordinator of another university reads their audit log
+    Then it has no entry about the credit policy
+
+  # Not a scenario of the story: the contract of the listener, which an event delivered again must
+  # not write twice.
+  Scenario: The same credit policy change delivered twice is recorded once
+    Given a coordinator changed the credit policy and the audit log has its entry
+    When the same event is delivered twice more
+    Then the audit log still has one entry about that policy

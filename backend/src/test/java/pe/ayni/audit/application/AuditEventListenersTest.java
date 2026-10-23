@@ -2,6 +2,7 @@ package pe.ayni.audit.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,12 +23,14 @@ import org.mockito.Mockito;
 import pe.ayni.audit.domain.model.ActivityEntry;
 import pe.ayni.audit.domain.model.ActorRole;
 import pe.ayni.audit.infrastructure.ActivityLogRepository;
+import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.AccessRequested;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.BookingCancelled.CancelledBy;
 import pe.ayni.shared.events.BookingConfirmed;
+import pe.ayni.shared.events.CreditPolicyChanged;
 import pe.ayni.shared.events.CreditsExpired;
 import pe.ayni.shared.events.CreditsGranted;
 import pe.ayni.shared.events.PresenceCodeIssued;
@@ -39,6 +43,7 @@ import pe.ayni.shared.events.SessionUnverified;
 import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.events.SkillWithdrawn;
 import pe.ayni.shared.events.StudentActivated;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 import pe.ayni.shared.events.ValidationResolved;
 
 /** What each listener writes down, with the real use case over a repository that only collects. */
@@ -55,6 +60,7 @@ class AuditEventListenersTest {
 
   private final List<ActivityEntry> saved = new ArrayList<>();
   private ActivityLogRepository repository;
+  private IdentityApi identity;
   private AuditEventListeners listeners;
 
   @BeforeEach
@@ -67,7 +73,8 @@ class AuditEventListenersTest {
               return call.getArgument(0);
             });
     Clock clock = Clock.fixed(LATER, ZoneOffset.UTC);
-    listeners = new AuditEventListeners(new RecordActivityUseCase(repository, clock));
+    identity = mock(IdentityApi.class);
+    listeners = new AuditEventListeners(new RecordActivityUseCase(repository, clock), new ChangeAuthors(identity));
   }
 
   private ActivityEntry only() {
@@ -199,5 +206,75 @@ class AuditEventListenersTest {
     listeners.on(new SessionStarted("UPC", session, booking, null));
 
     assertThat(only().getOccurredAt()).isEqualTo(LATER);
+  }
+
+  @Test
+  @DisplayName("a new credit policy is the coordinator's, on the policy, with only the quantities")
+  void creditPolicyChanged() {
+    UUID policy = UUID.randomUUID();
+    listeners.on(new CreditPolicyChanged("UPC", policy, "BASELINE", 8, 45, student, AT));
+
+    ActivityEntry entry = only();
+    assertThat(entry.getActorId()).isEqualTo(student);
+    assertThat(entry.getActorRole()).isEqualTo(ActorRole.COORDINATOR);
+    assertThat(entry.getAction()).isEqualTo("CREDIT_POLICY_CHANGED");
+    assertThat(entry.getResourceType()).isEqualTo("CREDIT_POLICY");
+    assertThat(entry.getResourceId()).isEqualTo(policy);
+    assertThat(entry.getOccurredAt()).isEqualTo(AT);
+    assertThat(entry.getMetadata())
+        .containsOnly(
+            entry("kind", "BASELINE"), entry("creditsAmount", "8"), entry("validityDays", "45"));
+  }
+
+  @Test
+  @DisplayName("a change of identity by a person of the university is the coordinator's, with no details")
+  void identityChangedByACoordinator() {
+    listeners.on(new UniversityIdentityChanged("UPC", tutor, AT));
+
+    ActivityEntry entry = only();
+    assertThat(entry.getActorId()).isEqualTo(tutor);
+    assertThat(entry.getActorRole()).isEqualTo(ActorRole.COORDINATOR);
+    assertThat(entry.getAction()).isEqualTo("UNIVERSITY_IDENTITY_CHANGED");
+    assertThat(entry.getResourceType()).isEqualTo("UNIVERSITY");
+    assertThat(entry.getResourceId()).isNull();
+    assertThat(entry.getMetadata()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("a change of identity by somebody the university does not know is the administrator's")
+  void identityChangedByTheAdministrator() {
+    UUID administrator = UUID.randomUUID();
+    when(identity.requireUser(administrator)).thenThrow(new NoSuchElementException("not a user"));
+
+    listeners.on(new UniversityIdentityChanged("UPC", administrator, AT));
+
+    ActivityEntry written = only();
+    assertThat(written.getActorId()).isEqualTo(administrator);
+    assertThat(written.getActorRole()).isEqualTo(ActorRole.PLATFORM_ADMIN);
+  }
+
+  @Test
+  @DisplayName("an entry that was already written is not written again")
+  void anEntryIsWrittenOnce() {
+    UUID policy = UUID.randomUUID();
+    CreditPolicyChanged changed =
+        new CreditPolicyChanged("UPC", policy, "BASELINE", 8, 45, student, AT);
+    UniversityIdentityChanged identityChanged = new UniversityIdentityChanged("UPC", tutor, AT);
+
+    listeners.on(changed);
+    listeners.on(identityChanged);
+    assertThat(saved).hasSize(2);
+    when(repository.existsById(saved.get(0).getId())).thenReturn(true);
+    when(repository.existsById(saved.get(1).getId())).thenReturn(true);
+    listeners.on(changed);
+    listeners.on(identityChanged);
+
+    assertThat(saved).hasSize(2);
+
+    // The identifier comes from the event: another policy, or another university, is another entry.
+    listeners.on(new CreditPolicyChanged("UPC", UUID.randomUUID(), "BASELINE", 8, 45, student, AT));
+    listeners.on(new CreditPolicyChanged("PUCP", policy, "BASELINE", 8, 45, student, AT));
+    assertThat(saved).hasSize(4);
+    assertThat(saved).extracting(ActivityEntry::getId).doesNotHaveDuplicates();
   }
 }

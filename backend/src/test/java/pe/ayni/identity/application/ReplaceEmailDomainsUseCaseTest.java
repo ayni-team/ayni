@@ -2,6 +2,7 @@ package pe.ayni.identity.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -19,12 +20,15 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.context.ApplicationEventPublisher;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
 import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
 import pe.ayni.identity.infrastructure.TenantRepository;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 
 class ReplaceEmailDomainsUseCaseTest {
 
@@ -32,8 +36,10 @@ class ReplaceEmailDomainsUseCaseTest {
     private static final Instant NOW = Instant.parse("2026-10-20T15:00:00Z");
 
     private final TenantRepository tenants = mock(TenantRepository.class);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final UUID administrator = UUID.randomUUID();
     private final ReplaceEmailDomainsUseCase useCase =
-            new ReplaceEmailDomainsUseCase(tenants, Clock.fixed(NOW, ZoneOffset.UTC));
+            new ReplaceEmailDomainsUseCase(tenants, Clock.fixed(NOW, ZoneOffset.UTC), events);
 
     private Tenant tenant(String code, TenantStatus status, String... domains) {
         return new Tenant(
@@ -59,7 +65,7 @@ class ReplaceEmailDomainsUseCaseTest {
         when(tenants.findAll()).thenReturn(List.of(upc, pucp));
 
         UniversityEmailDomainsView view =
-                useCase.execute(" upc ", List.of("UPC.pe", "upc.edu.pe", "upc.pe"));
+                useCase.execute(administrator, " upc ", List.of("UPC.pe", "upc.edu.pe", "upc.pe"));
 
         assertThat(view.code()).isEqualTo("UPC");
         assertThat(view.emailDomains()).containsExactly("upc.pe", "upc.edu.pe");
@@ -72,6 +78,21 @@ class ReplaceEmailDomainsUseCaseTest {
     }
 
     @Test
+    @DisplayName("tells that the identity changed, naming the administrator and the university that was edited")
+    void tellsThatTheIdentityChanged() {
+        Tenant upc = tenant("UPC", TenantStatus.ACTIVE, "upc.edu.pe");
+        when(tenants.findByCode("UPC")).thenReturn(Optional.of(upc));
+        when(tenants.findAll()).thenReturn(List.of(upc));
+
+        useCase.execute(administrator, "upc", List.of("upc.pe"));
+
+        ArgumentCaptor<Object> published = ArgumentCaptor.forClass(Object.class);
+        verify(events).publishEvent(published.capture());
+        assertThat(published.getValue())
+                .isEqualTo(new UniversityIdentityChanged("UPC", administrator, NOW));
+    }
+
+    @Test
     @DisplayName("a domain held by another university is a conflict, whatever its status")
     void aDomainHeldByAnotherUniversityIsAConflict() {
         Tenant upc = tenant("UPC", TenantStatus.ACTIVE, "upc.edu.pe");
@@ -79,11 +100,12 @@ class ReplaceEmailDomainsUseCaseTest {
         when(tenants.findByCode("UPC")).thenReturn(Optional.of(upc));
         when(tenants.findAll()).thenReturn(List.of(upc, suspended));
 
-        assertThatThrownBy(() -> useCase.execute("UPC", List.of("upc.edu.pe", "old.edu.pe")))
+        assertThatThrownBy(() -> useCase.execute(administrator, "UPC", List.of("upc.edu.pe", "old.edu.pe")))
                 .isInstanceOf(UniversityAlreadyRegistered.class);
 
         assertThat(upc.getEmailDomains()).containsExactly("upc.edu.pe");
         verify(tenants, never()).save(upc);
+        verify(events, never()).publishEvent(any(Object.class));
     }
 
     @Test
@@ -93,7 +115,7 @@ class ReplaceEmailDomainsUseCaseTest {
         when(tenants.findByCode("UPC")).thenReturn(Optional.of(upc));
         when(tenants.findAll()).thenReturn(List.of(upc));
 
-        assertThat(useCase.execute("UPC", List.of("upc.edu.pe")).emailDomains()).containsExactly("upc.edu.pe");
+        assertThat(useCase.execute(administrator, "UPC", List.of("upc.edu.pe")).emailDomains()).containsExactly("upc.edu.pe");
     }
 
     @Test
@@ -101,14 +123,14 @@ class ReplaceEmailDomainsUseCaseTest {
     void aUniversityThatDoesNotExistIsNotFound() {
         when(tenants.findByCode("NOBODY")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> useCase.execute("nobody", List.of("nobody.edu.pe")))
+        assertThatThrownBy(() -> useCase.execute(administrator, "nobody", List.of("nobody.edu.pe")))
                 .isInstanceOf(NoSuchElementException.class);
     }
 
     @Test
     @DisplayName("an invalid list is refused before the lock is taken")
     void anInvalidListIsRefusedBeforeTheLock() {
-        assertThatThrownBy(() -> useCase.execute("UPC", List.of()))
+        assertThatThrownBy(() -> useCase.execute(administrator, "UPC", List.of()))
                 .isInstanceOf(IdentityRuleViolation.class);
 
         verify(tenants, never()).lockUniversityRegistration();

@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.UserRole;
@@ -12,6 +13,7 @@ import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.events.UniversityIdentityChanged;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -26,15 +28,18 @@ public class UpdateUniversityIdentityUseCase {
     private final TenantRepository tenants;
     private final UserRepository users;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     UpdateUniversityIdentityUseCase(
             TenantRepository tenants,
             UserRepository users,
-            Clock clock) {
+            Clock clock,
+            ApplicationEventPublisher events) {
 
         this.tenants = tenants;
         this.users = users;
         this.clock = clock;
+        this.events = events;
     }
 
     @Transactional
@@ -82,6 +87,14 @@ public class UpdateUniversityIdentityUseCase {
                 now);
 
         tenants.save(tenant);
+
+        // Inside the transaction: a change that is rolled back publishes nothing. The event says
+        // that the identity changed, not the logo or the colours.
+        events.publishEvent(
+                new UniversityIdentityChanged(
+                        tenantId,
+                        coordinator.getId(),
+                        now));
 
         return UniversityIdentityView.from(
                 tenant);

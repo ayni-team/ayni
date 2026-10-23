@@ -382,7 +382,7 @@ public interface IdentityApi {
 refusal leaves nothing declared.
 
 **Publishes:** `AccessRequested`, `StudentActivated`, `CoordinatorActivated`,
-`UniversityRegistered`, `UniversitySuspended`.
+`UniversityRegistered`, `UniversitySuspended`, `CreditPolicyChanged`, `UniversityIdentityChanged`.
 
 **Endpoints**
 
@@ -500,6 +500,9 @@ coordinator and valid from today in the university's own zone. The previous vers
 policies are never edited. `IdentityApi.currentPolicy` answers the new one from then on, so the
 students activated afterwards are granted it; what was granted before keeps the policy that granted
 it. The body is the new policy: `id`, `kind`, `creditsAmount`, `validityDays` and `validFrom`.
+It publishes `CreditPolicyChanged` (the university, the new policy, its kind, the credits, the
+validity days, the coordinator and the moment) inside that transaction, so a request that fails
+publishes nothing; audit writes it down (see "Listens to (US48)" under audit).
 
 | Status | When |
 |---|---|
@@ -516,7 +519,9 @@ current, never two and never a `500`.
 `primaryColor` and `secondaryColor`, each optional and replaced as a whole: a field that is missing
 or blank leaves the university with none. The university is the one of the session; the body has
 no field for it and a code that appears there is ignored. It answers the university's `code`,
-`name` and the three values as they are stored.
+`name` and the three values as they are stored. It publishes `UniversityIdentityChanged` (the
+university, the coordinator and the moment, and neither the logo nor the colours) inside the
+transaction, so a request that fails publishes nothing.
 
 | Status | When |
 |---|---|
@@ -557,8 +562,10 @@ are trimmed, kept in lower case and without repeats, in the order they came.
 | 409 | A domain already belongs to another university, active or suspended |
 
 It takes the same database lock as registering a university before it reads the domains of the
-others, so two requests for the same domain end with one `200` and one `409`, never a `500`. The
-audit event of a change of domains or identity is not published yet (audit, W12).
+others, so two requests for the same domain end with one `200` and one `409`, never a `500`. It
+publishes `UniversityIdentityChanged` too, with the administrator as who changed it. The
+administrator's session has no university, so the event carries the university that was edited, and
+the domains themselves are not in it.
 
 ---
 
@@ -1535,18 +1542,34 @@ call nobody: who acted is what the event says.
 | `ValidationResolved` | `VALIDATION_APPROVED` or `VALIDATION_REJECTED` | a coordinator, not named | `VALIDATION_REQUEST` |
 | `RecognitionRequested` | `RECOGNITION_REQUESTED` | the student | `RECOGNITION_REQUEST` |
 | `RecognitionResolved` | `RECOGNITION_APPROVED` or `RECOGNITION_REJECTED` | a coordinator, not named | `RECOGNITION_REQUEST` |
+| `CreditPolicyChanged` | `CREDIT_POLICY_CHANGED` | the coordinator who changed it, role `COORDINATOR` | `CREDIT_POLICY`, the new policy |
+| `UniversityIdentityChanged` | `UNIVERSITY_IDENTITY_CHANGED` | whoever `changedBy` says: `COORDINATOR` for a person of the university, `PLATFORM_ADMIN` for the administrator who edited the email domains | `UNIVERSITY`, no resource id |
 
 Audit also writes one entry of its own, which no event causes: `ANOMALY_DISMISSED`, with the
 coordinator who dismissed an alert as actor, `COORDINATOR` as role and the alert (`ANOMALY`) as
 resource, in the same transaction as the dismissal. Its details are the kind, the severity and the
 subject of the alert, never the reason.
 
+**Changes of configuration (US52, US50).** The details of `CREDIT_POLICY_CHANGED` are the kind of
+policy, `creditsAmount` and `validityDays`; those of `UNIVERSITY_IDENTITY_CHANGED` are empty: the
+event says that the logo, the colours or the domains changed and by whom, never their values. Both
+are delivered more than once without writing more than once: the identifier of the entry comes from
+the event (the university, the action and the new policy for the first one; the university, the
+action, the person and the moment for the second), so a second delivery finds the entry written and
+does nothing, and two at the same instant end at the primary key, where the loser fails and is
+swallowed. Of the other listeners of the log only the ones above have it; the rest still take a new
+identifier each time. To tell a coordinator from the administrator, the listener of the identity
+change asks `IdentityApi.requireUser` for the person within the university of the event, outside
+its own transaction (`ChangeAuthors`): somebody the university does not know is the platform
+administrator, who belongs to none.
+
 **Not listened to, on purpose.** `AccessRequested` and `PresenceCodeIssued` carry the access link
 and the presence code in clear, and `StudentActivated` carries an email address: no entry holds an
 email, a link or a code. `CreditsExpiring` is a reminder of something that has not happened yet,
 `HoursGenerated`, `HoursWithdrawn` and `AvailabilityPublished` are availability and not a
 reservation, `PurchaseConfirmed` is already told by the `CreditsGranted` it causes, `SessionRated`
-belongs to reputation, and the university events say nothing about credits or recognition.
+belongs to reputation, and `UniversityRegistered` and `UniversitySuspended` are the platform
+administrator opening or closing a university, which is not a change of its configuration.
 
 The listeners use `@ApplicationModuleListener` and bind the university with
 `TenantContext.runAs(event.tenantId(), ...)`. An entry is written in a transaction of its own, and a
