@@ -32,7 +32,8 @@ import pe.ayni.wallet.domain.model.CreditRuleViolation;
     assignableTypes = {
       WalletController.class,
       CampusBenefitsController.class,
-      CoordinatorCampusBenefitsController.class
+      CoordinatorCampusBenefitsController.class,
+      CoordinatorLedgerController.class
     })
 class WalletExceptionHandler {
 

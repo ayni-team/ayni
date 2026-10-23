@@ -866,8 +866,8 @@ Append only, enforced by a trigger that rejects `UPDATE` and `DELETE`. A correct
 with reason `ADJUSTMENT`; nothing is ever edited.
 
 `entry_hash` covers the entry's own fields plus `previous_hash`, chained per university. Changing a
-row behind the application's back breaks the chain from that point on, and a verification job finds
-it. `sequence_number` is assigned by the application inside the transaction, not by a sequence,
+row behind the application's back breaks the chain from that point on, and the verification of the
+ledger (`GET /api/v1/coordinator/ledger/integrity` and a daily job) finds it. `sequence_number` is assigned by the application inside the transaction, not by a sequence,
 because a sequence leaves gaps after a rollback and a gap looks exactly like a deleted row.
 
 ### `wallet.campus_benefits`

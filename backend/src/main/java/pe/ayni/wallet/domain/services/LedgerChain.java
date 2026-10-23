@@ -25,16 +25,31 @@ public final class LedgerChain {
    * stopped being trustworthy, not merely that something somewhere is wrong.
    */
   public static Optional<LedgerEntry> firstTamperedEntry(List<LedgerEntry> entries) {
+    return firstTamperedEntry(null, entries);
+  }
+
+  /**
+   * Returns the first entry of a stretch of the chain that does not add up, if there is one.
+   *
+   * <p>This is what lets a long chain be verified a page at a time: the last entry of a page is
+   * kept, and the next page is verified as the continuation of it. The first entry of the stretch
+   * must point at {@code previous}, which is {@code null} when the stretch starts the chain.
+   *
+   * @param previous the entry right before the stretch, or {@code null} when it is the beginning
+   *     of the chain
+   */
+  public static Optional<LedgerEntry> firstTamperedEntry(
+      LedgerEntry previous, List<LedgerEntry> entries) {
 
     List<LedgerEntry> inOrder =
         entries.stream().sorted(Comparator.comparingLong(LedgerEntry::sequenceNumber)).toList();
 
-    LedgerEntry previous = null;
+    LedgerEntry before = previous;
     for (LedgerEntry entry : inOrder) {
-      if (!entry.matchesOwnHash() || !entry.follows(previous)) {
+      if (!entry.matchesOwnHash() || !entry.follows(before)) {
         return Optional.of(entry);
       }
-      previous = entry;
+      before = entry;
     }
     return Optional.empty();
   }
