@@ -1673,6 +1673,7 @@ decision.
 | Method | Path | Who |
 |---|---|---|
 | GET | `/api/v1/coordinator/audit-log` | coordinator: reads the log of their university (US48) |
+| GET | `/api/v1/coordinator/audit-log/integrity` | coordinator: verifies the chain of the log of their university (US48) |
 | GET | `/api/v1/coordinator/anomalies` | coordinator: the alerts of anomalous usage, paged, by status (US47) |
 | GET | `/api/v1/coordinator/anomalies/{id}` | coordinator: one alert with its pattern, its people and its sessions (US47) |
 | POST | `/api/v1/coordinator/anomalies/{id}/dismiss` | coordinator: closes an alert with a reason (US47) |
@@ -1699,9 +1700,51 @@ after the `403`. A request with no `X-User-Id` is malformed, answers `400` and w
 **Append only.** The table refuses `UPDATE`, `DELETE` and `TRUNCATE` with triggers, described in
 `database/data-model.md`. A correction is a new entry.
 
-**Not built.** Pointing out an entry that does not fit the sequence needs the entries chained, and
-`audit.activity_log` has no columns for that. It is a decision of its own, tagged `@pending` in
-`US48-audit-log.feature`.
+**The chain (US48).** Every entry carries its place in the chain of its university
+(`sequence_number`), the hash of the entry before it (`previous_hash`) and its own (`entry_hash`, a
+SHA-256 of its fields plus `previous_hash`), as the ledger of wallet does. The hash is computed by
+`domain.services.ActivityChain`, a pure class with its unit test, and the entry is put at the end of
+the chain in one place only, `ActivityLogWriter`, which the listeners reach through
+`RecordActivityUseCase` and which the two use cases that write an entry of their own
+(`AUDIT_LOG_ACCESS_DENIED` and `ANOMALY_DISMISSED`) call too. A new listener only builds a
+`NewActivity` and calls the recorder, as ever: it never hashes anything. The writer first takes the
+university's turn with `pg_advisory_xact_lock(7048001, hashtext(tenant_id))`, inside the transaction
+of the entry, then reads the end of the chain and continues it, so two entries written at once never
+take the same place nor the same `previous_hash`; it refuses to run without a transaction, since the
+turn would be given back before the entry is written. A failure to write is still the listener's to
+swallow and log without the data of the event, as above. The entries written before the chain have
+no hash and the chain starts after them (see `database/data-model.md`).
+
+**Verifying the chain (US48).** `GET /api/v1/coordinator/audit-log/integrity` walks the chain of the
+caller's university in order, `ayni.audit.integrity-page-size` entries at a time (500 by default),
+with a cursor on `sequence_number` over `uq_activity_log_sequence`, so the table is never loaded
+whole: only the last entry of each page is kept, to check the next page against, and the persistence
+context is emptied between pages. For every entry `ActivityChain` checks that it matches its own hash
+and that it carries the hash of the one before it. It answers:
+
+| Field | Meaning |
+|---|---|
+| `intact` | whether the whole chain holds |
+| `entriesChecked` | chained entries read; when the chain fails, up to and including the first inconsistent one |
+| `checkedAt` | the moment of the check, from the `Clock` |
+| `firstInconsistentEntryId`, `firstInconsistentOccurredAt`, `firstInconsistentSequenceNumber` | only when it fails: the first entry that does not fit, the moment it says its fact happened, and the place it claims |
+
+An entry changed is reported at that entry; a removed one at the entry that followed it, whose
+place is then one more than `entriesChecked`; one slipped in at that one. A removed last entry leaves
+a chain that is still consistent. The entries from before the chain are neither read nor counted, and
+another university's entries are never read. The answer says nothing of what the entry holds: the
+coordinator reads it in the log.
+
+| Status | When |
+|---|---|
+| 200 | The result, intact or not |
+| 401 | No session (the access filter) |
+| 403 | A student (the access filter, before the use case, so nothing is written), or a coordinator who is restricted or whom the university does not know: the use case writes `AUDIT_LOG_ACCESS_DENIED` with `details.reason` and then throws, under `noRollbackFor = AuditAccessDenied.class`, so the entry stays, chained like any other |
+
+It does not repair anything, runs only when asked (there is no scheduled verification), and the
+hashes are not anchored outside the database. `Detecting tampering` of `US48-audit-log.feature` runs
+in `ActivityLogIntegrityAcceptanceTest`; `ActivityLogChainConcurrencyTest` releases many writers of
+one university behind a `CyclicBarrier` and fails without the lock.
 
 ### Alerts of anomalous usage (US47)
 

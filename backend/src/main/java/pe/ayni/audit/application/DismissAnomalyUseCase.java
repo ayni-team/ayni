@@ -14,7 +14,6 @@ import pe.ayni.audit.domain.model.AnomalyAlreadyResolved;
 import pe.ayni.audit.domain.model.AnomalyNotFound;
 import pe.ayni.audit.domain.model.AuditAccessDenied;
 import pe.ayni.audit.domain.model.InvalidDismissalReason;
-import pe.ayni.audit.infrastructure.ActivityLogRepository;
 import pe.ayni.audit.infrastructure.AnomalyRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -38,11 +37,11 @@ public class DismissAnomalyUseCase {
 
   private final CoordinatorGuard guard;
   private final AnomalyRepository anomalies;
-  private final ActivityLogRepository log;
+  private final ActivityLogWriter log;
   private final Clock clock;
 
   DismissAnomalyUseCase(
-      CoordinatorGuard guard, AnomalyRepository anomalies, ActivityLogRepository log, Clock clock) {
+      CoordinatorGuard guard, AnomalyRepository anomalies, ActivityLogWriter log, Clock clock) {
     this.guard = guard;
     this.anomalies = anomalies;
     this.log = log;
@@ -65,7 +64,7 @@ public class DismissAnomalyUseCase {
     Instant now = clock.instant();
     anomaly.dismiss(coordinatorId, reason, now);
 
-    log.save(
+    log.append(
         ActivityEntry.of(
             UUID.randomUUID(),
             tenantId,

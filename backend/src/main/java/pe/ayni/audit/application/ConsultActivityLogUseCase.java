@@ -38,11 +38,14 @@ public class ConsultActivityLogUseCase {
 
   private final CoordinatorGuard guard;
   private final ActivityLogRepository log;
+  private final ActivityLogWriter writer;
   private final Clock clock;
 
-  ConsultActivityLogUseCase(CoordinatorGuard guard, ActivityLogRepository log, Clock clock) {
+  ConsultActivityLogUseCase(
+      CoordinatorGuard guard, ActivityLogRepository log, ActivityLogWriter writer, Clock clock) {
     this.guard = guard;
     this.log = log;
+    this.writer = writer;
     this.clock = clock;
   }
 
@@ -77,7 +80,7 @@ public class ConsultActivityLogUseCase {
     try {
       guard.require(coordinatorId);
     } catch (AuditAccessDenied denied) {
-      log.save(denial(tenantId, coordinatorId, denied));
+      writer.append(denial(tenantId, coordinatorId, denied));
       throw denied;
     }
     if (filter.from() != null && filter.to() != null && filter.to().isBefore(filter.from())) {
@@ -104,7 +107,12 @@ public class ConsultActivityLogUseCase {
         found.getTotalElements());
   }
 
-  private ActivityEntry denial(String tenantId, UUID personId, AuditAccessDenied denied) {
+  /**
+   * The entry that remembers a refused attempt. The verification of the chain writes the same one,
+   * so a coordinator finds every refused attempt to use the log under one action.
+   */
+  static ActivityEntry denial(
+      String tenantId, UUID personId, AuditAccessDenied denied, Instant now) {
     ActorRole role = denied.role();
     return ActivityEntry.of(
         UUID.randomUUID(),
@@ -115,7 +123,11 @@ public class ConsultActivityLogUseCase {
         "AUDIT_LOG",
         null,
         Map.of("reason", denied.reason()),
-        clock.instant());
+        now);
+  }
+
+  private ActivityEntry denial(String tenantId, UUID personId, AuditAccessDenied denied) {
+    return denial(tenantId, personId, denied, clock.instant());
   }
 
   private static Item item(ActivityEntry entry) {

@@ -145,6 +145,9 @@ ayni:
     # A pair is repeated when it completes more than this many sessions together in the period.
     repeated-pair-threshold: 3
     repeated-pair-period: P30D
+    # How many entries of the chain of the activity log are read at a time while verifying it
+    # (US48). Only the last entry of a page is kept to check the next one against.
+    integrity-page-size: 500
   reputation:
     # US33: a tutor's average in a skill below this, once it has three ratings, marks the skill at
     # risk in their own reputation. Only a mark: no skill is withdrawn and no notice is sent. The
