@@ -36,7 +36,7 @@ workspace "Ayni" "Academic time bank where university students exchange tutoring
                 requestFilters = component "Request Filters" "Bind the university and the user of each request to TenantContext and CurrentUser. Today they read the X-Tenant-Id and X-User-Id headers; with TS03 they read the session token." "Spring Servlet Filter (config)" {
                     tags "CrossCutting"
                 }
-                eventBus = component "Domain Event Bus" "Delivers the 24 events of pe.ayni.shared.events to the subscribed modules after the publisher commits. In memory, not persisted yet (TS04)." "Spring Application Events" {
+                eventBus = component "Domain Event Bus" "Delivers the 24 events of pe.ayni.shared.events to the subscribed modules after the publisher commits. Every delivery is stored in the event publication registry with the change that produced it and delivered again until its listener completes (TS04)." "Spring Application Events" {
                     tags "CrossCutting"
                 }
 
@@ -185,7 +185,7 @@ workspace "Ayni" "Academic time bank where university students exchange tutoring
             autoLayout tb
         }
 
-        component ayni.api "ComponentsEvents" "The domain events between modules, delivered by the in memory event bus." {
+        component ayni.api "ComponentsEvents" "The domain events between modules, delivered by the event bus and kept in the event publication registry until delivered." {
             include ayni.api.identity ayni.api.skills ayni.api.booking ayni.api.matching ayni.api.sessions ayni.api.wallet ayni.api.recognition ayni.api.reputation ayni.api.payments ayni.api.audit ayni.api.analytics ayni.api.notifications ayni.api.eventBus
             exclude "relationship.tag==Sync"
             autoLayout lr

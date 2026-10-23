@@ -28,6 +28,12 @@ class NotificationLog {
     this.clock = clock;
   }
 
+  /** Whether a notice with this identifier was already written, by an earlier delivery. */
+  @Transactional(readOnly = true)
+  public boolean alreadyRecorded(UUID notificationId) {
+    return notifications.existsById(notificationId);
+  }
+
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public Notification record(Notification notification) {
     return notifications.save(notification);

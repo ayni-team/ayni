@@ -58,7 +58,8 @@ class WalletEventListeners {
    *
    * <p>Earned credits never expire and are the only ones that count towards recognition, which is
    * the reason the presence check exists at all. A session that ends unverified publishes {@code
-   * SessionUnverified} instead and nothing arrives here.
+   * SessionUnverified} instead and nothing arrives here. The session is the idempotency key: the
+   * same completion delivered twice credits once.
    */
   @ApplicationModuleListener
   void on(SessionCompleted event) {
@@ -69,7 +70,7 @@ class WalletEventListeners {
     TenantContext.runAs(
         event.tenantId(),
         () ->
-            grant.grant(
+            grant.grantOnce(
                 event.tutorId(),
                 event.creditsEarned(),
                 CreditType.EARNED,
@@ -125,13 +126,16 @@ class WalletEventListeners {
     log.debug("Refunded booking {} of a session its tutor did not come to", event.bookingId());
   }
 
-  /** A purchase was confirmed: the credits are placed, and they never expire. */
+  /**
+   * A purchase was confirmed: the credits are placed, and they never expire. The purchase is the
+   * idempotency key: the same confirmation delivered twice credits once.
+   */
   @ApplicationModuleListener
   void on(PurchaseConfirmed event) {
     TenantContext.runAs(
         event.tenantId(),
         () ->
-            grant.grant(
+            grant.grantOnce(
                 event.studentId(),
                 event.credits(),
                 CreditType.PURCHASED,

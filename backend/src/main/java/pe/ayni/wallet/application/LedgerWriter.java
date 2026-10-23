@@ -37,6 +37,15 @@ class LedgerWriter {
   }
 
   /** Writes one movement down. */
+  /**
+   * Takes this university's turn to append now, held until the transaction ends, for a caller that
+   * has to decide whether to append at all without anybody else deciding the same at once. Taking
+   * it again inside the same transaction, as {@link #append} does, waits for nothing.
+   */
+  void takeTurn(String tenantId) {
+    entries.lockLedgerOf(tenantId);
+  }
+
   LedgerEntry append(Movement movement) {
     return append(List.of(movement)).getFirst();
   }

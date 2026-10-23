@@ -30,9 +30,9 @@ import pe.ayni.skills.SkillsApi;
  * from the other: new hours are offered for every enabled course, a newly enabled course for every
  * hour already open.
  *
- * <p>Every method is safe to run twice. Events are delivered in memory today and will be retried
- * once the publication registry arrives (ADR 0005), and a retry must not duplicate an offer nor
- * fail on one that is already there. Adding writes only the offers that are missing; removing and
+ * <p>Every method is safe to run twice. The event publication registry delivers again what a
+ * listener did not complete (TS04, ADR 0005), and a retry must not duplicate an offer nor fail on
+ * one that is already there. Adding writes only the offers that are missing; removing and
  * refreshing are the same whatever the rows were.
  *
  * <p>The projection is allowed to go stale, because booking checks the hour against its own tables

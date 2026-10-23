@@ -1,5 +1,7 @@
 package pe.ayni.notifications.application;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import pe.ayni.shared.events.AccessRequested;
@@ -25,9 +27,17 @@ import pe.ayni.shared.tenancy.TenantContext;
  *
  * <p>The university is bound from the event before anything is done; it may be none, for a
  * platform administrator.
+ *
+ * <p>Any of them may be delivered again from the event publication registry (TS04). The registry
+ * stores {@code AccessRequested} without its link and its address and {@code PresenceCodeIssued}
+ * without its code, so a resumed one has nothing to send: it is dropped with a line in the log that
+ * names no one, exactly as a link or a code that failed is not sent again. The other notices take
+ * their identifier from the event and are written and sent once however many times it arrives.
  */
 @Component
 class NotificationEventListeners {
+
+  private static final Logger log = LoggerFactory.getLogger(NotificationEventListeners.class);
 
   private final DeliverAccessLinkUseCase deliverAccessLink;
   private final DeliverPresenceCodeUseCase deliverPresenceCode;
@@ -65,11 +75,19 @@ class NotificationEventListeners {
 
   @ApplicationModuleListener
   void on(AccessRequested event) {
+    if (event.accessLink() == null || event.email() == null) {
+      log.info("Dropped a resumed access link: the link is not kept to be sent again");
+      return;
+    }
     TenantContext.runAs(event.tenantId(), () -> deliverAccessLink.execute(event));
   }
 
   @ApplicationModuleListener
   void on(PresenceCodeIssued event) {
+    if (event.code() == null) {
+      log.info("Dropped a resumed presence code: the code is not kept to be sent again");
+      return;
+    }
     TenantContext.runAs(event.tenantId(), () -> deliverPresenceCode.execute(event));
   }
 

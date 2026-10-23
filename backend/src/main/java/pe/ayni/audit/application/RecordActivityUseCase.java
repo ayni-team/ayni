@@ -16,6 +16,10 @@ import pe.ayni.shared.tenancy.TenantContext;
  * exception they can swallow, instead of marking their own transaction for rollback.
  *
  * <p>The entry is chained by {@link ActivityLogWriter}, inside this same transaction.
+ *
+ * <p>An event delivered twice writes one entry (TS04): the entry's identifier comes from the event,
+ * and an entry already there is not written again. Two deliveries at the same moment are settled
+ * by the primary key, and the one that loses is swallowed by its listener like any other failure.
  */
 @Service
 class RecordActivityUseCase {
@@ -30,15 +34,16 @@ class RecordActivityUseCase {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   void record(NewActivity activity) {
-    // An entry with an identifier of its own is written once: delivering its event again finds it
-    // there. Two deliveries at the same moment end at the primary key, and the loser fails.
-    if (activity.id() != null && log.contains(activity.id())) {
+    String tenantId = TenantContext.require();
+    UUID id = activity.entryId(tenantId);
+    if (log.contains(id)) {
+      // The same event delivered again: the entry is already there, and the log is append only.
       return;
     }
     log.append(
         ActivityEntry.of(
-            activity.id() != null ? activity.id() : UUID.randomUUID(),
-            TenantContext.require(),
+            id,
+            tenantId,
             activity.actorId(),
             activity.role(),
             activity.action(),

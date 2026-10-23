@@ -129,8 +129,24 @@ second iteration does not pay for them again.
 
 - **Listeners run after the publisher commits, on the same thread.** Publish the event inside the
   use case's transaction; a rolled back use case then publishes nothing. In tests, publish inside a
-  `TransactionTemplate`, or nothing reaches the listener. Bind the university with
+  `TransactionTemplate`, or nothing reaches the listener (and, since TS04, a publication is left
+  behind for the retry to deliver later). Bind the university with
   `TenantContext.runAs(event.tenantId(), ...)` before doing anything.
+- **Every listener is delivered again until it completes (TS04).** The event publication registry
+  stores each delivery with the change that produced the event and removes it when the listener
+  returns. A listener that throws leaves it there, and it is delivered again a minute later or more
+  (`config.EventPublicationResubmission`) and whenever the application starts. So every listener,
+  not only the ones that move credits, must be idempotent: take the key from the event (the
+  session, the booking, the purchase; a notice or an audit entry gets an identifier derived from
+  it) and look for it before writing, under a lock when two deliveries can race. Test it by
+  publishing the event twice. A listener that swallows its own failures completes its delivery and
+  is never retried; do that only when a missing effect is better than a late one.
+- **A delivery from the registry carries no secret.** `AccessRequested` is stored without its email
+  and its link, `PresenceCodeIssued` without its code, `StudentActivated` without its email and its
+  student code. A listener that needs one of them gets it only the first time, from memory; one
+  delivered again finds `null` and does nothing, with a log line that names no one. Do not add a
+  field like these to an event that is listened to without adding it to
+  `config.RedactingEventSerializer`.
 - **Other modules' listeners run in your tests too.** When your test publishes an event, every
   listener of every module reacts. Stub the published interfaces those listeners call
   (`IdentityApi.requireUser` was the usual one), or the log fills with swallowed exceptions that
@@ -354,6 +370,40 @@ scenarios are in `TS01-row-level-security.feature`.
   idempotency test.
 - One pull request per story, small enough to review in one sitting. A story too big for that is
   split into tasks with the same `US` number.
+
+### Reliable delivery of events (TS04)
+
+The amendment of ADR 0005 of 2026-10-22. Events used to travel in memory only: a listener that
+threw, or a process that stopped between the commit and the listener, lost the event without a
+retry or a trace. Now Spring Modulith's event publication registry (`spring-modulith-starter-jpa`)
+stores one row per event and per listener in `public.event_publication`, in the publisher's own
+transaction, and deletes it when the listener returns.
+
+| What | How |
+|---|---|
+| Stored | One row per `@ApplicationModuleListener`, and per `@TransactionalEventListener` of the after-commit phase, written with the change. A change that rolls back stores nothing |
+| Completed | The row is deleted (`spring.modulith.events.completion-mode=delete`): the ledger and the activity log already keep what happened |
+| Delivered again | At startup, everything left (`spring.modulith.events.republish-outstanding-events-on-restart=true`); and every `ayni.events.resubmit-delay` (`PT5M`, `PT24H` in the tests), what is more than a minute old, by `config.EventPublicationResubmission`. Tests call its method themselves after moving the clock |
+| University | The table has no `tenant_id` and no policy. Each listener binds the university of its event, every time it runs, so the resubmission does not loop over the universities |
+| Thread | Listeners still run right after the commit, on the publisher's thread. The library turns `@Async` on; `config.ReliableEventsConfig` gives it an executor that runs on the calling thread |
+| Secrets | `config.RedactingEventSerializer` leaves out the email and the link of `AccessRequested`, the code of `PresenceCodeIssued`, and the email and the student code of `StudentActivated`. A resumed link or code is dropped by notifications, as a failed one already was |
+
+**What it costs, and what it leaves out.**
+
+| Cost or limit | Where it shows |
+|---|---|
+| One insert per listener in the publisher's transaction, one delete per listener after it | `SessionCompleted` has six listeners: closing a session writes twelve rows more. Measured on a laptop, publishing it with all its listeners went from a median of 7.2 ms to 11.1 ms (p95 8.6 to 14.6 ms), the idempotency checks included. `BookABlockAcceptanceTest` took 7.2 s before and 7.3 s after, and `SearchResponseTimeTest` (TS07) keeps its thresholds with room: the search publishes nothing |
+| Delivering again means delivering twice | Every listener must be idempotent. Those that were not were fixed: wallet's credit for a session and for a purchase, the no-show and purchase notices, the activity log |
+| A listener that swallows its failures is not retried | Audit, analytics and the detection of anomalies log and complete, on purpose |
+| A resumed link, code or activation has no secret | The link or code is not sent; it was already not resent after a failure. Asking again issues a new one |
+| A publication whose listener no longer exists stays | The registry logs it at startup and leaves it; delete it by hand once the listener was removed on purpose |
+| Not a broker | Nothing leaves the process; extracting a module that listens still needs one |
+
+**In tests.** `spring.modulith.events.republish-outstanding-events-on-restart` is `false` in
+`src/test/resources/config/application.properties`: the test contexts of a module share its
+database, and a new context would deliver the leftovers of other classes. The scenarios are in
+`TS04-reliable-events.feature`, run by `config.ReliableEventsAcceptanceTest` on a database of its own
+(`EventsTestDatabase`), which starts the application a second time to prove a restart.
 
 ---
 
@@ -2078,7 +2128,8 @@ A pull request is finished when all of this is true:
 - [ ] Nothing imports another module's inner packages
 - [ ] Every event the story promises is published, not only listened to
 - [ ] Two requests that can race have a test that fails without the fix
-- [ ] Every listener that moves credits is idempotent, with a test that delivers the event twice
+- [ ] Every listener is idempotent, since the registry delivers again (TS04), with a test that
+      delivers the event twice
 - [ ] Each scenario of the `.feature` names its test; what is not built is tagged `@pending` and
       listed in the pull request
 - [ ] This guide and `database/data-model.md` say what the pull request changed

@@ -1,5 +1,6 @@
 package pe.ayni.notifications.application;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
@@ -12,7 +13,12 @@ import pe.ayni.notifications.domain.model.Notification;
 import pe.ayni.notifications.domain.model.NotificationKind;
 import pe.ayni.shared.events.SessionAbandoned;
 
-/** Delivers the no-show notice to the student who checked in. */
+/**
+ * Delivers the no-show notice to the student who checked in.
+ *
+ * <p>Once per abandoned session (TS04): the notice takes its identifier from the session, so the
+ * same event delivered again finds it already written and sends nothing.
+ */
 @Service
 public class DeliverTutorNoShowNotice {
 
@@ -35,11 +41,15 @@ public class DeliverTutorNoShowNotice {
     if (!event.studentCheckedIn()) {
       throw new IllegalArgumentException("Student must have checked in for a no-show notice");
     }
+    UUID noticeId = noticeIdOf(event);
+    if (notifications.alreadyRecorded(noticeId)) {
+      return;
+    }
     UserView student = identity.requireUser(event.studentId());
     Notification notice =
         notifications.record(
             Notification.pending(
-                UUID.randomUUID(),
+                noticeId,
                 event.tenantId(),
                 student.id(),
                 student.email(),
@@ -53,5 +63,12 @@ public class DeliverTutorNoShowNotice {
       log.warn("Tutor no-show notice {} was not delivered: {}", notice.getId(), failure.getMessage());
       notifications.markFailed(notice.getId(), failure.getMessage());
     }
+  }
+
+  /** The same for every delivery of the same abandoned session. */
+  static UUID noticeIdOf(SessionAbandoned event) {
+    return UUID.nameUUIDFromBytes(
+        ("TUTOR_NO_SHOW|" + event.tenantId() + "|" + event.sessionId())
+            .getBytes(StandardCharsets.UTF_8));
   }
 }

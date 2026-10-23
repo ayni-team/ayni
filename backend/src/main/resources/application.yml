@@ -53,6 +53,15 @@ spring:
       app_user: ${AYNI_DB_APP_USER:ayni_app}
       app_password: ${AYNI_DB_APP_PASSWORD:ayni_app}
 
+  # The event publication registry (TS04, amendment of ADR 0005). Every delivery to a module
+  # listener is stored with the change that produced the event; a completed one is deleted, since
+  # audit already keeps what happened and a finished delivery has nothing left to say. What a
+  # stopped process left behind is delivered again when the application starts.
+  modulith:
+    events:
+      completion-mode: delete
+      republish-outstanding-events-on-restart: true
+
   # Where notifications hands its emails. Mailpit under docker compose, which shows every email at
   # http://localhost:8025 instead of delivering it; from the IDE, the same Mailpit on localhost.
   mail:
@@ -98,6 +107,10 @@ logging:
 
 
 ayni:
+  events:
+    # How often the deliveries a listener did not complete, a minute after they were stored, are
+    # handed back to it.
+    resubmit-delay: PT5M
   booking:
     # How many weeks ahead a tutor's hours exist, and when the nightly job moves that horizon.
     generation-weeks: 4

@@ -2,9 +2,10 @@ package pe.ayni.analytics.application;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.event.EventListener;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionalEventListener;
+
 import pe.ayni.analytics.domain.model.UnknownUniversity;
 import pe.ayni.shared.events.DemandUncovered;
 import pe.ayni.shared.events.DomainEvent;
@@ -25,9 +26,12 @@ import pe.ayni.shared.tenancy.TenantContext;
  *
  * <p>The search that found no hour is the exception to how the others are heard. It comes from the
  * search, whose response time is measured, so it is not counted on the thread of the search: the
- * listener only leaves it in {@link UncoveredDemandQueue}. It is a plain after commit listener and
- * not an {@code @ApplicationModuleListener}, which would open a transaction of its own and ask the
- * pool for a second connection while the search still holds the first.
+ * listener only leaves it in {@link UncoveredDemandQueue}. It is a plain listener, neither an {@code
+ * @ApplicationModuleListener} nor a transactional one: either opens a transaction of its own, and
+ * the event publication registry (TS04) stores and completes the delivery to a transactional listener
+ * in a transaction of its own as well, so each would ask the pool for a second connection while the
+ * search still holds the first. With fifty searches at once that exhausts the pool. A plain listener
+ * is not stored by the registry, which is right for a count of searches that is not worth a retry.
  */
 @Component
 class UsageEventListeners {
@@ -57,7 +61,7 @@ class UsageEventListeners {
     project(event, "RecognitionResolved", () -> projection.recognitionResolved(event));
   }
 
-  @TransactionalEventListener
+  @EventListener
   void on(DemandUncovered event) {
     boolean accepted =
         uncoveredDemand.offer(
