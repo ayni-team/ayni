@@ -479,7 +479,8 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
 ## Mail
 
 The backend sends one kind of email that matters: the link that signs people in. Without delivery
-nobody can enter, including the first administrator. Choose one of two ways.
+nobody can enter, including the first administrator. Choose one of two ways, or the third, which
+adds a real relay for a few addresses to the second.
 
 ### Option A: SMTP with a domain you verified
 
@@ -548,6 +549,48 @@ Compromises, which are real:
 
 To go from B to A, remove `COMPOSE_PROFILES`, `MAILPIT_*`, set the SMTP variables of A and run
 `docker compose up -d --remove-orphans`.
+
+### Option C: Mailpit for everybody, a real relay for a few addresses
+
+For a demonstration where the people are invented but one or two are real, such as the lead
+signing in with their own mailbox. It is option B plus a second server that only a short list of
+addresses reaches. The invented students carry the domain of a real university, so no real relay
+may ever see them: an address that is not on the list leaves through the Mailpit of option B, whatever
+its domain.
+
+1. Set up option B first.
+2. Take a relay that delivers to the mailbox (a provider's SMTP, or the relay of the organisation)
+   and set in `.env`:
+
+   ```
+   AYNI_REAL_RELAY_ALLOWED_RECIPIENTS=lead@example.org,second@example.org
+   AYNI_REAL_RELAY_HOST=<the relay's SMTP host>
+   AYNI_REAL_RELAY_PORT=587
+   AYNI_REAL_RELAY_USERNAME=<smtp user>
+   AYNI_REAL_RELAY_PASSWORD=<smtp password>
+   AYNI_REAL_RELAY_STARTTLS=true                   # port 587; use AYNI_REAL_RELAY_SSL=true for 465
+   ```
+
+3. `docker compose up -d` and ask for an access link for an address of the list: it arrives in that
+   mailbox. Ask for one for any other address: it appears in Mailpit and nowhere else.
+
+What to know:
+
+- The list is compared address by address, without regard to case, and never by domain. Putting
+  `lead@example.org` on it sends nothing else of `example.org` out.
+- The list and the host go together. Only one of them stops the backend from starting, with a
+  message that says which one is missing and names no address.
+- A relay that is down fails the email of an allowed address, and that failure is recorded on its
+  notice like any other. The email is **not** sent to Mailpit instead: the person would wait for a
+  link that never comes, so the failure must be seen.
+- The log counts the emails that left through each server and never names an address, a link or a
+  code. The sender is `AYNI_MAIL_FROM` for both servers, so it must be one the real relay accepts.
+- Whoever reads Mailpit still reads the links of every address that is not on the list. Option B's
+  warning stands.
+- The TLS switches were not run here against a real relay; a test with two mail servers proves the
+  routing.
+
+To go back to B, empty the seven `AYNI_REAL_RELAY_*` variables.
 
 ---
 
