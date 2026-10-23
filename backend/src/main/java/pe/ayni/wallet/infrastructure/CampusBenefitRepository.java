@@ -14,6 +14,8 @@ public interface CampusBenefitRepository extends JpaRepository<CampusBenefit, UU
 
   List<CampusBenefit> findByTenantIdAndActiveTrueOrderByNameAsc(String tenantId);
 
+  List<CampusBenefit> findByTenantIdOrderByNameAsc(String tenantId);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query(
       """

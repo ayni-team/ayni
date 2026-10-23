@@ -29,3 +29,15 @@ Feature: Use earned credits for a campus benefit or incoming-student donation
     When the student confirms the redemption
     Then the redemption is refused with the missing earned-credit amount
     And the wallet and ledger remain unchanged
+
+  Scenario: A coordinator lists every benefit of the university, the deactivated ones too
+    Given the university coordinator has configured two campus benefits
+    And one of them was deactivated
+    When the coordinator lists the benefits
+    Then both appear, the deactivated one marked as inactive
+    And the students of the university see only the active one
+
+  Scenario: A student or a restricted coordinator cannot manage the campus benefits
+    Given a student, and a coordinator who is restricted
+    When either of them tries to list or create a campus benefit
+    Then the answer is forbidden and nothing is created

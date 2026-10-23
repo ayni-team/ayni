@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.application.CreditPolicyConfigurationView;
+import pe.ayni.identity.application.GetCreditPolicyQuery;
 import pe.ayni.identity.application.UpdateCreditPolicyUseCase;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.CreditPolicyConflict;
@@ -42,7 +43,8 @@ class CreditPolicyControllerTest {
 
         CreditPolicyController controller =
                 new CreditPolicyController(
-                        updateCreditPolicy);
+                        updateCreditPolicy,
+                        mock(GetCreditPolicyQuery.class));
 
         IdentityExceptionHandler handler =
                 new IdentityExceptionHandler(

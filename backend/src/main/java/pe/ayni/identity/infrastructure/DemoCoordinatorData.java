@@ -2,6 +2,7 @@ package pe.ayni.identity.infrastructure;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +11,9 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
+import pe.ayni.identity.domain.model.CreditPolicy;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserStatus;
@@ -42,17 +45,20 @@ class DemoCoordinatorData {
 
     private final TenantRepository tenants;
     private final UserRepository users;
+    private final CreditPolicyRepository creditPolicies;
     private final Clock clock;
     private final String email;
 
     DemoCoordinatorData(
             TenantRepository tenants,
             UserRepository users,
+            CreditPolicyRepository creditPolicies,
             Clock clock,
             @Value("${ayni.identity.demo-coordinator-email:coordinator@upc.edu.pe}") String email) {
 
         this.tenants = tenants;
         this.users = users;
+        this.creditPolicies = creditPolicies;
         this.clock = clock;
         this.email = email;
     }
@@ -74,6 +80,7 @@ class DemoCoordinatorData {
             log.warn("No demo coordinator: the university {} does not exist", TENANT);
             return;
         }
+        ensureBaselinePolicy(tenant);
         if (!tenant.claims(email)) {
             log.warn(
                     "No demo coordinator: ayni.identity.demo-coordinator-email is not of a domain"
@@ -105,5 +112,30 @@ class DemoCoordinatorData {
                         now,
                         now));
         log.info("Demo coordinator ready in {}: {}", TENANT, COORDINATOR);
+    }
+
+    /**
+     * The demonstration university is written by {@code DemoIdentityData} without a credit policy,
+     * so a coordinator could neither read nor change it. A university registered over HTTP always
+     * has one; this gives the seeded one the same five credits for thirty days.
+     */
+    private void ensureBaselinePolicy(Tenant tenant) {
+        if (creditPolicies
+                .findByTenantIdAndKindAndSupersededAtIsNull(TENANT, PolicyKind.BASELINE)
+                .isPresent()) {
+            return;
+        }
+        Instant now = clock.instant();
+        creditPolicies.save(
+                new CreditPolicy(
+                        UUID.fromString("55555555-5555-4555-8555-555555555555"),
+                        TENANT,
+                        PolicyKind.BASELINE,
+                        5,
+                        30,
+                        LocalDate.ofInstant(now, tenant.getTimezone()),
+                        DemoPlatformAdminData.ADMIN,
+                        null,
+                        now));
     }
 }

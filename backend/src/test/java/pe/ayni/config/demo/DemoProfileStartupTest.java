@@ -130,6 +130,13 @@ class DemoProfileStartupTest {
             jdbc.queryForObject(
                 "select count(*) from recognition.rules where tenant_id = 'UPC'", Long.class))
         .isGreaterThanOrEqualTo(1L);
+    // The seeded university has the baseline credit policy a registered one is born with.
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from identity.credit_policies"
+                    + " where tenant_id = 'UPC' and kind = 'BASELINE' and superseded_at is null",
+                Long.class))
+        .isEqualTo(1L);
 
     // A session lasts a year here; an access link keeps its ten minutes.
     assertThat(environment.getProperty("ayni.identity.session-ttl", Duration.class))

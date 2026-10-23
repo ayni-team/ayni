@@ -66,6 +66,7 @@ class WalletRedemptionAcceptanceTest {
                 "Engineering",
                 "2026-2",
                 null));
+    when(identity.isActive(coordinator)).thenReturn(true);
     when(identity.requireUser(coordinator))
         .thenReturn(
             new UserView(
@@ -275,6 +276,80 @@ class WalletRedemptionAcceptanceTest {
                 .header("X-User-Id", student))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[?(@.id=='" + benefitId + "')]").isEmpty());
+  }
+
+  @Test
+  @DisplayName("A coordinator lists every benefit of the university, the deactivated ones too")
+  void aCoordinatorListsEveryBenefitOfTheUniversityTheDeactivatedOnesToo() throws Exception {
+    UUID library = createBenefit("Library voucher", 3);
+    UUID cafeteria = createBenefit("Cafeteria voucher", 2);
+    mockMvc
+        .perform(
+            put("/api/v1/coordinator/benefits/" + cafeteria)
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", coordinator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"Cafeteria voucher","description":"Campus benefit","creditsCost":2,"active":false}
+                    """))
+        .andExpect(status().isOk());
+
+    mockMvc
+        .perform(
+            get("/api/v1/coordinator/benefits")
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", coordinator))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].name").value("Cafeteria voucher"))
+        .andExpect(jsonPath("$[0].active").value(false))
+        .andExpect(jsonPath("$[1].id").value(library.toString()))
+        .andExpect(jsonPath("$[1].active").value(true));
+    mockMvc
+        .perform(
+            get("/api/v1/wallet/benefits")
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", student))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].id").value(library.toString()));
+  }
+
+  @Test
+  @DisplayName("A student or a restricted coordinator cannot manage the campus benefits")
+  void aStudentOrARestrictedCoordinatorCannotManageTheCampusBenefits() throws Exception {
+    when(identity.isActive(coordinator)).thenReturn(false);
+    String benefit = """
+        {"name":"Library voucher","description":"Campus benefit","creditsCost":3,"active":true}
+        """;
+
+    mockMvc
+        .perform(
+            get("/api/v1/coordinator/benefits")
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", coordinator))
+        .andExpect(status().isForbidden());
+    mockMvc
+        .perform(
+            post("/api/v1/coordinator/benefits")
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", coordinator)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(benefit))
+        .andExpect(status().isForbidden());
+    mockMvc
+        .perform(
+            get("/api/v1/coordinator/benefits")
+                .header("X-Tenant-Id", tenant)
+                .header("X-User-Id", student))
+        .andExpect(status().isForbidden());
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from wallet.campus_benefits where tenant_id = ?",
+                Integer.class,
+                tenant))
+        .isZero();
   }
 
   private UUID createBenefit(String name, int credits) throws Exception {

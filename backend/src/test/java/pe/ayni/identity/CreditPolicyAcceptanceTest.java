@@ -1,6 +1,7 @@
 package pe.ayni.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +128,50 @@ class CreditPolicyAcceptanceTest {
                 "select count(*) from identity.credit_policies where tenant_id = ?",
                 Integer.class,
                 tenant);
+    }
+
+    private ResultActions readPolicy(String tenant, UUID user) throws Exception {
+        return mockMvc.perform(
+                get("/api/v1/coordinator/credit-policy")
+                        .header("X-Tenant-Id", tenant)
+                        .header("X-User-Id", user.toString()));
+    }
+
+    @Test
+    @DisplayName("A coordinator reads the current baseline credit policy")
+    void aCoordinatorReadsTheCurrentBaselineCreditPolicy() throws Exception {
+
+        String code = registerUniversity();
+        UUID coordinator = store(code, UserRole.COORDINATOR, UserStatus.ACTIVE);
+
+        readPolicy(code, coordinator)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind").value("BASELINE"))
+                .andExpect(jsonPath("$.creditsAmount").value(5))
+                .andExpect(jsonPath("$.validityDays").value(30));
+
+        changePolicy(code, coordinator, 8, 45).andExpect(status().isOk());
+
+        readPolicy(code, coordinator)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.creditsAmount").value(8))
+                .andExpect(jsonPath("$.validityDays").value(45));
+    }
+
+    @Test
+    @DisplayName("Only an active coordinator of the university reads its credit policy")
+    void onlyAnActiveCoordinatorOfTheUniversityReadsItsCreditPolicy() throws Exception {
+
+        String code = registerUniversity();
+        UUID student = store(code, UserRole.STUDENT, UserStatus.ACTIVE);
+        UUID restricted = store(code, UserRole.COORDINATOR, UserStatus.RESTRICTED);
+        String other = registerUniversity();
+        UUID otherCoordinator = store(other, UserRole.COORDINATOR, UserStatus.ACTIVE);
+
+        readPolicy(code, student).andExpect(status().isForbidden());
+        readPolicy(code, restricted).andExpect(status().isForbidden());
+        // A coordinator of another university is nobody here.
+        readPolicy(code, otherCoordinator).andExpect(status().isForbidden());
     }
 
     @Test
