@@ -10,6 +10,8 @@ a deployment.
 - [Starting it](#starting-it)
 - [Signing in with each role](#signing-in-with-each-role)
 - [The clock](#the-clock)
+- [Switching persona](#switching-persona)
+- [A real mailbox for a few addresses](#a-real-mailbox-for-a-few-addresses)
 - [The script of the presentation](#the-script-of-the-presentation)
 - [Traps](#traps)
 - [Other demo switches](#other-demo-switches)
@@ -20,6 +22,7 @@ a deployment.
 |---|---|---|
 | The `Clock` every rule reads | `Clock.systemUTC()` (`config.TimeConfig`) | `config.demo.AdjustableClock`: the real time plus an offset the administrator moves |
 | `/api/v1/admin/demo/clock` | does not exist (404) | read, move, set and reset the clock; platform administrator only |
+| `/api/v1/admin/demo/personas` and `/login-as` | do not exist (404) | list the active students and coordinators and open a session as any of them; platform administrator only |
 | Demonstration data | the six `Demo*Data` of `dev` | the same, through `spring.profiles.group.demo: dev`, plus an active coordinator of UPC (`DemoCoordinatorData`) |
 | Expiry of credits, generation of hours (`cron`) | 03:00 and 02:00 UTC of the real night | every minute |
 | Jobs at an interval | every minute (audit: every hour) | every 5 seconds (audit: every 10) |
@@ -113,6 +116,66 @@ curl -s -X DELETE localhost:8080/api/v1/admin/demo/clock -H "Authorization: Bear
 A value that is not ISO 8601 (`"two hours"`, `"P1W"`, `"2026-10-22"`), a missing one, or one that
 takes the clock more than ten years from the real time answers `400` and leaves the clock where it
 was. A student or a coordinator gets `403`; without a session, `401`.
+
+## Switching persona
+
+To change person without asking for a link and reading it in Mailpit each time, the administrator
+lists the people and opens a session as any of them. Both routes answer only a platform
+administrator, and only under `demo`.
+
+```bash
+# The active students and coordinators of every university, by university, then role, then name
+curl -s localhost:8080/api/v1/admin/demo/personas -H "Authorization: Bearer $ADMIN"
+# [{"email": "coordinator@upc.edu.pe", "fullName": "Carlos Rivera", "role": "COORDINATOR",
+#   "universityCode": "UPC", "universityName": "...", "career": null, "onboardingStep": null}, ...]
+
+# Act as one of them: the answer is the one of POST /api/v1/access/confirm
+curl -s -X POST localhost:8080/api/v1/admin/demo/login-as -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"email": "u202400001@upc.edu.pe"}'
+# {"sessionToken": "...", "tenantId": "UPC", "userId": "...", "role": "STUDENT", "expiresAt": "..."}
+
+# Keep the token of each persona, then use it like any session
+export ANA=<the sessionToken above>
+curl -s localhost:8080/api/v1/me -H "Authorization: Bearer $ANA"
+```
+
+What to know:
+
+- **It is the session a link opens**, with the same duration (a year here, see "Traps"), a token
+  that travels only in this answer and a table that keeps only its hash. It consumes and creates no
+  access link and sends no email, so Mailpit stays quiet.
+- **Acting as someone again opens another session** for them; the earlier ones keep working until
+  they expire, or until their holder signs out (`POST /api/v1/access/logout`).
+- **Only active people.** A coordinator who has not accepted their invitation, or anyone restricted,
+  is neither listed nor found: `login-as` answers `404` for them and for an email nobody has, and
+  `400` for something that is not an email. A student or a coordinator calling either route gets
+  `403`; without a session, `401`.
+- The list is the one place where an administrator reads people. It exists so that a presentation
+  can choose whom to be, and for that reason it is not there outside `demo`.
+- The log has one line for each session opened this way, with the university and the role and
+  without the address.
+
+## A real mailbox for a few addresses
+
+Everything the demonstration sends goes to Mailpit, which is right for the invented students: they
+carry the domain of real universities, and nobody should receive their emails. To receive the link
+in a real mailbox, for yourself, list that address and give a relay that delivers to it:
+
+```bash
+AYNI_REAL_RELAY_ALLOWED_RECIPIENTS=you@example.org \
+AYNI_REAL_RELAY_HOST=smtp.example.org AYNI_REAL_RELAY_PORT=587 \
+AYNI_REAL_RELAY_USERNAME=<smtp user> AYNI_REAL_RELAY_PASSWORD=<smtp password> \
+AYNI_REAL_RELAY_STARTTLS=true \
+SPRING_PROFILES_ACTIVE=demo docker compose up
+```
+
+Register with that address (a domain of a university, or one added to it with
+`PUT /api/v1/admin/universities/{code}/email-domains`) and the link arrives in your mailbox; any
+other address still arrives in Mailpit, whatever its domain. The list is compared address by
+address, without regard to case. The list and the host go together: one without the other stops the
+backend from starting. If the relay is down, the email of an allowed address fails (its notice says
+so) and is not sent to Mailpit in its place. The log counts the emails that left through each server
+and never prints an address. `deploy/README.md`, "Mail", explains it for a deployment.
 
 ## The script of the presentation
 
