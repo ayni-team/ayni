@@ -75,7 +75,9 @@ services:
       # Development profile: modules whose data would otherwise come from a module
       # that does not exist yet fill a couple of examples at startup, so the
       # endpoints answer something in Swagger. Never set in a deployment.
-      SPRING_PROFILES_ACTIVE: dev
+      # SPRING_PROFILES_ACTIVE=demo docker compose up starts the presentation profile instead,
+      # dev plus a clock the administrator moves (docs/demo.md).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     ports:
       - "8080:8080"
     volumes:

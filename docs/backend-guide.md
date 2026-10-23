@@ -258,7 +258,7 @@ with the address of an active `identity.platform_admins` row issues a `LOGIN` li
 university (`AccessRequested.tenantId` is `null`), and confirming it opens a session with `admin_id`
 and no `tenant_id` nor `user_id`. Nothing binds a university for them, so they see no tenant scoped
 rows; `CurrentUser` is the administrator's id. `DemoPlatformAdminData` seeds one,
-`admin@ayni.local`, under the `dev` profile only.
+`admin@ayni.local`, under the `dev` profile only, and so under `demo`, which includes it.
 
 **Signing out.** `POST /api/v1/access/logout` revokes the session of the token it carries
 (`revoked_at`) and answers `204`; from then on that token is answered `401`.
@@ -566,6 +566,16 @@ others, so two requests for the same domain end with one `200` and one `409`, ne
 publishes `UniversityIdentityChanged` too, with the administrator as who changed it. The
 administrator's session has no university, so the event carries the university that was edited, and
 the domains themselves are not in it.
+
+**The demo coordinator.** Under the `demo` profile only (`docs/demo.md`), `DemoCoordinatorData`
+creates an active coordinator of UPC, Carlos Rivera, so a presentation needs no invitation first:
+they sign in by link with `ayni.identity.demo-coordinator-email` (`AYNI_DEMO_COORDINATOR_EMAIL`,
+`coordinator@upc.edu.pe` by default), which must be of a domain of UPC; otherwise nothing is created
+and the log says so without the address. It runs when the application is ready, after
+`DemoIdentityData` created the university, and once: an address already taken is left alone. No
+event is published, as for the students of `DemoIdentityData`. Under `demo` a session lasts a year
+(`ayni.identity.session-ttl: P365D`), so moving the clock weeks ahead does not sign anybody out,
+while an access link keeps its ten minutes and expires with the moved clock.
 
 ---
 
@@ -1108,8 +1118,12 @@ shares (`AUTH_TYPE=jwt`): `room` is the session's room and no other, `iss` `ayni
 when somebody enters, and every join, a reconnection included, issues a new one. Only a participant
 who is let in gets one. The secret has no default in `application.yml`: `docker-compose.yml`
 carries the development one, a deployment sets its own (at least 32 characters), and without it
-joining answers `video: null`, logged once at startup. Jitsi runs under a compose profile, so the
-normal start stays light:
+joining answers `video: null`, logged once at startup. Under the `demo` profile, where the
+administrator can move the clock (`docs/demo.md`), `ayni.sessions.video.sign-with-real-time` is on:
+Jitsi checks `iat`, `nbf` and `exp` against the real time, so the pass is signed with the real time
+and keeps the length the application's clock gives it (the ttl, or less near the end of the
+session); `expiresAt` in the answer stays in the application's time. Every other profile signs with
+the instant the use case reads. Jitsi runs under a compose profile, so the normal start stays light:
 
 ```bash
 docker compose --profile video up
