@@ -1,5 +1,6 @@
 package pe.ayni.matching;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
@@ -32,6 +33,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,6 +45,7 @@ import pe.ayni.identity.UserRole;
 import pe.ayni.identity.UserView;
 import pe.ayni.reputation.ReputationApi;
 import pe.ayni.reputation.TutorStandingView;
+import pe.ayni.shared.events.DemandUncovered;
 import pe.ayni.shared.events.HoursGenerated;
 import pe.ayni.skills.SkillsApi;
 
@@ -56,6 +60,7 @@ import pe.ayni.skills.SkillsApi;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@RecordApplicationEvents
 class SearchOffersAcceptanceTest {
 
   @ServiceConnection
@@ -70,6 +75,7 @@ class SearchOffersAcceptanceTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private ApplicationEventPublisher events;
   @Autowired private TransactionTemplate transactions;
+  @Autowired private ApplicationEvents published;
   @MockitoBean private SkillsApi skills;
   @MockitoBean private IdentityApi identity;
   @MockitoBean private ReputationApi reputation;
@@ -224,6 +230,88 @@ class SearchOffersAcceptanceTest {
         .andExpect(jsonPath("$.exactMatch").value(false))
         .andExpect(jsonPath("$.offers", hasSize(0)))
         .andExpect(jsonPath("$.totalElements").value(0));
+  }
+
+  @Test
+  @DisplayName("A search with nothing inside its window publishes the demand nobody covers")
+  void anEmptyWindowPublishesTheUncoveredDemand() throws Exception {
+
+    // The tutor is free in the morning and the evening, not in the afternoon that is searched.
+    tutorFreeAt("Bruno Salas", "4.50", tomorrowAt(9), tomorrowAt(20));
+    Instant before = Instant.now();
+
+    searchTomorrowAfternoon()
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.exactMatch").value(false))
+        .andExpect(jsonPath("$.offers", hasSize(2)));
+
+    assertThat(published.stream(DemandUncovered.class))
+        .singleElement()
+        .satisfies(
+            demand -> {
+              assertThat(demand.tenantId()).isEqualTo(UPC);
+              assertThat(demand.catalogItemId()).isEqualTo(course);
+              assertThat(demand.windowStart()).isEqualTo(tomorrowAt(14));
+              assertThat(demand.windowEnd()).isEqualTo(tomorrowAt(18));
+              assertThat(demand.occurredOn()).isBetween(before, Instant.now());
+              // Nobody in it: not the student who searched, not the tutor found around.
+              assertThat(demand.toString()).doesNotContain(student.toString());
+            });
+  }
+
+  @Test
+  @DisplayName("A search of a course nobody teaches publishes the demand too")
+  void aCourseNobodyTeachesPublishesTheUncoveredDemand() throws Exception {
+
+    searchTomorrowAfternoon().andExpect(status().isOk());
+
+    assertThat(published.stream(DemandUncovered.class))
+        .singleElement()
+        .satisfies(demand -> assertThat(demand.catalogItemId()).isEqualTo(course));
+  }
+
+  @Test
+  @DisplayName("A search with an exact match publishes no uncovered demand")
+  void anExactMatchPublishesNoUncoveredDemand() throws Exception {
+
+    tutorFreeAt("Bruno Salas", "4.50", tomorrowAt(15));
+
+    searchTomorrowAfternoon()
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.exactMatch").value(true));
+
+    assertThat(published.stream(DemandUncovered.class)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("Paging an empty search again is not new demand")
+  void pagingAnEmptySearchAgainIsNotNewDemand() throws Exception {
+
+    tutorFreeAt("Bruno Salas", "4.50", tomorrowAt(20));
+
+    searchTomorrowAfternoon().andExpect(jsonPath("$.exactMatch").value(false));
+    mockMvc
+        .perform(
+            get("/api/v1/search/offers")
+                .header("X-Tenant-Id", UPC)
+                .header("X-User-Id", student)
+                .param("catalogItemId", course.toString())
+                .param("from", tomorrowAt(14).toString())
+                .param("to", tomorrowAt(18).toString())
+                .param("page", "1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.offers", hasSize(0)));
+
+    assertThat(published.stream(DemandUncovered.class)).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("A refused search publishes no uncovered demand")
+  void aRefusedSearchPublishesNoUncoveredDemand() throws Exception {
+
+    search(tomorrowAt(18), tomorrowAt(14)).andExpect(status().isBadRequest());
+
+    assertThat(published.stream(DemandUncovered.class)).isEmpty();
   }
 
   @Test

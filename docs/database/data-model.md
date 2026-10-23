@@ -1369,9 +1369,9 @@ tenant_id          varchar(32)   NOT NULL
 catalog_item_id    uuid          NOT NULL
 day                date          NOT NULL
 searches           integer       NOT NULL DEFAULT 0
-offers_available   integer       NOT NULL DEFAULT 0
 
 PRIMARY KEY (tenant_id, catalog_item_id, day)
+CHECK (searches >= 0)
 ```
 
 Aggregates only, never rows describing a person. That is what lets the platform administrator read
@@ -1379,6 +1379,14 @@ counts across universities without ever touching academic data.
 
 `day` is the day of the university's own time zone, not UTC. The row is written by the projection
 with an atomic increment (`INSERT ... ON CONFLICT DO UPDATE`), so two events at once both count.
+
+`searches` counts the searches of a course that found no hour inside the window the student asked
+for, fed by matching's `DemandUncovered` (US53). The first version of the model also had
+`offers_available`, the hours found around the window; the event does not carry them (matching
+answers that to the student and publishes only the course and the window), so there was nothing to
+write in it and the column was dropped rather than left at zero. Row level security as every table
+with `tenant_id`. A coordinator reads the twenty courses with most searches in a period, by
+identifier.
 
 ### `analytics.counted_events`
 

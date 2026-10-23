@@ -985,6 +985,9 @@ answer counts the booked hours that stand so the tutor knows.
 
 Owns nothing but the search. **No published interface:** it is read only.
 
+**Publishes:** `DemandUncovered`, when a search finds no hour inside the window it asked for (see
+"Uncovered demand" below).
+
 **Listens to:** `HoursGenerated`, `HoursWithdrawn`, `BookingConfirmed`, `BookingCancelled`, `SkillEnabled`,
 `SkillWithdrawn`, `SessionRated` — and keeps its own projection updated.
 
@@ -1012,6 +1015,20 @@ and the slowest about 140 ms on a laptop, 290 ms and 490 ms on two CPUs, against
 Every query of the search reads `ix_available_offers_search` and none the whole table, so no index
 was added. `SearchResponseTimeTest` repeats the measurement in every build and fails it beyond the
 thresholds; the method and the figures are in `performance/TS07-search-response-time.md`.
+
+The `DemandUncovered` of an empty window does not slow the search: analytics counts it on threads
+of its own (see "The search does not wait for this" under analytics). In the same run of
+`SearchResponseTimeTest`, the searches that publish it (`NARROW`, `UNTAUGHT`) measured as the ones
+that do not (`WEEK`): p95 between 140 and 185 ms for all three kinds, the noise of a build that
+shares the machine with others, against the 500 ms threshold. Counting it on the search's own thread
+did not pass: it exhausted the connection pool.
+
+**Uncovered demand (US53).** When nothing falls inside the window, the first page of the search
+publishes `DemandUncovered` with the university, the course, the start and the end of the window
+and the moment. It names no one: the student is not in it. It is published inside the transaction of
+the search, which is read only, and heard once it commits; a search with an exact match publishes
+nothing, and neither does a later page of the same empty search. The answer of the search is the
+same with or without it. Analytics counts it; matching does not know who listens.
 
 A hold does not remove an offer. It lasts five minutes and ends either in a booking, which
 `BookingConfirmed` removes, or back in circulation; booking checks the hour again when it is held and
@@ -1681,6 +1698,7 @@ depends on it. It never asks another module to answer a question; it keeps what 
 | `SessionCompleted` | one session completed, its hours (one credit is one hour) and its tutor and its student as active students of that day |
 | `StudentActivated` | one new student. The email and the student code of the event are never read or kept |
 | `RecognitionResolved` | one recognition granted, only when `approved`. A rejection counts nothing |
+| `DemandUncovered` | one search of a course that found no hour inside its window, on the day of the university (US53 uncovered demand). Not the student: the event carries no one |
 
 **Calls:** `IdentityApi.requireTenant`, only while projecting, for the time zone of the university;
 `IdentityApi.requireUser` and `IdentityApi.isActive`, to know that whoever asks is an active
@@ -1690,7 +1708,21 @@ of the event, not the UTC one: a session that ends at 22:00 in Lima belongs to t
 **Counted once.** The same event delivered twice changes nothing the second time, and a student who
 took part in several sessions on a day is one active student of that day. Two auxiliary tables,
 described in `database/data-model.md`, hold only identifiers for this, and no endpoint returns them.
-Both are decided by a primary key, so two deliveries at the same moment count once.
+Both are decided by a primary key, so two deliveries at the same moment count once. The one
+exception is `DemandUncovered`: a search has no identity of its own, so every one that arrives is a
+search, and the counter is one atomic `INSERT ... ON CONFLICT DO UPDATE` that two at the same moment
+cannot corrupt.
+
+**The search does not wait for this (TS07).** Of the listeners, only the one of `DemandUncovered`
+hangs from the search, whose response time is measured. Counting on its thread wrote to the database
+inside the search and, with the transaction that `@ApplicationModuleListener` opens, asked the pool
+for a second connection while the search held the first: with fifty students at once on the ten
+connections of the pool, every connection ended held by a search waiting for another one, and the
+searches failed after the 30 seconds of the pool. So this listener is a plain after commit
+listener that only leaves the event in `UncoveredDemandQueue`, two worker threads and a thousand
+places, and answers. When the queue is full the event is dropped and a line says so; a count of
+searches may lose a few under overload, a search must not wait. Tests wait for the queue with
+`UncoveredDemandQueue.awaitIdle`, not with a sleep.
 
 **Projecting never breaks the publisher.** The listeners bind the university with
 `TenantContext.runAs(event.tenantId(), ...)` and run each fact in a transaction of its own. A
@@ -1705,7 +1737,7 @@ publication registry of ADR 0005 exists.
 | GET | `/api/v1/coordinator/indicators/export?from=&to=` | coordinator: the same figures as a CSV file (US53) |
 
 `from` and `to` are ISO 8601 dates, both included, in the university's own days. The answer has
-`from`, `to`, `totals` and `days`; `totals` and each day's `figures` carry `sessionsCompleted`,
+`from`, `to`, `totals`, `days` and `uncoveredDemand`; `totals` and each day's `figures` carry `sessionsCompleted`,
 `hoursExchanged`, `activeStudents`, `newStudents` and `recognitionsGranted`. The `activeStudents` of
 `totals` are distinct people over the whole period, not the sum of the days. Every day of the period
 is in the series, with zeros when nothing happened. Only the university of the request is read, and
@@ -1714,7 +1746,12 @@ no name or identifier of a person is ever returned.
 The export is `text/csv` with `Content-Disposition: attachment;
 filename="usage-indicators-<from>-<to>.csv"`. Its header is
 `day,sessions_completed,hours_exchanged,active_students,new_students,recognitions_granted`, then one
-line per day and a last line whose day is `TOTAL`.
+line per day and a last line whose day is `TOTAL`. The uncovered demand is not in the file.
+
+`uncoveredDemand` lists the courses students searched for in the period without finding an hour
+inside their window, as `{catalogItemId, searches}`, the most searched first (ties by identifier)
+and at most 20. It carries identifiers only: the client resolves the names with `GET
+/api/v1/catalog`. It is empty when there was nothing.
 
 | Status | When |
 |---|---|
@@ -1722,10 +1759,7 @@ line per day and a last line whose day is `TOTAL`.
 | 400 | A missing `X-Tenant-Id` or `X-User-Id`, a missing `from` or `to`, a date that is not ISO 8601, `to` before `from`, or a period of more than 366 days |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, one of another university, or somebody the university does not know |
 
-**Not built.** The uncovered demand (`analytics.uncovered_demand`) needs matching to publish its
-searches, and today it publishes nothing: it is a new shared event that the lead decides. It is
-tagged `@pending` in `US53-usage-indicators.feature`, and its table is not created. The
-`/api/v1/admin/overview` endpoint waits for the administrator role (TS03).
+**Not built.** The `/api/v1/admin/overview` endpoint waits for the administrator role (TS03).
 
 ---
 

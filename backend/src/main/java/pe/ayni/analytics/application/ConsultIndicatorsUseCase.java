@@ -12,10 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.analytics.domain.model.DailyIndicator;
 import pe.ayni.analytics.domain.model.DailyUsage;
 import pe.ayni.analytics.domain.model.IndicatorPeriod;
+import pe.ayni.analytics.domain.model.UncoveredCourse;
 import pe.ayni.analytics.domain.model.UsageFigures;
 import pe.ayni.analytics.domain.model.UsageIndicators;
 import pe.ayni.analytics.infrastructure.ActiveStudentDayRepository;
 import pe.ayni.analytics.infrastructure.DailyIndicatorRepository;
+import pe.ayni.analytics.infrastructure.UncoveredDemandRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -25,22 +27,29 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>It answers from the module's own tables, for the university of the request only, and returns
  * counts: nobody's name or identifier is read, and the tables that hold identifiers are only asked
  * how many distinct people there were. Days with no activity are in the series with zeros, so a
- * chart has no gaps to fill.
+ * chart has no gaps to fill. The uncovered demand lists, by course identifier, the {@value
+ * #UNCOVERED_DEMAND_LIMIT} courses most searched without finding an hour.
  */
 @Service
 public class ConsultIndicatorsUseCase {
 
+  /** How many courses the uncovered demand lists: the most searched ones. */
+  public static final int UNCOVERED_DEMAND_LIMIT = 20;
+
   private final CoordinatorGuard guard;
   private final DailyIndicatorRepository indicators;
   private final ActiveStudentDayRepository activeDays;
+  private final UncoveredDemandRepository uncoveredDemand;
 
   ConsultIndicatorsUseCase(
       CoordinatorGuard guard,
       DailyIndicatorRepository indicators,
-      ActiveStudentDayRepository activeDays) {
+      ActiveStudentDayRepository activeDays,
+      UncoveredDemandRepository uncoveredDemand) {
     this.guard = guard;
     this.indicators = indicators;
     this.activeDays = activeDays;
+    this.uncoveredDemand = uncoveredDemand;
   }
 
   /**
@@ -82,9 +91,14 @@ public class ConsultIndicatorsUseCase {
       days.add(new DailyUsage(day, figures));
     }
     long distinctActive = activeDays.countDistinctBetween(tenantId, from, to);
+    List<UncoveredCourse> uncovered =
+        uncoveredDemand.mostSearched(tenantId, from, to, UNCOVERED_DEMAND_LIMIT).stream()
+            .map(course -> new UncoveredCourse(course.getCatalogItemId(), course.getSearches()))
+            .toList();
     return new UsageIndicators(
         period,
         new UsageFigures(sessions, hours, distinctActive, newStudents, recognitions),
-        List.copyOf(days));
+        List.copyOf(days),
+        uncovered);
   }
 }
