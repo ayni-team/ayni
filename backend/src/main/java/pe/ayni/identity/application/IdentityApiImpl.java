@@ -1,7 +1,10 @@
 package pe.ayni.identity.application;
 
 import java.time.Clock;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,6 +88,21 @@ public class IdentityApiImpl implements IdentityApi {
                                                 "User not found: " + userId));
 
         return toUserView(user);
+    }
+
+    @Override
+    public Map<UUID, String> namesOf(Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String tenantId = TenantContext.require();
+
+        Map<UUID, String> names = new HashMap<>();
+        users.findByTenantIdAndIdIn(tenantId, userIds)
+                .forEach(user -> names.put(user.getId(), user.getFullName()));
+
+        return names;
     }
 
     @Override

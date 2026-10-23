@@ -18,6 +18,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             String tenantId,
             UUID id);
 
+    List<User> findByTenantIdAndIdIn(
+            String tenantId,
+            Collection<UUID> ids);
+
     Optional<User> findByTenantIdAndEmailIgnoreCase(
             String tenantId,
             String email);
