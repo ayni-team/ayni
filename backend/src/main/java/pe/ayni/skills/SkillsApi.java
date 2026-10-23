@@ -1,6 +1,8 @@
 package pe.ayni.skills;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -18,6 +20,16 @@ public interface SkillsApi {
 
   /** @throws java.util.NoSuchElementException when the item is not visible to the current tenant */
   CatalogItemView requireItem(UUID catalogItemId);
+
+  /**
+   * The items among these that the current tenant can see, by identifier, read in one query for the
+   * whole batch.
+   *
+   * <p>For a list that shows the items it mentions: asking {@link #requireItem} for each would read
+   * once per item. An identifier the tenant cannot see, or that does not exist, is left out of the
+   * map rather than refused, so a list is not lost for one item it no longer knows.
+   */
+  Map<UUID, CatalogItemView> itemsOf(Collection<UUID> catalogItemIds);
 
   /**
    * Registers catalogue items a student needs help with, for US40's initial configuration.

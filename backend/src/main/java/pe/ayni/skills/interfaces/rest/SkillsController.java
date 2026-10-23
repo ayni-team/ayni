@@ -130,6 +130,38 @@ class SkillsController {
     return CatalogPage.of(catalog.visibleItems(category, q, page, size));
   }
 
+  @GetMapping("/catalog/{id}")
+  @Operation(
+      summary = "One catalogue item",
+      description =
+          """
+          Resolves the identifier of a course or tool the other screens only carry as an id, such \
+          as the one of a session or of a booking, into the same item the catalogue lists. It \
+          answers any item the current university can see, the global tools and its own courses, \
+          also one that was retired since, so a past tutoring can still name its course. The item \
+          of another university is not found.
+          """)
+  @ApiResponse(
+      responseCode = "200",
+      description = "The item",
+      content = @Content(schema = @Schema(implementation = CatalogItemResponse.class)))
+  @ApiResponse(
+      responseCode = "400",
+      description = "The identifier is not a UUID",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The item does not exist, or is not visible to this university",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  CatalogItemResponse catalogItem(
+      @Parameter(
+              description = "Identifier of the catalogue item",
+              example = "b0000000-0000-4000-8000-000000000101")
+          @PathVariable("id")
+          UUID catalogItemId) {
+    return CatalogItemResponse.of(catalog.visibleItem(catalogItemId));
+  }
+
   @GetMapping("/catalog/categories")
   @Operation(
       summary = "The categories a tool can be proposed in",

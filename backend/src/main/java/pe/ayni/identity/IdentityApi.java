@@ -1,6 +1,8 @@
 package pe.ayni.identity;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +21,15 @@ public interface IdentityApi {
 
   /** @throws java.util.NoSuchElementException when the user does not exist in the current tenant */
   UserView requireUser(UUID userId);
+
+  /**
+   * The full names of these users of the current tenant, read in one query for the whole batch.
+   *
+   * <p>For a list that shows the people it mentions: asking {@link #requireUser} for each would
+   * read once per person. A user who does not exist in the current tenant is left out of the map
+   * rather than refused, so a list is not lost for one person it no longer knows.
+   */
+  Map<UUID, String> namesOf(Collection<UUID> userIds);
 
   boolean isActive(UUID userId);
 

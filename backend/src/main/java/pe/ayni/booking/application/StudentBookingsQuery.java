@@ -53,7 +53,7 @@ public class StudentBookingsQuery {
         timeline == BookingTimeline.UPCOMING
             ? bookings.findUpcomingOfStudent(tenantId, studentId, now, request)
             : bookings.findHistoryOfStudent(tenantId, studentId, now, request);
-    BookingParties.Names names = parties.forOneList();
+    BookingParties.Names names = parties.forList(found.getContent(), Booking::getTutorId);
     return new BookingsPage<>(
         timeline,
         identity.requireTenant(tenantId).timezone(),

@@ -1,6 +1,9 @@
 package pe.ayni.skills.application;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -61,6 +64,23 @@ public class SkillsService implements SkillsApi {
                 () ->
                     new NoSuchElementException(
                         "catalog item %s not found".formatted(catalogItemId)));
+    return viewOf(item);
+  }
+
+  @Override
+  public Map<UUID, CatalogItemView> itemsOf(Collection<UUID> catalogItemIds) {
+    if (catalogItemIds.isEmpty()) {
+      return Map.of();
+    }
+    String tenantId = TenantContext.require();
+    Map<UUID, CatalogItemView> items = new HashMap<>();
+    catalogItems
+        .findAllByIdInAndTenantVisibility(catalogItemIds, tenantId)
+        .forEach(item -> items.put(item.getId(), viewOf(item)));
+    return items;
+  }
+
+  private static CatalogItemView viewOf(CatalogItem item) {
     return new CatalogItemView(item.getId(), item.getScope(), item.getName(), item.getCourseCode());
   }
 

@@ -417,6 +417,7 @@ public interface IdentityApi {
   Optional<TenantView> findTenantByEmailDomain(String email);
   TenantView requireTenant(String tenantCode);
   UserView requireUser(UUID userId);
+  Map<UUID, String> namesOf(Collection<UUID> userIds);   // W23: full names of a list, one read
   boolean isActive(UUID userId);
   Optional<CreditPolicyView> currentPolicy(String tenantCode, PolicyKind kind);
   List<ApprovedCourseView> approvedCourses(UUID userId);   // used by skills to enable by grade
@@ -425,6 +426,12 @@ public interface IdentityApi {
   void completeOnboarding(UUID userId);          // used by skills at the last step of US40
 }
 ```
+
+`namesOf` (W23) answers the full name of each user of the current university among the ones asked
+for, in one query. A user that does not exist in the current university is left out of the map
+instead of refused, so a list or a screen that names people is not lost for one it no longer knows;
+the caller shows that person without a name. Use it wherever a list names people: asking
+`requireUser` for each is one read per person.
 
 `completeOnboarding` moves a student of the current university from `LEARNING_INTERESTS` to
 `COMPLETED`, leaves one already `COMPLETED` as they are, and throws `IllegalStateException` from
@@ -734,10 +741,15 @@ public interface SkillsApi {
   boolean isTutorEnabledFor(UUID tutorId, UUID catalogItemId);
   List<UUID> enabledSkillsOf(UUID tutorId);
   CatalogItemView requireItem(UUID catalogItemId);
+  Map<UUID, CatalogItemView> itemsOf(Collection<UUID> catalogItemIds);   // W23: a list's items, one read
   void declareLearningInterests(UUID studentId, List<UUID> catalogItemIds);   // US40 onboarding
   List<UUID> declareTeachingInterests(UUID studentId, List<UUID> catalogItemIds);  // US40 onboarding
 }
 ```
+
+`itemsOf` (W23) is `requireItem` for a batch: the items among the ones asked for that the current
+university can see, by identifier, in one query. An identifier that does not exist or belongs to
+another university is left out of the map instead of refused, as the person of `namesOf` is.
 
 The two `declare…` methods are the skills half of US40's initial configuration. Teaching interests
 go through the same academic record path as `POST /api/v1/tutor/skills`: items that do not qualify
@@ -756,6 +768,7 @@ already depends on skills, and the modules would depend on each other.
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
+| GET | `/api/v1/catalog/{id}` | student | one item the current university can see, with the schema `GET /catalog` lists: `id`, `scope`, `name`, `description` and `courseCode` (`null` for a global tool). Any status: a course retired since still resolves, so a past tutoring can name it. 404 for an item that does not exist or is another university's, 400 for an id that is not a UUID (W23) |
 | GET | `/api/v1/catalog/categories` | student | the categories a tool can be proposed in, by their order and then by name, each with `id` and `name`; the `id` is the `categoryId` of a proposal and the `category` of `GET /catalog`. University courses is left out (US42) |
 | GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
 | POST | `/api/v1/tutor/skills/proposals` | student | proposes a tool the catalogue does not have. 409 with the similar items until `confirmDistinct` is sent (US42) |
@@ -1027,7 +1040,8 @@ because a hold ends either in a booking, which is announced, or back in circulat
 
 **Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
 `HoursWithdrawn`.
-**Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`.
+**Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`; for the names of its
+lists and its hold (W23), `SkillsApi.itemsOf` and `IdentityApi.namesOf`.
 **Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
 records a `NO_SHOW` incident against the tutor in `booking.tutor_reliability`, which means the tutor
 was the one missing. When the student was not present it also records the student's absence in
@@ -1035,7 +1049,7 @@ was the one missing. When the student was not present it also records the studen
 
 | Method | Path | Who | Does |
 |---|---|---|---|
-| POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written |
+| POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written. The answer names the tutor (`tutorName`, W23) |
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history, a page at a time (US04) |
@@ -1053,6 +1067,17 @@ was the one missing. When the student was not present it also records the studen
 **The confirmation, in order, inside one transaction:** the tutor is enabled → the hours are
 contiguous and free → charge the credits → mark the hours → save the booking → publish
 `BookingConfirmed`. If anything fails, nothing happened.
+
+**Names in the lists and the hold (W23).** `HeldHours` carries `tutorName`, read from
+`IdentityApi.namesOf`, so the booking screen can show who the hours are with after a reload; it is
+`null` when identity no longer knows the tutor. It carries no course: the hold does not know it
+yet, the booking does. The lists, `GET /bookings/mine` and the agenda of a tutor with its history,
+already named the other person and the course (`tutor`, `student` and `catalogItem`, each with `id`
+and `name`); W23 changed how: `BookingParties` asks identity and skills for all the names of a page
+at once, `IdentityApi.namesOf` and `SkillsApi.itemsOf`, two reads however long the page is, where it
+used to read once per distinct person and item. An item or a person the other module no longer
+shows is named `null`. The lists do not carry the `courseCode` of the course: no screen of the field
+map asks for it.
 
 **The hold.** Choosing hours takes them out of circulation for five minutes before the student
 confirms, so nobody takes them while the need is being written (`data-model.md`, and the hour block
@@ -1261,7 +1286,9 @@ were booked, one credit each, not the minutes the call lasted.
 **Publishes:** `SessionStarted`, `SessionCompleted`, `SessionUnverified`, `SessionAbandoned`,
 `PresenceCodeIssued`, `WhiteboardClosed`.
 **Calls:** `BookingApi.requireBooking` — for the need description the tutor reads before the session,
-for the support material prepared from it (US07), and for the skill that `SessionAbandoned` names; `IdentityApi.activeTenantCodes` — for the jobs
+for the support material prepared from it (US07), for the skill that `SessionAbandoned` names and for
+the course that the answers name (W23); `SkillsApi.itemsOf` and `IdentityApi.namesOf` — for the
+names of the course and of the other person (W23); `IdentityApi.activeTenantCodes` — for the jobs
 that look at every university.
 **Listens to:** `BookingConfirmed` — that is what creates the session.
 
@@ -1287,6 +1314,23 @@ moment the second of them arrived. Somebody who arrives at the ten minute mark o
 arrival is recorded, nothing starts, and the session is abandoned as the next section says. The
 session is locked while it is joined, so two participants arriving at once start it once. Joining
 again changes nothing, the first arrival included. A stranger gets 403, a room that is not open 409.
+
+**Names (W23).** The session keeps ids, and the screens of a tutoring show the course and the other
+person, so the three answers that open one, `GET /sessions/{id}`, `POST /sessions/{id}/join` and
+`GET /sessions/{id}/review`, carry two more objects, added next to the identifiers they already had
+(`catalogItemId`, `studentId`, `tutorId`):
+
+| Field | Is | Comes from |
+|---|---|---|
+| `catalogItem` | `{ id, name, courseCode }` of the course or tool the session is about; `courseCode` is `null` for a global tool | the `catalogItemId` of the booking (`BookingApi.requireBooking`), named by `SkillsApi.itemsOf` |
+| `counterpart` | `{ id, name }` of the other person, from the point of view of whoever reads: the tutor for the student, the student for the tutor | the session's `studentId` and `tutorId`, named by `IdentityApi.namesOf` |
+
+The names are read every time and never copied into `sessions`. A course or a person the other
+module no longer shows is answered with its id and a `null` name (and `courseCode`), not with an
+error. `SessionParties` holds both reads; each answer asks each module once. The `GET /sessions?bookingId=`
+answer and the whiteboard do not carry them: no screen of theirs names anybody. The scenarios are in
+`W23-names-in-responses.feature`, run by `SessionNamesAcceptanceTest`, `CatalogItemAcceptanceTest`
+and `BookingNamesAcceptanceTest`.
 
 **Finding the session of a booking (US04, US21).** The lists of tutorings, a student's
 (`GET /bookings/mine`) and a tutor's (`GET /tutor/agenda`), mark a booking as `joinable` but cannot

@@ -32,7 +32,8 @@ import pe.ayni.shared.tenancy.TenantContext;
  * travels by email: the answer says whether it was sent, until when it can be typed in and whether
  * it was, for the reader alone. The first arrival of each participant is visible to both, and once
  * the session was abandoned so is who did not check in. The support material prepared from the
- * need comes with it, when there is any (US07).
+ * need comes with it, when there is any (US07). The course and the other person come with their
+ * names, read from skills and identity through their published interfaces.
  */
 @Service
 public class SessionDetailsQuery {
@@ -42,18 +43,21 @@ public class SessionDetailsQuery {
   private final PresenceCheckRepository presenceChecks;
   private final SupportMaterialRepository materials;
   private final BookingApi booking;
+  private final SessionParties parties;
 
   SessionDetailsQuery(
       SessionRepository sessions,
       ParticipationRepository participations,
       PresenceCheckRepository presenceChecks,
       SupportMaterialRepository materials,
-      BookingApi booking) {
+      BookingApi booking,
+      SessionParties parties) {
     this.sessions = sessions;
     this.participations = participations;
     this.presenceChecks = presenceChecks;
     this.materials = materials;
     this.booking = booking;
+    this.parties = parties;
   }
 
   /**
@@ -101,7 +105,9 @@ public class SessionDetailsQuery {
         session.getStudentId(),
         session.getTutorId(),
         booked.catalogItemId(),
+        parties.courseOf(booked.catalogItemId()),
         role,
+        parties.counterpartOf(session, role),
         session.getStatus(),
         session.getScheduledStart(),
         session.getScheduledEnd(),

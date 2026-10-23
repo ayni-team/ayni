@@ -12,7 +12,12 @@ import pe.ayni.sessions.domain.model.ParticipantRole;
 @Schema(name = "JoinedSession")
 public record JoinedSessionResponse(
     @Schema(example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f") UUID sessionId,
+    @Schema(description = "The course the session is about, with its name")
+        SessionResponse.CatalogItem catalogItem,
     @Schema(example = "STUDENT") ParticipantRole role,
+    @Schema(description = "The other person of the session: the tutor when the one who joined is "
+        + "the student, the student when it is the tutor")
+        SessionResponse.Counterpart counterpart,
     @Schema(description = "Room of the video call. Unguessable; keep it private",
         example = "ayni-3f9c2b7e1d4a4c0e9b8f6a2d5c7e1b3a")
         String roomName,
@@ -55,7 +60,9 @@ public record JoinedSessionResponse(
   static JoinedSessionResponse of(JoinedSession joined) {
     return new JoinedSessionResponse(
         joined.sessionId(),
+        SessionResponse.CatalogItem.of(joined.catalogItem()),
         joined.role(),
+        SessionResponse.Counterpart.of(joined.counterpart()),
         joined.roomName(),
         joined.status(),
         joined.startedAt(),

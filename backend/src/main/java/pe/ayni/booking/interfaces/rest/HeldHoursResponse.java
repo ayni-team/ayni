@@ -12,6 +12,10 @@ public record HeldHoursResponse(
     @Schema(description = "Tutor whose hours are held.",
         example = "22222222-2222-4222-8222-222222222222")
     UUID tutorId,
+    @Schema(description = "Full name of the tutor, so a reload of the booking screen can show who "
+        + "the hours are with; null when identity no longer knows the tutor",
+        nullable = true, example = "Julián Arce")
+    String tutorName,
     @Schema(description = "Start of the first hour, UTC.", example = "2026-09-29T23:00:00Z")
     Instant startsAt,
     @Schema(description = "End of the last hour, UTC.", example = "2026-09-30T01:00:00Z")
@@ -31,6 +35,7 @@ public record HeldHoursResponse(
   static HeldHoursResponse of(HeldHours held) {
     return new HeldHoursResponse(
         held.tutorId(),
+        held.tutorName(),
         held.startsAt(),
         held.endsAt(),
         held.hours(),

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.UUID;
 import pe.ayni.sessions.SessionStatus;
 import pe.ayni.sessions.application.PresenceState;
+import pe.ayni.sessions.application.SessionCounterpart;
+import pe.ayni.sessions.application.SessionCourse;
 import pe.ayni.sessions.application.SessionDetails;
 import pe.ayni.sessions.application.SupportMaterialView;
 import pe.ayni.sessions.domain.model.ParticipantRole;
@@ -23,7 +25,11 @@ public record SessionResponse(
     @Schema(description = "The course the session is about",
         example = "b0000000-0000-4000-8000-000000000102")
         UUID catalogItemId,
+    @Schema(description = "The course the session is about, with its name. Same id as "
+        + "catalogItemId") CatalogItem catalogItem,
     @Schema(description = "Which of the two the reader is", example = "TUTOR") ParticipantRole role,
+    @Schema(description = "The other person of the session: the tutor when the reader is the "
+        + "student, the student when the reader is the tutor") Counterpart counterpart,
     @Schema(example = "SCHEDULED") SessionStatus status,
     @Schema(description = "UTC", example = "2026-09-30T20:00:00Z") Instant scheduledStart,
     @Schema(description = "UTC", example = "2026-09-30T21:00:00Z") Instant scheduledEnd,
@@ -66,6 +72,35 @@ public record SessionResponse(
         + "null when the service did not prepare it, and then the session shows only the need",
         nullable = true)
         Material supportMaterial) {
+
+  /** The course or tool a session is about, with the name the catalogue gives it. */
+  @Schema(name = "SessionCatalogItem")
+  public record CatalogItem(
+      @Schema(example = "b0000000-0000-4000-8000-000000000102") UUID id,
+      @Schema(description = "Null when the catalogue no longer shows the item to this university",
+          nullable = true, example = "Bases de Datos I")
+          String name,
+      @Schema(description = "Code of the course in the university; null for a global tool",
+          nullable = true, example = "1ASI0657")
+          String courseCode) {
+
+    static CatalogItem of(SessionCourse course) {
+      return new CatalogItem(course.id(), course.name(), course.courseCode());
+    }
+  }
+
+  /** The other person of a session, from the reader's point of view. */
+  @Schema(name = "SessionCounterpart")
+  public record Counterpart(
+      @Schema(example = "22222222-2222-4222-8222-222222222222") UUID id,
+      @Schema(description = "Null when the person is no longer known", nullable = true,
+          example = "Julián Arce")
+          String name) {
+
+    static Counterpart of(SessionCounterpart counterpart) {
+      return new Counterpart(counterpart.id(), counterpart.name());
+    }
+  }
 
   /** The support material of the session, prepared from the student's need (US07). */
   @Schema(name = "SessionSupportMaterial")
@@ -115,7 +150,9 @@ public record SessionResponse(
         session.studentId(),
         session.tutorId(),
         session.catalogItemId(),
+        CatalogItem.of(session.catalogItem()),
         session.role(),
+        Counterpart.of(session.counterpart()),
         session.status(),
         session.scheduledStart(),
         session.scheduledEnd(),
