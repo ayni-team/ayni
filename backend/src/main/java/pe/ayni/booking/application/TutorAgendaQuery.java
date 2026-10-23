@@ -5,9 +5,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import pe.ayni.booking.domain.model.BookingTimeline;
 import pe.ayni.booking.domain.services.TutorAgenda;
 import pe.ayni.booking.infrastructure.BookingRepository;
 import pe.ayni.booking.infrastructure.HourBlockRepository;
+import pe.ayni.booking.infrastructure.StudentAbsenceRepository;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.tenancy.TenantContext;
 
@@ -34,6 +38,7 @@ public class TutorAgendaQuery {
 
   private final BookingRepository bookings;
   private final HourBlockRepository blocks;
+  private final StudentAbsenceRepository absences;
   private final BookingParties parties;
   private final IdentityApi identity;
   private final Clock clock;
@@ -41,11 +46,13 @@ public class TutorAgendaQuery {
   TutorAgendaQuery(
       BookingRepository bookings,
       HourBlockRepository blocks,
+      StudentAbsenceRepository absences,
       BookingParties parties,
       IdentityApi identity,
       Clock clock) {
     this.bookings = bookings;
     this.blocks = blocks;
+    this.absences = absences;
     this.parties = parties;
     this.identity = identity;
     this.clock = clock;
@@ -75,11 +82,18 @@ public class TutorAgendaQuery {
             period,
             now);
     BookingParties.Names names = parties.forOneList();
+    Map<UUID, Integer> absencesOf =
+        absencesOf(
+            tenantId,
+            entries.stream()
+                .filter(TutorAgenda.Booked.class::isInstance)
+                .map(entry -> ((TutorAgenda.Booked) entry).booking())
+                .toList());
     return new TutorAgendaView(
         period.from(),
         period.to(),
         timezone,
-        entries.stream().map(entry -> lineOf(entry, zone, names, now)).toList());
+        entries.stream().map(entry -> lineOf(entry, zone, names, absencesOf, now)).toList());
   }
 
   /** The sessions the tutor already had, or that were called off, the most recent first. */
@@ -91,17 +105,38 @@ public class TutorAgendaQuery {
     Page<Booking> found =
         bookings.findHistoryOfTutor(tenantId, tutorId, now, PageRequest.of(page, size));
     BookingParties.Names names = parties.forOneList();
+    Map<UUID, Integer> absencesOf = absencesOf(tenantId, found.getContent());
     return new BookingsPage<>(
         BookingTimeline.HISTORY,
         identity.requireTenant(tenantId).timezone(),
         page,
         size,
         found.getTotalElements(),
-        found.getContent().stream().map(booking -> bookingOf(booking, names, now)).toList());
+        found.getContent().stream().map(booking -> bookingOf(booking, names, absencesOf, now)).toList());
+  }
+
+  /**
+   * How many absences each student of these bookings has, in one query for the whole list. A student
+   * with none is not in the map.
+   */
+  private Map<UUID, Integer> absencesOf(String tenantId, Collection<Booking> listed) {
+    List<UUID> studentIds = listed.stream().map(Booking::getStudentId).distinct().toList();
+    if (studentIds.isEmpty()) {
+      return Map.of();
+    }
+    return absences.countByStudent(tenantId, studentIds).stream()
+        .collect(
+            Collectors.toMap(
+                StudentAbsenceRepository.AbsencesOfStudent::getStudentId,
+                found -> Math.toIntExact(found.getAbsences())));
   }
 
   private static TutorAgendaView.Line lineOf(
-      TutorAgenda.Entry entry, ZoneId zone, BookingParties.Names names, Instant now) {
+      TutorAgenda.Entry entry,
+      ZoneId zone,
+      BookingParties.Names names,
+      Map<UUID, Integer> absencesOf,
+      Instant now) {
     ZonedDateTime start = entry.startsAt().atZone(zone);
     ZonedDateTime end = entry.endsAt().atZone(zone);
     return switch (entry) {
@@ -113,7 +148,7 @@ public class TutorAgendaQuery {
               start.toLocalDate(),
               start.toLocalTime(),
               end.toLocalTime(),
-              bookingOf(booked.booking(), names, now));
+              bookingOf(booked.booking(), names, absencesOf, now));
       case TutorAgenda.Free free ->
           new TutorAgendaView.Line(
               TutorAgendaView.Kind.FREE,
@@ -126,7 +161,8 @@ public class TutorAgendaQuery {
     };
   }
 
-  private static TutorBooking bookingOf(Booking booking, BookingParties.Names names, Instant now) {
+  private static TutorBooking bookingOf(
+      Booking booking, BookingParties.Names names, Map<UUID, Integer> absencesOf, Instant now) {
     return new TutorBooking(
         booking.getId(),
         booking.getStartsAt(),
@@ -135,6 +171,7 @@ public class TutorAgendaQuery {
         booking.getStatus(),
         booking.getStudentId(),
         names.personName(booking.getStudentId()),
+        absencesOf.getOrDefault(booking.getStudentId(), 0),
         booking.getCatalogItemId(),
         names.itemName(booking.getCatalogItemId()),
         booking.getNeedDescription(),

@@ -10,13 +10,25 @@ import pe.ayni.shared.tenancy.TenantContext;
 class BookingEventListeners {
 
   private final RecordBookingNoShow recordBookingNoShow;
+  private final RecordStudentAbsence recordStudentAbsence;
 
-  BookingEventListeners(RecordBookingNoShow recordBookingNoShow) {
+  BookingEventListeners(
+      RecordBookingNoShow recordBookingNoShow, RecordStudentAbsence recordStudentAbsence) {
     this.recordBookingNoShow = recordBookingNoShow;
+    this.recordStudentAbsence = recordStudentAbsence;
   }
 
   @ApplicationModuleListener
   void on(SessionAbandoned event) {
     TenantContext.runAs(event.tenantId(), () -> recordBookingNoShow.record(event));
+  }
+
+  /**
+   * US34: the same event, heard on its own so that a failure marking the booking never costs the
+   * absence, nor the other way round. Only a session the student did not come to records anything.
+   */
+  @ApplicationModuleListener
+  void onStudentAbsence(SessionAbandoned event) {
+    TenantContext.runAs(event.tenantId(), () -> recordStudentAbsence.record(event));
   }
 }

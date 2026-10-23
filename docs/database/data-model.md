@@ -602,6 +602,29 @@ the student did**; when both were absent, or only the student, nobody was wronge
 written. The unique key makes either one a single fact however many times the event that causes it
 is delivered.
 
+### `booking.student_absences`
+
+The sessions a student did not come to, kept as facts so a tutor can be told how many times it
+happened (US34).
+
+```
+id             uuid          PK
+tenant_id      varchar(32)   NOT NULL
+student_id     uuid          NOT NULL
+booking_id     uuid          NOT NULL REFERENCES booking.bookings(id)
+recorded_at    timestamptz   NOT NULL DEFAULT now()
+
+UNIQUE (tenant_id, booking_id)
+INDEX  (tenant_id, student_id)
+```
+
+One row per booking whose session was abandoned with the student missing, whether or not the tutor
+came. When the student came and the tutor did not, nothing is written here: that absence is the
+tutor's, in `booking.tutor_reliability`. The unique key makes the absence a single fact however many
+times the event that causes it is delivered, and the index is what the agenda reads: one grouped
+count for all the students of a page. Only that count is ever shown to a tutor, never when, with
+whom or why, which is why the table keeps no reason and no counterpart.
+
 ---
 
 ## `sessions`
