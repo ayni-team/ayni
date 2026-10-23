@@ -1223,12 +1223,16 @@ public interface ReputationApi {
 
 **Publishes:** `SessionRated`.
 **Calls:** `SkillsApi.isTutorEnabledFor` — to tell a new tutor from one who does not teach the skill.
+`SkillsApi.enabledSkillsOf` and `SkillsApi.requireItem` — the skills of the tutor's own reputation
+and their names.
 **Listens to:** `SessionCompleted` — counts the session and opens the rating window.
 
 | Method | Path | Who |
 |---|---|---|
 | POST | `/api/v1/sessions/{id}/rating` | participant |
+| GET | `/api/v1/sessions/{id}/rating` | participant: what they registered, in their own direction |
 | GET | `/api/v1/tutors/{id}/standing?catalogItemId=` | student |
+| GET | `/api/v1/tutor/reputation` | the tutor: their own reputation, per skill |
 
 `GET /api/v1/tutors/{id}/standing` requires `catalogItemId`, because standing is per skill. A tutor
 enabled for that skill who never taught it has no row yet and answers `200` with 0 sessions, 0
@@ -1267,6 +1271,44 @@ window and cannot be rated. A successful rating publishes `SessionRated`, which 
 session and direction at once end with one `201` and one `409`, never a `500`. The standing is
 locked too, because the count and the average are read and written back: two students rating the same
 tutor in the same skill at once are both counted.
+
+**`GET /api/v1/sessions/{id}/rating`** (US32 and US34). What the caller registered about the
+session, so the client shows it instead of offering to rate again; a second `POST` still answers
+`409`. The direction read is always the caller's own: a student reads `rated`, `stars`, `tags`,
+`comment` and `createdAt`, a tutor reads `rated`, `wasPunctual`, `connectionOk`, `sessionFlowed`,
+`comment` and `createdAt`, and the fields of the other direction do not travel. Before rating, the
+answer is `200` with `rated: false` and nothing else. It never answers the other participant's
+rating nor who rated whom, which is what keeps the tutor from learning who rated them and the student
+from seeing the tutor's assessment: the tutor reads their stars and tags only counted per skill, in
+their reputation below.
+
+| Status | When |
+|---|---|
+| 200 | The caller's own rating, or `rated: false` |
+| 400 | The session id is not a UUID |
+| 403 | The caller is neither the tutor nor the student of the session |
+| 404 | There is no completed session with that id in this university. Another university's session answers the same |
+
+**`GET /api/v1/tutor/reputation`** (US33). The caller's own reputation as a tutor; there is no tutor
+id in the path, so nobody reads another person's. One entry per skill the tutor has a standing in: a
+row of `reputation.tutor_standing`, or a skill `SkillsApi.enabledSkillsOf` says they are enabled for,
+which comes with nothing counted. A skill they were withdrawn from keeps the standing they earned.
+The answer carries `minimumAverage` and `skills`, sorted by name; each entry has:
+
+- `catalogItemId` and `name` (from `SkillsApi.requireItem`; `null` if skills no longer shows the item
+  to the university), `sessionsTaught` and `ratingsCount`;
+- `averageStars`, only from the third rating on; below that `provisionalAverage`, the average of the
+  ratings so far, which only the tutor sees, and `ratingsMissingForAverage`;
+- `topTags`: up to five tags students gave, each with its `count`, most frequent first;
+- `atRisk`: there is an average and it is below `ayni.reputation.minimum-average` (`3.0` by default,
+  a product decision of the lead). It is a mark to read and nothing else: no skill is withdrawn, no
+  event is published, no notice is sent.
+
+Nothing in the answer says who rated. Two queries of this module answer it whatever the number of
+skills: the standings by the first two columns of their primary key, and the tags counted per skill
+in the database, joining each rating to its window for the skill (index `(tenant_id, rated_user,
+direction)` on `reputation.ratings`). `200` always, with an empty `skills` for somebody who never
+taught and offers nothing.
 
 ---
 

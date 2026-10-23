@@ -80,4 +80,21 @@ public class RatingWindow {
     public boolean isParticipant(UUID userId) {
         return tutorId.equals(userId) || studentId.equals(userId);
     }
+
+    /**
+     * The direction in which this participant rates the session: the student rates the tutor, the
+     * tutor assesses the student. It is also the only direction they may read back, so neither
+     * learns what the other left about them.
+     *
+     * @throws NotAParticipant when the person was neither the tutor nor the student
+     */
+    public Rating.Direction directionRatedBy(UUID userId) {
+        if (studentId.equals(userId)) {
+            return Rating.Direction.STUDENT_TO_TUTOR;
+        }
+        if (tutorId.equals(userId)) {
+            return Rating.Direction.TUTOR_TO_STUDENT;
+        }
+        throw new NotAParticipant();
+    }
 }

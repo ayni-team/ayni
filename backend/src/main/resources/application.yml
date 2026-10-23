@@ -131,6 +131,11 @@ ayni:
     # A pair is repeated when it completes more than this many sessions together in the period.
     repeated-pair-threshold: 3
     repeated-pair-period: P30D
+  reputation:
+    # US33: a tutor's average in a skill below this, once it has three ratings, marks the skill at
+    # risk in their own reputation. Only a mark: no skill is withdrawn and no notice is sent. The
+    # value is a product decision of the lead, between 1 and 5.
+    minimum-average: 3.0
   notifications:
     mail-from: ${AYNI_MAIL_FROM:Ayni <no-reply@ayni.local>}
   payments:
