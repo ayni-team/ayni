@@ -138,7 +138,12 @@ class TutorNoShowAcceptanceTest extends TutorNoShowScenario {
     assertThat(refundsOf(bookingId)).isZero();
     assertThat(incidentsOf(bookingId, "NO_SHOW")).isZero();
     assertThat(noShowNoticesOf(session)).isZero();
-    verify(emailDelivery, never()).send(argThat(email -> email.to().equals(ANAS_EMAIL)));
+    verify(emailDelivery, never())
+        .send(
+            argThat(
+                email ->
+                    email.to().equals(ANAS_EMAIL)
+                        && email.subject().contains("devolvieron tus créditos")));
     assertThat(announcements.abandonedOf(session))
         .singleElement()
         .satisfies(event -> assertThat(event.studentCheckedIn()).isFalse());
@@ -215,7 +220,12 @@ class TutorNoShowAcceptanceTest extends TutorNoShowScenario {
     assertThat(balanceOf(ana)).as("the credit is not returned").isEqualTo(4);
     assertThat(refundsOf(bookingId)).isZero();
     assertThat(noShowNoticesOf(session)).isZero();
-    verify(emailDelivery, never()).send(argThat(email -> email.to().equals(ANAS_EMAIL)));
+    verify(emailDelivery, never())
+        .send(
+            argThat(
+                email ->
+                    email.to().equals(ANAS_EMAIL)
+                        && email.subject().contains("devolvieron tus créditos")));
 
     // The tutor came, so nothing is held against them, and they earn nothing either.
     assertThat(incidentsOf(bookingId, "NO_SHOW")).isZero();

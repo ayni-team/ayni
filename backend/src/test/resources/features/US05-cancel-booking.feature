@@ -17,6 +17,9 @@
 #   - The tutor cancels, at any hour: the student always gets their credits back and the hours are
 #     released. Less than twelve hours ahead the tutor is asked to confirm, is warned that it will
 #     be recorded, and a LATE_CANCELLATION incident is kept against them.
+#
+# The email and the notice that tell the other party are scenarios of notifications-notices.feature
+# ("A cancellation by the student tells the tutor", "A cancellation by the tutor tells the student").
 
 Feature: Cancelling a tutoring booking
 

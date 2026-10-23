@@ -22,6 +22,7 @@
 #                                        SessionOnBookingConfirmedTest (sessions module)
 #   Need description, booking & session  BookABlockAcceptanceTest.theNeedDescriptionTravelsWithTheBooking
 #   Leaving the confirmation             BookABlockAcceptanceTest.leavingTheConfirmationGivesTheHoursBack
+#   Receiving the booking confirmation   NoticesAcceptanceTest.receivingTheBookingConfirmation (notifications)
 
 Feature: Booking a block of tutoring
 
@@ -43,12 +44,14 @@ Feature: Booking a block of tutoring
     Given Ana confirmed a booking
     Then a scheduled session exists for that booking, with a room nobody can guess
 
-  @pending
-  Scenario: Receiving the access link
-    Given Ana confirmed a booking
-    Then she receives the link to the session room
-    # Not in this story: the link is delivered by notifications, which does not exist yet, and by
-    # the participant endpoints of sessions (GET /api/v1/sessions/{id}, POST .../join).
+  # Renamed from "Receiving the access link": what the student receives is the email of the confirmed
+  # booking. No link to the room travels by email; the participants enter the session from the
+  # application (GET /api/v1/sessions/{id}, POST .../join), which the email points to.
+  Scenario: Receiving the booking confirmation
+    Given Ana confirmed a booking with Bruno for tomorrow from 09:00 to 11:00, Lima time
+    Then Ana receives an email with the day and the hours in the university's zone
+    And Bruno receives an email telling him about the new tutoring
+    And each of them has a BOOKING_CONFIRMED notice with the booking, the start and their role
 
   Scenario: Credits closest to expiring are spent first
     Given Ana has 2 SEED credits expiring in 10 days, 5 ALLOCATED credits expiring in 60 days and 3 EARNED credits

@@ -2,6 +2,7 @@ package pe.ayni.notifications.application;
 
 import java.time.Clock;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,6 +31,24 @@ class NotificationLog {
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public Notification record(Notification notification) {
     return notifications.save(notification);
+  }
+
+  /**
+   * Writes the notice unless the same one was already written, which is what an event delivered
+   * twice looks like: its identifier comes from the event and the recipient.
+   *
+   * @return the notice to deliver, or empty when it was already delivered or failed. One that is
+   *     still pending is returned again, because an earlier attempt stopped before it could say
+   *     how it went
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public Optional<Notification> recordOnce(Notification notification) {
+    Optional<Notification> earlier =
+        notifications.findByTenantIdAndId(notification.getTenantId(), notification.getId());
+    if (earlier.isPresent()) {
+      return earlier.filter(Notification::isPending);
+    }
+    return Optional.of(notifications.save(notification));
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)

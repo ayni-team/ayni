@@ -23,6 +23,9 @@ import pe.ayni.notifications.domain.model.NotificationKind;
  */
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
+  /** A notice of the university, to know whether the same one was already written. */
+  Optional<Notification> findByTenantIdAndId(String tenantId, UUID id);
+
   /**
    * A page of somebody's notices, newest first. The identifier breaks ties between notices of the
    * same instant so a page boundary never repeats one.

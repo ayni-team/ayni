@@ -18,6 +18,9 @@
 #
 # The scenarios after the fifth are not on the card. They pin down what it leaves out: who may do
 # it, a decision that is taken once, and a decision that always says why.
+#
+# The student is told of the decision by email and by a notice: the scenario "A decision on a
+# recognition request tells the student without its reason" of notifications-notices.feature.
 
 Feature: Reviewing recognition requests
 

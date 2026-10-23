@@ -35,6 +35,9 @@ class NotificationKindTest {
         .contains(
             NotificationKind.TUTOR_NO_SHOW,
             NotificationKind.PURCHASE_CONFIRMED,
-            NotificationKind.BOOKING_CONFIRMED);
+            NotificationKind.BOOKING_CONFIRMED,
+            NotificationKind.BOOKING_CANCELLED,
+            NotificationKind.SESSION_CLOSED,
+            NotificationKind.VALIDATION_RESOLVED);
   }
 }

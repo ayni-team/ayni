@@ -18,7 +18,16 @@ public enum NotificationKind {
   TUTOR_NO_SHOW,
   CREDITS_EXPIRING,
   PURCHASE_CONFIRMED,
-  REQUEST_RESOLVED;
+  REQUEST_RESOLVED,
+
+  /** The other party cancelled a booking. */
+  BOOKING_CANCELLED,
+
+  /** A session ended, completed or unverified, and each participant is told how it went. */
+  SESSION_CLOSED,
+
+  /** A coordinator decided the evidence a tutor presented for a global tool. */
+  VALIDATION_RESOLVED;
 
   /**
    * Whether the recipient sees it in the application. A link or a code travels by email and
