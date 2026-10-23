@@ -27,7 +27,8 @@ The first run downloads images and dependencies and takes a few minutes. After t
 | Emails sent by the backend | http://localhost:8025 (Mailpit: nothing leaves your machine) |
 | Video calls of the sessions | http://localhost:8000, only with `docker compose --profile video up` |
 
-The home page shows whether the API is answering. If it says `UP`, everything works.
+The web application opens at the sign-in screen: typing `u202400001@upc.edu.pe` paints UPC's name
+and colours, which means the web reaches the API. `web/README.md` explains the web on its own.
 
 ### While you work
 

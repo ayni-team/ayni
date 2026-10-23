@@ -6,8 +6,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+# The lock file fixes every version, so the container runs exactly what CI built.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 
