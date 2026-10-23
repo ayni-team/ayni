@@ -105,6 +105,9 @@ services:
     container_name: ayni-web
     depends_on:
       - backend
+    environment:
+      # Where Vite's proxy sends /api: the backend by its name on the compose network.
+      AYNI_API_URL: http://backend:8080
     ports:
       - "5173:5173"
     volumes:
