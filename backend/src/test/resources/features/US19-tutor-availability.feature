@@ -6,6 +6,10 @@
 # skill, and matching turns each block into one offer per enabled skill when it hears
 # HoursGenerated. Scenario 4 needs confirmed bookings and a way to remove a window, neither of which
 # is covered by AdjustAvailabilityAcceptanceTest along with the pause and date-exception updates.
+#
+# The last two scenarios read back what the tutor declared, which the agenda does not show: it
+# lists the hours, not the rules they come from. They are run by
+# TutorAvailabilityReadAcceptanceTest, signed in with real session tokens, with the same names.
 
 Feature: Publishing the hours a tutor is free every week
 
@@ -42,3 +46,21 @@ Feature: Publishing the hours a tutor is free every week
     Then the availability is saved but no blocks are generated
     And the answer carries a notice saying there is no enabled skill yet
     And HoursGenerated is not published
+
+  Scenario: A tutor reads back the weekly ranges they declared
+    Given the tutor has availability on tomorrow's weekday from 09:00 to 12:00
+    And the tutor saved other weekly ranges, one of them with a last day still to come
+    And the tutor removed one of their ranges
+    And one of their ranges ended yesterday
+    When the tutor reads back their availability
+    Then the answer is in the university's time zone
+    And it lists the ranges still in force, by day of the week and hour
+    And neither the removed range nor the one that ended is listed
+
+  Scenario: A tutor reads back only their own availability
+    Given the tutor has availability, a date exception and a pause
+    When another tutor of the same university reads back their availability
+    Then nothing of the first tutor is listed
+    When a student of another university reads back theirs
+    Then nothing is listed
+    And without a session the request is refused as unauthenticated

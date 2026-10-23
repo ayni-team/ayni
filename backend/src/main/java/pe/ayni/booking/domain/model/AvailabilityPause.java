@@ -73,6 +73,15 @@ public class AvailabilityPause {
     return !date.isBefore(startsOn) && !date.isAfter(endsOn);
   }
 
+  /**
+   * Whether the pause still keeps the tutor away on that day or a later one: it is under way or
+   * has not started yet. A pause whose last day is gone keeps nobody away.
+   */
+  public boolean isStillInForceOn(LocalDate today) {
+    Objects.requireNonNull(today, "today must not be null");
+    return !this.endsOn.isBefore(today);
+  }
+
   public UUID getId() {
     return id;
   }

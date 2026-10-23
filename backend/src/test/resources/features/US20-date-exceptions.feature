@@ -7,6 +7,9 @@
 #
 # Hours are generated weeks ahead, so a date is usually changed after its hours exist. The change
 # reaches them at once: removed hours leave the search, added hours can be booked.
+#
+# "A tutor reads back their date exceptions" is run by TutorAvailabilityReadAcceptanceTest, signed
+# in with real session tokens; AvailabilityExceptionTest covers when an exception is over.
 
 Feature: Adjusting availability on a specific date
 
@@ -28,3 +31,13 @@ Feature: Adjusting availability on a specific date
     When the tutor adds tomorrow from 14:00 to 16:00
     Then the hours at 14:00 and 15:00 exist at once and are in the search
     And a student can hold them
+
+  Scenario: A tutor reads back their date exceptions
+    Given the tutor removed yesterday entirely
+    And the tutor changed today, tomorrow and later dates, adding and removing hours
+    When the tutor reads back their availability
+    Then the exceptions from today on are listed by date and hour, a whole day first
+    And each says its date, its times and whether it adds or removes
+    And the exception of yesterday is not listed
+    When two days have passed
+    Then the exceptions of those two days are no longer listed

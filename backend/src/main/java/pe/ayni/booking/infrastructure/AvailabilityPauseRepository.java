@@ -22,6 +22,14 @@ public interface AvailabilityPauseRepository extends JpaRepository<AvailabilityP
   Optional<AvailabilityPause> findByTenantIdAndTutorIdAndId(
       String tenantId, UUID tutorId, UUID id);
 
+  /**
+   * The tutor's pauses that end on a day or later, for reading back what they declared. It only
+   * narrows the candidates; whether one is still in force is {@link
+   * AvailabilityPause#isStillInForceOn}.
+   */
+  List<AvailabilityPause> findByTenantIdAndTutorIdAndEndsOnGreaterThanEqual(
+      String tenantId, UUID tutorId, LocalDate from);
+
   /** The tutor's pause covering a given local calendar date, if any. */
   @Query(
       """

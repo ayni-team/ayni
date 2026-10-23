@@ -7,6 +7,9 @@
 #
 # A booked hour stands through a pause, as US19 scenario 4 says of removing availability: only
 # cancelling undoes a booking, and cancelling refunds (US05).
+#
+# "A tutor reads back their pause" is run by TutorAvailabilityReadAcceptanceTest, signed in with
+# real session tokens; AvailabilityPauseTest covers when a pause is over.
 
 Feature: Pausing availability
 
@@ -47,3 +50,12 @@ Feature: Pausing availability
     Given the tutor pauses today through tomorrow
     When the tutor reactivates before the pause ends
     Then the pause ends and the future hours from the weekly pattern return to the search
+
+  Scenario: A tutor reads back their pause
+    Given the tutor had a pause that ended last week
+    And the tutor pauses today through tomorrow, and later for a week of next month
+    When the tutor reads back their availability
+    Then the pause under way and the one to come are listed, the first to start first
+    And the pause that ended is not listed
+    When the tutor reactivates before the current pause ends
+    Then only the pause to come is listed

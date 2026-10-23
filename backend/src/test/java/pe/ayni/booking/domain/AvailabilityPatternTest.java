@@ -102,4 +102,20 @@ class AvailabilityPatternTest {
         .isInstanceOf(BookingRuleViolation.class)
         .hasMessageContaining("valid_until");
   }
+
+  @Test
+  @DisplayName("a window still governs until its last day, and one with no end always does")
+  void aWindowIsInForceUntilItsLastDay() {
+
+    AvailabilityPattern endingOnMonday =
+        patternValid(LocalTime.of(9, 0), LocalTime.of(12, 0), MONDAY.minusMonths(1), MONDAY);
+    AvailabilityPattern open = pattern(LocalTime.of(9, 0), LocalTime.of(12, 0));
+    AvailabilityPattern startingLater =
+        patternValid(LocalTime.of(9, 0), LocalTime.of(12, 0), MONDAY.plusWeeks(2), null);
+
+    assertThat(endingOnMonday.isStillInForceOn(MONDAY)).isTrue();
+    assertThat(endingOnMonday.isStillInForceOn(MONDAY.plusDays(1))).isFalse();
+    assertThat(open.isStillInForceOn(MONDAY.plusYears(1))).isTrue();
+    assertThat(startingLater.isStillInForceOn(MONDAY)).isTrue();
+  }
 }
