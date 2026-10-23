@@ -1,6 +1,7 @@
 package pe.ayni.skills.application;
 
 import java.util.Locale;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +38,20 @@ public class CatalogQuery {
         categoryId,
         namePattern(text),
         PageRequest.of(page, size, Sort.by("name", "id")));
+  }
+
+  /**
+   * One item the current university can see, whatever its status: the screens of a past tutoring
+   * must still name a course that was retired since, which the browsable listing no longer shows.
+   *
+   * @throws NoSuchElementException when the item does not exist or belongs to another university
+   */
+  @Transactional(readOnly = true)
+  public CatalogItem visibleItem(UUID catalogItemId) {
+    return catalogItems
+        .findByIdAndTenantVisibility(catalogItemId, TenantContext.require())
+        .orElseThrow(
+            () -> new NoSuchElementException("catalog item %s not found".formatted(catalogItemId)));
   }
 
   /** A {@code LIKE} pattern that treats the student's text literally, wildcards included. */
