@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,6 +90,7 @@ public class HoldHoursUseCase {
 
     return new HeldHours(
         tutorId,
+        identity.namesOf(Set.of(tutorId)).get(tutorId),
         requested.startsAt(),
         requested.endsAt(),
         requested.hours(),

@@ -1,19 +1,22 @@
 package pe.ayni.booking.application;
 
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.Function;
 import org.springframework.stereotype.Component;
+import pe.ayni.booking.domain.model.Booking;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.skills.CatalogItemView;
 import pe.ayni.skills.SkillsApi;
 
 /**
  * The names a list of bookings shows next to the identifiers it keeps: the people, read from
  * identity, and the catalogue item, read from skills.
  *
- * <p>A list asks for each name once, however many of its bookings share it. A person or an item the
- * other module no longer knows is shown without a name rather than failing the whole list.
+ * <p>A list asks for all its names at once, one read per module however many bookings it has. A
+ * person or an item the other module no longer knows is shown without a name rather than failing
+ * the whole list.
  */
 @Component
 class BookingParties {
@@ -26,38 +29,25 @@ class BookingParties {
     this.skills = skills;
   }
 
-  /** A lookup for one list: the names it reads are kept until the list is built. */
-  Names forOneList() {
-    return new Names();
+  /**
+   * The names of the people and the items of these bookings. {@code personIdOf} says which person
+   * of each one the list shows: the tutor in a student's list, the student in a tutor's.
+   */
+  Names forList(Collection<Booking> listed, Function<Booking, UUID> personIdOf) {
+    return new Names(
+        identity.namesOf(listed.stream().map(personIdOf).distinct().toList()),
+        skills.itemsOf(listed.stream().map(Booking::getCatalogItemId).distinct().toList()));
   }
 
-  final class Names {
-
-    private final Map<UUID, String> people = new HashMap<>();
-    private final Map<UUID, String> items = new HashMap<>();
+  record Names(Map<UUID, String> people, Map<UUID, CatalogItemView> items) {
 
     String personName(UUID userId) {
-      return people.computeIfAbsent(
-          userId,
-          id -> {
-            try {
-              return identity.requireUser(id).fullName();
-            } catch (NoSuchElementException unknown) {
-              return null;
-            }
-          });
+      return people.get(userId);
     }
 
     String itemName(UUID catalogItemId) {
-      return items.computeIfAbsent(
-          catalogItemId,
-          id -> {
-            try {
-              return skills.requireItem(id).name();
-            } catch (NoSuchElementException unknown) {
-              return null;
-            }
-          });
+      CatalogItemView item = items.get(catalogItemId);
+      return item == null ? null : item.name();
     }
   }
 }

@@ -1,5 +1,6 @@
 package pe.ayni.booking;
 
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,7 +12,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +85,7 @@ abstract class SignedInBookingScenario {
   protected SignedInPeople people;
 
   @BeforeEach
+  @SuppressWarnings("unchecked")
   void aTutorFreeTomorrowMorning() throws Exception {
     clock.set(BookingScenario.middayInLima(Instant.now()));
     people = new SignedInPeople(tenants, users, userSessions, tokens);
@@ -92,8 +96,15 @@ abstract class SignedInBookingScenario {
 
     when(skills.enabledSkillsOf(tutor.id())).thenReturn(List.of(subject));
     when(skills.isTutorEnabledFor(tutor.id(), subject)).thenReturn(true);
-    when(skills.requireItem(subject))
-        .thenReturn(new CatalogItemView(subject, CatalogScope.UNIVERSITY, "Databases I", "1ASI0616"));
+    CatalogItemView databases =
+        new CatalogItemView(subject, CatalogScope.UNIVERSITY, "Databases I", "1ASI0616");
+    when(skills.requireItem(subject)).thenReturn(databases);
+    when(skills.itemsOf(anyCollection()))
+        .thenAnswer(
+            call ->
+                ((Collection<UUID>) call.getArgument(0)).contains(subject)
+                    ? Map.of(subject, databases)
+                    : Map.of());
 
     String weekday = today().plusDays(1).getDayOfWeek().name();
     mockMvc

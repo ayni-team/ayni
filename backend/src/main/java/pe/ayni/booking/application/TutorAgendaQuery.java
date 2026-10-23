@@ -81,14 +81,13 @@ public class TutorAgendaQuery {
             blocks.findWithin(tenantId, tutorId, period.start(), period.end()),
             period,
             now);
-    BookingParties.Names names = parties.forOneList();
-    Map<UUID, Integer> absencesOf =
-        absencesOf(
-            tenantId,
-            entries.stream()
-                .filter(TutorAgenda.Booked.class::isInstance)
-                .map(entry -> ((TutorAgenda.Booked) entry).booking())
-                .toList());
+    List<Booking> booked =
+        entries.stream()
+            .filter(TutorAgenda.Booked.class::isInstance)
+            .map(entry -> ((TutorAgenda.Booked) entry).booking())
+            .toList();
+    BookingParties.Names names = parties.forList(booked, Booking::getStudentId);
+    Map<UUID, Integer> absencesOf = absencesOf(tenantId, booked);
     return new TutorAgendaView(
         period.from(),
         period.to(),
@@ -104,7 +103,7 @@ public class TutorAgendaQuery {
     Instant now = clock.instant();
     Page<Booking> found =
         bookings.findHistoryOfTutor(tenantId, tutorId, now, PageRequest.of(page, size));
-    BookingParties.Names names = parties.forOneList();
+    BookingParties.Names names = parties.forList(found.getContent(), Booking::getStudentId);
     Map<UUID, Integer> absencesOf = absencesOf(tenantId, found.getContent());
     return new BookingsPage<>(
         BookingTimeline.HISTORY,
