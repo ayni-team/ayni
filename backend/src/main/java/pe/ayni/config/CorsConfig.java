@@ -1,5 +1,6 @@
 package pe.ayni.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -11,15 +12,26 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * web application runs on port 5173 while the API runs on 8080. In development the web application
  * usually goes through the Vite proxy, which makes both look like the same origin, but this keeps
  * direct calls working too.
+ *
+ * <p>The origins are {@code ayni.cors.allowed-origins} ({@code AYNI_ALLOWED_ORIGINS}, a comma
+ * separated list, {@code http://localhost:5173} by default), the same list the live channel of the
+ * whiteboards accepts. A deployment sets the address its web application is served from; any other
+ * origin gets no CORS header and the browser refuses the answer.
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
+
+  private final String[] allowedOrigins;
+
+  public CorsConfig(@Value("${ayni.cors.allowed-origins}") String[] allowedOrigins) {
+    this.allowedOrigins = allowedOrigins;
+  }
 
   @Override
   public void addCorsMappings(CorsRegistry registry) {
     registry
         .addMapping("/**")
-        .allowedOrigins("http://localhost:5173")
+        .allowedOrigins(allowedOrigins)
         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
         .allowedHeaders("*");
   }

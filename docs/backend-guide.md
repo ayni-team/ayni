@@ -423,6 +423,10 @@ old ones are deleted with one statement before the new ones are written, so a co
 already had is imported again instead of breaking `uq_identity_academic_records` (it did until
 US41).
 
+**The first administrator of an installation.** `PlatformAdminBootstrap` creates it at startup from
+`AYNI_BOOTSTRAP_ADMIN_EMAIL`, in any profile, through `BootstrapPlatformAdminUseCase`; see
+"Deployment (prod profile)" below.
+
 **The academic system (ADR 0006).** Identity asks `AcademicSystemPort` for the profile of a
 student by the university and the institutional email, at activation (US38) and when the record is
 imported (US40). The profile carries the student code the university assigned, the name, the
@@ -1940,6 +1944,112 @@ for anybody else). The controller lives in `payments/interfaces/rest` and calls
 `PaymentCircuit` (a read and a reset) and is a bean of its own. The state is in memory. The
 script to present it, a rejected purchase, a pending one resolved later and an outage of the
 provider, is in `docs/demo.md`.
+
+---
+
+## Deployment (prod profile)
+
+How the backend runs outside a developer's machine. The image is `backend/Dockerfile.prod` (built
+with `docker build -f backend/Dockerfile.prod backend`): it compiles the jar with the Maven wrapper
+in one stage and runs it on a Java 21 JRE in another, as the unprivileged user `ayni`, on port 8080,
+with `SPRING_PROFILES_ACTIVE=prod` and `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75`. `backend/Dockerfile`
+stays the development image of `docker compose`.
+
+**What `prod` changes** (`application-prod.yml`): no default for the database, its two roles, the
+video secret nor the address of the access links; `pe.ayni` logs at `INFO`; `X-Forwarded-*` headers
+are trusted (`server.forward-headers-strategy: framework`, for a reverse proxy); a stop is graceful;
+Swagger UI and `/v3/api-docs` are off unless `AYNI_API_DOCS_ENABLED=true`; the pool size is
+`AYNI_DB_POOL_SIZE`.
+
+**A missing variable stops the startup.** `config.RequiredEnvironment` reads the list
+`ayni.required-environment`, which only `application-prod.yml` declares, before any bean is created,
+and refuses to start naming every variable that is missing or blank:
+`Missing required environment variables: AYNI_JITSI_JWT_SECRET, ... `. Nothing has connected to the
+database by then. `dev` and the tests declare no list and are not affected.
+
+**Health.** `/actuator/health`, `/actuator/health/liveness` and `/actuator/health/readiness` are
+public and show no details. Readiness is `db` plus `readinessState`, the application's own state,
+which turns `OUT_OF_SERVICE` while a graceful stop drains the requests in flight. The mail server is
+not part of any health check (`management.health.mail.enabled: false`): an SMTP server that is down
+delays emails, each failed delivery is recorded on its notice, and taking the backend out of service
+would not bring it back. `/actuator/info` shows the `build` version and artifact (the `build-info`
+goal of the Spring Boot plugin); like every path outside `/api`, it needs a session.
+
+**Origins.** `ayni.cors.allowed-origins` (`AYNI_ALLOWED_ORIGINS`, comma separated,
+`http://localhost:5173` by default) is the one list both `CorsConfig` and the whiteboard's live
+channel (`WhiteboardSocketConfig`) accept. Any other origin gets no CORS header, and its WebSocket
+handshake is refused with `403`.
+
+**The first administrator.** An empty installation has no platform administrator, and nothing but
+one can register a university. With `AYNI_BOOTSTRAP_ADMIN_EMAIL` set, identity's
+`PlatformAdminBootstrap` (any profile) creates that `identity.platform_admins` row `ACTIVE` at
+startup, named `AYNI_BOOTSTRAP_ADMIN_FULL_NAME`, unless a row with that address exists, whatever its
+status: a disabled administrator stays disabled. Unset or blank, it does nothing; an address that is
+not one fails the startup. The address is never logged. The administrator then signs in by link
+(`POST /api/v1/access/request`) and registers the first university (TS10).
+
+**Reference data.** `V202610210301__skills_seed_global_categories.sql` creates the three global
+categories, Technology, Languages and Design, in every installation, with the identifiers the demo
+data always used. "University courses" is still created by the first curriculum a university loads
+(US51) or by `DemoSkillsData`, which now looks for its first tool instead of a category, so it still
+fills the demo catalogue under `dev` when the categories already exist.
+
+**The two database roles.**
+
+| Role | Variables | What it may do |
+|---|---|---|
+| Owner | `AYNI_DB_USER`, `AYNI_DB_PASSWORD` | Runs Flyway: creates the twelve schemas and every table, so it needs `CREATE` on the database, and `CREATEROLE` the first time if the application's role does not exist yet. Row level security does not restrict it. The application never connects as it |
+| Application | `AYNI_DB_APP_USER`, `AYNI_DB_APP_PASSWORD` | Connects the application. Not a superuser, no `BYPASSRLS`, owns nothing. `SELECT`, `INSERT`, `UPDATE`, `DELETE` on the tables of the twelve schemas and on the ones created later, except `UPDATE` and `DELETE` on `wallet.ledger_entries` and `audit.activity_log` |
+
+**Order of the startup.** Flyway migrates first, connected as the owner; the first migration that
+needs the application's role (`V202610150020`) creates it with `AYNI_DB_APP_PASSWORD` if it does not
+exist, and grants it the tables. Only then does the application open its pool as `AYNI_DB_APP_USER`.
+A role created beforehand by whoever runs the database keeps its own password, so
+`AYNI_DB_APP_PASSWORD` must be that one.
+
+**Every variable.** Required ones have no default under `prod` and stop the startup when missing.
+Secrets go in the deployment's secret store, never in a file of the repository.
+
+| Variable | Required | Secret | Default | What it is |
+|---|---|---|---|---|
+| `AYNI_DB_URL` | yes | no | | JDBC URL of the database, for example `jdbc:postgresql://db:5432/ayni` |
+| `AYNI_DB_USER` | yes | no | | Owner role, the one Flyway migrates as |
+| `AYNI_DB_PASSWORD` | yes | yes | | Password of the owner |
+| `AYNI_DB_APP_USER` | yes | no | | Role the application connects as (`ayni_app` in development) |
+| `AYNI_DB_APP_PASSWORD` | yes | yes | | Its password |
+| `AYNI_JITSI_JWT_SECRET` | yes | yes | | Signs the video passes (US08), shared with Jitsi; at least 32 characters |
+| `AYNI_IDENTITY_ACCESS_LINK_BASE_URL` | yes | no | | Page of the web application that opens an access link, for example `https://ayni.example.edu/access/confirm` |
+| `AYNI_ALLOWED_ORIGINS` | set it | no | `http://localhost:5173` | Origins of the web application, comma separated |
+| `AYNI_BOOTSTRAP_ADMIN_EMAIL` | first start | no | empty | Address of the first platform administrator |
+| `AYNI_BOOTSTRAP_ADMIN_FULL_NAME` | no | no | `Ayni Platform Administrator` | Its name |
+| `AYNI_MAIL_HOST` | set it | no | `localhost` | SMTP server the emails go to |
+| `AYNI_MAIL_PORT` | set it | no | `1025` | Its port |
+| `AYNI_MAIL_USER` | no | no | empty | SMTP user, when the server asks for one |
+| `AYNI_MAIL_PASSWORD` | no | yes | empty | SMTP password |
+| `AYNI_MAIL_FROM` | no | no | `Ayni <no-reply@ayni.local>` | Sender of the emails |
+| `AYNI_JITSI_URL` | set it | no | `http://localhost:8000` | Public address of Jitsi |
+| `AYNI_JITSI_APP_ID` | no | no | `ayni` | Application id the video passes carry |
+| `AYNI_ACADEMIC_DIRECTORY` | no | no | `/var/lib/ayni/academic-directory` in the image | Folder of the simulated academic system (ADR 0006), one `<CODE>.json` per university; mount it |
+| `AYNI_SKILLS_EVIDENCE_DIR` | no | no | `/var/lib/ayni/evidence` in the image | Folder of the evidence files (US16); mount a volume |
+| `AYNI_DB_POOL_SIZE` | no | no | `10` | Most connections the application keeps open |
+| `AYNI_API_DOCS_ENABLED` | no | no | `false` | Serves Swagger UI and `/v3/api-docs` |
+| `AYNI_PORT` | no | no | `8080` | HTTP port inside the container |
+| `AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT` | no | no | `5` | Credits a student may buy per month (US35) |
+| `AYNI_PAYMENTS_PRICE_PER_CREDIT` | no | no | `5.00` | Price of a credit |
+| `AYNI_PAYMENTS_PENDING_TIMEOUT` | no | no | `PT24H` | When a pending purchase expires |
+| `AYNI_PAYMENTS_RECONCILIATION_DELAY` | no | no | `PT1M` | How often pending purchases are reconciled |
+| `AYNI_PAYMENTS_SIMULATED_OUTCOME` | no | no | `CONFIRMED` | Answer of the simulated provider to a charge |
+| `AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME` | no | no | `CONFIRMED` | Its answer when reconciling |
+| `AYNI_PAYMENTS_FAILURE_THRESHOLD` | no | no | `3` | Failures that open the circuit of the provider (TS06) |
+| `AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION` | no | no | `PT30S` | How long it stays open |
+| `AYNI_PAYMENTS_TIMEOUT` | no | no | `PT2S` | Timeout of a call to the provider |
+| `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS` | no | no | `2` | Calls to the provider at once |
+| `SPRING_PROFILES_ACTIVE` | no | no | `prod` in the image | Never `dev` in a deployment: it seeds demo people |
+| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image | Options of the JVM |
+
+The scenarios are in `features/production-packaging.feature`: `ProductionProfileTest` starts `prod`
+over an empty PostgreSQL with only these variables, signs the bootstrapped administrator in by the
+emailed link and registers a first university.
 
 ---
 

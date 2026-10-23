@@ -1,0 +1,83 @@
+# The prod profile: a deployment. Loaded on top of application.yml with SPRING_PROFILES_ACTIVE=prod.
+#
+# Nothing here has a development value to fall back on. The database, its two roles, the secret of
+# the video passes and the address the access links point to have no default at all: they are
+# listed under ayni.required-environment below, and the application refuses to start, naming each
+# one that is missing, before it opens a single connection (pe.ayni.config.RequiredEnvironment).
+# The complete list of variables, with the secrets marked, is in the Production section of
+# README.md and in docs/backend-guide.md.
+
+spring:
+  datasource:
+    url: ${AYNI_DB_URL}
+    # The application's own role, without BYPASSRLS, so row level security applies (TS01).
+    username: ${AYNI_DB_APP_USER}
+    password: ${AYNI_DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: ${AYNI_DB_POOL_SIZE:10}
+
+  flyway:
+    # Migrations run as the owner of the schemas; the first one that needs the application's role
+    # creates it with the name and the password below, so both roles are known before it connects.
+    user: ${AYNI_DB_USER}
+    password: ${AYNI_DB_PASSWORD}
+    placeholders:
+      app_user: ${AYNI_DB_APP_USER}
+      app_password: ${AYNI_DB_APP_PASSWORD}
+
+server:
+  # Behind a reverse proxy: the scheme, the host and the client address of a request are the ones
+  # the proxy forwards in X-Forwarded-*, so redirects and links say https and the public host.
+  forward-headers-strategy: framework
+  # A stop lets the requests in flight finish, while readiness already answers OUT_OF_SERVICE so the
+  # proxy sends no new ones.
+  shutdown: graceful
+
+management:
+  endpoint:
+    health:
+      # /actuator/health/liveness and /actuator/health/readiness, for the container's health check
+      # and the proxy. Both are public, as /actuator/health already is, and show no details.
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # Ready means the database answers, the one dependency without which no request can be
+          # served. readinessState is the application's own state, not a dependency: it is what
+          # turns OUT_OF_SERVICE while a graceful shutdown drains the requests in flight.
+          include: readinessState,db
+  health:
+    mail:
+      # An SMTP server that is down delays the emails, and each failed delivery is recorded on its
+      # notice; taking the backend out of service would not bring the server back, and would stop
+      # every request that sends no email. So the mail server is not part of any health check.
+      enabled: false
+
+springdoc:
+  # Swagger UI and the OpenAPI description are off in a deployment unless asked for.
+  api-docs:
+    enabled: ${AYNI_API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${AYNI_API_DOCS_ENABLED:false}
+
+logging:
+  level:
+    pe.ayni: INFO
+
+ayni:
+  sessions:
+    video:
+      jwt-secret: ${AYNI_JITSI_JWT_SECRET}
+  identity:
+    # Where the web application opens an access link, for example
+    # https://ayni.example.edu/access/confirm. It goes in every email, so it has no default.
+    access-link-base-url: ${AYNI_IDENTITY_ACCESS_LINK_BASE_URL}
+  # The variables a deployment must set. Each one missing, or blank, stops the startup with its name.
+  required-environment:
+    - AYNI_DB_URL
+    - AYNI_DB_USER
+    - AYNI_DB_PASSWORD
+    - AYNI_DB_APP_USER
+    - AYNI_DB_APP_PASSWORD
+    - AYNI_JITSI_JWT_SECRET
+    - AYNI_IDENTITY_ACCESS_LINK_BASE_URL
