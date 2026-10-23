@@ -9,6 +9,10 @@
 #
 # The scenarios after the fifth are not on the card. They pin down what the card leaves out: which
 # proposals the student cannot make, and who can read them.
+#
+# The last two scenarios are about where the category of a proposal comes from: the student picks
+# it from a list instead of having to know its identifier. They are run by
+# ProposalCategoriesAcceptanceTest, signed in with real session tokens, with the same names.
 
 Feature: Proposing a skill that is not in the catalogue
 
@@ -73,3 +77,17 @@ Feature: Proposing a skill that is not in the catalogue
     Then the proposal is not in the list
     When a student of another university opens theirs
     Then the proposal is not in the list
+
+  Scenario: A student lists the categories to propose a tool in
+    When the student lists the categories of the catalogue
+    Then the categories are listed by their order and then by name, each with its identifier
+    When the student proposes a tool in one of them, with the identifier listed
+    Then it is recorded as a proposal waiting for a moderator, in that category
+    And the same identifier narrows the catalogue to that category
+    And without a session the list is refused as unauthenticated
+
+  Scenario: The category of the courses of a university is not offered for a proposal
+    Given a coordinator loaded the courses of the university, which created their category
+    When the student lists the categories of the catalogue
+    Then the category of university courses is not among them
+    And its courses are still found in the catalogue under it

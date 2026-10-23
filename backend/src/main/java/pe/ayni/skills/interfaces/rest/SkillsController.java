@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +36,7 @@ import pe.ayni.shared.tenancy.CurrentUser;
 import pe.ayni.skills.application.CatalogQuery;
 import pe.ayni.skills.application.MyProposalsQuery;
 import pe.ayni.skills.application.OfferApprovedCourseUseCase;
+import pe.ayni.skills.application.ProposalCategoriesQuery;
 import pe.ayni.skills.application.ProposeSkillUseCase;
 import pe.ayni.skills.application.SimilarItemsQuery;
 import pe.ayni.skills.application.SubmitEvidenceUseCase;
@@ -68,6 +70,7 @@ class SkillsController {
   private final SubmitEvidenceUseCase submitEvidenceUseCase;
   private final ProposeSkillUseCase proposeSkill;
   private final MyProposalsQuery myProposals;
+  private final ProposalCategoriesQuery proposalCategories;
 
   SkillsController(
       CatalogQuery catalog,
@@ -78,7 +81,8 @@ class SkillsController {
       WithdrawSkillUseCase withdrawSkill,
       SubmitEvidenceUseCase submitEvidenceUseCase,
       ProposeSkillUseCase proposeSkill,
-      MyProposalsQuery myProposals) {
+      MyProposalsQuery myProposals,
+      ProposalCategoriesQuery proposalCategories) {
     this.catalog = catalog;
     this.similarItems = similarItems;
     this.suggestions = suggestions;
@@ -88,6 +92,7 @@ class SkillsController {
     this.submitEvidenceUseCase = submitEvidenceUseCase;
     this.proposeSkill = proposeSkill;
     this.myProposals = myProposals;
+    this.proposalCategories = proposalCategories;
   }
 
   @GetMapping("/catalog")
@@ -123,6 +128,37 @@ class SkillsController {
           @Max(100)
           int size) {
     return CatalogPage.of(catalog.visibleItems(category, q, page, size));
+  }
+
+  @GetMapping("/catalog/categories")
+  @Operation(
+      summary = "The categories a tool can be proposed in",
+      description =
+          """
+          US42: the categories of the catalogue, the same for every university, sorted by their \
+          order and then by name. The id of each is what a proposal sends as categoryId, and what \
+          the catalogue is narrowed by with category. The category of university courses is not \
+          listed: a course comes from the curriculum of one university and is enabled by grade, \
+          while an approved proposal becomes a global tool, the same for every university. Not \
+          paged, since the categories are the few the system has.
+          """)
+  @ApiResponse(
+      responseCode = "200",
+      description = "The categories, possibly none",
+      content =
+          @Content(
+              array = @ArraySchema(schema = @Schema(implementation = CategoryResponse.class)),
+              examples =
+                  @ExampleObject(
+                      name = "The categories that ship with Ayni",
+                      value =
+                          """
+                          [{"id":"a0000000-0000-4000-8000-000000000001","name":"Technology"},
+                           {"id":"a0000000-0000-4000-8000-000000000002","name":"Languages"},
+                           {"id":"a0000000-0000-4000-8000-000000000003","name":"Design"}]
+                          """)))
+  List<CategoryResponse> categories() {
+    return proposalCategories.all().stream().map(CategoryResponse::of).toList();
   }
 
   @GetMapping("/catalog/similar")

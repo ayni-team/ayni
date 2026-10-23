@@ -46,7 +46,7 @@ import pe.ayni.skills.infrastructure.CategoryRepository;
 public class LoadAcademicCatalogUseCase {
 
   /** The category the courses of every university are grouped under. */
-  public static final String COURSES_CATEGORY = "University courses";
+  public static final String COURSES_CATEGORY = Category.UNIVERSITY_COURSES;
 
   private static final short COURSES_CATEGORY_ORDER = 4;
   private static final int MOST_COURSES_AT_ONCE = 1000;
