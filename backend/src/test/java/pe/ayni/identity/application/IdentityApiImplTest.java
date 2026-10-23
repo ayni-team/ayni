@@ -1,20 +1,29 @@
 package pe.ayni.identity.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import pe.ayni.identity.ApprovedCourseView;
+import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AcademicRecord;
+import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
+import pe.ayni.identity.domain.model.User;
+import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.CreditPolicyRepository;
 import pe.ayni.identity.infrastructure.TenantRepository;
@@ -40,7 +49,8 @@ class IdentityApiImplTest {
                     tenants,
                     users,
                     records,
-                    policies);
+                    policies,
+                    Clock.fixed(Instant.parse("2026-10-20T15:00:00Z"), ZoneOffset.UTC));
 
     @AfterEach
     void clearTenant() {
@@ -108,5 +118,67 @@ class IdentityApiImplTest {
                         .orElseThrow()
                         .code())
                 .isEqualTo("UPC");
+    }
+
+    @Test
+    void completesTheOnboardingOfAStudentOfTheCurrentTenant() {
+        UUID userId = UUID.randomUUID();
+        User student = aStudentAt(userId, OnboardingStep.LEARNING_INTERESTS);
+
+        TenantContext.set("UPC");
+        when(users.findByTenantIdAndId("UPC", userId))
+                .thenReturn(Optional.of(student));
+
+        api.completeOnboarding(userId);
+
+        assertThat(student.getOnboardingStep())
+                .isEqualTo(OnboardingStep.COMPLETED);
+        assertThat(student.getUpdatedAt())
+                .isEqualTo(Instant.parse("2026-10-20T15:00:00Z"));
+    }
+
+    @Test
+    void refusesToCompleteTheOnboardingBeforeTheAcademicRecordAsAnIllegalState() {
+        UUID userId = UUID.randomUUID();
+
+        TenantContext.set("UPC");
+        when(users.findByTenantIdAndId("UPC", userId))
+                .thenReturn(Optional.of(aStudentAt(userId, OnboardingStep.ACADEMIC_RECORD)));
+
+        // The published interface promises an IllegalStateException, not identity's own class.
+        assertThatThrownBy(() -> api.completeOnboarding(userId))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void doesNotFindAUserOfAnotherTenantToCompleteTheOnboarding() {
+        UUID userId = UUID.randomUUID();
+
+        TenantContext.set("PUCP");
+        when(users.findByTenantIdAndId("PUCP", userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> api.completeOnboarding(userId))
+                .isInstanceOf(NoSuchElementException.class);
+    }
+
+    private static User aStudentAt(UUID userId, OnboardingStep step) {
+        Instant created = Instant.parse("2026-10-01T15:00:00Z");
+        return new User(
+                userId,
+                "UPC",
+                UserRole.STUDENT,
+                "u202612345@upc.edu.pe",
+                "U202612345",
+                "Juan Sanchez",
+                "Software Engineering",
+                "7",
+                null,
+                null,
+                UserStatus.ACTIVE,
+                step,
+                created,
+                created,
+                created);
     }
 }

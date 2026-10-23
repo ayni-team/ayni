@@ -187,4 +187,49 @@ class DeclareInterestsUseCaseTest {
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getCatalogItemId()).isEqualTo(ITEM_B);
   }
+
+  @Test
+  @DisplayName("replacing the interests drops the ones left out and adds the missing ones")
+  void replacingTheInterestsDropsAndAdds() {
+    LearningInterest kept = new LearningInterest(UUID.randomUUID(), UPC, STUDENT, ITEM_A, NOW);
+    LearningInterest dropped = new LearningInterest(UUID.randomUUID(), UPC, STUDENT, ITEM_B, NOW);
+    UUID itemC = UUID.randomUUID();
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC)))
+        .thenReturn(List.of(universityCourse(ITEM_A, "1ASI0657"), universityCourse(itemC, "1ASI0616")));
+    when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of(kept, dropped));
+    when(learningInterests.save(any())).thenAnswer(call -> call.getArgument(0));
+
+    List<LearningInterest> result =
+        asUpc(() -> useCase.replaceLearningInterests(STUDENT, List.of(ITEM_A, itemC)));
+
+    assertThat(result).extracting(LearningInterest::getCatalogItemId).containsExactly(ITEM_A, itemC);
+    assertThat(result.get(0)).isSameAs(kept);
+    verify(learningInterests).lockInterestsOf(UPC, STUDENT);
+    verify(learningInterests).deleteAll(List.of(dropped));
+    verify(learningInterests).save(any());
+  }
+
+  @Test
+  @DisplayName("replacing with another university's course changes nothing")
+  void replacingWithAnotherUniversitysCourseChangesNothing() {
+    when(catalogItems.findAllByIdInAndTenantVisibility(any(), eq(UPC))).thenReturn(List.of());
+
+    assertThatThrownBy(() -> asUpc(() -> useCase.replaceLearningInterests(STUDENT, List.of(ITEM_B))))
+        .isInstanceOf(NoSuchElementException.class);
+    verify(learningInterests, never()).deleteAll(any());
+    verify(learningInterests, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("replacing with nothing leaves no interest")
+  void replacingWithNothingLeavesNoInterest() {
+    LearningInterest dropped = new LearningInterest(UUID.randomUUID(), UPC, STUDENT, ITEM_A, NOW);
+    when(learningInterests.findByTenantIdAndStudentId(UPC, STUDENT)).thenReturn(List.of(dropped));
+
+    List<LearningInterest> result = asUpc(() -> useCase.replaceLearningInterests(STUDENT, List.of()));
+
+    assertThat(result).isEmpty();
+    verify(learningInterests).deleteAll(List.of(dropped));
+    verify(catalogItems, never()).findAllByIdInAndTenantVisibility(any(), any());
+  }
 }

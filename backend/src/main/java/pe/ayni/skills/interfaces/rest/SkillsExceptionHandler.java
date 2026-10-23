@@ -35,7 +35,8 @@ import pe.ayni.skills.domain.model.SkillsStateConflict;
       CoordinatorValidationsController.class,
       CoordinatorSkillProposalsController.class,
       CoordinatorCatalogController.class,
-      CoordinatorAcademicCatalogController.class
+      CoordinatorAcademicCatalogController.class,
+      LearningInterestsController.class
     })
 class SkillsExceptionHandler {
 

@@ -29,6 +29,9 @@ import pe.ayni.skills.infrastructure.LearningInterestRepository;
  * declares no interest: it goes straight through {@link OfferApprovedCourseUseCase}, the same
  * academic-record path US13 built, since offering a course during onboarding is not a different
  * operation from offering it from its own screen.
+ *
+ * <p>US41 replaces the interests later on as a whole. Every change of a student's interests takes
+ * {@link LearningInterestRepository#lockInterestsOf} first, so two at once run one after the other.
  */
 @Service
 public class DeclareInterestsUseCase {
@@ -63,9 +66,49 @@ public class DeclareInterestsUseCase {
     Objects.requireNonNull(catalogItemIds, "catalogItemIds must not be null");
 
     String tenantId = TenantContext.require();
-    Instant now = clock.instant();
     Set<UUID> requested = new LinkedHashSet<>(catalogItemIds);
+    requireVisible(requested, tenantId);
 
+    learningInterests.lockInterestsOf(tenantId, studentId);
+    return keep(tenantId, studentId, requested, declaredBy(tenantId, studentId));
+  }
+
+  /**
+   * US41: the items become the whole set the student needs help with. Those not among them are
+   * dropped and the missing ones are added; the ones already declared stay as they were.
+   *
+   * <p>It only touches what the student wants to receive. What they teach, and every booking
+   * already confirmed, are not this module's interests and stay untouched.
+   *
+   * @throws NoSuchElementException when an item does not exist or belongs to another university,
+   *     and then nothing changes
+   */
+  @Transactional
+  public List<LearningInterest> replaceLearningInterests(UUID studentId, List<UUID> catalogItemIds) {
+    Objects.requireNonNull(studentId, "studentId must not be null");
+    Objects.requireNonNull(catalogItemIds, "catalogItemIds must not be null");
+
+    String tenantId = TenantContext.require();
+    Set<UUID> requested = new LinkedHashSet<>(catalogItemIds);
+    requireVisible(requested, tenantId);
+
+    learningInterests.lockInterestsOf(tenantId, studentId);
+    Map<UUID, LearningInterest> declared = declaredBy(tenantId, studentId);
+
+    List<LearningInterest> dropped =
+        declared.values().stream()
+            .filter(interest -> !requested.contains(interest.getCatalogItemId()))
+            .toList();
+    learningInterests.deleteAll(dropped);
+
+    return keep(tenantId, studentId, requested, declared);
+  }
+
+  /** The visibility of every item is checked before anything is written, so a refusal changes nothing. */
+  private void requireVisible(Set<UUID> requested, String tenantId) {
+    if (requested.isEmpty()) {
+      return;
+    }
     Set<UUID> visible =
         catalogItems.findAllByIdInAndTenantVisibility(requested, tenantId).stream()
             .map(CatalogItem::getId)
@@ -75,12 +118,18 @@ public class DeclareInterestsUseCase {
         throw new NoSuchElementException("catalog item %s not found".formatted(catalogItemId));
       }
     }
+  }
 
-    // One read of what the student already declared, instead of one per item.
-    Map<UUID, LearningInterest> declared =
-        learningInterests.findByTenantIdAndStudentId(tenantId, studentId).stream()
-            .collect(Collectors.toMap(LearningInterest::getCatalogItemId, Function.identity()));
+  /** One read of what the student already declared, instead of one per item. */
+  private Map<UUID, LearningInterest> declaredBy(String tenantId, UUID studentId) {
+    return learningInterests.findByTenantIdAndStudentId(tenantId, studentId).stream()
+        .collect(Collectors.toMap(LearningInterest::getCatalogItemId, Function.identity()));
+  }
 
+  /** The interests of the requested items, in their order, adding the ones not declared yet. */
+  private List<LearningInterest> keep(
+      String tenantId, UUID studentId, Set<UUID> requested, Map<UUID, LearningInterest> declared) {
+    Instant now = clock.instant();
     List<LearningInterest> result = new ArrayList<>(requested.size());
     for (UUID catalogItemId : requested) {
       LearningInterest interest = declared.get(catalogItemId);

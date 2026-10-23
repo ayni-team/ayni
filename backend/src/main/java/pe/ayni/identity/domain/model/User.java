@@ -165,6 +165,35 @@ public class User {
         }
     }
 
+    /**
+     * The last step of the onboarding (US40): the interests are declared, so the account is set up.
+     *
+     * <p>Only from {@link OnboardingStep#LEARNING_INTERESTS}. Completing it again changes nothing, so
+     * a step that was sent twice is not an error. A student with no step has not done the profile
+     * yet, the way {@link #markProfileCompleted} reads it.
+     *
+     * @throws OnboardingConflict when the profile or the academic record is still missing, or the
+     *     person is a coordinator, who has no onboarding
+     */
+    public void completeOnboarding(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (role != UserRole.STUDENT) {
+            throw OnboardingConflict.notAStudent();
+        }
+
+        if (onboardingStep == OnboardingStep.COMPLETED) {
+            return;
+        }
+
+        if (onboardingStep != OnboardingStep.LEARNING_INTERESTS) {
+            throw OnboardingConflict.stepsMissing(onboardingStep);
+        }
+
+        onboardingStep = OnboardingStep.COMPLETED;
+        updatedAt = now;
+    }
+
     public UUID getId() {
         return id;
     }

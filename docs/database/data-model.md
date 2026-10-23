@@ -110,7 +110,7 @@ current_term        varchar(16)
 photo_url           varchar(512)
 bio                 varchar(500)
 status              varchar(16)   NOT NULL    -- PENDING | ACTIVE | RESTRICTED
-onboarding_step     varchar(32)               -- NULL once finished
+onboarding_step     varchar(32)               -- PROFILE | ACADEMIC_RECORD | LEARNING_INTERESTS | COMPLETED; NULL for a coordinator
 activated_at        timestamptz
 created_at          timestamptz   NOT NULL DEFAULT now()
 updated_at          timestamptz   NOT NULL DEFAULT now()
@@ -126,6 +126,11 @@ No password column: there are no passwords in this product. `full_name`, `career
 come from the academic system and are not editable in Ayni. So does `student_code`: the academic
 system finds the student by their institutional email and answers the code the university assigned
 (ADR 0006, amended), which is copied as it comes, with no rule about its format in Ayni.
+
+`onboarding_step` is the step of the onboarding a student is in (US40). The model said it became
+`NULL` once finished, while the code always kept `COMPLETED` for that: the column says what the code
+does now. A student whose step is `NULL` has not taken the first one, `PROFILE`; a coordinator has
+no onboarding and keeps it `NULL`. No migration: the column is a free `varchar` with no `CHECK`.
 
 ### `identity.access_links`
 
@@ -353,6 +358,10 @@ created_at        timestamptz   NOT NULL DEFAULT now()
 
 UNIQUE (tenant_id, student_id, catalog_item_id)
 ```
+
+Written at the last step of the onboarding (US40) and replaced as a whole by the student later on
+(US41). Whoever changes a student's rows takes an advisory lock of that student first, so two
+changes at once never insert the same row twice.
 
 ### `skills.taught_sessions`
 
