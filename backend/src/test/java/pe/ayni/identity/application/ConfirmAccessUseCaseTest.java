@@ -107,8 +107,10 @@ class ConfirmAccessUseCaseTest {
                         users,
                         admins,
                         sessions,
-                        academicRecords,
-                        academicSystem,
+                        new StudentActivation(
+                                users,
+                                academicRecords,
+                                academicSystem),
                         tokens,
                         events,
                         Clock.fixed(
@@ -292,7 +294,9 @@ class ConfirmAccessUseCaseTest {
                                 "U202500003",
                                 "Carla Mendoza",
                                 "Software Engineering",
+                                3,
                                 "2026-2",
+                                AcademicStatus.ACTIVE,
                                 List.of(
                                         new AcademicCourseData(
                                                 "1ASI0657",
@@ -344,6 +348,9 @@ class ConfirmAccessUseCaseTest {
 
         assertThat(created.getCurrentTerm())
                 .isEqualTo("2026-2");
+
+        assertThat(created.getCurrentCycle())
+                .isEqualTo(3);
 
         assertThat(created.getStatus())
                 .isEqualTo(
@@ -448,6 +455,59 @@ class ConfirmAccessUseCaseTest {
 
     @Test
     @DisplayName(
+            "a student the university no longer considers its own is not activated, and the link stays unused")
+    void aStudentNoLongerEnrolledIsNotActivated() {
+
+        for (AcademicStatus status : List.of(AcademicStatus.GRADUATED, AcademicStatus.INACTIVE)) {
+            String email =
+                    "u202300022@upc.edu.pe";
+
+            AccessLink link =
+                    link(
+                            "UPC",
+                            email,
+                            AccessPurpose.ACTIVATION,
+                            NOW.plusSeconds(600));
+
+            when(
+                    academicSystem.fetchProfile(
+                            "UPC",
+                            email))
+                    .thenReturn(
+                            new AcademicProfile(
+                                    "U202300022",
+                                    "Carla Lazo",
+                                    "Ingeniería de Software",
+                                    10,
+                                    "2026-2",
+                                    status,
+                                    List.of()));
+
+            assertRefused(
+                    StudentActivation.NOT_ENROLLED);
+
+            verify(accessLinks, never())
+                    .consume(
+                            link.getId(),
+                            NOW);
+        }
+
+        verify(users, never())
+                .saveAndFlush(any());
+
+        verify(academicRecords, never())
+                .saveAllAndFlush(any());
+
+        verify(events, never())
+                .publishEvent(
+                        any(StudentActivated.class));
+
+        verify(sessions, never())
+                .save(any());
+    }
+
+    @Test
+    @DisplayName(
             "an activation link cannot create a second account")
     void activationCannotCreateSecondAccount() {
 
@@ -468,7 +528,7 @@ class ConfirmAccessUseCaseTest {
                 .thenReturn(true);
 
         assertRefused(
-                ConfirmAccessUseCase.ACCOUNT_ALREADY_EXISTS);
+                StudentActivation.ACCOUNT_ALREADY_EXISTS);
 
         verify(accessLinks, never())
                 .consume(

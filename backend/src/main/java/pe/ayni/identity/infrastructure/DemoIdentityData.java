@@ -1,130 +1,147 @@
 package pe.ayni.identity.infrastructure;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import pe.ayni.identity.UserRole;
+import pe.ayni.identity.application.AcademicProfile;
 import pe.ayni.identity.application.ImportAcademicRecordUseCase;
-import pe.ayni.identity.domain.model.OnboardingStep;
-import pe.ayni.identity.domain.model.Tenant;
-import pe.ayni.identity.domain.model.TenantStatus;
-import pe.ayni.identity.domain.model.User;
-import pe.ayni.identity.domain.model.UserStatus;
+import pe.ayni.identity.application.RegisterUniversityFromAcademicSystemUseCase;
+import pe.ayni.identity.application.StudentActivation;
+import pe.ayni.identity.application.UpdateMyProfileUseCase;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * A university and two students to look at while signing in does not exist yet.
+ * The two universities of the academic directory and the four people the demonstration is told
+ * with, so there is somebody to sign in as before anybody activated their account.
  *
- * <p>The students are the same ones {@code DemoWalletData} gives credits to, so every module's demo
- * data describes the same people. Ana starts at the first onboarding step, and the threshold of 13
- * lets two of the three courses {@code MockAcademicSystemAdapter} reports be offered. Bruno is
- * past the academic record step of onboarding, with his record imported, which is what lets {@code
- * DemoBookingData} enable him as a tutor so that Ana has somebody to book.
+ * <p>Everything comes from the documents of {@code backend/academic-directory} (ADR 0006): UPC and
+ * USIL are registered with what their documents say, through the same use case as {@code POST
+ * /api/v1/admin/universities/from-academic-system}, with five initial credits for thirty days. Of
+ * their students only the four people of the demonstration are activated here; every other one,
+ * Carla Mendoza of UPC among them, activates their account live with the link of their email.
  *
- * <p>It runs once: a second start finds the rows already there and leaves them alone.
+ * <ul>
+ *   <li>Ana Torres (UPC) and Lucía Paredes (USIL) are active at the first step of the onboarding, so
+ *       a presentation can walk through it.
+ *   <li>Bruno Salas (UPC) and Mateo Ríos (USIL) are the tutors: their profile and record are done
+ *       here, through the real use cases, and {@code DemoSkillsData} takes the last step for them,
+ *       which enables the courses their grades justify.
+ * </ul>
+ *
+ * <p>The activation is the one of an access link, {@link StudentActivation}, without the link:
+ * there is no email to open here, and the people need fixed identifiers, which the other modules'
+ * demo data refer to. {@code StudentActivated} is not published, as it never was for these
+ * students, so the wallets they show are the ones {@code DemoWalletData} writes and not the
+ * university's initial grant.
+ *
+ * <p>It runs first among the demonstration data, and once: a university already registered and a
+ * person already there are left alone, so a database seeded before these documents keeps what it
+ * has.
  */
 @Component
 @Profile("dev")
+@Order(1)
 public class DemoIdentityData implements ApplicationRunner {
 
-    private static final String TENANT = "UPC";
+    private static final Logger log = LoggerFactory.getLogger(DemoIdentityData.class);
+
+    static final int INITIAL_CREDITS = 5;
+    static final int CREDIT_VALIDITY_DAYS = 30;
 
     /** The same student as in {@code DemoWalletData}. */
-    private static final UUID ANA = UUID.fromString("11111111-1111-4111-8111-111111111111");
+    static final UUID ANA = UUID.fromString("11111111-1111-4111-8111-111111111111");
 
     /** The other student of {@code DemoWalletData}, and the tutor of {@code DemoBookingData}. */
-    private static final UUID BRUNO = UUID.fromString("22222222-2222-4222-8222-222222222222");
+    static final UUID BRUNO = UUID.fromString("22222222-2222-4222-8222-222222222222");
+
+    /** The student of the second university. */
+    static final UUID LUCIA = UUID.fromString("66666666-6666-4666-8666-666666666666");
+
+    /** The tutor of the second university. */
+    static final UUID MATEO = UUID.fromString("77777777-7777-4777-8777-777777777777");
+
+    /** One person of the demonstration and how far into the onboarding they start. */
+    private record Persona(String tenant, UUID id, String email, boolean tutor) {}
+
+    private static final List<String> UNIVERSITIES = List.of("UPC", "USIL");
+
+    private static final List<Persona> PEOPLE =
+            List.of(
+                    new Persona("UPC", ANA, "u202400001@upc.edu.pe", false),
+                    new Persona("UPC", BRUNO, "u202300002@upc.edu.pe", true),
+                    new Persona("USIL", LUCIA, "lucia.paredes@usil.edu.pe", false),
+                    new Persona("USIL", MATEO, "mateo.rios@usil.edu.pe", true));
 
     private final TenantRepository tenants;
     private final UserRepository users;
+    private final RegisterUniversityFromAcademicSystemUseCase registerFromAcademicSystem;
+    private final StudentActivation activation;
+    private final UpdateMyProfileUseCase updateProfile;
     private final ImportAcademicRecordUseCase importAcademicRecord;
     private final Clock clock;
 
     public DemoIdentityData(
             TenantRepository tenants,
             UserRepository users,
+            RegisterUniversityFromAcademicSystemUseCase registerFromAcademicSystem,
+            StudentActivation activation,
+            UpdateMyProfileUseCase updateProfile,
             ImportAcademicRecordUseCase importAcademicRecord,
             Clock clock) {
 
         this.tenants = tenants;
         this.users = users;
+        this.registerFromAcademicSystem = registerFromAcademicSystem;
+        this.activation = activation;
+        this.updateProfile = updateProfile;
         this.importAcademicRecord = importAcademicRecord;
         this.clock = clock;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        // Row level security (TS01): the students are written, and looked for, as UPC's.
-        TenantContext.runAs(TENANT, this::fill);
+        for (String university : UNIVERSITIES) {
+            if (tenants.findByCode(university).isEmpty()) {
+                // As the administrator, who has no university: registering binds the new one.
+                registerFromAcademicSystem.execute(
+                        DemoPlatformAdminData.ADMIN,
+                        university,
+                        INITIAL_CREDITS,
+                        CREDIT_VALIDITY_DAYS);
+                log.info("Demo university {} registered from its academic document", university);
+            }
+        }
+
+        // Row level security (TS01): each person is written, and looked for, as their university's.
+        for (Persona persona : PEOPLE) {
+            TenantContext.runAs(persona.tenant(), () -> activate(persona));
+        }
     }
 
-    private void fill() {
+    private void activate(Persona persona) {
+        if (users.findByTenantIdAndId(persona.tenant(), persona.id()).isPresent()
+                || users.existsByTenantIdAndEmailIgnoreCase(persona.tenant(), persona.email())) {
+            return;
+        }
+
         Instant now = clock.instant();
+        AcademicProfile profile = activation.admit(persona.tenant(), persona.email());
+        activation.create(persona.tenant(), persona.id(), persona.email(), profile, now);
 
-        if (tenants.findByCode(TENANT).isEmpty()) {
-            tenants.save(
-                    new Tenant(
-                            UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                            TENANT,
-                            "Universidad Peruana de Ciencias Aplicadas",
-                            null,
-                            "#D50000",
-                            "#FFFFFF",
-                            List.of("upc.edu.pe"),
-                            new BigDecimal("13.00"),
-                            ZoneId.of("America/Lima"),
-                            TenantStatus.ACTIVE,
-                            now));
+        if (persona.tutor()) {
+            // The two steps of the onboarding the student takes, through the use cases of their
+            // endpoints: the profile, then the record, which leaves them at the interests.
+            updateProfile.execute(persona.id(), null, null);
+            importAcademicRecord.execute(persona.id());
         }
-
-        if (users.findByTenantIdAndId(TENANT, ANA).isEmpty()) {
-            users.save(
-                    new User(
-                            ANA,
-                            TENANT,
-                            UserRole.STUDENT,
-                            "u202400001@upc.edu.pe",
-                            "U202400001",
-                            "Ana Torres",
-                            "Software Engineering",
-                            "2026-2",
-                            null,
-                            null,
-                            UserStatus.ACTIVE,
-                            OnboardingStep.PROFILE,
-                            now,
-                            now,
-                            now));
-        }
-
-        if (users.findByTenantIdAndId(TENANT, BRUNO).isEmpty()) {
-            users.save(
-                    new User(
-                            BRUNO,
-                            TENANT,
-                            UserRole.STUDENT,
-                            "u202300002@upc.edu.pe",
-                            "U202300002",
-                            "Bruno Salas",
-                            "Software Engineering",
-                            "2026-2",
-                            null,
-                            null,
-                            UserStatus.ACTIVE,
-                            OnboardingStep.ACADEMIC_RECORD,
-                            now,
-                            now,
-                            now));
-            // Through the real use case, the same one US40's onboarding step calls: it imports the
-            // record the academic system reports and moves him to the next step.
-            TenantContext.runAs(TENANT, () -> importAcademicRecord.execute(BRUNO));
-        }
+        log.info("Demo person {} of {} activated", persona.id(), persona.tenant());
     }
 }

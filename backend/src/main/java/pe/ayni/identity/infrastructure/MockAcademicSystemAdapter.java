@@ -1,9 +1,7 @@
 package pe.ayni.identity.infrastructure;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -17,22 +15,28 @@ import org.springframework.stereotype.Component;
 import pe.ayni.identity.application.AcademicCourseData;
 import pe.ayni.identity.application.AcademicProfile;
 import pe.ayni.identity.application.AcademicSystemPort;
+import pe.ayni.identity.application.AcademicUniversity;
+import pe.ayni.identity.domain.model.AcademicSystemNotConfigured;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 
 /**
- * Simulates the academic systems of the affiliated universities (ADR 0006), one directory file per
+ * Simulates the academic systems of the affiliated universities (ADR 0006), one document per
  * university.
  *
- * <p>The folder is {@code ayni.identity.academic-directory}; the file of a university is its code
- * in upper case, {@code UPC.json}. It is read each time a student is looked up, never at startup,
- * so a university registered by configuration (TS10) is known as soon as its file is in the
- * folder: nothing is changed in the code and nothing is deployed again. A student is found by their
- * institutional email, whatever its case, and the profile carries the student code the file says.
- * The adapter does not check the format of a code: that is the university's business.
+ * <p>The folder is {@code ayni.identity.academic-directory}; the document of a university is its
+ * code in upper case, {@code UPC.json}, with the schema of {@link AcademicDocument}. It is read each
+ * time it is asked, never at startup, so a document added or edited is used at once: nothing is
+ * changed in the code and nothing is deployed again. A student is found by their institutional
+ * email, whatever its case, and the profile carries the student code the document says. The adapter
+ * does not check the format of a code: that is the university's business.
  *
- * <p>The file holds a {@code students} array; each student has {@code email}, {@code
- * studentCode}, {@code fullName}, {@code career}, {@code currentTerm} and {@code approvedCourses},
- * each course with {@code courseCode}, {@code courseName}, {@code grade} and {@code term}.
+ * <p>Next to a document there may be {@code <CODE>.local.json}, which the repository never keeps:
+ * its students are added to the ones of the document, and one whose email is in both is the local
+ * one. Only its list of students is read.
+ *
+ * <p>Every document read is checked with {@link AcademicDocument#checkCoherence} first. One that
+ * cannot be read or does not agree with itself is a mistake of the platform: the log says so with
+ * the code of the university and the rule that was broken, and nothing about any student.
  */
 @Component
 public class MockAcademicSystemAdapter
@@ -67,21 +71,15 @@ public class MockAcademicSystemAdapter
             String tenantId,
             String institutionalEmail) {
 
-        String code = normalizeTenant(tenantId);
-        String email = normalizeEmail(institutionalEmail);
+        Objects.requireNonNull(
+                institutionalEmail,
+                "institutionalEmail must not be null");
 
-        Path file = fileOf(code);
-        if (file == null || !Files.isRegularFile(file)) {
-            throw new IdentityRuleViolation(
-                    "The academic system is not configured "
-                            + "for this university");
-        }
+        AcademicDocument document =
+                documentOf(normalizeCode(tenantId));
 
-        return readDirectory(code, file).students().stream()
-                .filter(student -> student.email() != null)
-                .filter(student -> student.email().trim().toLowerCase(Locale.ROOT).equals(email))
-                .findFirst()
-                .map(MockAcademicSystemAdapter::profileOf)
+        return document.student(institutionalEmail)
+                .map(student -> profileOf(student, document))
                 .orElseThrow(
                         () ->
                                 new IdentityRuleViolation(
@@ -89,17 +87,77 @@ public class MockAcademicSystemAdapter
                                                 + "in the academic system"));
     }
 
-    private Path fileOf(String code) {
-        if (!SAFE_CODE.matcher(code).matches()) {
-            return null;
-        }
-        return directory.resolve(code + ".json");
+    @Override
+    public AcademicUniversity fetchUniversity(
+            String code) {
+
+        AcademicDocument document =
+                documentOf(normalizeCode(code));
+        AcademicDocument.University university =
+                document.university();
+
+        return new AcademicUniversity(
+                university.code().trim().toUpperCase(Locale.ROOT),
+                university.name().trim(),
+                university.logoUrl(),
+                university.primaryColor(),
+                university.secondaryColor(),
+                university.emailDomains(),
+                university.timezone(),
+                university.minimumTeachingGrade(),
+                university.currentTerm(),
+                document.careers(),
+                document.courses().stream()
+                        .map(
+                                course ->
+                                        new AcademicUniversity.Course(
+                                                course.code(),
+                                                course.name(),
+                                                course.careers().stream()
+                                                        .map(
+                                                                placement ->
+                                                                        new AcademicUniversity.Placement(
+                                                                                placement.career(),
+                                                                                placement.cycle()))
+                                                        .toList()))
+                        .toList());
     }
 
-    private Directory readDirectory(String code, Path file) {
+    /** The document of the university with its local students, checked. */
+    AcademicDocument documentOf(String code) {
+        if (!SAFE_CODE.matcher(code).matches()) {
+            throw new AcademicSystemNotConfigured();
+        }
+        Path file = directory.resolve(code + ".json");
+        if (!Files.isRegularFile(file)) {
+            throw new AcademicSystemNotConfigured();
+        }
+
+        AcademicDocument document = read(code, file);
+        Path local = directory.resolve(code + ".local.json");
+        if (Files.isRegularFile(local)) {
+            document = document.withLocalStudents(read(code, local).students());
+        }
+
         try {
-            Directory read = json.readValue(file.toFile(), Directory.class);
-            return read.students() == null ? new Directory(List.of()) : read;
+            document.checkCoherence(code);
+        } catch (AcademicDocument.Incoherent incoherent) {
+            // A document that contradicts itself is a configuration mistake of the platform, not
+            // the student's: the log names the university and the rule, never a person.
+            log.warn(
+                    "The academic directory of university {} is not coherent: {}",
+                    code,
+                    incoherent.getMessage());
+            throw new IllegalStateException(
+                    "The academic directory of university " + code + " is not coherent: "
+                            + incoherent.getMessage());
+        }
+        return document;
+    }
+
+    private AcademicDocument read(String code, Path file) {
+        try {
+            return json.readValue(file.toFile(), AcademicDocument.class);
         } catch (IOException unreadable) {
             // A broken file is a configuration mistake of the platform, not the student's: it is
             // said in the log, by its name only, and the request fails as unexpected.
@@ -113,64 +171,38 @@ public class MockAcademicSystemAdapter
         }
     }
 
-    private static AcademicProfile profileOf(Student student) {
+    private static AcademicProfile profileOf(
+            AcademicDocument.Student student,
+            AcademicDocument document) {
+
+        List<AcademicCourseData> approved =
+                student.approved().stream()
+                        .map(
+                                course ->
+                                        new AcademicCourseData(
+                                                course.courseCode(),
+                                                document.courseName(course.courseCode()),
+                                                course.grade(),
+                                                course.term()))
+                        .toList();
+
         return new AcademicProfile(
-                student.studentCode(),
-                student.fullName(),
+                student.studentCode().trim(),
+                student.fullName().trim(),
                 student.career(),
+                student.cycle(),
                 student.currentTerm(),
-                student.approvedCourses() == null
-                        ? List.of()
-                        : student.approvedCourses().stream()
-                                .map(
-                                        course ->
-                                                new AcademicCourseData(
-                                                        course.courseCode(),
-                                                        course.courseName(),
-                                                        course.grade(),
-                                                        course.term()))
-                                .toList());
+                AcademicDocument.statusOf(student),
+                approved);
     }
 
-    private static String normalizeTenant(
-            String tenantId) {
+    private static String normalizeCode(
+            String code) {
 
         return Objects.requireNonNull(
-                        tenantId,
-                        "tenantId must not be null")
+                        code,
+                        "code must not be null")
                 .trim()
                 .toUpperCase(Locale.ROOT);
     }
-
-    private static String normalizeEmail(
-            String institutionalEmail) {
-
-        return Objects.requireNonNull(
-                        institutionalEmail,
-                        "institutionalEmail must not be null")
-                .trim()
-                .toLowerCase(Locale.ROOT);
-    }
-
-    /** The file of one university. */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    record Directory(List<Student> students) {}
-
-    /** One student as the university's directory keeps them. */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    record Student(
-            String email,
-            String studentCode,
-            String fullName,
-            String career,
-            String currentTerm,
-            List<Course> approvedCourses) {}
-
-    /** One approved course with its grade. */
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    record Course(
-            String courseCode,
-            String courseName,
-            BigDecimal grade,
-            String term) {}
 }

@@ -40,6 +40,7 @@ public class GetMyProfileQuery {
                 user.getStudentCode(),
                 user.getFullName(),
                 user.getCareer(),
+                user.getCurrentCycle(),
                 user.getCurrentTerm(),
                 user.getPhotoUrl(),
                 user.getBio(),

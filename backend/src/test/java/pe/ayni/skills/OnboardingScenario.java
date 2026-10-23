@@ -16,6 +16,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -97,6 +99,12 @@ abstract class OnboardingScenario {
   /** The approved courses of each student, by email, as the university's directory file says. */
   private final Map<String, List<String>> records = new LinkedHashMap<>();
 
+  /** The courses of the university's curriculum, by code: every one somebody approved. */
+  private final Map<String, String> curriculum = new LinkedHashMap<>();
+
+  private static final Pattern COURSE =
+      Pattern.compile("\"courseCode\": \"([^\"]+)\", \"courseName\": \"([^\"]+)\"");
+
   @BeforeEach
   void aUniversityWithItsCatalogue() {
     people = new SignedInPeople(tenants, users, userSessions, tokens);
@@ -130,27 +138,59 @@ abstract class OnboardingScenario {
   /** What the university's academic system reports the student approved, from now on. */
   protected void approved(Person student, String... courses) {
     records.put(emailOf(student), List.of(courses));
+    // Every course approved is in the curriculum of the student's career, as the academic
+    // system's document requires (ADR 0006): the name is the curriculum's.
+    for (String course : courses) {
+      Matcher named = COURSE.matcher(course);
+      if (named.find()) {
+        curriculum.put(named.group(1), named.group(2));
+      }
+    }
     String students =
         records.entrySet().stream()
             .map(
                 entry ->
                     """
                     {"email": "%s", "studentCode": "S-%s", "fullName": "From the directory",
-                     "career": "Software Engineering", "currentTerm": "2026-2",
-                     "approvedCourses": [%s]}
+                     "career": "Software Engineering", "cycle": 2, "currentTerm": "2026-2",
+                     "status": "ACTIVE", "approvedCourses": [%s]}
                     """
                         .formatted(
                             entry.getKey(),
                             entry.getKey().substring(0, 8),
                             String.join(",", entry.getValue())))
             .collect(Collectors.joining(","));
+    String courseList =
+        curriculum.entrySet().stream()
+            .map(
+                entry ->
+                    """
+                    {"code": "%s", "name": "%s",
+                     "careers": [{"career": "Software Engineering", "cycle": 1}]}
+                    """
+                        .formatted(entry.getKey(), entry.getValue()))
+            .collect(Collectors.joining(","));
+    String document =
+        """
+        {"university": {"code": "%s", "name": "University %s", "emailDomains": ["%s.edu.pe"],
+                        "timezone": "America/Lima", "minimumTeachingGrade": 13.00,
+                        "currentTerm": "2026-2"},
+         "careers": ["Software Engineering"],
+         "courses": [%s],
+         "students": [%s]}
+        """
+            .formatted(tenant, tenant, tenant.toLowerCase(), courseList, students);
     try {
-      Files.writeString(DIRECTORY.resolve(tenant + ".json"), "{\"students\": [" + students + "]}");
+      Files.writeString(DIRECTORY.resolve(tenant + ".json"), document);
     } catch (IOException failure) {
       throw new UncheckedIOException(failure);
     }
   }
 
+  /**
+   * One approved course of the record. The name travels with it only so {@link #approved} can put
+   * the course in the curriculum; the student's record names the course by its code.
+   */
   protected static String courseRecord(CatalogItem course, String grade) {
     return """
         {"courseCode": "%s", "courseName": "%s", "grade": %s, "term": "2026-1"}

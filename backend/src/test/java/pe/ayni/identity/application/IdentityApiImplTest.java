@@ -44,12 +44,16 @@ class IdentityApiImplTest {
     private final CreditPolicyRepository policies =
             mock(CreditPolicyRepository.class);
 
+    private final AcademicSystemPort academicSystem =
+            mock(AcademicSystemPort.class);
+
     private final IdentityApiImpl api =
             new IdentityApiImpl(
                     tenants,
                     users,
                     records,
                     policies,
+                    academicSystem,
                     Clock.fixed(Instant.parse("2026-10-20T15:00:00Z"), ZoneOffset.UTC));
 
     @AfterEach

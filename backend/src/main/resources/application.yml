@@ -200,9 +200,10 @@ ayni:
     # named volume here, so the files survive the container; without it, the temporary folder.
     evidence-dir: ${AYNI_SKILLS_EVIDENCE_DIR:${java.io.tmpdir}/ayni/evidence}
   identity:
-    # The simulated academic system (ADR 0006): one file per university, <CODE>.json, read each
-    # time a student is looked up. docker compose mounts the folder; relative to where the backend
-    # runs otherwise, which is backend/ for ./mvnw.
+    # The simulated academic system (ADR 0006): one document per university, <CODE>.json, with the
+    # university, its curriculum and its students, read each time it is asked (and <CODE>.local.json
+    # next to it, when there is one). docker compose mounts the folder; relative to where the
+    # backend runs otherwise, which is backend/ for ./mvnw.
     academic-directory: ${AYNI_ACADEMIC_DIRECTORY:academic-directory}
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M

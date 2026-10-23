@@ -223,10 +223,11 @@ The Trello card of each story says what is left of it.
 
 - How access works (TS03): **decided**, no longer open. See
   `adr/0007-access-control-and-tenant-isolation.md`.
-- The mock academic system (ADR 0006): **decided**, and amended. One service for several
+- The mock academic system (ADR 0006): **decided**, and amended twice. One service for several
   universities that finds a student by university and institutional email and answers the student
-  code with the profile; Ayni neither derives the code from the email nor checks its format. See
-  "The academic system" under identity.
+  code with the profile; Ayni neither derives the code from the email nor checks its format. Since
+  2026-10-23 each university's document also says who the university is and what its curriculum
+  is. See "The academic system" under identity.
 
 ### Guardrails
 
@@ -419,6 +420,7 @@ public interface IdentityApi {
   boolean isActive(UUID userId);
   Optional<CreditPolicyView> currentPolicy(String tenantCode, PolicyKind kind);
   List<ApprovedCourseView> approvedCourses(UUID userId);   // used by skills to enable by grade
+  List<AcademicCourseView> academicCurriculum(String tenantCode);   // used by skills to sync the catalogue
   List<String> activeTenantCodes();              // used by scheduled jobs
   void completeOnboarding(UUID userId);          // used by skills at the last step of US40
 }
@@ -430,6 +432,14 @@ public interface IdentityApi {
 `NoSuchElementException` when the person is not of the current university. The rule is
 `User.completeOnboarding`. Skills calls it inside the transaction that declares the interests, so a
 refusal leaves nothing declared.
+
+`academicCurriculum` was added on 2026-10-23 (ADR 0006, amended), approved by the lead: the courses
+of the university's curriculum as its academic system says that moment, each with its code, its name
+and the careers it belongs to with its cycle in each (`AcademicCourseView`). It reads the academic
+system every time and never Ayni's catalogue. `NoSuchElementException` when the university has no
+academic system configured; `IllegalStateException` when its document cannot be read or contradicts
+itself, a mistake of the platform. Skills synchronises the catalogue with it (see "Synchronising the
+curriculum" under skills).
 
 **Publishes:** `AccessRequested`, `StudentActivated`, `CoordinatorActivated`,
 `UniversityRegistered`, `UniversitySuspended`, `CreditPolicyChanged`, `UniversityIdentityChanged`.
@@ -443,10 +453,11 @@ refusal leaves nothing declared.
 | POST | `/api/v1/access/logout` | signed in | revokes the session of the token it carries (TS03) |
 | GET | `/api/v1/access/university?email=` | anyone | name, logo and colours of the university that claims the domain of the email (US39) |
 | GET | `/api/v1/university` | student, coordinator | the university of the session, with its email domains and time zone (US39) |
-| GET | `/api/v1/me` | signed in | own profile |
-| PUT | `/api/v1/me/profile` | student | photo and description only. Name, career and term come from the academic system and are not editable |
-| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses from the academic system; an onboarding step (US40), and again whenever the student brings the record up to date (US41) |
+| GET | `/api/v1/me` | signed in | own profile, with `currentCycle`, the cycle of the career the academic system says |
+| PUT | `/api/v1/me/profile` | student | photo and description only. Name, career, cycle and term come from the academic system and are not editable |
+| POST | `/api/v1/me/academic-record/import` | student | refreshes the approved courses, the career, the cycle and the term from the academic system; an onboarding step (US40), and again whenever the student brings the record up to date (US41) |
 | POST | `/api/v1/admin/universities` | admin | registers a university |
+| POST | `/api/v1/admin/universities/from-academic-system` | admin | registers a university with what the document of its academic system says; the administrator gives the code and the initial credits (ADR 0006, amended) |
 | GET | `/api/v1/admin/universities` | admin | list with counts, never with people |
 | PUT | `/api/v1/admin/universities/{code}/email-domains` | admin | replaces the whole list of email domains of a university (US50) |
 | POST | `/api/v1/admin/universities/{code}/coordinators` | admin | invites a coordinator by email: creates them as pending and sends a single use link; opening it activates them (TS10) |
@@ -473,29 +484,46 @@ Neither the profile nor the import moves a step back, so both can be repeated af
 Importing again replaces the approved courses with what the academic system reports that day; the
 old ones are deleted with one statement before the new ones are written, so a course the record
 already had is imported again instead of breaking `uq_identity_academic_records` (it did until
-US41).
+US41). It also refreshes the career, the cycle (`identity.users.current_cycle`) and the current term,
+which change with the term and are the university's (`User.refreshAcademicData`).
 
 **The first administrator of an installation.** `PlatformAdminBootstrap` creates it at startup from
 `AYNI_BOOTSTRAP_ADMIN_EMAIL`, in any profile, through `BootstrapPlatformAdminUseCase`; see
 "Deployment (prod profile)" below.
 
-**The academic system (ADR 0006).** Identity asks `AcademicSystemPort` for the profile of a
-student by the university and the institutional email, at activation (US38) and when the record is
-imported (US40). The profile carries the student code the university assigned, the name, the
-career, the term and the approved courses with their grades; the code is copied into
-`identity.users.student_code` as it comes. The simulated adapter, `MockAcademicSystemAdapter`,
-reads one file per university, `<CODE>.json`, from the folder `ayni.identity.academic-directory`
-(`AYNI_ACADEMIC_DIRECTORY`, `academic-directory` relative to where the backend runs by default),
-**each time it looks a student up, never at startup**. `backend/academic-directory/` holds the
-four demonstration students (Ana, Bruno and Carla of UPC, Lucia of PUCP) and a `README.md` with the
-format, and `docker-compose.yml` mounts it into the backend at `/app/academic-directory`. Bringing
-a university in is registering it and putting its file in the folder: no restart, no code.
+**The academic system (ADR 0006).** Each university's source of truth is one document of its
+academic system: who it is, its curriculum and its students (the schema, version 1, is in
+`tools/academic-data/README.md`). Identity asks `AcademicSystemPort` two things:
+`fetchProfile(tenantId, email)`, the profile of a student, at activation (US38) and when the record
+is imported (US40, US41); and `fetchUniversity(code)`, the university with its curriculum, when it is
+registered from its document and when its curriculum is synchronised. The profile carries the
+student code the university assigned, the name, the career, the cycle, the term, the status and the
+approved courses with their grades, each named as the curriculum names its code; the code is copied
+into `identity.users.student_code` as it comes.
+
+The simulated adapter, `MockAcademicSystemAdapter`, reads `<CODE>.json` from the folder
+`ayni.identity.academic-directory` (`AYNI_ACADEMIC_DIRECTORY`, `academic-directory` relative to where
+the backend runs by default), **each time it is asked, never at startup**, and checks it every time
+(`AcademicDocument.checkCoherence`): the document is of the university of its file name, course
+codes, emails and student codes are unique, every email is of a domain of the university, and every
+approved course is in the curriculum of the student's career. When `<CODE>.local.json` is next to
+it, its students are added to the document's and win on an email in both; git ignores those files,
+so a real address never reaches the repository. `backend/academic-directory/` holds `UPC.json` and
+`USIL.json`, generated by `tools/academic-data/generate.py` and never edited by hand, and a
+`README.md`; `docker-compose.yml` mounts it into the backend at `/app/academic-directory`. Bringing a
+university in is putting its document in the folder, registering it from the document and
+synchronising its curriculum: no restart, no code.
 
 | What happens | Answer of the activation |
 |---|---|
-| The university has no file in the folder | `400`, the university has no academic system configured; the link stays unused |
-| The file has no student with that email, whatever its case | `400`, the student was not found in the academic system; the link stays unused |
-| The file cannot be read | `500`: a mistake of the platform, written to the log with the university's code and nothing else |
+| The university has no document in the folder | `400`, the university has no academic system configured; the link stays unused |
+| The document has no student with that email, whatever its case | `400`, the student was not found in the academic system; the link stays unused |
+| The student's `status` is not `ACTIVE` (`GRADUATED`, `INACTIVE`) | `400`, the student is not currently enrolled at the university; the link stays unused |
+| The document cannot be read, or breaks one of the rules above | `500`: a mistake of the platform, written to the log with the university's code and the rule broken, never a student |
+
+Activating is `StudentActivation`: `admit` asks the academic system and refuses before anything is
+written, so the link stays unused; `create` writes the student, with their cycle, and their record.
+`ConfirmAccessUseCase` consumes the link between the two and publishes `StudentActivated` after.
 
 **Registering a university (TS10).** `POST /api/v1/admin/universities` takes the code, the name, the
 colours, the email domains, the minimum teaching grade, the time zone, and the initial credits with
@@ -512,6 +540,28 @@ is kept in upper case and the domains in lower case. Nothing is published when i
 
 Registering takes a database lock before it looks for the code and the domains, so two requests for
 the same code, or the same domain, end with one `201` and one `409`, never a `500`.
+
+**Registering a university from its academic system (ADR 0006, amended).**
+`POST /api/v1/admin/universities/from-academic-system` takes `code`, `initialCredits` and
+`creditValidityDays` (`initialCreditValidityDays`, the name of the manual registration, is read too).
+`RegisterUniversityFromAcademicSystemUseCase` reads the university's document and hands its name,
+logo, colours, email domains, time zone and minimum teaching grade to `RegisterUniversityUseCase`,
+unchanged: the same lock, the same refusals, the same baseline policy and the same
+`UniversityRegistered`. It answers as the manual registration. The curriculum is not loaded: a
+coordinator synchronises it. The manual registration keeps working.
+
+| Status | When |
+|---|---|
+| 201 | Registered. The body is the university with `studentCount` and `coordinatorCount` at 0 |
+| 400 | The code is missing, or the credits or their validity are below 1 |
+| 401, 403 | No session, or a session that is not a platform administrator's (the access filter) |
+| 404 | The academic system has no document for that code. **404 and not 400**: the request is well formed, and what it names does not exist |
+| 409 | The code or one of the email domains already belongs to a university |
+| 500 | The document cannot be read or contradicts itself |
+
+`logoUrl` may be a path relative to the origin of the frontend (`/logos/upc.png`, served from
+`web/public/logos/`): the API answers the logo as the university gave it, here and in
+`GET /api/v1/university` and `GET /api/v1/access/university`.
 
 `GET /api/v1/admin/universities` answers `200` with each university's configuration, whether it is
 active and how many students and coordinators it has, and nothing else about its people.
@@ -623,13 +673,25 @@ publishes `UniversityIdentityChanged` too, with the administrator as who changed
 administrator's session has no university, so the event carries the university that was edited, and
 the domains themselves are not in it.
 
-**The demo coordinator.** Under the `demo` profile only (`docs/demo.md`), `DemoCoordinatorData`
-creates an active coordinator of UPC, Carlos Rivera, so a presentation needs no invitation first:
-they sign in by link with `ayni.identity.demo-coordinator-email` (`AYNI_DEMO_COORDINATOR_EMAIL`,
-`coordinator@upc.edu.pe` by default), which must be of a domain of UPC; otherwise nothing is created
-and the log says so without the address. It runs when the application is ready, after
-`DemoIdentityData` created the university, and once: an address already taken is left alone. No
-event is published, as for the students of `DemoIdentityData`. Under `demo` a session lasts a year
+**The demonstration data (`dev`).** `DemoIdentityData` runs first among the demonstration data
+(`@Order(1)`): it registers UPC and USIL from their documents through
+`RegisterUniversityFromAcademicSystemUseCase` (five initial credits for thirty days) and activates
+only the four people of the demonstration, with fixed identifiers, through `StudentActivation`
+without a link: Ana Torres (`11111111-…`) and Lucía Paredes (`66666666-…`) at `PROFILE`, Bruno Salas
+(`22222222-…`) and Mateo Ríos (`77777777-…`) with their profile and record done, whose last step
+`DemoSkillsData` takes. Every other student of the documents activates live with their link. No
+`StudentActivated` is published for them, as before, so the wallets are the ones of
+`DemoWalletData`. A university already registered and a person already there are left alone.
+
+**The demo coordinators.** Under the `demo` profile only (`docs/demo.md`), `DemoCoordinatorData`
+creates an active coordinator of each university, so a presentation needs no invitation first:
+Carlos Rivera of UPC signs in by link with `ayni.identity.demo-coordinator-email`
+(`AYNI_DEMO_COORDINATOR_EMAIL`, `coordinator@upc.edu.pe` by default), and Rosa Huamán of USIL with
+`ayni.identity.demo-usil-coordinator-email` (`AYNI_DEMO_USIL_COORDINATOR_EMAIL`,
+`coordinator@usil.edu.pe` by default). Each address must be of a domain of its university; otherwise
+nothing is created and the log says so without the address. It runs when the application is ready,
+after `DemoIdentityData` registered the universities, and once: an address already taken is left
+alone. No event is published, as for the students of `DemoIdentityData`. Under `demo` a session lasts a year
 (`ayni.identity.session-ttl: P365D`), so moving the clock weeks ahead does not sign anybody out,
 while an access link keeps its ten minutes and expires with the moved clock.
 
@@ -684,7 +746,8 @@ endpoint for it is `POST /api/v1/me/onboarding/interests` below.
 
 **Publishes:** `SkillEnabled`, `SkillWithdrawn`, `ValidationResolved`.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold,
-`IdentityApi.requireUser` and `IdentityApi.completeOnboarding` at the last step of the onboarding.
+`IdentityApi.requireUser` and `IdentityApi.completeOnboarding` at the last step of the onboarding,
+`IdentityApi.academicCurriculum` to synchronise the catalogue with the academic system.
 **Listens to:** `StudentActivated` — to enable the courses their grades already justify;
 `SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
 catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
@@ -713,6 +776,7 @@ already depends on skills, and the modules would depend on each other.
 | POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
 | GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
 | POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
+| POST | `/api/v1/coordinator/academic-catalog/sync` | active coordinator | loads the curriculum the academic system says, the same way; a course keeps its description and the minimum grade is not touched (ADR 0006, amended) |
 | POST | `/api/v1/coordinator/academic-catalog/courses/{id}/retire` | coordinator | takes a course of the university out: same effect and confirmation as retiring an item; a global tool is not found here (US51) |
 | GET | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | the grade a student needs in a course to teach it; the registered one until a coordinator sets it (US51) |
 | PUT | `/api/v1/coordinator/academic-catalog/minimum-grade` | coordinator | sets that grade (0 to 20, two decimals); applies to new enablements, the granted ones stay (US51) |
@@ -730,6 +794,27 @@ loading a curriculum creates (US51), is left out by `Category.acceptsProposals`:
 one university and is enabled by grade, while an approved proposal becomes a global tool. It is
 not paged, since the categories are the few the system has. `POST /api/v1/tutor/skills/proposals`
 was not changed and still accepts that category's identifier if someone sends it.
+
+**Synchronising the curriculum (ADR 0006, amended).** `POST
+/api/v1/coordinator/academic-catalog/sync` takes no body. `SyncAcademicCatalogUseCase` asks identity
+for the curriculum of the coordinator's university (`IdentityApi.academicCurriculum`) and loads it
+with `LoadAcademicCatalogUseCase`, so it is US51's loading with the course code as the key: new
+courses are added, names are updated, retired ones are brought back, nothing is removed, all or
+nothing, under the same lock per university. Two differences, both because the academic system says
+nothing about them: a course keeps the description a coordinator gave it, and the minimum teaching
+grade is not synchronised (the registration set it and the coordinator changes it). It answers the
+counts of `POST .../courses`. Synchronising twice in a row creates nothing the second time.
+`DemoSkillsData` loads the curriculum of UPC and USIL under `dev` with the same use case
+(`withoutCoordinator`, since no coordinator exists yet), and then takes the last step of the
+onboarding of Bruno and Mateo with `CompleteOnboardingUseCase`, offering every course they approved:
+those whose grade reaches the threshold are enabled.
+
+| Status | When |
+|---|---|
+| 200 | Synchronised, with what happened to each course |
+| 403 | A student (the access filter), or a coordinator who is restricted |
+| 404 | The university has no academic system configured |
+| 500 | Its document cannot be read or contradicts itself |
 
 **The last step of the onboarding (US40).** `POST /api/v1/me/onboarding/interests` takes `learning`
 and `teaching`, lists of catalogue item identifiers. Both are asked of every student, whatever their

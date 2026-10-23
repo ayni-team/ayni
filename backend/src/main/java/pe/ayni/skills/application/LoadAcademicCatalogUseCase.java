@@ -92,6 +92,17 @@ public class LoadAcademicCatalogUseCase {
     List<CourseToLoad> listed = tidy(courses);
 
     coordinators.require(coordinatorId);
+    return load(listed, false);
+  }
+
+  /**
+   * Loads a list already tidied into the current university, for whoever was already allowed to.
+   *
+   * @param keepDescriptions whether a course listed without a description keeps the one it has,
+   *     as when the list comes from the academic system, which says nothing about descriptions;
+   *     otherwise the list is the whole truth and a missing description removes it
+   */
+  List<LoadedCourse> load(List<CourseToLoad> listed, boolean keepDescriptions) {
     String tenantId = TenantContext.require();
 
     // One coordinator at a time per university: see the lock.
@@ -125,15 +136,19 @@ public class LoadAcademicCatalogUseCase {
         result.add(new LoadedCourse(item, Outcome.CREATED));
         continue;
       }
+      String description =
+          keepDescriptions && course.description() == null
+              ? item.getDescription()
+              : course.description();
       boolean reinstated = !item.isActive();
       boolean changed =
           !item.getName().equals(course.name())
-              || !Objects.equals(item.getDescription(), course.description());
+              || !Objects.equals(item.getDescription(), description);
       if (reinstated) {
         item.reinstate();
       }
       if (changed) {
-        item.describe(course.name(), course.description());
+        item.describe(course.name(), description);
       }
       result.add(
           new LoadedCourse(
@@ -148,7 +163,7 @@ public class LoadAcademicCatalogUseCase {
   }
 
   /** Trims what was typed and refuses what cannot be a curriculum, before anything is read or written. */
-  private static List<CourseToLoad> tidy(List<CourseToLoad> courses) {
+  static List<CourseToLoad> tidy(List<CourseToLoad> courses) {
     if (courses.isEmpty()) {
       throw new SkillsRuleViolation("the list of courses is empty");
     }

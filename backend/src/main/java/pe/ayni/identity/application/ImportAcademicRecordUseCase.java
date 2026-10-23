@@ -14,6 +14,15 @@ import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.shared.tenancy.TenantContext;
 
+/**
+ * US40 and US41: the student brings their record up to date from their university's academic
+ * system (ADR 0006).
+ *
+ * <p>The approved courses are replaced with what the academic system reports today, and so are the
+ * career, the cycle and the current term, which are the university's data and read only in Ayni.
+ * The first import moves the onboarding from the academic record to the interests; later ones move
+ * nothing.
+ */
 @Service
 public class ImportAcademicRecordUseCase {
 
@@ -92,6 +101,14 @@ public class ImportAcademicRecordUseCase {
                         .toList();
 
         academicRecords.saveAll(imported);
+
+        // Career, cycle and term are the university's and change with the term: they follow the
+        // record every time it is imported, as the approved courses do.
+        user.refreshAcademicData(
+                profile.career(),
+                profile.cycle(),
+                profile.currentTerm(),
+                now);
 
         user.markAcademicRecordImported(now);
     }

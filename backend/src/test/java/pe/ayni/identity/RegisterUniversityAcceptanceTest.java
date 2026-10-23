@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -39,7 +40,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserStatus;
@@ -77,13 +77,13 @@ class RegisterUniversityAcceptanceTest {
     @Autowired private MutableClock clock;
     @Autowired private TenantRepository tenants;
     @Autowired private UserRepository users;
-    @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
+    @Autowired private AutowireCapableBeanFactory beans;
     @Autowired private IdentityApi identity;
 
     @BeforeEach
     void theDemoUniversityAndItsStudents() throws Exception {
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
-        new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+        beans.createBean(DemoIdentityData.class).run(null);
     }
 
     private String registerUniversity(String grade, int credits, int validityDays)
@@ -235,8 +235,9 @@ class RegisterUniversityAcceptanceTest {
         assertThat(otherBefore.grade()).isEqualByComparingTo("12.00");
         assertThat(otherBefore.policy().orElseThrow().amount()).isEqualTo(Credits.of(4));
         assertThat(otherBefore.policy().orElseThrow().validityDays()).isEqualTo(20);
+        // UPC keeps the grade of its academic document, the one it was registered with.
         assertThat(entryOf("UPC").get("minimumTeachingGrade").decimalValue())
-                .isEqualByComparingTo("13.00");
+                .isEqualByComparingTo("15.00");
     }
 
     @Test

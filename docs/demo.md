@@ -8,6 +8,7 @@ a deployment.
 
 - [What the profile changes](#what-the-profile-changes)
 - [Starting it](#starting-it)
+- [The universities and their people](#the-universities-and-their-people)
 - [Signing in with each role](#signing-in-with-each-role)
 - [The clock](#the-clock)
 - [Switching persona](#switching-persona)
@@ -23,7 +24,7 @@ a deployment.
 | The `Clock` every rule reads | `Clock.systemUTC()` (`config.TimeConfig`) | `config.demo.AdjustableClock`: the real time plus an offset the administrator moves |
 | `/api/v1/admin/demo/clock` | does not exist (404) | read, move, set and reset the clock; platform administrator only |
 | `/api/v1/admin/demo/personas` and `/login-as` | do not exist (404) | list the active students and coordinators and open a session as any of them; platform administrator only |
-| Demonstration data | the six `Demo*Data` of `dev` | the same, through `spring.profiles.group.demo: dev`, plus an active coordinator of UPC (`DemoCoordinatorData`) |
+| Demonstration data | the six `Demo*Data` of `dev` | the same, through `spring.profiles.group.demo: dev`, plus an active coordinator of UPC and one of USIL (`DemoCoordinatorData`) |
 | Expiry of credits, generation of hours (`cron`) | 03:00 and 02:00 UTC of the real night | every minute |
 | Jobs at an interval | every minute (audit: every hour) | every 5 seconds (audit: every 10) |
 | Session token | 7 days | 365 days |
@@ -64,6 +65,36 @@ credits of Ana expire earlier than the script below says (read them first, see s
 The log says so whenever the clock is moved: `The demo clock was moved: the application no longer
 reads the real time`.
 
+## The universities and their people
+
+Both universities come from the documents of their academic systems, in `backend/academic-directory`
+(ADR 0006; `tools/academic-data/README.md` has the schema and how they are generated). At the first
+start `DemoIdentityData` registers **UPC** and **USIL** with what their documents say (name, logo,
+colours, domains, time zone and minimum teaching grade: 15 at UPC, 16 at USIL) and five initial
+credits for thirty days; `DemoSkillsData` loads the curriculum of each from its document (57 courses
+at UPC, 64 at USIL, with their Spanish names). Each document has 28 students; **only the four people
+below are activated at the start**. Every other student of the documents activates their account
+live: ask for a link with their address and open it from Mailpit, and the academic system answers
+who they are. One student of each career is no longer enrolled (a graduate, somebody who left) and
+is refused with `400`, the link left unused.
+
+| University | Person | Address | At the start |
+|---|---|---|---|
+| UPC | Ana Torres, Software, cycle 4 | `u202400001@upc.edu.pe` | active, at the first step of the onboarding (`PROFILE`), with the credits of every origin of `DemoWalletData` |
+| UPC | Bruno Salas, Software, cycle 8 | `u202300002@upc.edu.pe` | active, onboarding `COMPLETED`, tutor of the 25 courses where his grade reaches 15, free every day 15:00 to 18:00 Lima time |
+| UPC | Carla Mendoza, Sistemas de Información, cycle 3 | `u202500003@upc.edu.pe` | not activated: she activates her account live |
+| USIL | Lucía Paredes, Software, cycle 4 | `lucia.paredes@usil.edu.pe` | active, at the first step of the onboarding, no credits |
+| USIL | Mateo Ríos, Sistemas de Información, cycle 8 | `mateo.rios@usil.edu.pe` | active, onboarding `COMPLETED`, tutor of the 30 courses where his grade reaches 16, free every day 15:00 to 18:00 Lima time |
+
+The demo people are activated without publishing `StudentActivated`, as they always were: Ana's and
+Bruno's wallets are the ones `DemoWalletData` writes, and Lucía and Mateo start with none. A student
+activated live gets the university's five initial credits.
+
+**To sign in with your own address** without committing it, create
+`backend/academic-directory/UPC.local.json` (ignored by git) with the students to add, in the schema
+of the document; only its `students` are read, and an address in both files is the local one. See
+`backend/academic-directory/README.md`.
+
 ## Signing in with each role
 
 Everybody signs in by link, as always: ask for one, open Mailpit at <http://localhost:8025>, copy
@@ -82,8 +113,10 @@ curl -s -X POST localhost:8080/api/v1/access/confirm \
 |---|---|---|
 | Platform administrator | `admin@ayni.local` | moves the clock |
 | Coordinator of UPC | `coordinator@upc.edu.pe` (`AYNI_DEMO_COORDINATOR_EMAIL` to change it; it must be of a domain of UPC) | Carlos Rivera, active from the start, no invitation needed |
+| Coordinator of USIL | `coordinator@usil.edu.pe` (`AYNI_DEMO_USIL_COORDINATOR_EMAIL` to change it; it must be of a domain of USIL) | Rosa Huamán, active from the start |
 | Student | `u202400001@upc.edu.pe` | Ana Torres, with credits of every origin |
-| Student and tutor | `u202300002@upc.edu.pe` | Bruno Salas, teaches Software Architecture Fundamentals and Databases I, free every day 15:00 to 18:00 Lima time |
+| Student and tutor | `u202300002@upc.edu.pe` | Bruno Salas, teaches Diseño de Base de Datos among others, free every day 15:00 to 18:00 Lima time |
+| Students of USIL | `lucia.paredes@usil.edu.pe`, `mateo.rios@usil.edu.pe` | Lucía Paredes and Mateo Ríos, the student and the tutor of the second university |
 
 **Sign the four of them in before moving the clock**, and keep the four tokens:
 
@@ -188,17 +221,21 @@ export DAY=2026-10-22
 
 ### 1. Book
 
-Ana looks for a tutor of Databases I tomorrow, holds Bruno's hour and books it.
+Ana looks for a tutor of Diseño de Base de Datos tomorrow, holds Bruno's hour and books it. The
+courses come from the document of UPC, so their identifiers are new on every database: read it from
+the catalogue first and keep it as `COURSE`.
 
 ```bash
-curl -s "localhost:8080/api/v1/search/offers?catalogItemId=b0000000-0000-4000-8000-000000000102&from=${DAY}T13:00:00Z&to=${DAY}T23:59:00Z" \
+curl -s "localhost:8080/api/v1/catalog?q=base%20de%20datos" -H "Authorization: Bearer $ANA"
+export COURSE=<the id of Diseño de Base de Datos, course code SI400>
+curl -s "localhost:8080/api/v1/search/offers?catalogItemId=$COURSE&from=${DAY}T13:00:00Z&to=${DAY}T23:59:00Z" \
   -H "Authorization: Bearer $ANA"
 curl -s -X POST localhost:8080/api/v1/bookings/holds -H "Authorization: Bearer $ANA" \
   -H 'Content-Type: application/json' \
   -d "{\"tutorId\": \"22222222-2222-4222-8222-222222222222\", \"start\": \"${DAY}T20:00:00Z\", \"hours\": 1}"
 curl -s -X POST localhost:8080/api/v1/bookings -H "Authorization: Bearer $ANA" \
   -H 'Content-Type: application/json' \
-  -d "{\"tutorId\": \"22222222-2222-4222-8222-222222222222\", \"catalogItemId\": \"b0000000-0000-4000-8000-000000000102\", \"start\": \"${DAY}T20:00:00Z\", \"hours\": 1, \"needDescription\": \"Normal forms before Friday's exam\"}"
+  -d "{\"tutorId\": \"22222222-2222-4222-8222-222222222222\", \"catalogItemId\": \"$COURSE\", \"start\": \"${DAY}T20:00:00Z\", \"hours\": 1, \"needDescription\": \"Normal forms before Friday's exam\"}"
 ```
 
 **What to see:** the search lists Bruno at 20:00 UTC; the booking answers `201` with its
@@ -447,7 +484,7 @@ purchase is refused without asking the provider.
 Everything else keeps working, because nothing else depends on the provider:
 
 ```bash
-curl -s "localhost:8080/api/v1/search/offers?catalogItemId=b0000000-0000-4000-8000-000000000102&from=${DAY}T13:00:00Z&to=${DAY}T23:59:00Z" \
+curl -s "localhost:8080/api/v1/search/offers?catalogItemId=$COURSE&from=${DAY}T13:00:00Z&to=${DAY}T23:59:00Z" \
   -H "Authorization: Bearer $ANA"
 curl -s localhost:8080/api/v1/bookings/mine -H "Authorization: Bearer $ANA"
 curl -s localhost:8080/api/v1/wallet -H "Authorization: Bearer $ANA"

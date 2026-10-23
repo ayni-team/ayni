@@ -35,4 +35,17 @@ class CoordinatorGuard {
       throw new NotACoordinator();
     }
   }
+
+  /**
+   * As {@link #require}, and the coordinator must be active: a restricted one is refused too.
+   *
+   * @throws NoSuchElementException when the person is not a user of the current university
+   * @throws NotACoordinator when they are, but not an active coordinator
+   */
+  void requireActive(UUID userId) {
+    require(userId);
+    if (!identity.isActive(userId)) {
+      throw new NotACoordinator();
+    }
+  }
 }

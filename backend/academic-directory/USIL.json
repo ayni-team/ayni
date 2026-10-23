@@ -1,0 +1,5115 @@
+{
+  "university": {
+    "code": "USIL",
+    "name": "Universidad San Ignacio de Loyola",
+    "logoUrl": "/logos/usil.jpg",
+    "primaryColor": "#07256D",
+    "secondaryColor": "#FFFFFF",
+    "emailDomains": [
+      "usil.edu.pe"
+    ],
+    "timezone": "America/Lima",
+    "minimumTeachingGrade": 16.0,
+    "currentTerm": "2026-2"
+  },
+  "careers": [
+    "Ingeniería de Software",
+    "Ingeniería de Sistemas de Información"
+  ],
+  "courses": [
+    {
+      "code": "USIL001",
+      "name": "Fundamentos de Programación",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL002",
+      "name": "Fundamentos en Competencias Digitales",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL003",
+      "name": "Matemática",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL004",
+      "name": "Lenguaje y Comunicación I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL005",
+      "name": "Realidad Nacional y Globalización",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL006",
+      "name": "English I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "USIL007",
+      "name": "Programación Orientada a Objetos I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL008",
+      "name": "Matemática Discreta",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL009",
+      "name": "Cálculo de Una Variable",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL010",
+      "name": "Lenguaje y Comunicación II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL011",
+      "name": "Administración para los Negocios",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL012",
+      "name": "English II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "USIL013",
+      "name": "Programación y Estructuras de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL014",
+      "name": "Ingeniería de Software I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL015",
+      "name": "Álgebra Lineal Computacional",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL016",
+      "name": "Teoría de Computación",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL017",
+      "name": "Principios de Economía",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL018",
+      "name": "English III",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL056",
+      "name": "Gestión de Procesos",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL057",
+      "name": "Electricidad y Ondas",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "USIL019",
+      "name": "Estructuras de Datos Avanzada",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL020",
+      "name": "Estadística Descriptiva e Inferencia Estadística",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL021",
+      "name": "Gerenciamiento de Datos I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL022",
+      "name": "Experiencia de Usuario (UX)",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL023",
+      "name": "Fundamentos Contables y Financieros",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL024",
+      "name": "English IV",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL058",
+      "name": "Análisis y Diseño de Sistemas I",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL059",
+      "name": "Arquitectura de Computadoras",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "USIL025",
+      "name": "Programación Orientada a Objetos II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL026",
+      "name": "Ingeniería de Software II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL027",
+      "name": "Gerenciamiento de Datos II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL028",
+      "name": "Interacción Humano Computador",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL029",
+      "name": "Ética y Ciudadanía",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL030",
+      "name": "Marketing",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL060",
+      "name": "Arquitectura Empresarial",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "USIL031",
+      "name": "Ingeniería de Software III",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL032",
+      "name": "Programación Competitiva",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL033",
+      "name": "Análisis y Diseño de Algoritmos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL034",
+      "name": "Sistemas Operativos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL035",
+      "name": "Metodología de la Investigación Científica",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL061",
+      "name": "Análisis y Diseño de Sistemas II",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL062",
+      "name": "Gobierno de TI",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL063",
+      "name": "Gobierno de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "USIL036",
+      "name": "Desarrollo Basado en Plataformas",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL037",
+      "name": "Gestión de Sistemas de Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL038",
+      "name": "Compiladores",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL039",
+      "name": "Redes y Telecomunicaciones I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL040",
+      "name": "Fundamentos del Liderazgo Sostenible",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL064",
+      "name": "Gestión del Conocimiento",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "USIL041",
+      "name": "Agentes Inteligentes",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "USIL042",
+      "name": "Seguridad de la Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "USIL043",
+      "name": "Gestión de Proyectos para Computación",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "USIL044",
+      "name": "Cloud Computing",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "USIL045",
+      "name": "Oportunidades de Negocios",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "USIL046",
+      "name": "Internet of Things",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "USIL047",
+      "name": "Visualización de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "USIL048",
+      "name": "Proyecto para Computación I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "USIL049",
+      "name": "Tecnologías Emergentes",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "USIL050",
+      "name": "Computación en la Sociedad",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "USIL051",
+      "name": "Big Data y Analítica de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    },
+    {
+      "code": "USIL052",
+      "name": "Estrategias de Sistemas de Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    },
+    {
+      "code": "USIL053",
+      "name": "Proyecto para Computación II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    },
+    {
+      "code": "USIL054",
+      "name": "Emprendimiento e Innovación Tecnológica",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    },
+    {
+      "code": "USIL055",
+      "name": "Desarrollo de Negocios Electrónicos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    }
+  ],
+  "students": [
+    {
+      "email": "mariana.cardenas@usil.edu.pe",
+      "studentCode": "2025200026",
+      "fullName": "Mariana Cárdenas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 2,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 12.25,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 14.68,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 11.23,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 14.03,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 16.91,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 20.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "gabriel.navarro@usil.edu.pe",
+      "studentCode": "2024200027",
+      "fullName": "Gabriel Navarro",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 16.5,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 13.39,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 13.21,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 14.03,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 13.3,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 13.53,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 11.84,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 17.31,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 12.64,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 12.89,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 12.79,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 12.52,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 18.15,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 13.85,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 15.54,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 14.32,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "santiago.arce@usil.edu.pe",
+      "studentCode": "2023200029",
+      "fullName": "Santiago Arce",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 16.76,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 15.77,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 15.46,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.03,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 17.26,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 18.19,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 15.4,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 17.58,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 16.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.6,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 17.97,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 17.43,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 16.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 17.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 17.03,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 18.23,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 15.13,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 16.53,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 17.2,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 18.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 13.67,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.73,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 17.02,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 17.87,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "alejandra.gutierrez@usil.edu.pe",
+      "studentCode": "2023200025",
+      "fullName": "Alejandra Gutiérrez",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 18.5,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 15.75,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 16.36,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.01,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.06,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 14.34,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 12.42,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.21,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 11.44,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 12.64,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 16.83,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 13.55,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 14.16,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 15.08,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 12.35,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 15.89,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 17.19,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 15.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.75,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 13.46,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 11.56,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 14.83,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 12.29,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 13.87,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 18.05,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 11.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "carla.cardenas@usil.edu.pe",
+      "studentCode": "2023200031",
+      "fullName": "Carla Cárdenas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 14.29,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 14.82,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 15.73,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 16.95,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 15.23,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 17.7,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.72,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 15.98,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 13.09,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 15.41,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 11.66,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 15.59,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 17.11,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 13.92,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 15.53,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 12.73,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.14,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 19.89,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 12.82,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 15.34,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 17.86,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 11.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 12.19,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 13.3,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 11.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "daniela.tapia@usil.edu.pe",
+      "studentCode": "2023200033",
+      "fullName": "Daniela Tapia",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 18.41,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 17.09,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 16.06,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 16.37,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 15.66,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.92,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 16.68,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 18.18,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 16.21,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 17.16,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 18.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 19.65,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 18.86,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 19.63,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 16.73,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 16.52,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 18.78,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 17.66,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.07,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 17.52,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.21,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 17.37,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 16.36,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 16.41,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 19.49,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 16.75,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 15.71,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 16.31,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 16.67,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "lucia.salazar@usil.edu.pe",
+      "studentCode": "2023200028",
+      "fullName": "Lucía Salazar",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 17.3,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 12.33,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 12.51,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.64,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 14.31,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 16.42,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 14.51,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 15.09,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 13.4,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 13.23,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 18.2,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 12.69,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 17.07,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.68,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 11.88,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 17.94,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 17.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 14.86,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 12.08,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 16.88,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 14.92,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 15.86,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 18.26,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 18.06,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 11.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 14.41,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 19.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 15.44,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 11.87,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "paula.vargas@usil.edu.pe",
+      "studentCode": "2023200024",
+      "fullName": "Paula Vargas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 15.62,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.21,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 18.09,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 16.73,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 15.5,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 16.36,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.27,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 17.33,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 16.9,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 15.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 17.2,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 16.06,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 15.87,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.95,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 17.9,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 17.46,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 18.81,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 16.75,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 16.97,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.37,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 17.31,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 17.53,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 17.29,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 18.36,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 15.57,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 16.3,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 16.8,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 17.38,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 16.06,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 17.1,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "claudia.zegarra@usil.edu.pe",
+      "studentCode": "2022200034",
+      "fullName": "Claudia Zegarra",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 12.07,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 14.61,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.37,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 19.79,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.3,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 12.17,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 12.66,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 14.28,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.34,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.25,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 16.3,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 12.61,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 14.21,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 15.49,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 14.11,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 12.48,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 16.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 14.6,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 13.84,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.83,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 11.45,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 15.41,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 14.21,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 17.85,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 13.72,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 12.16,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 12.76,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 16.21,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 11.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 14.74,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 15.34,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 13.33,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "julian.benavides@usil.edu.pe",
+      "studentCode": "2022200032",
+      "fullName": "Julián Benavides",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 13.89,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 12.98,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 13.27,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 13.83,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 11.75,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 14.28,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 13.71,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 13.51,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.79,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.34,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 14.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 12.51,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 13.52,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 15.6,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 19.01,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 14.97,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 14.43,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 17.57,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 13.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 12.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 16.11,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 15.23,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 12.44,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 11.76,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 12.3,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 12.24,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 16.39,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 16.56,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "rocio.palomino@usil.edu.pe",
+      "studentCode": "2022200030",
+      "fullName": "Rocío Palomino",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 15.45,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.69,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 19.65,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.97,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 17.36,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.94,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.52,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.43,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 14.38,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.03,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.89,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 17.44,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 15.52,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 19.06,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 14.64,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 16.57,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 17.44,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 17.09,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 15.67,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 17.54,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 17.79,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.33,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 15.99,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 16.57,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 15.41,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 19.23,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 17.39,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 18.16,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 17.77,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 16.43,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 19.37,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 16.35,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 16.99,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 16.87,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "mateo.rios@usil.edu.pe",
+      "studentCode": "2022201102",
+      "fullName": "Mateo Ríos",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 8,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 15.81,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 17.1,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 17.59,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.81,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 18.52,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 17.05,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 15.22,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.55,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 16.93,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.34,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 17.1,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 18.04,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 14.68,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 14.71,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 16.05,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 16.32,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 19.03,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 16.59,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 15.7,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 15.07,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 18.52,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 17.58,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 16.25,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 17.03,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 17.06,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 17.65,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 17.06,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 17.17,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 17.35,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 16.42,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 15.7,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 15.76,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 19.06,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 16.97,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 14.51,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 16.43,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 16.5,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 17.05,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 15.8,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL064",
+          "grade": 18.13,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "fernanda.tapia@usil.edu.pe",
+      "studentCode": "2021200035",
+      "fullName": "Fernanda Tapia",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.97,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.46,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 12.17,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 15.59,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 18.15,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.6,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 11.0,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 11.71,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 13.56,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 14.71,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.5,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.88,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 13.71,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 13.58,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 15.07,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 11.96,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 11.0,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 13.72,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 11.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 15.59,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 19.33,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.77,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 14.98,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 11.04,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 13.51,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 13.97,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 15.61,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 15.73,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 12.23,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL060",
+          "grade": 16.98,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 16.19,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 17.49,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 11.62,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 11.36,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 18.5,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 13.68,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 12.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL064",
+          "grade": 15.15,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL041",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL042",
+          "grade": 15.65,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL044",
+          "grade": 11.5,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL045",
+          "grade": 17.99,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL046",
+          "grade": 13.96,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL047",
+          "grade": 15.94,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL049",
+          "grade": 15.21,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL050",
+          "grade": 13.42,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "piero.ortiz@usil.edu.pe",
+      "studentCode": "2024200036",
+      "fullName": "Piero Ortiz",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "INACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 14.36,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 14.04,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 13.44,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 12.62,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 12.65,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.09,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 18.99,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 17.12,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 15.58,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.83,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.27,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 16.79,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 15.56,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL056",
+          "grade": 14.17,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL057",
+          "grade": 16.46,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 13.15,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 14.22,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 14.45,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.49,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL058",
+          "grade": 16.41,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL059",
+          "grade": 17.54,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 16.28,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 12.67,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 16.59,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 13.94,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 11.64,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 17.84,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL061",
+          "grade": 16.31,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL062",
+          "grade": 13.31,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL063",
+          "grade": 20.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 14.12,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 14.08,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 13.6,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 14.8,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL064",
+          "grade": 14.12,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL041",
+          "grade": 13.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL043",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL044",
+          "grade": 16.42,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL045",
+          "grade": 19.16,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL046",
+          "grade": 12.83,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL047",
+          "grade": 16.56,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL048",
+          "grade": 16.64,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL049",
+          "grade": 13.44,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL050",
+          "grade": 16.3,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "paula.chavez@usil.edu.pe",
+      "studentCode": "2025200014",
+      "fullName": "Paula Chávez",
+      "career": "Ingeniería de Software",
+      "cycle": 2,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 14.3,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.1,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 17.6,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 12.82,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 11.55,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "matias.zegarra@usil.edu.pe",
+      "studentCode": "2024200016",
+      "fullName": "Matías Zegarra",
+      "career": "Ingeniería de Software",
+      "cycle": 3,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 14.77,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 18.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 15.37,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 13.92,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 12.52,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 12.46,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.7,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 15.69,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 11.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "bruno.vargas@usil.edu.pe",
+      "studentCode": "2024200012",
+      "fullName": "Bruno Vargas",
+      "career": "Ingeniería de Software",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL002",
+          "grade": 11.9,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 14.43,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 14.44,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 14.41,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 13.3,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.02,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 19.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.62,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 15.97,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 15.85,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 18.96,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.65,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 11.35,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 13.46,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 12.81,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "lucia.paredes@usil.edu.pe",
+      "studentCode": "2023201101",
+      "fullName": "Lucía Paredes",
+      "career": "Ingeniería de Software",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 12.29,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 13.54,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 14.66,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.94,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 16.57,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 12.65,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.69,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.25,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 13.35,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 15.47,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.81,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 12.89,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 14.94,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 19.75,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "sebastian.gutierrez@usil.edu.pe",
+      "studentCode": "2024200015",
+      "fullName": "Sebastián Gutiérrez",
+      "career": "Ingeniería de Software",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 13.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 13.57,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 14.01,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 14.26,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 13.68,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 13.25,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 15.08,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 19.09,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 14.65,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 19.01,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 13.45,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 11.32,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 19.38,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 18.28,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 13.77,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 13.57,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 11.67,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "piero.delgado@usil.edu.pe",
+      "studentCode": "2023200020",
+      "fullName": "Piero Delgado",
+      "career": "Ingeniería de Software",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 18.31,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.84,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 16.29,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 14.27,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 14.87,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 17.71,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 18.21,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 16.05,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 16.36,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 19.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 17.61,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 17.09,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 17.67,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 17.13,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 19.52,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 16.96,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 16.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 17.94,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 18.2,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.97,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 18.32,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 14.61,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 17.04,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "rodrigo.palomino@usil.edu.pe",
+      "studentCode": "2023200021",
+      "fullName": "Rodrigo Palomino",
+      "career": "Ingeniería de Software",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 15.06,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 12.81,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 16.8,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 16.31,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.4,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 16.04,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 17.58,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 14.9,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 15.82,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.39,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 14.6,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 16.57,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 14.72,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 11.05,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 12.59,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 17.88,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 16.01,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 12.61,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 14.68,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 17.76,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 13.87,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 11.54,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "diego.espinoza@usil.edu.pe",
+      "studentCode": "2023200019",
+      "fullName": "Diego Espinoza",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 18.03,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 17.33,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 15.42,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 13.68,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 17.09,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 15.91,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 13.76,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 16.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 13.37,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 16.99,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 14.69,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 14.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 12.48,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 14.54,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 11.79,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 16.4,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 14.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 17.48,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 19.27,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 14.87,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 11.1,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 11.78,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 18.24,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "joaquin.medina@usil.edu.pe",
+      "studentCode": "2023200011",
+      "fullName": "Joaquín Medina",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 18.12,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.94,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 16.52,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 17.15,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 16.29,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 18.24,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.55,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 17.07,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 17.53,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 17.34,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 15.35,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 16.27,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 16.66,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 16.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 19.4,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 17.09,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 17.62,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 18.51,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 18.48,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.38,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 18.6,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 16.92,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.71,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 15.4,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 16.57,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 16.01,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 16.59,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 16.66,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 16.96,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "mateo.cornejo@usil.edu.pe",
+      "studentCode": "2023200018",
+      "fullName": "Mateo Cornejo",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 12.84,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 14.52,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 14.26,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 15.35,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 17.3,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 16.71,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 19.6,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.11,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 17.1,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 15.84,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 17.88,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 15.81,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 11.96,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 16.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 11.08,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 15.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 12.12,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 15.66,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 12.25,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 15.47,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 14.99,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 13.03,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 14.06,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 14.65,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 11.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "bruno.castillo@usil.edu.pe",
+      "studentCode": "2022200022",
+      "fullName": "Bruno Castillo",
+      "career": "Ingeniería de Software",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.13,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 13.77,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 15.38,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 12.82,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 19.52,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 12.52,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 15.56,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 15.68,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 12.82,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 17.77,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 14.15,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.64,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 16.65,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 16.2,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 17.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 18.07,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 17.4,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 17.35,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 16.72,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 18.3,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 16.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 13.63,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 13.5,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 12.46,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 15.76,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 13.84,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 13.37,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL031",
+          "grade": 13.46,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL032",
+          "grade": 17.27,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL033",
+          "grade": 14.6,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 15.7,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 12.4,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "alvaro.chavez@usil.edu.pe",
+      "studentCode": "2022200013",
+      "fullName": "Álvaro Chávez",
+      "career": "Ingeniería de Software",
+      "cycle": 8,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 12.41,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 15.37,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 15.27,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 13.19,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 17.39,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 12.47,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 14.65,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 20.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 11.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 13.82,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 11.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.89,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 14.23,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 11.55,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 11.85,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 11.93,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 15.71,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 15.68,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 12.76,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 13.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 18.6,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 18.3,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 16.11,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 13.69,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 11.41,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 11.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL032",
+          "grade": 12.68,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL033",
+          "grade": 13.82,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 11.21,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 13.56,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 14.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 15.19,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL038",
+          "grade": 13.88,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 11.15,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 16.49,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "piero.valdivia@usil.edu.pe",
+      "studentCode": "2023200023",
+      "fullName": "Piero Valdivia",
+      "career": "Ingeniería de Software",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "GRADUATED",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.24,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 14.92,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 14.79,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 11.95,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 16.37,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 14.24,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 13.15,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL008",
+          "grade": 13.19,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 11.0,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 17.48,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 12.67,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 15.17,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 15.57,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 16.57,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 15.52,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 17.88,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 15.29,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL018",
+          "grade": 13.21,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 17.03,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 15.12,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 11.32,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL022",
+          "grade": 17.74,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.57,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 14.43,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 17.98,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 15.69,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 14.65,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 16.08,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL031",
+          "grade": 14.97,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL032",
+          "grade": 13.78,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL033",
+          "grade": 15.59,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 14.34,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 15.15,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 15.33,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 15.74,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL038",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 13.54,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 11.75,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL041",
+          "grade": 12.6,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL042",
+          "grade": 16.37,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL043",
+          "grade": 12.94,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL044",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL045",
+          "grade": 16.41,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL046",
+          "grade": 13.31,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL047",
+          "grade": 12.64,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL048",
+          "grade": 17.71,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL049",
+          "grade": 19.97,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL050",
+          "grade": 15.75,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "santiago.torres@usil.edu.pe",
+      "studentCode": "2021200017",
+      "fullName": "Santiago Torres",
+      "career": "Ingeniería de Software",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "USIL001",
+          "grade": 11.0,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL002",
+          "grade": 16.92,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL003",
+          "grade": 16.62,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL004",
+          "grade": 18.49,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL005",
+          "grade": 16.36,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL006",
+          "grade": 17.05,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "USIL007",
+          "grade": 14.35,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL009",
+          "grade": 18.62,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL010",
+          "grade": 15.59,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL011",
+          "grade": 12.42,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL012",
+          "grade": 14.36,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "USIL013",
+          "grade": 17.26,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL014",
+          "grade": 11.19,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL015",
+          "grade": 15.93,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL016",
+          "grade": 11.0,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL017",
+          "grade": 12.25,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "USIL019",
+          "grade": 14.99,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL020",
+          "grade": 13.9,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL021",
+          "grade": 13.39,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL023",
+          "grade": 15.25,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL024",
+          "grade": 15.14,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "USIL025",
+          "grade": 15.62,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL026",
+          "grade": 15.71,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL027",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL028",
+          "grade": 13.84,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL029",
+          "grade": 14.2,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL030",
+          "grade": 14.04,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "USIL032",
+          "grade": 14.29,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL033",
+          "grade": 14.45,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL034",
+          "grade": 20.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL035",
+          "grade": 11.59,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "USIL036",
+          "grade": 13.23,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL037",
+          "grade": 13.97,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL038",
+          "grade": 15.76,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL039",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL040",
+          "grade": 14.61,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "USIL041",
+          "grade": 12.09,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL042",
+          "grade": 14.89,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL043",
+          "grade": 15.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL044",
+          "grade": 11.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL045",
+          "grade": 12.79,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "USIL046",
+          "grade": 14.48,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL047",
+          "grade": 14.98,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL048",
+          "grade": 11.97,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL049",
+          "grade": 12.93,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "USIL050",
+          "grade": 11.88,
+          "term": "2026-1"
+        }
+      ]
+    }
+  ]
+}

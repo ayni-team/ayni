@@ -7,12 +7,14 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.identity.AcademicCourseView;
 import pe.ayni.identity.ApprovedCourseView;
 import pe.ayni.identity.CreditPolicyView;
 import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.TenantView;
 import pe.ayni.identity.UserView;
+import pe.ayni.identity.domain.model.AcademicSystemNotConfigured;
 import pe.ayni.identity.domain.model.CreditPolicy;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.TenantStatus;
@@ -32,6 +34,7 @@ public class IdentityApiImpl implements IdentityApi {
     private final UserRepository users;
     private final AcademicRecordRepository academicRecords;
     private final CreditPolicyRepository creditPolicies;
+    private final AcademicSystemPort academicSystem;
     private final Clock clock;
 
     public IdentityApiImpl(
@@ -39,12 +42,14 @@ public class IdentityApiImpl implements IdentityApi {
             UserRepository users,
             AcademicRecordRepository academicRecords,
             CreditPolicyRepository creditPolicies,
+            AcademicSystemPort academicSystem,
             Clock clock) {
 
         this.tenants = tenants;
         this.users = users;
         this.academicRecords = academicRecords;
         this.creditPolicies = creditPolicies;
+        this.academicSystem = academicSystem;
         this.clock = clock;
     }
 
@@ -121,6 +126,34 @@ public class IdentityApiImpl implements IdentityApi {
                                         record.getCourseName(),
                                         record.getGrade(),
                                         record.getTerm()))
+                .toList();
+    }
+
+    @Override
+    public List<AcademicCourseView> academicCurriculum(String tenantCode) {
+        AcademicUniversity university;
+        try {
+            university = academicSystem.fetchUniversity(tenantCode);
+        } catch (AcademicSystemNotConfigured missing) {
+            // The published interface speaks in the exceptions every module knows.
+            throw new NoSuchElementException(missing.getMessage());
+        }
+
+        return university.courses()
+                .stream()
+                .map(
+                        course ->
+                                new AcademicCourseView(
+                                        course.code(),
+                                        course.name(),
+                                        course.careers()
+                                                .stream()
+                                                .map(
+                                                        placement ->
+                                                                new AcademicCourseView.Placement(
+                                                                        placement.career(),
+                                                                        placement.cycle()))
+                                                .toList()))
                 .toList();
     }
 

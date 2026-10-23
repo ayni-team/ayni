@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -20,10 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
-import pe.ayni.identity.infrastructure.TenantRepository;
-import pe.ayni.identity.infrastructure.UserRepository;
 
 /**
  * A real relay that is down, from the student's side: the student is allowed to receive real
@@ -55,14 +53,12 @@ class MailRoutingFailedNoticeAcceptanceTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private JdbcTemplate jdbc;
-  @Autowired private TenantRepository tenants;
-  @Autowired private UserRepository users;
-  @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
   @Autowired private Clock clock;
+  @Autowired private AutowireCapableBeanFactory beans;
 
   @BeforeEach
   void theDemoUniversityAndItsStudents() throws Exception {
-    new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+    beans.createBean(DemoIdentityData.class).run(null);
   }
 
   @Test

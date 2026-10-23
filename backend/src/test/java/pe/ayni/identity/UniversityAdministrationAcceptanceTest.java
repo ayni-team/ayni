@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -39,7 +40,6 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
@@ -72,12 +72,12 @@ class UniversityAdministrationAcceptanceTest {
     @Autowired private MutableClock clock;
     @Autowired private TenantRepository tenants;
     @Autowired private UserRepository users;
-    @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
+    @Autowired private AutowireCapableBeanFactory beans;
 
     @BeforeEach
     void theDemoUniversityAndItsStudents() throws Exception {
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
-        new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+        beans.createBean(DemoIdentityData.class).run(null);
     }
 
     private int count(String sql, Object... arguments) {
@@ -315,11 +315,27 @@ class UniversityAdministrationAcceptanceTest {
         personal.addAll(
                 jdbc.queryForList(
                         "select distinct course_name from identity.academic_records", String.class));
-        personal.addAll(
-                jdbc.queryForList(
-                        "select distinct course_code from identity.academic_records", String.class));
-        assertThat(personal).contains("Ana Torres", "Bruno Salas", "Software Architecture Fundamentals");
+        assertThat(personal).contains("Ana Torres", "Bruno Salas", "Diseño de Base de Datos");
         assertThat(personal).allSatisfy(value -> assertThat(body).doesNotContain(value));
+
+        // A course code is short, and the codes of the curricula (AD99, CC126) could appear by
+        // chance inside the random code of a test's university: none is a value of the answer.
+        List<String> courseCodes =
+                jdbc.queryForList(
+                        "select distinct course_code from identity.academic_records", String.class);
+        assertThat(courseCodes).contains("SI400");
+        List<String> values = new ArrayList<>();
+        universities.forEach(
+                university ->
+                        university.forEach(
+                                value -> {
+                                    if (value.isArray()) {
+                                        value.forEach(each -> values.add(each.asText()));
+                                    } else {
+                                        values.add(value.asText());
+                                    }
+                                }));
+        assertThat(values).doesNotContainAnyElementsOf(courseCodes);
     }
 
     @Test

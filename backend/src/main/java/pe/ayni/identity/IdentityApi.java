@@ -33,6 +33,18 @@ public interface IdentityApi {
    */
   List<ApprovedCourseView> approvedCourses(UUID userId);
 
+  /**
+   * The courses of the university's curriculum, as its academic system says today (ADR 0006).
+   *
+   * <p>Skills synchronises the catalogue of a university with it. It is read from the academic
+   * system every time, never from what Ayni already loaded.
+   *
+   * @throws java.util.NoSuchElementException when the university has no academic system configured
+   * @throws IllegalStateException when the academic system cannot be read or contradicts itself: a
+   *     mistake of the platform
+   */
+  List<AcademicCourseView> academicCurriculum(String tenantCode);
+
   /** Codes of every active university. Used by scheduled jobs, which run without a request. */
   List<String> activeTenantCodes();
 
