@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -35,7 +36,6 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.identity.application.AccessTokenGenerator;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
@@ -70,13 +70,13 @@ class ConfirmAccessAcceptanceTest {
     @Autowired private AccessTokenGenerator tokens;
     @Autowired private TenantRepository tenants;
     @Autowired private UserRepository users;
-    @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
+    @Autowired private AutowireCapableBeanFactory beans;
 
     @BeforeEach
     void theDemoUniversityAndItsStudents() throws Exception {
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
         // Idempotent: the first test creates them, the others find them there.
-        new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+        beans.createBean(DemoIdentityData.class).run(null);
     }
 
     /** Asks for a link and returns what the email would carry. */
@@ -318,7 +318,7 @@ class ConfirmAccessAcceptanceTest {
                         String.class,
                         activatedUserId))
                 .isEqualTo(
-                        "Software Engineering");
+                        "Ingeniería de Sistemas de Información");
 
         assertThat(
                 jdbc.queryForObject(
@@ -331,6 +331,17 @@ class ConfirmAccessAcceptanceTest {
                         activatedUserId))
                 .isEqualTo(
                         "2026-2");
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select current_cycle
+                        from identity.users
+                        where id = ?
+                        """,
+                        Integer.class,
+                        activatedUserId))
+                .isEqualTo(3);
 
         assertThat(
                 jdbc.queryForObject(
@@ -354,7 +365,7 @@ class ConfirmAccessAcceptanceTest {
                         """,
                         Integer.class,
                         activatedUserId))
-                .isEqualTo(3);
+                .isEqualTo(9);
 
         assertThat(
                 sessionsOf(

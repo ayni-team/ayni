@@ -18,25 +18,25 @@ import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.SkillsApi;
 
 /**
- * A tutor with hours to book, so US03 can be tried in {@code dev}.
+ * Tutors with hours to book, so US03 can be tried in {@code dev}: Bruno at UPC and Mateo at USIL.
  *
- * <p>Bruno, the second student of the other modules' demo data, teaches two courses his grades
- * already justify, and is free every afternoon from three to six, Lima time. Ana, who has credits,
- * can hold one of those hours and book it.
+ * <p>Each one teaches the courses {@code DemoSkillsData} enabled for him, the ones of his
+ * university's curriculum whose grade in his record reaches its threshold, and is free every
+ * afternoon from three to six, Lima time. Ana, who has credits, can hold one of Bruno's hours and
+ * book it.
  *
  * <p>The window ends at six on purpose. With {@code hibernate.jdbc.time_zone} set to UTC, a
  * backend whose JVM runs on Lima time (from the IDE rather than Docker) stores availability times
  * shifted five hours, and a window that crosses midnight UTC once shifted is refused by {@code
  * ends_at_time > starts_at_time}. Until that is fixed, this window works in both.
  *
- * <p>Everything goes through the real paths: the courses are enabled by academic record through
- * {@link SkillsApi}, and the availability is declared with the use case the tutor's endpoint calls,
- * which generates the hours for the coming weeks. Demonstration data that took a shortcut the
- * application cannot take would prove nothing.
+ * <p>Everything goes through the real paths: the courses were enabled by academic record, and the
+ * availability is declared with the use case the tutor's endpoint calls, which generates the hours
+ * for the coming weeks. A tutor who teaches nothing gets no hours: there would be nothing to book.
  *
  * <p>It runs when the application is ready, after every module's {@code ApplicationRunner} has
- * created the university, the students and the catalogue it depends on. It runs once: a second
- * start finds Bruno's skills and windows already there and leaves them alone.
+ * created the universities, the people and the catalogue it depends on. It runs once: a second
+ * start finds the windows already there and leaves them alone.
  */
 @Component
 @Profile("dev")
@@ -44,17 +44,15 @@ class DemoBookingData {
 
   private static final Logger log = LoggerFactory.getLogger(DemoBookingData.class);
 
-  private static final String TENANT = "UPC";
   private static final ZoneId LIMA = ZoneId.of("America/Lima");
 
-  /** The same student as in {@code DemoWalletData} and {@code DemoIdentityData}. */
-  private static final UUID BRUNO = UUID.fromString("22222222-2222-4222-8222-222222222222");
+  /** A tutor of {@code DemoIdentityData} and the university he teaches at. */
+  private record Tutor(String tenant, UUID id) {}
 
-  /** Software Architecture Fundamentals and Databases I, from {@code DemoSkillsData}. */
-  private static final List<UUID> BRUNOS_COURSES =
+  private static final List<Tutor> TUTORS =
       List.of(
-          UUID.fromString("b0000000-0000-4000-8000-000000000101"),
-          UUID.fromString("b0000000-0000-4000-8000-000000000102"));
+          new Tutor("UPC", UUID.fromString("22222222-2222-4222-8222-222222222222")),
+          new Tutor("USIL", UUID.fromString("77777777-7777-4777-8777-777777777777")));
 
   private final SkillsApi skills;
   private final DeclareWeeklyAvailabilityUseCase declareWeeklyAvailability;
@@ -73,21 +71,25 @@ class DemoBookingData {
   }
 
   @EventListener
-  void aTutorWithHoursToBook(ApplicationReadyEvent ready) {
-    try {
-      TenantContext.runAs(TENANT, this::fill);
-    } catch (RuntimeException failure) {
-      // Demonstration data must not keep the application from starting: the rest of dev works
-      // without a tutor, and the reason is right here in the log.
-      log.error("Could not create the demo tutor of {}", TENANT, failure);
+  void tutorsWithHoursToBook(ApplicationReadyEvent ready) {
+    for (Tutor tutor : TUTORS) {
+      try {
+        TenantContext.runAs(tutor.tenant(), () -> fill(tutor));
+      } catch (RuntimeException failure) {
+        // Demonstration data must not keep the application from starting: the rest of dev works
+        // without a tutor, and the reason is right here in the log.
+        log.error("Could not give the demo tutor of {} his hours", tutor.tenant(), failure);
+      }
     }
   }
 
-  private void fill() {
-    if (skills.enabledSkillsOf(BRUNO).isEmpty()) {
-      skills.declareTeachingInterests(BRUNO, BRUNOS_COURSES);
+  private void fill(Tutor tutor) {
+    if (!patterns.findByTenantIdAndTutorId(tutor.tenant(), tutor.id()).isEmpty()) {
+      return;
     }
-    if (!patterns.findByTenantIdAndTutorId(TENANT, BRUNO).isEmpty()) {
+    List<UUID> teaches = skills.enabledSkillsOf(tutor.id());
+    if (teaches.isEmpty()) {
+      log.warn("The demo tutor {} of {} teaches nothing: no hours", tutor.id(), tutor.tenant());
       return;
     }
 
@@ -96,16 +98,16 @@ class DemoBookingData {
     for (DayOfWeek day : DayOfWeek.values()) {
       hours +=
           declareWeeklyAvailability
-              .execute(BRUNO, day, LocalTime.of(15, 0), LocalTime.of(18, 0), today, null)
+              .execute(tutor.id(), day, LocalTime.of(15, 0), LocalTime.of(18, 0), today, null)
               .generation()
               .blocksCreated();
     }
 
     log.info(
-        "Demo tutor ready in {}: {} teaches {} and has {} bookable hours, every day 15:00-18:00",
-        TENANT,
-        BRUNO,
-        skills.enabledSkillsOf(BRUNO),
+        "Demo tutor ready in {}: {} teaches {} courses and has {} bookable hours, every day 15:00-18:00",
+        tutor.tenant(),
+        tutor.id(),
+        teaches.size(),
         hours);
   }
 }

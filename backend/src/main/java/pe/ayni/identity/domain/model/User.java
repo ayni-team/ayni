@@ -42,6 +42,9 @@ public class User {
     @Column(name = "current_term", length = 16)
     private String currentTerm;
 
+    @Column(name = "current_cycle")
+    private Short currentCycle;
+
     @Column(name = "photo_url", length = 512)
     private String photoUrl;
 
@@ -103,9 +106,82 @@ public class User {
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
     }
 
+    /**
+     * A student activated from what their university's academic system says (US38): active, at the
+     * first step of the onboarding, with the name, code, career, cycle and term of the university.
+     */
+    public static User activatedStudent(
+            UUID id,
+            String tenantId,
+            String email,
+            String studentCode,
+            String fullName,
+            String career,
+            Integer cycle,
+            String currentTerm,
+            Instant now) {
+
+        if (studentCode == null || studentCode.isBlank()) {
+            throw new IdentityRuleViolation("A student needs the student code of the university");
+        }
+
+        User student =
+                new User(
+                        id,
+                        tenantId,
+                        UserRole.STUDENT,
+                        email,
+                        studentCode,
+                        fullName,
+                        career,
+                        currentTerm,
+                        null,
+                        null,
+                        UserStatus.ACTIVE,
+                        OnboardingStep.PROFILE,
+                        now,
+                        now,
+                        now);
+        student.currentCycle = cycleOf(cycle);
+        return student;
+    }
+
     public boolean isActive() {
         return status == UserStatus.ACTIVE;
     }
+
+    /**
+     * The career, the cycle and the term of the student as their university says today, when the
+     * record is imported again (US41). They are the university's data: Ayni only copies them.
+     */
+    public void refreshAcademicData(
+            String career,
+            Integer cycle,
+            String currentTerm,
+            Instant now) {
+
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (role != UserRole.STUDENT) {
+            throw new IdentityRuleViolation("Only a student has academic data");
+        }
+
+        this.career = career;
+        this.currentCycle = cycleOf(cycle);
+        this.currentTerm = currentTerm;
+        this.updatedAt = now;
+    }
+
+    private static Short cycleOf(Integer cycle) {
+        if (cycle == null) {
+            return null;
+        }
+        if (cycle < 1 || cycle > Short.MAX_VALUE) {
+            throw new IdentityRuleViolation("A cycle starts at 1");
+        }
+        return cycle.shortValue();
+    }
+
     public void activateCoordinator(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
 
@@ -224,6 +300,11 @@ public class User {
 
     public String getCurrentTerm() {
         return currentTerm;
+    }
+
+    /** The cycle of the career the student is in, {@code null} for a coordinator or when unknown. */
+    public Integer getCurrentCycle() {
+        return currentCycle == null ? null : currentCycle.intValue();
     }
 
     public String getPhotoUrl() {

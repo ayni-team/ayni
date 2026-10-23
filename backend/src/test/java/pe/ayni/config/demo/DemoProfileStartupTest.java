@@ -146,6 +146,82 @@ class DemoProfileStartupTest {
   }
 
   @Test
+  @DisplayName("The demo starts with the two universities of the academic documents")
+  void theDemoStartsWithTheTwoUniversitiesOfTheAcademicDocuments() {
+    // Both registered from their documents, with their brand and the grade of the document.
+    assertThat(
+            jdbc.queryForList(
+                "select code || ' ' || name || ' ' || logo_url || ' ' || minimum_teaching_grade"
+                    + " from identity.tenants where code in ('UPC', 'USIL') and status = 'ACTIVE'"
+                    + " order by code",
+                String.class))
+        .containsExactly(
+            "UPC Universidad Peruana de Ciencias Aplicadas /logos/upc.png 15.00",
+            "USIL Universidad San Ignacio de Loyola /logos/usil.jpg 16.00");
+
+    // Each with its curriculum loaded.
+    assertThat(courseCount("UPC")).isEqualTo(57L);
+    assertThat(courseCount("USIL")).isEqualTo(64L);
+
+    // The four people of the demonstration, and no other student: the rest activate live.
+    assertThat(
+            jdbc.queryForList(
+                "select tenant_id || ' ' || full_name || ' ' || onboarding_step || ' ' || current_cycle"
+                    + " from identity.users where role = 'STUDENT' and tenant_id in ('UPC', 'USIL')"
+                    + " order by tenant_id, full_name",
+                String.class))
+        .containsExactly(
+            "UPC Ana Torres PROFILE 4",
+            "UPC Bruno Salas COMPLETED 8",
+            "USIL Lucía Paredes PROFILE 4",
+            "USIL Mateo Ríos COMPLETED 8");
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from identity.users where email = 'u202500003@upc.edu.pe'", Long.class))
+        .isZero();
+
+    // The two tutors teach courses of their own university, and have hours to be booked in.
+    for (String tutor :
+        List.of("22222222-2222-4222-8222-222222222222", "77777777-7777-4777-8777-777777777777")) {
+      assertThat(
+              jdbc.queryForObject(
+                  """
+                  select count(*) from skills.offered_skills skill
+                  join skills.catalog_items item on item.id = skill.catalog_item_id
+                  where skill.tutor_id = ? and skill.status = 'ENABLED'
+                    and item.tenant_id = skill.tenant_id
+                  """,
+                  Long.class,
+                  UUID.fromString(tutor)))
+          .as(tutor)
+          .isPositive();
+      assertThat(
+              jdbc.queryForObject(
+                  "select count(*) from booking.availability_patterns where tutor_id = ?",
+                  Long.class,
+                  UUID.fromString(tutor)))
+          .as(tutor)
+          .isPositive();
+    }
+
+    // A coordinator of each.
+    assertThat(
+            jdbc.queryForList(
+                "select tenant_id || ' ' || email from identity.users"
+                    + " where role = 'COORDINATOR' and status = 'ACTIVE' and tenant_id in ('UPC', 'USIL')"
+                    + " order by tenant_id",
+                String.class))
+        .containsExactly("UPC coordinator@upc.edu.pe", "USIL coordinator@usil.edu.pe");
+  }
+
+  private long courseCount(String university) {
+    return jdbc.queryForObject(
+        "select count(*) from skills.catalog_items where tenant_id = ? and course_code is not null",
+        Long.class,
+        university);
+  }
+
+  @Test
   @DisplayName("under the demo profile a video pass of a moved clock is signed with the real time")
   void aVideoPassOfAMovedClockIsSignedWithTheRealTime() throws Exception {
     AdjustableClock adjustable = (AdjustableClock) clock;

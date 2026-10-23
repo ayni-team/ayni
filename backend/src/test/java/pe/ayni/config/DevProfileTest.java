@@ -2,6 +2,10 @@ package pe.ayni.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,17 @@ class DevProfileTest {
 
   @Autowired private JdbcTemplate jdbc;
 
+  private static int curriculumSizeOf(String university) {
+    try {
+      return new ObjectMapper()
+          .readTree(Path.of("academic-directory", university + ".json").toFile())
+          .get("courses")
+          .size();
+    } catch (IOException unreadable) {
+      throw new UncheckedIOException(unreadable);
+    }
+  }
+
   @Test
   @DisplayName("The dev profile still fills its demo catalogue")
   void theDevProfileStillFillsItsDemoCatalogue() {
@@ -39,16 +54,25 @@ class DevProfileTest {
     assertThat(globalTools)
         .containsExactly("Conversational English", "Figma", "Git and version control", "Python");
 
-    List<String> courses =
-        jdbc.queryForList(
-            """
-            select item.course_code from skills.catalog_items item
-            join skills.categories category on category.id = item.category_id
-            where item.tenant_id = 'UPC' and category.name = 'University courses'
-            order by item.course_code
-            """,
-            String.class);
-    assertThat(courses).containsExactly("1ASI0616", "1ASI0625", "1ASI0657", "1MAT0101");
+    // The courses of each university are the curriculum of its academic document (ADR 0006).
+    for (String university : List.of("UPC", "USIL")) {
+      List<String> courses =
+          jdbc.queryForList(
+              """
+              select item.course_code from skills.catalog_items item
+              join skills.categories category on category.id = item.category_id
+              where item.tenant_id = ? and category.name = 'University courses'
+              order by item.course_code
+              """,
+              String.class,
+              university);
+      assertThat(courses).as(university).hasSize(curriculumSizeOf(university));
+    }
+    assertThat(
+            jdbc.queryForObject(
+                "select name from skills.catalog_items where tenant_id = 'UPC' and course_code = 'SI400'",
+                String.class))
+        .isEqualTo("Diseño de Base de Datos");
 
     assertThat(
             jdbc.queryForList(

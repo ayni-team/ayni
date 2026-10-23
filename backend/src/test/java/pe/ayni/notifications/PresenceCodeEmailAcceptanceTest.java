@@ -22,6 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -32,7 +33,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.booking.domain.model.Booking;
 import pe.ayni.booking.infrastructure.BookingRepository;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.infrastructure.DemoIdentityData;
 import pe.ayni.identity.infrastructure.TenantRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
@@ -71,14 +71,14 @@ class PresenceCodeEmailAcceptanceTest {
   @Autowired private BookingRepository bookings;
   @Autowired private TenantRepository tenants;
   @Autowired private UserRepository users;
-  @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
+  @Autowired private AutowireCapableBeanFactory beans;
   @Autowired private ScheduleSessionUseCase scheduleSession;
   @Autowired private IssuePresenceCodesUseCase issuePresenceCodes;
   @Autowired private Clock clock;
 
   @BeforeEach
   void theDemoUniversityAndItsStudents() throws Exception {
-    new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+    beans.createBean(DemoIdentityData.class).run(null);
   }
 
   /**

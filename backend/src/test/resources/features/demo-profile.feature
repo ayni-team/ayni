@@ -81,6 +81,14 @@ Feature: Demo profile with an adjustable clock
     Then the university, its students, the administrator and the recognition rule of dev are there
     And an active coordinator of the university is there with the configured address
 
+  Scenario: The demo starts with the two universities of the academic documents
+    Given the application started with the demo profile alone
+    Then UPC and USIL are registered with what their academic documents say
+    And the curriculum of each is loaded from its document
+    And Ana and Lucía are at the first step of the onboarding, Bruno and Mateo finished it and teach
+    And no other student is activated: Carla and the rest activate their account live
+    And each university has an active coordinator
+
   Scenario: A video pass is signed with the real time while the clock is moved
     Given the clock is three days ahead
     When a participant joins the session and gets a video pass

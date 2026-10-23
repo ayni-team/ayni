@@ -70,6 +70,7 @@ public class UpdateMyProfileUseCase {
                 user.getStudentCode(),
                 user.getFullName(),
                 user.getCareer(),
+                user.getCurrentCycle(),
                 user.getCurrentTerm(),
                 user.getPhotoUrl(),
                 user.getBio(),

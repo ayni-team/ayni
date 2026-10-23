@@ -3,6 +3,7 @@ package pe.ayni.identity.infrastructure;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,18 +21,20 @@ import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
- * An active coordinator of the demonstration university, so a presentation can show what a
+ * An active coordinator of each demonstration university, so a presentation can show what a
  * coordinator sees without inviting one first.
  *
  * <p>Outside this profile a coordinator only exists after the platform administrator invites them
- * by email and they open the link (TS10). Here one is already active: they sign in by link like
- * everybody else, with the address of {@code ayni.identity.demo-coordinator-email}, which has to
- * belong to a domain of UPC. The recognition rule they look after is the one of {@code
+ * by email and they open the link (TS10). Here one per university is already active: they sign in
+ * by link like everybody else. The coordinator of UPC, Carlos Rivera, has the address of {@code
+ * ayni.identity.demo-coordinator-email}; the one of USIL, Rosa Huamán, the address of {@code
+ * ayni.identity.demo-usil-coordinator-email}. Each address has to belong to a domain of its
+ * university. The recognition rule the one of UPC looks after is the one of {@code
  * DemoRecognitionData}.
  *
  * <p>Only under the {@code demo} profile, and only when the application is ready, after {@code
- * DemoIdentityData} has created the university. It runs once: a second start finds the address
- * already taken and leaves it alone. The address is never written to the log.
+ * DemoIdentityData} has registered the universities. It runs once: a second start finds the
+ * addresses already taken and leaves them alone. An address is never written to the log.
  */
 @Component
 @Profile("demo")
@@ -39,69 +42,90 @@ class DemoCoordinatorData {
 
     private static final Logger log = LoggerFactory.getLogger(DemoCoordinatorData.class);
 
-    private static final String TENANT = "UPC";
-
     static final UUID COORDINATOR = UUID.fromString("44444444-4444-4444-8444-444444444444");
+
+    static final UUID USIL_COORDINATOR = UUID.fromString("88888888-8888-4888-8888-888888888888");
+
+    /** A coordinator of one university, and the baseline policy it keeps if it has none. */
+    private record Coordinator(String tenant, UUID id, String fullName, String email, UUID policy) {}
 
     private final TenantRepository tenants;
     private final UserRepository users;
     private final CreditPolicyRepository creditPolicies;
     private final Clock clock;
-    private final String email;
+    private final List<Coordinator> coordinators;
 
     DemoCoordinatorData(
             TenantRepository tenants,
             UserRepository users,
             CreditPolicyRepository creditPolicies,
             Clock clock,
-            @Value("${ayni.identity.demo-coordinator-email:coordinator@upc.edu.pe}") String email) {
+            @Value("${ayni.identity.demo-coordinator-email:coordinator@upc.edu.pe}") String email,
+            @Value("${ayni.identity.demo-usil-coordinator-email:coordinator@usil.edu.pe}")
+                    String usilEmail) {
 
         this.tenants = tenants;
         this.users = users;
         this.creditPolicies = creditPolicies;
         this.clock = clock;
-        this.email = email;
+        this.coordinators =
+                List.of(
+                        new Coordinator(
+                                "UPC",
+                                COORDINATOR,
+                                "Carlos Rivera",
+                                email,
+                                UUID.fromString("55555555-5555-4555-8555-555555555555")),
+                        new Coordinator(
+                                "USIL",
+                                USIL_COORDINATOR,
+                                "Rosa Huamán",
+                                usilEmail,
+                                UUID.fromString("55555555-5555-4555-8555-555555555556")));
     }
 
     @EventListener
     void anActiveCoordinator(ApplicationReadyEvent ready) {
-        try {
-            // Row level security (TS01): the coordinator is written, and looked for, as UPC's.
-            TenantContext.runAs(TENANT, this::fill);
-        } catch (RuntimeException failure) {
-            // Demonstration data must not keep the application from starting.
-            log.error("Could not create the demo coordinator of {}", TENANT, failure);
+        for (Coordinator coordinator : coordinators) {
+            try {
+                // Row level security (TS01): each one is written, and looked for, as their
+                // university's.
+                TenantContext.runAs(coordinator.tenant(), () -> fill(coordinator));
+            } catch (RuntimeException failure) {
+                // Demonstration data must not keep the application from starting.
+                log.error("Could not create the demo coordinator of {}", coordinator.tenant(), failure);
+            }
         }
     }
 
-    private void fill() {
-        Tenant tenant = tenants.findByCode(TENANT).orElse(null);
+    private void fill(Coordinator coordinator) {
+        String tenantCode = coordinator.tenant();
+        Tenant tenant = tenants.findByCode(tenantCode).orElse(null);
         if (tenant == null) {
-            log.warn("No demo coordinator: the university {} does not exist", TENANT);
+            log.warn("No demo coordinator: the university {} does not exist", tenantCode);
             return;
         }
-        ensureBaselinePolicy(tenant);
-        if (!tenant.claims(email)) {
+        ensureBaselinePolicy(tenant, coordinator.policy());
+        if (!tenant.claims(coordinator.email())) {
             log.warn(
-                    "No demo coordinator: ayni.identity.demo-coordinator-email is not of a domain"
-                            + " of {}",
-                    TENANT);
+                    "No demo coordinator: the configured address is not of a domain of {}",
+                    tenantCode);
             return;
         }
-        if (users.findByTenantIdAndId(TENANT, COORDINATOR).isPresent()
-                || users.existsByTenantIdAndEmailIgnoreCase(TENANT, email)) {
+        if (users.findByTenantIdAndId(tenantCode, coordinator.id()).isPresent()
+                || users.existsByTenantIdAndEmailIgnoreCase(tenantCode, coordinator.email())) {
             return;
         }
 
         Instant now = clock.instant();
         users.save(
                 new User(
-                        COORDINATOR,
-                        TENANT,
+                        coordinator.id(),
+                        tenantCode,
                         UserRole.COORDINATOR,
-                        email,
+                        coordinator.email(),
                         null,
-                        "Carlos Rivera",
+                        coordinator.fullName(),
                         null,
                         null,
                         null,
@@ -111,25 +135,26 @@ class DemoCoordinatorData {
                         now,
                         now,
                         now));
-        log.info("Demo coordinator ready in {}: {}", TENANT, COORDINATOR);
+        log.info("Demo coordinator ready in {}: {}", tenantCode, coordinator.id());
     }
 
     /**
-     * The demonstration university is written by {@code DemoIdentityData} without a credit policy,
-     * so a coordinator could neither read nor change it. A university registered over HTTP always
-     * has one; this gives the seeded one the same five credits for thirty days.
+     * A university registered by {@code DemoIdentityData} has the baseline policy every
+     * registration creates. A database seeded before the academic documents has a UPC written
+     * without one, so a coordinator could neither read nor change it; this gives it the same five
+     * credits for thirty days.
      */
-    private void ensureBaselinePolicy(Tenant tenant) {
+    private void ensureBaselinePolicy(Tenant tenant, UUID policy) {
         if (creditPolicies
-                .findByTenantIdAndKindAndSupersededAtIsNull(TENANT, PolicyKind.BASELINE)
+                .findByTenantIdAndKindAndSupersededAtIsNull(tenant.getCode(), PolicyKind.BASELINE)
                 .isPresent()) {
             return;
         }
         Instant now = clock.instant();
         creditPolicies.save(
                 new CreditPolicy(
-                        UUID.fromString("55555555-5555-4555-8555-555555555555"),
-                        TENANT,
+                        policy,
+                        tenant.getCode(),
                         PolicyKind.BASELINE,
                         5,
                         30,

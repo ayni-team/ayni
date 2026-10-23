@@ -3,7 +3,6 @@ package pe.ayni.identity.application;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,18 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.domain.model.AccessLink;
 import pe.ayni.identity.domain.model.AccessPurpose;
-import pe.ayni.identity.domain.model.AcademicRecord;
 import pe.ayni.identity.domain.model.AccessRole;
 import pe.ayni.identity.domain.model.CoordinatorRequired;
 import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.domain.model.InvitationConflict;
-import pe.ayni.identity.domain.model.OnboardingStep;
 import pe.ayni.identity.domain.model.PlatformAdmin;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.domain.model.UserStatus;
 import pe.ayni.identity.infrastructure.AccessLinkRepository;
-import pe.ayni.identity.infrastructure.AcademicRecordRepository;
 import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.UserRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
@@ -40,8 +36,10 @@ import pe.ayni.shared.tenancy.TenantContext;
  * never supplied by the client.
  *
  * <p>An activation asks the academic-system boundary for the student with that
- * institutional email, which answers their student code, name, career, current
- * term and approved courses (ADR 0006).
+ * institutional email, which answers their student code, name, career, cycle,
+ * current term, status and approved courses (ADR 0006), through
+ * {@link StudentActivation}. A student the university no longer considers its
+ * own is refused, and the link stays unused.
  *
  * <p>The link is consumed with a conditional database update before account
  * or session data is written. Therefore the same link cannot open two sessions
@@ -69,15 +67,11 @@ public class ConfirmAccessUseCase {
     static final String NOT_ACTIVE =
             "This account is not active";
 
-    static final String ACCOUNT_ALREADY_EXISTS =
-            "An account already exists for this email. Ask for a new sign in link";
-
     private final AccessLinkRepository accessLinks;
     private final UserRepository users;
     private final PlatformAdminRepository admins;
     private final UserSessionRepository sessions;
-    private final AcademicRecordRepository academicRecords;
-    private final AcademicSystemPort academicSystem;
+    private final StudentActivation studentActivation;
     private final AccessTokenGenerator tokens;
     private final ApplicationEventPublisher events;
     private final Clock clock;
@@ -88,8 +82,7 @@ public class ConfirmAccessUseCase {
             UserRepository users,
             PlatformAdminRepository admins,
             UserSessionRepository sessions,
-            AcademicRecordRepository academicRecords,
-            AcademicSystemPort academicSystem,
+            StudentActivation studentActivation,
             AccessTokenGenerator tokens,
             ApplicationEventPublisher events,
             Clock clock,
@@ -99,8 +92,7 @@ public class ConfirmAccessUseCase {
         this.users = users;
         this.admins = admins;
         this.sessions = sessions;
-        this.academicRecords = academicRecords;
-        this.academicSystem = academicSystem;
+        this.studentActivation = studentActivation;
         this.tokens = tokens;
         this.events = events;
         this.clock = clock;
@@ -195,25 +187,10 @@ public class ConfirmAccessUseCase {
 
         String email = accessLink.getEmail();
 
-        if (users.existsByTenantIdAndEmailIgnoreCase(
-                tenantId,
-                email)) {
-
-            throw new IdentityRuleViolation(
-                    ACCOUNT_ALREADY_EXISTS);
-        }
-
-        /*
-         * The academic system finds the student by their institutional
-         * email and answers the code the university assigned them (ADR
-         * 0006): Ayni neither derives it nor checks its format.
-         */
         AcademicProfile profile =
-                academicSystem.fetchProfile(
+                studentActivation.admit(
                         tenantId,
                         email);
-
-        String studentCode = profile.studentCode();
 
         /*
          * The potentially external academic lookup happens before the
@@ -224,51 +201,17 @@ public class ConfirmAccessUseCase {
                 now);
 
         User user =
-                new User(
-                        UUID.randomUUID(),
+                studentActivation.create(
                         tenantId,
-                        UserRole.STUDENT,
+                        UUID.randomUUID(),
                         email,
-                        studentCode,
-                        profile.fullName(),
-                        profile.career(),
-                        profile.currentTerm(),
-                        null,
-                        null,
-                        UserStatus.ACTIVE,
-                        OnboardingStep.PROFILE,
-                        now,
-                        now,
+                        profile,
                         now);
 
         /*
-         * Flush before publishing StudentActivated so a listener that
-         * immediately queries Identity sees the student.
-         */
-        users.saveAndFlush(user);
-
-        List<AcademicRecord> records =
-                profile.approvedCourses()
-                        .stream()
-                        .map(
-                                course ->
-                                        new AcademicRecord(
-                                                UUID.randomUUID(),
-                                                tenantId,
-                                                user.getId(),
-                                                course.courseCode(),
-                                                course.courseName(),
-                                                course.grade(),
-                                                course.term(),
-                                                now))
-                        .toList();
-
-        /*
          * Skills reacts to StudentActivated and may immediately ask
-         * IdentityApi for the approved courses.
+         * IdentityApi for the approved courses: they were flushed above.
          */
-        academicRecords.saveAllAndFlush(records);
-
         events.publishEvent(
                 new StudentActivated(
                         tenantId,

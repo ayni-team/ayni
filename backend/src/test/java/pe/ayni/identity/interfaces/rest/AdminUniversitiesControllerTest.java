@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import pe.ayni.identity.application.ListUniversitiesQuery;
+import pe.ayni.identity.application.RegisterUniversityFromAcademicSystemUseCase;
 import pe.ayni.identity.application.RegisterUniversityUseCase;
 import pe.ayni.identity.application.ReplaceEmailDomainsUseCase;
 import pe.ayni.identity.application.UniversityAdminView;
@@ -58,6 +59,7 @@ class AdminUniversitiesControllerTest {
         AdminUniversitiesController controller =
                 new AdminUniversitiesController(
                         registerUniversity,
+                        mock(RegisterUniversityFromAcademicSystemUseCase.class),
                         listUniversities,
                         replaceEmailDomains);
 

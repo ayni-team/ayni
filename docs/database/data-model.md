@@ -107,6 +107,7 @@ student_code        varchar(32)               -- NULL for coordinators
 full_name           varchar(160)  NOT NULL
 career              varchar(160)
 current_term        varchar(16)
+current_cycle       smallint                  -- the cycle of the career; NULL for a coordinator
 photo_url           varchar(512)
 bio                 varchar(500)
 status              varchar(16)   NOT NULL    -- PENDING | ACTIVE | RESTRICTED
@@ -122,10 +123,17 @@ CHECK  (status IN ('PENDING','ACTIVE','RESTRICTED'))
 CHECK  (role = 'COORDINATOR' OR student_code IS NOT NULL)
 ```
 
-No password column: there are no passwords in this product. `full_name`, `career` and `current_term`
-come from the academic system and are not editable in Ayni. So does `student_code`: the academic
-system finds the student by their institutional email and answers the code the university assigned
-(ADR 0006, amended), which is copied as it comes, with no rule about its format in Ayni.
+No password column: there are no passwords in this product. `full_name`, `career`, `current_cycle`
+and `current_term` come from the academic system and are not editable in Ayni. So does
+`student_code`: the academic system finds the student by their institutional email and answers the
+code the university assigned (ADR 0006, amended), which is copied as it comes, with no rule about its
+format in Ayni.
+
+`current_cycle` (ADR 0006, amended 2026-10-23) is the cycle of the career the student is in, as the
+academic system says. It is written when the student is activated and every time they import their
+record, which refreshes `career` and `current_term` too: they change with the term and belong to the
+university. `NULL` for a coordinator, and for a student activated before the column existed until
+they import their record again.
 
 `onboarding_step` is the step of the onboarding a student is in (US40). The model said it became
 `NULL` once finished, while the code always kept `COMPLETED` for that: the column says what the code

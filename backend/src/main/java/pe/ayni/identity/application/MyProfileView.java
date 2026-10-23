@@ -12,6 +12,7 @@ public record MyProfileView(
         String studentCode,
         String fullName,
         String career,
+        Integer currentCycle,
         String currentTerm,
         String photoUrl,
         String bio,

@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.config.AcademicDocuments;
 import pe.ayni.identity.application.AccessTokenGenerator;
 import pe.ayni.identity.domain.model.PlatformAdmin;
 import pe.ayni.identity.domain.model.PlatformAdminStatus;
@@ -96,13 +97,8 @@ class OnboardingByConfigurationAcceptanceTest {
         // The university's file arrives in the folder, with the application running.
         Files.writeString(
                 DIRECTORY.resolve(code + ".json"),
-                """
-                {"students": [{"email": "%s", "studentCode": "2026-0042", "fullName": "Nora Quispe",
-                  "career": "Law", "currentTerm": "2026-2",
-                  "approvedCourses": [{"courseCode": "DER101", "courseName": "Civil Law",
-                                       "grade": 15.50, "term": "2026-1"}]}]}
-                """
-                        .formatted(email.toUpperCase()));
+                AcademicDocuments.document(
+                        code, AcademicDocuments.student(email.toUpperCase(), "2026-0042")));
 
         // And the student signs in and operates as any other student
         String opened = confirm(token).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -113,7 +109,7 @@ class OnboardingByConfigurationAcceptanceTest {
         String me = as(session, "/api/v1/me");
         assertThat(JsonPath.<String>read(me, "$.fullName")).isEqualTo("Nora Quispe");
         assertThat(JsonPath.<String>read(me, "$.studentCode")).isEqualTo("2026-0042");
-        assertThat(JsonPath.<String>read(me, "$.career")).isEqualTo("Law");
+        assertThat(JsonPath.<String>read(me, "$.career")).isEqualTo("Derecho");
         // The initial credits of the policy the university was registered with.
         assertThat(JsonPath.<Integer>read(as(session, "/api/v1/wallet"), "$.available")).isEqualTo(6);
 

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -39,7 +40,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.identity.application.AccessTokenGenerator;
 import pe.ayni.identity.application.GetMyProfileQuery;
-import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.domain.model.PlatformAdmin;
 import pe.ayni.identity.domain.model.PlatformAdminStatus;
 import pe.ayni.identity.domain.model.Tenant;
@@ -88,14 +88,14 @@ class AccessControlAcceptanceTest {
     @Autowired private UserRepository users;
     @Autowired private UserSessionRepository sessions;
     @Autowired private PlatformAdminRepository admins;
-    @Autowired private ImportAcademicRecordUseCase importAcademicRecord;
+    @Autowired private AutowireCapableBeanFactory beans;
 
     @MockitoSpyBean private GetMyProfileQuery getMyProfile;
 
     @BeforeEach
     void theDemoUniversityAndItsStudents() throws Exception {
         clock.set(Instant.now().truncatedTo(ChronoUnit.SECONDS));
-        new DemoIdentityData(tenants, users, importAcademicRecord, clock).run(null);
+        beans.createBean(DemoIdentityData.class).run(null);
     }
 
     /** Opens a session straight in the table and returns its token, as confirming a link would. */

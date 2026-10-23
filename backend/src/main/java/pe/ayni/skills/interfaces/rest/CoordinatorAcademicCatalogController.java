@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,7 @@ import pe.ayni.skills.application.LoadAcademicCatalogUseCase;
 import pe.ayni.skills.application.MinimumGradeQuery;
 import pe.ayni.skills.application.RetireCourseUseCase;
 import pe.ayni.skills.application.SetMinimumGradeUseCase;
+import pe.ayni.skills.application.SyncAcademicCatalogUseCase;
 
 /**
  * What a coordinator configures about the courses of their university: which ones there are and the
@@ -46,18 +48,21 @@ class CoordinatorAcademicCatalogController {
   private final MinimumGradeQuery minimumGrade;
   private final RetireCourseUseCase retireCourse;
   private final SetMinimumGradeUseCase setMinimumGrade;
+  private final SyncAcademicCatalogUseCase syncCourses;
 
   CoordinatorAcademicCatalogController(
       AcademicCoursesQuery courses,
       LoadAcademicCatalogUseCase loadCourses,
       MinimumGradeQuery minimumGrade,
       RetireCourseUseCase retireCourse,
-      SetMinimumGradeUseCase setMinimumGrade) {
+      SetMinimumGradeUseCase setMinimumGrade,
+      SyncAcademicCatalogUseCase syncCourses) {
     this.courses = courses;
     this.loadCourses = loadCourses;
     this.minimumGrade = minimumGrade;
     this.retireCourse = retireCourse;
     this.setMinimumGrade = setMinimumGrade;
+    this.syncCourses = syncCourses;
   }
 
   @GetMapping("/courses")
@@ -138,6 +143,45 @@ class CoordinatorAcademicCatalogController {
   LoadCoursesResponse loadCourses(@Valid @RequestBody LoadCoursesRequest request) {
     UUID coordinatorId = CurrentUser.require();
     return LoadCoursesResponse.of(loadCourses.execute(coordinatorId, request.toCourses()));
+  }
+
+  @PostMapping("/sync")
+  @Operation(
+      summary = "Synchronises the courses with the academic system",
+      description =
+          """
+          The courses of the university become the ones its academic system says (ADR 0006), \
+          loaded as POST /courses loads a typed list: the course code is the key, new courses are \
+          added, names are updated, retired ones are brought back and nothing is removed. A course \
+          keeps the description a coordinator gave it. The minimum teaching grade is not touched. \
+          All or nothing; sending it twice in a row leaves the catalogue as the first one did.
+          """)
+  @ApiResponse(
+      responseCode = "200",
+      description = "The courses are synchronised, each with what happened to it",
+      content =
+          @Content(
+              schema = @Schema(implementation = LoadCoursesResponse.class),
+              examples =
+                  @ExampleObject(
+                      value =
+                          """
+                          {"created":56,"updated":1,"reinstated":0,"unchanged":0,"courses":[
+                           {"course":{"id":"5b2e7c1a-3f4d-4e8a-9c0b-1d2e3f4a5b6c","code":"SI400",
+                            "name":"Diseño de Base de Datos","description":null,"status":"ACTIVE"},
+                            "outcome":"CREATED"}]}
+                          """)))
+  @ApiResponse(
+      responseCode = "403",
+      description = "The person asking is not an active coordinator",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  @ApiResponse(
+      responseCode = "404",
+      description = "The university has no academic system configured",
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
+  LoadCoursesResponse syncCourses() {
+    UUID coordinatorId = CurrentUser.require();
+    return LoadCoursesResponse.of(syncCourses.execute(coordinatorId));
   }
 
   @PostMapping("/courses/{id}/retire")

@@ -29,5 +29,7 @@ ayni:
     # A session lasts a year so that moving the clock weeks ahead does not sign the presenter out.
     # The access links keep their ten minutes and expire with the clock.
     session-ttl: P365D
-    # The active coordinator of UPC that DemoCoordinatorData creates. It must be of a domain of UPC.
+    # The active coordinators DemoCoordinatorData creates, one of UPC and one of USIL. Each must be
+    # of a domain of its university.
     demo-coordinator-email: ${AYNI_DEMO_COORDINATOR_EMAIL:coordinator@upc.edu.pe}
+    demo-usil-coordinator-email: ${AYNI_DEMO_USIL_COORDINATOR_EMAIL:coordinator@usil.edu.pe}

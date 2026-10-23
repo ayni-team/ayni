@@ -72,13 +72,27 @@ package "identity" {
     - status: AdminStatus
   }
   interface AcademicSystemPort <<Port>> {
-    + fetchProfile(tenantId: String, studentCode: String): AcademicProfile
+    + fetchProfile(tenantId: String, email: String): AcademicProfile
+    + fetchUniversity(code: String): AcademicUniversity
   }
   class AcademicProfile <<Value Object>> {
+    + studentCode: String
     + fullName: String
     + career: String
+    + cycle: Integer
     + currentTerm: String
+    + status: AcademicStatus
     + approvedCourses: List<AcademicRecord>
+  }
+  class AcademicUniversity <<Value Object>> {
+    + code: String
+    + name: String
+    + logoUrl: String
+    + emailDomains: List<String>
+    + timezone: String
+    + minimumTeachingGrade: BigDecimal
+    + currentTerm: String
+    + courses: List<Course>
   }
   enum UserRole {
     STUDENT
@@ -106,6 +120,7 @@ User "1" *-- "0..*" AcademicRecord
 User "1" -- "0..*" UserSession
 PlatformAdmin "1" -- "0..*" UserSession
 AcademicSystemPort ..> AcademicProfile
+AcademicSystemPort ..> AcademicUniversity
 User ..> AcademicProfile
 User --> UserRole
 User --> UserStatus

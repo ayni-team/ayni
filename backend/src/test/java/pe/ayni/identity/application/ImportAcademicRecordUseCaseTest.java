@@ -118,8 +118,10 @@ class ImportAcademicRecordUseCaseTest {
                         new AcademicProfile(
                                 "U202612345",
                                 "Juan Sanchez",
-                                "Software Engineering",
-                                "7",
+                                "Ingeniería de Software",
+                                8,
+                                "2026-2",
+                                AcademicStatus.ACTIVE,
                                 List.of(
                                         new AcademicCourseData(
                                                 "SI385",
@@ -166,5 +168,13 @@ class ImportAcademicRecordUseCaseTest {
                 .isEqualTo(NOW);
         assertThat(user.getOnboardingStep())
                 .isEqualTo(OnboardingStep.LEARNING_INTERESTS);
+
+        // Career, cycle and term follow the record: they are the university's.
+        assertThat(user.getCareer())
+                .isEqualTo("Ingeniería de Software");
+        assertThat(user.getCurrentCycle())
+                .isEqualTo(8);
+        assertThat(user.getCurrentTerm())
+                .isEqualTo("2026-2");
     }
 }
