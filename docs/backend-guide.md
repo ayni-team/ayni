@@ -664,6 +664,7 @@ already depends on skills, and the modules would depend on each other.
 | Method | Path | Who | Does |
 |---|---|---|---|
 | GET | `/api/v1/catalog` | student | global items plus their university's, filtered by category or text, paged |
+| GET | `/api/v1/catalog/categories` | student | the categories a tool can be proposed in, by their order and then by name, each with `id` and `name`; the `id` is the `categoryId` of a proposal and the `category` of `GET /catalog`. University courses is left out (US42) |
 | GET | `/api/v1/catalog/similar?name=` | student | up to five catalogue items that look like a name, before proposing a new one (US42) |
 | POST | `/api/v1/tutor/skills/proposals` | student | proposes a tool the catalogue does not have. 409 with the similar items until `confirmDistinct` is sent (US42) |
 | GET | `/api/v1/tutor/skills/proposals` | student | own proposals with their status and decision (US42) |
@@ -691,6 +692,15 @@ already depends on skills, and the modules would depend on each other.
 | POST | `/api/v1/coordinator/validations/{id}/decision` | coordinator | approves or rejects with a reason |
 
 A university course is enabled only by grade. A global tool is enabled only by reviewed evidence.
+
+**The categories to propose in (US42).** `GET /api/v1/catalog/categories` lists `skills.categories`
+by `sort_order` and then by name, each with its `id` and `name`, so a proposal names a category the
+student picked instead of an identifier they had to know. Categories are global: nothing filters by
+university, and every university reads the same list. The category of university courses, which
+loading a curriculum creates (US51), is left out by `Category.acceptsProposals`: a course belongs to
+one university and is enabled by grade, while an approved proposal becomes a global tool. It is
+not paged, since the categories are the few the system has. `POST /api/v1/tutor/skills/proposals`
+was not changed and still accepts that category's identifier if someone sends it.
 
 **The last step of the onboarding (US40).** `POST /api/v1/me/onboarding/interests` takes `learning`
 and `teaching`, lists of catalogue item identifiers. Both are asked of every student, whatever their

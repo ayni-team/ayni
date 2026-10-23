@@ -10,12 +10,16 @@ import java.util.UUID;
 /**
  * A group catalog items are organised under: technology, university courses, languages, design.
  *
- * <p>Global, the same for every university. Nothing in this module's scope creates one yet; they
- * ship with Ayni and are seeded directly in the database.
+ * <p>Global, the same for every university. Technology, languages and design ship with Ayni and
+ * are seeded by a migration; the category of university courses is created the first time a
+ * university loads its curriculum.
  */
 @Entity
 @Table(schema = "skills", name = "categories")
 public class Category {
+
+  /** The category the courses of every university are grouped under. */
+  public static final String UNIVERSITY_COURSES = "University courses";
 
   @Id
   @Column(name = "id", nullable = false, updatable = false)
@@ -43,6 +47,15 @@ public class Category {
       throw new IllegalArgumentException("name must not be blank");
     }
     return name;
+  }
+
+  /**
+   * Whether a student may propose a tool in this category (US42). Every category but the one of
+   * university courses: approving a proposal adds a global tool, the same for every university,
+   * while a course belongs to one university, comes from its curriculum and is enabled by grade.
+   */
+  public boolean acceptsProposals() {
+    return !UNIVERSITY_COURSES.equals(this.name);
   }
 
   public UUID getId() {
