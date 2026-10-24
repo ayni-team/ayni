@@ -433,7 +433,7 @@ Lo que está dibujado y todavía no existe en `ayni-openapi.json`. En Figma llev
 | RB-3 | En `/reservar`, el nombre del curso y del tutor y su estrella llegan solo por navegación desde FE-10: al recargar se pierden | FE-11 | Agregar `tutorName` y `catalogItem` a `HeldHours`, o aceptar que al recargar se muestre solo la fecha |
 | RB-4 | Un catálogo de etiquetas para la calificación: `RatingRequest.tags` es texto libre | FE-23 | Que el backend publique la lista, o quitar las etiquetas |
 | RB-5 | `GET /api/v1/tutor/availability` para listar rangos, excepciones y pausa (ya en el plan del sprint) | FE-40 | Construirlo; mientras tanto se usa el estado "sin lista" |
-| RB-6 | Idioma: `WalletBalance.guidance`, `PurchaseResponse.guidance` y el `message` del límite mensual llegan en inglés, y el contrato pide mostrarlos tal cual | FE-30, FE-31 | Que el backend los entregue en español (o como códigos que la web traduzca) |
+| RB-6 | Idioma: `WalletBalance.guidance`, `PurchaseResponse.guidance` y el `message` del límite mensual llegan en inglés, y el contrato pide mostrarlos tal cual | FE-30, FE-31 | Que el backend los entregue en español (o como códigos que la web traduzca). **Resuelto:** la web escribe sus propios textos en español a partir del estado y del status, y no muestra `guidance` ni `message` |
 | RB-7 | El ciclo del estudiante: `MyProfileView` del snapshot no lo tiene (la rama `feature/academic-system-documents` agrega `currentCycle`) | Se quitó; la cabecera usa `currentTerm` | Si se publica, volver a "Ing. de Software · 4.° ciclo" |
 
 ## Lo que se quitó por no tener respaldo
