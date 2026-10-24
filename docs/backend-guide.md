@@ -458,7 +458,7 @@ curriculum" under skills).
 | POST | `/api/v1/access/request` | anyone | receives an email, decides the university, sends the link |
 | POST | `/api/v1/access/confirm` | anyone | consumes the token, opens the session, returns the profile |
 | POST | `/api/v1/access/logout` | signed in | revokes the session of the token it carries (TS03) |
-| GET | `/api/v1/access/university?email=` | anyone | name, logo and colours of the university that claims the domain of the email (US39) |
+| GET | `/api/v1/access/university?domain=` | anyone | name, logo and colours of the university that claims the domain (US39). `?email=` still works but is deprecated (W24) |
 | GET | `/api/v1/university` | student, coordinator | the university of the session, with its email domains and time zone (US39) |
 | GET | `/api/v1/me` | signed in | own profile, with `currentCycle`, the cycle of the career the academic system says |
 | PUT | `/api/v1/me/profile` | student | photo and description only. Name, career, cycle and term come from the academic system and are not editable |
@@ -642,19 +642,26 @@ transaction, so a request that fails publishes nothing.
 | 400 | A value is longer than its limit (512 characters for the logo, 16 for a colour) |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
 
-**Seeing the university before signing in (US39).** `GET /api/v1/access/university?email=<address>`
-is public. It looks at the domain of the address only, the way `POST /api/v1/access/request` does
+**Seeing the university before signing in (US39).** `GET /api/v1/access/university?domain=<domain>`
+is public. It looks at the domain only, the way `POST /api/v1/access/request` does
 (`IdentityApi.findTenantByEmailDomain` resolves the same university: the active one that claims the
 domain), and answers `code`, `name`, `logoUrl`, `primaryColor` and `secondaryColor` of that
 university, so a person knows it is the right one before asking for the link. It says nothing
-about whether the address has an account and nothing about people: an address with an account and
-one without answer alike.
+about whether an address has an account and nothing about people.
+
+The screens send `domain` (`upc.edu.pe`, in any case) and not the address (W24): only the domain
+decides, and a query string reaches the access logs whole, so the address of a person has no reason
+to travel. `?email=<address>` still answers exactly as before, for compatibility, and is marked
+deprecated in the OpenAPI document. The two are exclusive: send exactly one. `domain` has to look
+like a domain, a name with at least one dot between labels, with no `@`, no spaces and no empty
+label (`EmailDomains.requireLookupDomain`); the domains a university claims are still only checked
+to be names.
 
 | Status | When |
 |---|---|
 | 200 | An active university claims the domain |
-| 400 | `email` is missing, blank or not an address: it needs exactly one `@` with something on each side and no spaces |
-| 404 | No active university claims the domain. A suspended university is answered exactly as one that is not affiliated |
+| 400 | Neither `domain` nor `email` was sent, or both. Or `domain` does not look like a domain. Or `email` is blank or not an address: it needs exactly one `@` with something on each side and no spaces |
+| 404 | No active university claims the domain, whichever of the two was sent. A suspended university is answered exactly as one that is not affiliated |
 
 **Reading my university (US39).** `GET /api/v1/university` answers a student or a coordinator the
 same as above plus `emailDomains` and `timezone`. The university is the one of the session and the
@@ -1049,7 +1056,7 @@ was the one missing. When the student was not present it also records the studen
 
 | Method | Path | Who | Does |
 |---|---|---|---|
-| POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written. The answer names the tutor (`tutorName`, W23) |
+| POST | `/api/v1/bookings/holds` | student | tutor, start, hours: holds them for five minutes while the need is written. The answer names the tutor (`tutorName`, W23) and says what time it is for the server (`serverNow`, W24) |
 | DELETE | `/api/v1/bookings/holds` | student | tutor, start, hours as parameters: gives back what the student holds there |
 | POST | `/api/v1/bookings` | student | tutor, skill, start, hours, need description |
 | GET | `/api/v1/bookings/mine` | student | upcoming and history, a page at a time (US04) |
@@ -1078,6 +1085,14 @@ at once, `IdentityApi.namesOf` and `SkillsApi.itemsOf`, two reads however long t
 used to read once per distinct person and item. An item or a person the other module no longer
 shows is named `null`. The lists do not carry the `courseCode` of the course: no screen of the field
 map asks for it.
+
+**The time of the server in the hold (W24).** `HeldHours` also carries `serverNow`, the instant the
+use case read from the application `Clock` to count `heldUntil` from, so the two always come from
+the same reading. The screen counts down `heldUntil - serverNow` and not `heldUntil` against the
+browser, whose clock is not the one the server decides with: under the `demo` profile the
+administrator moves the `AdjustableClock`, and a countdown against the browser would start four
+minutes or four days off. `heldUntil` can be earlier than `serverNow + 5 minutes`, because holding
+again what one already holds keeps the earliest deadline. The change is additive.
 
 **The hold.** Choosing hours takes them out of circulation for five minutes before the student
 confirms, so nobody takes them while the need is being written (`data-model.md`, and the hour block

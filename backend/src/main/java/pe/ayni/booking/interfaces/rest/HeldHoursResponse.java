@@ -28,6 +28,13 @@ public record HeldHoursResponse(
                 + "hours.",
         example = "2026-09-24T02:05:00Z")
     Instant heldUntil,
+    @Schema(
+        description =
+            "What time it is for the server, UTC: the instant heldUntil was counted from. Count "
+                + "down from it, not from the browser's clock, which the demo profile can put "
+                + "out of step.",
+        example = "2026-09-24T02:00:00Z")
+    Instant serverNow,
     @Schema(description = "The one-hour blocks held, in order.",
         example = "[\"c0000000-0000-4000-8000-000000000001\"]")
     List<UUID> blockIds) {
@@ -40,6 +47,7 @@ public record HeldHoursResponse(
         held.endsAt(),
         held.hours(),
         held.heldUntil(),
+        held.serverNow(),
         held.blockIds());
   }
 }

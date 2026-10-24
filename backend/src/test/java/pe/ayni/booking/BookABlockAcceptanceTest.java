@@ -67,6 +67,27 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
+  @DisplayName("The hold says what time it is for the server")
+  void theHoldSaysWhatTimeItIsForTheServer() throws Exception {
+
+    hold(ana, tomorrowAt(9), 1)
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.serverNow").value(clock.instant().toString()))
+        .andExpect(jsonPath("$.heldUntil").value(clock.instant().plus(Duration.ofMinutes(5)).toString()));
+
+    // The demo profile moves the very clock the hold reads: the countdown must follow it, so
+    // serverNow and heldUntil are read from the moved clock and are still five minutes apart.
+    release(ana, tomorrowAt(9), 1).andExpect(status().isNoContent());
+    clock.advance(Duration.ofHours(3));
+    Instant moved = clock.instant();
+
+    hold(ana, tomorrowAt(9), 1)
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.serverNow").value(moved.toString()))
+        .andExpect(jsonPath("$.heldUntil").value(moved.plus(Duration.ofMinutes(5)).toString()));
+  }
+
+  @Test
   @DisplayName("Block taken seconds earlier by another student: the hold is refused clearly")
   void anHourAnotherStudentHoldsCannotBeTaken() throws Exception {
 

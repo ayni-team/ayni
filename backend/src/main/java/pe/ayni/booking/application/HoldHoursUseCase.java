@@ -95,6 +95,7 @@ public class HoldHoursUseCase {
         requested.endsAt(),
         requested.hours(),
         heldUntil,
+        now,
         requested.blockIds());
   }
 }

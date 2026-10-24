@@ -10,6 +10,9 @@ import java.util.UUID;
  * @param tutorName {@code null} when identity no longer knows the tutor
  * @param heldUntil when the hold runs out: the earliest deadline among the hours, since holding an
  *     hour again does not extend it
+ * @param serverNow what time it is for the application when the hold was taken: the instant {@code
+ *     heldUntil} was counted from, so a clock that is not the real one (the demo profile) cannot
+ *     put the two out of step
  */
 public record HeldHours(
     UUID tutorId,
@@ -18,4 +21,5 @@ public record HeldHours(
     Instant endsAt,
     int hours,
     Instant heldUntil,
+    Instant serverNow,
     List<UUID> blockIds) {}
