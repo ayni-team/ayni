@@ -11,7 +11,7 @@ import SignInPage from './SignInPage';
  */
 function serveUniversities() {
   return fakeServer().on('GET', '/api/v1/access/university', ({ query }) => {
-    const domain = query.get('email')?.split('@')[1];
+    const domain = query.get('domain');
     if (domain === 'upc.edu.pe') return { body: UPC };
     if (domain === 'usil.edu.pe') return { body: USIL_IDENTITY };
     return { status: 404, body: { status: 404, message: 'The institution is not affiliated with Ayni' } };
@@ -59,6 +59,20 @@ describe('FE-01 sign in', () => {
     expect(screen.queryByText(/not affiliated/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeDisabled();
     expect(server.requests('POST')).toHaveLength(0);
+  });
+
+  it('sends only the domain to look the university up, never the address', async () => {
+    const server = serveUniversities();
+    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+
+    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'U202400001@UPC.edu.pe');
+    await screen.findByText('Universidad Peruana de Ciencias Aplicadas');
+
+    const lookups = server.requests('GET', '/api/v1/access/university');
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].query.get('domain')).toBe('upc.edu.pe');
+    expect(lookups[0].query.has('email')).toBe(false);
+    expect(lookups[0].query.toString()).not.toContain('202400001');
   });
 
   it('asks for the link and says where it went', async () => {
