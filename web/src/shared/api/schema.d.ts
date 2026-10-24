@@ -2106,8 +2106,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Shows the name, logo and colours of the university an email belongs to
-         * @description US39: so that the person sees their university before signing in. Only the domain of the email decides, as when a link is requested; nothing says whether the address has an account, and nothing about its people is returned. A domain that belongs to no active university, a suspended one included, is answered 404.
+         * Shows the name, logo and colours of the university a domain belongs to
+         * @description US39: so that the person sees their university before signing in. Only the domain decides, as when a link is requested, so send `domain` (for example `upc.edu.pe`) and the address of a person never reaches the server. `email` still works but is deprecated: only its domain is read, yet all of it travels. Send exactly one of the two. Nothing says whether an address has an account, and nothing about its people is returned. A domain that belongs to no active university, a suspended one included, is answered 404.
          *
          */
         get: operations["findUniversity"];
@@ -2228,6 +2228,25 @@ export interface components {
             /** @description Every element the board will hold */
             elements: components["schemas"]["BoardElement"][];
         };
+        /** @description What went wrong */
+        SessionsApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-09-29T21:00:00Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 409
+             */
+            status?: number;
+            /** @example Conflict */
+            error?: string;
+            /** @example The room opens fifteen minutes before the session starts, at 2026-09-30T19:45:00Z */
+            message?: string;
+            /** @example /api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/join */
+            path?: string;
+        };
         /** @description The whiteboard as it was left; null when the session never started */
         Whiteboard: {
             /** Format: uuid */
@@ -2249,25 +2268,6 @@ export interface components {
              */
             updatedAt?: string;
         } | null;
-        /** @description What went wrong */
-        SessionsApiError: {
-            /**
-             * Format: date-time
-             * @example 2026-09-29T21:00:00Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 409
-             */
-            status?: number;
-            /** @example Conflict */
-            error?: string;
-            /** @example The room opens fifteen minutes before the session starts, at 2026-09-30T19:45:00Z */
-            message?: string;
-            /** @example /api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/join */
-            path?: string;
-        };
         UpdateMyProfileRequest: {
             photoUrl?: string;
             bio?: string;
@@ -2806,6 +2806,25 @@ export interface components {
             /** Format: int32 */
             nano?: number;
         };
+        /** @description What went wrong */
+        BookingApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-09-23T21:00:00Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 400
+             */
+            status?: number;
+            /** @example Bad Request */
+            error?: string;
+            /** @example The pause overlaps an existing availability pause */
+            message?: string;
+            /** @example /api/v1/tutor/availability/pauses */
+            path?: string;
+        };
         AvailabilityPattern: {
             /**
              * Format: uuid
@@ -2856,25 +2875,6 @@ export interface components {
              * @example You have no enabled skill yet, so these hours will not appear in searches.
              */
             notice?: string | null;
-        };
-        /** @description What went wrong */
-        BookingApiError: {
-            /**
-             * Format: date-time
-             * @example 2026-09-23T21:00:00Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 400
-             */
-            status?: number;
-            /** @example Bad Request */
-            error?: string;
-            /** @example The pause overlaps an existing availability pause */
-            message?: string;
-            /** @example /api/v1/tutor/availability/pauses */
-            path?: string;
         };
         AvailabilityPauseRequest: {
             /**
@@ -3827,6 +3827,12 @@ export interface components {
              * @example 2026-09-24T02:05:00Z
              */
             heldUntil?: string;
+            /**
+             * Format: date-time
+             * @description What time it is for the server, UTC: the instant heldUntil was counted from. Count down from it, not from the browser's clock, which the demo profile can put out of step.
+             * @example 2026-09-24T02:00:00Z
+             */
+            serverNow?: string;
             /**
              * @description The one-hour blocks held, in order.
              * @example [
@@ -5461,6 +5467,25 @@ export interface components {
              */
             balanceMismatches?: number;
         };
+        /** @description What went wrong */
+        AnalyticsApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-10-12T21:33:00Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 403
+             */
+            status?: number;
+            /** @example Forbidden */
+            error?: string;
+            /** @example Only an active coordinator of the university can read its indicators */
+            message?: string;
+            /** @example /api/v1/coordinator/indicators */
+            path?: string;
+        };
         /** @description The courses most searched without finding an hour inside the window asked for in the period, the most searched first and at most 20. Identifiers only: the names are in GET /api/v1/catalog */
         UncoveredCourse: {
             /**
@@ -5526,25 +5551,6 @@ export interface components {
             days?: components["schemas"]["UsageDay"][];
             /** @description The courses most searched without finding an hour inside the window asked for in the period, the most searched first and at most 20. Identifiers only: the names are in GET /api/v1/catalog */
             uncoveredDemand?: components["schemas"]["UncoveredCourse"][];
-        };
-        /** @description What went wrong */
-        AnalyticsApiError: {
-            /**
-             * Format: date-time
-             * @example 2026-10-12T21:33:00Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 403
-             */
-            status?: number;
-            /** @example Forbidden */
-            error?: string;
-            /** @example Only an active coordinator of the university can read its indicators */
-            message?: string;
-            /** @example /api/v1/coordinator/indicators */
-            path?: string;
         };
         /** @description A catalogue item and how much it is used */
         CatalogUsage: {
@@ -10232,9 +10238,18 @@ export interface operations {
     };
     findUniversity: {
         parameters: {
-            query: {
-                /** @example u202400001@upc.edu.pe */
-                email: string;
+            query?: {
+                /**
+                 * @description Domain the university claims, in any case: a name with at least one dot, without `@` or spaces
+                 * @example upc.edu.pe
+                 */
+                domain?: string;
+                /**
+                 * @deprecated
+                 * @description Use `domain`. Only the domain of the address is read, but the whole address would reach the access logs
+                 * @example u202400001@upc.edu.pe
+                 */
+                email?: string;
             };
             header?: never;
             path?: never;
@@ -10251,7 +10266,7 @@ export interface operations {
                     "*/*": components["schemas"]["UniversityIdentityView"];
                 };
             };
-            /** @description The email is missing or is not an address */
+            /** @description Neither `domain` nor `email` was sent, both were, the domain does not look like one, or the email is not an address */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10260,7 +10275,7 @@ export interface operations {
                     "*/*": components["schemas"]["IdentityApiError"];
                 };
             };
-            /** @description The domain of the email belongs to no active university */
+            /** @description The domain belongs to no active university */
             404: {
                 headers: {
                     [name: string]: unknown;

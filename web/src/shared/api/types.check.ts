@@ -1,7 +1,10 @@
 /**
  * Compile-time checks of the typed client: `npm run build` fails if the types stop catching these.
- * Nothing here runs; the functions are never called.
+ * Nothing here runs; the functions are never called. The values are read only through `typeof`,
+ * which the unused-variable rule does not count, and the hook checks are named like hooks so the
+ * rules of hooks accept them.
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { api } from './client';
 import { useApiMutation, useApiQuery } from './hooks';
 import type { Schema } from './index';
@@ -21,8 +24,8 @@ export async function clientChecks() {
   await api.delete('/api/v1/bookings/{id}');
 
   // A required query parameter is required.
-  // @ts-expect-error email is missing
-  await api.get('/api/v1/access/university', { query: {} });
+  // @ts-expect-error name is missing
+  await api.get('/api/v1/catalog/similar', { query: {} });
 
   // A path that does not exist, or does not answer the method, is refused.
   // @ts-expect-error not a path of the API
@@ -40,7 +43,7 @@ export async function clientChecks() {
   expectType<Equal<typeof signedOut, undefined>>();
 }
 
-export function hookChecks() {
+export function useHookChecks() {
   const mine = useApiQuery(['booking', 'mine', { view: 'UPCOMING' }], '/api/v1/bookings/mine', {
     query: { view: 'UPCOMING' },
   });

@@ -20,10 +20,16 @@ function useDebounced<T>(value: T, delay: number): T {
   return debounced;
 }
 
+/** The domain of something that looks like an address: all that is ever sent to look a university up. */
+export function domainOf(email: string): string {
+  return email.slice(email.lastIndexOf('@') + 1);
+}
+
 /**
  * Before signing in: once the email looks like an address, asks for the university of its domain
- * and paints its name, logo and colours on the whole page. A domain of no university answers 404
- * (`notAffiliated`). Leaving the screen goes back to Ayni's colours.
+ * and paints its name, logo and colours on the whole page. Only the domain travels
+ * (`?domain=`), never the address. A domain of no university answers 404 (`notAffiliated`).
+ * Leaving the screen goes back to Ayni's colours.
  */
 export function useUniversityPreview(email: string): {
   status: PreviewStatus;
@@ -34,8 +40,10 @@ export function useUniversityPreview(email: string): {
   const debounced = useDebounced(typed, PREVIEW_DEBOUNCE_MS);
   const ready = EMAIL_PATTERN.test(debounced);
 
-  const query = useApiQuery(['identity', 'university-preview', { email: debounced }], '/api/v1/access/university', {
-    query: { email: debounced },
+  const domain = ready ? domainOf(debounced) : '';
+
+  const query = useApiQuery(['identity', 'university-preview', { domain }], '/api/v1/access/university', {
+    query: { domain },
     enabled: ready,
     retry: false,
     staleTime: 5 * 60_000,

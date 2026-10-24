@@ -6548,14 +6548,26 @@
         "tags": [
           "Access"
         ],
-        "summary": "Shows the name, logo and colours of the university an email belongs to",
-        "description": "US39: so that the person sees their university before signing in. Only the domain of the email decides, as when a link is requested; nothing says whether the address has an account, and nothing about its people is returned. A domain that belongs to no active university, a suspended one included, is answered 404.\n",
+        "summary": "Shows the name, logo and colours of the university a domain belongs to",
+        "description": "US39: so that the person sees their university before signing in. Only the domain decides, as when a link is requested, so send `domain` (for example `upc.edu.pe`) and the address of a person never reaches the server. `email` still works but is deprecated: only its domain is read, yet all of it travels. Send exactly one of the two. Nothing says whether an address has an account, and nothing about its people is returned. A domain that belongs to no active university, a suspended one included, is answered 404.\n",
         "operationId": "findUniversity",
         "parameters": [
           {
+            "name": "domain",
+            "in": "query",
+            "description": "Domain the university claims, in any case: a name with at least one dot, without `@` or spaces",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "upc.edu.pe"
+          },
+          {
             "name": "email",
             "in": "query",
-            "required": true,
+            "description": "Use `domain`. Only the domain of the address is read, but the whole address would reach the access logs",
+            "required": false,
+            "deprecated": true,
             "schema": {
               "type": "string"
             },
@@ -6581,7 +6593,7 @@
             }
           },
           "400": {
-            "description": "The email is missing or is not an address",
+            "description": "Neither `domain` nor `email` was sent, both were, the domain does not look like one, or the email is not an address",
             "content": {
               "*/*": {
                 "schema": {
@@ -6591,7 +6603,7 @@
             }
           },
           "404": {
-            "description": "The domain of the email belongs to no active university",
+            "description": "The domain belongs to no active university",
             "content": {
               "*/*": {
                 "schema": {
@@ -6888,6 +6900,34 @@
           }
         }
       },
+      "SessionsApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-29T21:00:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 409
+          },
+          "error": {
+            "type": "string",
+            "example": "Conflict"
+          },
+          "message": {
+            "type": "string",
+            "example": "The room opens fifteen minutes before the session starts, at 2026-09-30T19:45:00Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/join"
+          }
+        },
+        "description": "What went wrong"
+      },
       "Whiteboard": {
         "type": "object",
         "properties": {
@@ -6923,34 +6963,6 @@
         },
         "description": "The whiteboard as it was left; null when the session never started",
         "nullable": true
-      },
-      "SessionsApiError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-29T21:00:00Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 409
-          },
-          "error": {
-            "type": "string",
-            "example": "Conflict"
-          },
-          "message": {
-            "type": "string",
-            "example": "The room opens fifteen minutes before the session starts, at 2026-09-30T19:45:00Z"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f/join"
-          }
-        },
-        "description": "What went wrong"
       },
       "UpdateMyProfileRequest": {
         "type": "object",
@@ -7944,6 +7956,34 @@
           }
         }
       },
+      "BookingApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-23T21:00:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "example": "The pause overlaps an existing availability pause"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/tutor/availability/pauses"
+          }
+        },
+        "description": "What went wrong"
+      },
       "AvailabilityPattern": {
         "type": "object",
         "properties": {
@@ -8011,34 +8051,6 @@
             "example": "You have no enabled skill yet, so these hours will not appear in searches."
           }
         }
-      },
-      "BookingApiError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-23T21:00:00Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 400
-          },
-          "error": {
-            "type": "string",
-            "example": "Bad Request"
-          },
-          "message": {
-            "type": "string",
-            "example": "The pause overlaps an existing availability pause"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/tutor/availability/pauses"
-          }
-        },
-        "description": "What went wrong"
       },
       "AvailabilityPauseRequest": {
         "required": [
@@ -9435,6 +9447,12 @@
             "description": "When the hold runs out, UTC. Confirm before then; afterwards anybody may take the hours.",
             "format": "date-time",
             "example": "2026-09-24T02:05:00Z"
+          },
+          "serverNow": {
+            "type": "string",
+            "description": "What time it is for the server, UTC: the instant heldUntil was counted from. Count down from it, not from the browser's clock, which the demo profile can put out of step.",
+            "format": "date-time",
+            "example": "2026-09-24T02:00:00Z"
           },
           "blockIds": {
             "type": "array",
@@ -11910,6 +11928,34 @@
         },
         "description": "Result of verifying the ledger chain"
       },
+      "AnalyticsApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-12T21:33:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 403
+          },
+          "error": {
+            "type": "string",
+            "example": "Forbidden"
+          },
+          "message": {
+            "type": "string",
+            "example": "Only an active coordinator of the university can read its indicators"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/coordinator/indicators"
+          }
+        },
+        "description": "What went wrong"
+      },
       "UncoveredCourse": {
         "type": "object",
         "properties": {
@@ -12003,34 +12049,6 @@
           }
         },
         "description": "Figures only: never a name or an identifier of a person"
-      },
-      "AnalyticsApiError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-12T21:33:00Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 403
-          },
-          "error": {
-            "type": "string",
-            "example": "Forbidden"
-          },
-          "message": {
-            "type": "string",
-            "example": "Only an active coordinator of the university can read its indicators"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/coordinator/indicators"
-          }
-        },
-        "description": "What went wrong"
       },
       "CatalogUsage": {
         "type": "object",

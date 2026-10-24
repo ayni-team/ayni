@@ -18,7 +18,7 @@ import { applyPalette, derivePalette, type BrandPalette } from './color';
  * The university of the screen: its name, logo, colours and zone.
  *
  * Signed in, it is `GET /api/v1/university` (`MyUniversityView`). Before signing in, the sign-in
- * screen sets a preview from `GET /api/v1/access/university?email=` (`useUniversityPreview`), which
+ * screen sets a preview from `GET /api/v1/access/university?domain=` (`useUniversityPreview`), which
  * carries name, logo and colours but no zone. Without either, the colours are Ayni's.
  */
 export type University = Schema<'MyUniversityView'>;

@@ -45,6 +45,7 @@ every person and role, and how the administrator opens a session as any of them 
 | Script | What it does |
 |---|---|
 | `npm run dev` | The development server on port 5173 |
+| `npm run lint` | ESLint: the rules of hooks, exhaustive effect dependencies and accessibility. CI runs it |
 | `npm run build` | Type checks (strict) and builds. CI runs it |
 | `npm test` | Vitest and Testing Library, once. CI runs it |
 | `npm run test:watch` | The same, again on every save |
@@ -125,12 +126,26 @@ memory and is mirrored to localStorage, as the guide says.
 `<DateTime value zone />` and `formatInZone` show an instant in the university's zone (the list's
 `timezone`, or `MyUniversityView.timezone`), never the browser's. Days without time are
 `YYYY-MM-DD` strings: `todayInZone`, `addDays`, `formatDay`. `relativeTime` writes "hace 5 min";
-`useCountdown(heldUntil)` counts a hold down.
+`useCountdown(heldUntil, { offsetMs })` counts a hold down.
+
+A hold is counted against the server's clock, not the browser's (the demo profile moves the
+server's, and a browser can be minutes off). `HeldHours.serverNow` is the server's time when it
+answered: `clockOffset(serverNow)` returns the server's clock minus the browser's, in milliseconds
+(0 when `serverNow` is missing), and that number is the `offsetMs` of `useCountdown`. Compute it once
+per answer, when the hold arrives, not on every render:
+
+```tsx
+const offsetMs = useMemo(() => clockOffset(hold.serverNow), [hold]);
+const countdown = useCountdown(hold.heldUntil, { offsetMs });
+```
+
+The offset includes the trip of the answer, a fraction of a second; the server still decides whether
+the time ran out.
 
 ### shared/brand
 
 `BrandProvider` reads the university (`GET /api/v1/university`, or the sign-in preview of
-`GET /api/v1/access/university?email=` through `useUniversityPreview`) and sets `--brand-primary`,
+`GET /api/v1/access/university?domain=` through `useUniversityPreview`) and sets `--brand-primary`,
 `--brand-secondary`, `--brand-primary-soft`, `--brand-primary-pressed` and `--brand-text` on the
 root. Tailwind reads them as `brand`, `brand-secondary`, `brand-soft`, `brand-pressed` and
 `brand-text`. Use them only where the design does: primary buttons, the active tab, links,
@@ -189,6 +204,7 @@ Never edit `schema.d.ts` by hand.
 - Do not add dependencies, and do not copy into your feature a component that `shared/ui` has.
 - Do not change another person's screen, nor `App.tsx`, `shared/` or the `routes.tsx` of a feature
   that is not yours.
-- Do not store tokens anywhere but the session, nor put an email or a token in a URL you build.
+- Do not store tokens anywhere but the session, nor put an email or a token in a URL you build (the access link's own token is the one exception; the
+  sign-in preview asks for the university by its domain).
 - Do not use the browser's time zone, nor a date library: the server sends instants and the zone.
 - Do not decide the contract with the backend yourself. Ask in the pull request.

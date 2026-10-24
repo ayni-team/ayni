@@ -41,7 +41,7 @@ not there, it is a request to the lead, never a field invented in the web.
   of text on the primary), `--brand-primary-soft` (a tint of about 10 %), `--brand-primary-pressed`
   (darker) and `--brand-text` (the primary, darkened where it would not reach a 4.5 contrast on
   grey). They come from `GET /api/v1/university` and, before signing in, from
-  `GET /api/v1/access/university?email=`. Use them only where the design does: the logo, the
+  `GET /api/v1/access/university?domain=`. Use them only where the design does: the logo, the
   active tab, the primary buttons, links, progress bars, selected badges, the focus of the fields,
   the selected day and the counter of the bell. Neutrals, type and spacing never change.
 - **There is no "Inicio" screen.** The dashboard in Figma is a visual reference with no route: `/`
@@ -153,13 +153,18 @@ request to the lead.
 
 ### Branding
 
-`useBrand()` reads `GET /api/v1/university` (signed in) or `GET /api/v1/access/university?email=`
+`useBrand()` reads `GET /api/v1/university` (signed in) or `GET /api/v1/access/university?domain=`
 (before signing in) and sets `--brand-primary` and `--brand-secondary` on the root. Tailwind's
 `brand` colour reads them. A university that sets no colours gets Ayni's.
 
 ---
 
 ## Rules every screen follows
+
+**The generated types mark almost every field as optional** (the OpenAPI the backend publishes does
+not say which ones are always there). Every screen treats the fields it reads as possibly absent
+and does not assume: it has a text or a fallback for each one, and it never lets `undefined` reach
+the screen as "undefined" or as a crash.
 
 ### States
 
@@ -266,14 +271,16 @@ frame; the link is added by the lead.
 
 #### FE-01 · Sign in · `/ingresar` · public
 
-- **Endpoints:** `GET /api/v1/access/university?email=` (`UniversityIdentityView`), `POST
+- **Endpoints:** `GET /api/v1/access/university?domain=` (`UniversityIdentityView`), `POST
   /api/v1/access/request` (`RequestAccessRequest`, answers `202` with no body).
 - **Does:** one field, the institutional email. Once it looks like an address, ask for the
   university of its domain (debounce 400 ms) and paint its name, logo and colours before signing
-  in. Submit asks for the link and shows "Te enviamos un enlace a {correo}. Vence en 10 minutos."
+  in. Only the domain travels (`?domain=upc.edu.pe`), never the address. Submit asks for the link and shows "Te enviamos un enlace a {correo}. Vence en 10 minutos."
   with a "Reenviar" button that waits 30 seconds.
 - **Handles:** `404` on the preview → "Tu universidad todavía no está afiliada a Ayni" and the submit
-  stays disabled. `400` on the request → the message under the field.
+  stays disabled. `400` on the request → a text of the screen's own, in Spanish, under the field
+  ("No pudimos enviar el enlace a ese correo. Revisa que sea el institucional"), never the server's
+  `message`.
 - **Done when:** a student of UPC sees UPC's colours and name before submitting, a made-up domain is
   refused, and the email arrives in Mailpit.
 
@@ -345,7 +352,10 @@ frame; the link is added by the lead.
   /api/v1/bookings/holds?tutorId&start&hours`, `POST /api/v1/bookings` (`BookHoursRequest` →
   `Booking`).
 - **Does:** on arrival, **hold the hour** (it stays out of circulation for five minutes) and draw a
-  countdown to `heldUntil`. Ask for the need ("¿En qué necesitas ayuda?", required) and confirm. On
+  countdown to `heldUntil`, counted against the server's clock: read `HeldHours.serverNow` with
+  `clockOffset(serverNow)` (`shared/time`) and pass the result to
+  `useCountdown(heldUntil, { offsetMs })`, so a browser whose clock is out of step (or the demo
+  profile's moved clock) still shows the real time left. Ask for the need ("¿En qué necesitas ayuda?", required) and confirm. On
   `201` show a success screen with the day, the hour and a link to `/mis-tutorias`. Leaving the
   screen without confirming releases the hold.
 - **Handles (all `409`, read `message`):** the hour was taken → "Alguien tomó esa hora. Elige otra"
@@ -396,7 +406,8 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
   with filters by period and reason, a page at a time. Each movement shows its direction, amount,
   reason (in Spanish) and a link by `referenceType` (booking → `/mis-tutorias`, purchase →
   `/creditos/compras/:id`).
-- **Handles:** a zero balance shows `guidance` from the response.
+- **Handles:** a zero balance (`available` is 0) shows a text of the web's own: "Aún no tienes
+  créditos". `guidance` is not shown.
 - **Done when:** a student with credits of two origins sees both with their expiry, and the filters
   narrow the history.
 
@@ -407,11 +418,12 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
 - **Does:** an amount of credits and its price (the response has it; show `credits × price` only
   after the first answer, the price lives on the server), a confirm button, and the result by
   `status`: `CONFIRMED` ("Listo: se acreditaron {n} créditos", link to `/creditos`), `PENDING`
-  (**"Tu pago está en proceso. No vuelvas a intentarlo"**, show `guidance`), `FAILED` (rejected: a
+  (**"Tu pago está en proceso. No vuelvas a intentarlo"**, the web's own text from the status, not
+  `guidance`), `FAILED` (rejected: a
   new attempt takes a **new key**), `EXPIRED`.
 - **Handles:** `providerUnavailable: true` → the explicit "compras temporalmente no disponibles"
-  message; the rest of the platform keeps working. A monthly limit refusal shows the server's
-  `message` as is.
+  message; the rest of the platform keeps working. A monthly limit refusal (`409`, as the OpenAPI documents it)
+  shows a text of the web's own in Spanish chosen by the status, never the server's `message`.
 - **Done when:** a confirmed, a rejected and a pending purchase are each shown correctly (the
   lead switches the simulated provider with `/api/v1/admin/demo/payments`), and a double click sends
   one request.
@@ -495,7 +507,9 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
 - **Does:** my skills with their status and the date it changed; offer a course from the
   suggestions (it enables itself if the grade clears the minimum); withdraw one (confirmed bookings
   stand); for a global tool, upload evidence (1 to 3 files, PDF, PNG or JPEG, up to 5 MB each, and
-  a note up to 1000 characters) and follow its review (`review`: status and reason if rejected);
+  a note up to 1000 characters, sent as a field of the multipart form beside `files`; the OpenAPI
+  documents `note` as a query parameter because of how Spring declares it, but the server accepts
+  both) and follow its review (`review`: status and reason if rejected);
   propose a tool the catalogue lacks.
 - **Handles:** proposing: the server answers `409` with similar items until `confirmDistinct` is
   sent: show them ("¿Es alguna de estas?") and let the person insist. Evidence refusals (`400`) name
@@ -611,5 +625,5 @@ A screen is finished when all of this is true:
 - Do not hand-write a response type: the generated one is the contract. If it is wrong, the backend is.
 - Do not add dependencies, and do not copy a component into your feature that `shared/ui` has.
 - Do not change another person's screen, nor `App.tsx`, `shared/` or `routes.tsx` of a feature that is not yours.
-- Do not store tokens anywhere but the session, nor put the email or the token in a URL (the access link's `token` is the one exception, and it is spent at once).
+- Do not store tokens anywhere but the session, nor put the email or the token in a URL (the access link's `token` is the one exception, and it is spent at once). The email never travels in a URL, so the sign-in preview asks for the university by its domain (`?domain=`).
 - Do not decide the contract with the backend yourself. Ask in the pull request.
