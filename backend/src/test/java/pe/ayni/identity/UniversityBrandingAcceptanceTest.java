@@ -68,6 +68,10 @@ class UniversityBrandingAcceptanceTest {
         return mockMvc.perform(get("/api/v1/access/university").param("email", email));
     }
 
+    private ResultActions identifyByDomain(String domain) throws Exception {
+        return mockMvc.perform(get("/api/v1/access/university").param("domain", domain));
+    }
+
     private String bodyOf(ResultActions result) throws Exception {
         return result.andReturn().getResponse().getContentAsString();
     }
@@ -135,10 +139,94 @@ class UniversityBrandingAcceptanceTest {
                     .andExpect(jsonPath("$.status").value(400))
                     .andExpect(jsonPath("$.message").exists());
         }
+    }
+
+    @Test
+    @DisplayName("Identification of the university by its domain")
+    void identificationOfTheUniversityByItsDomain() throws Exception {
+
+        String body =
+                bodyOf(
+                        identifyByDomain(domain())
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.code").value(code))
+                                .andExpect(jsonPath("$.name").value("University " + code))
+                                .andExpect(jsonPath("$.logoUrl").value("https://cdn.ayni.pe/" + code + ".png"))
+                                .andExpect(jsonPath("$.primaryColor").value("#003A70"))
+                                .andExpect(jsonPath("$.secondaryColor").value("#F5F5F5")));
+
+        // The domain in capitals, or an address of that domain, is answered alike.
+        assertThat(bodyOf(identifyByDomain(domain().toUpperCase()))).isEqualTo(body);
+        assertThat(bodyOf(identify(student.id() + "@" + domain()))).isEqualTo(body);
+
+        // A second university is told apart by its domain: the domain decides, nothing else.
+        String other = people.aUniversity("C");
+        assertThat(JsonPath.<String>read(bodyOf(identifyByDomain(other.toLowerCase() + ".edu.pe")), "$.code"))
+                .isEqualTo(other);
+        assertThat(JsonPath.<String>read(bodyOf(identifyByDomain(domain())), "$.code")).isEqualTo(code);
+    }
+
+    @Test
+    @DisplayName("A domain that no active university claims is not found")
+    void aDomainThatNoActiveUniversityClaimsIsNotFoundByDomain() throws Exception {
+
+        String unaffiliated =
+                JsonPath.read(
+                        bodyOf(identifyByDomain("no-university-claims-this.edu.pe").andExpect(status().isNotFound())),
+                        "$.message");
+
+        // The domain of another university does not open this one's identity either: it is
+        // answered with that university's own, and once it is suspended with the same 404.
+        String other = people.aUniversity("D");
+        identifyByDomain(other.toLowerCase() + ".edu.pe")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(other));
+        Tenant suspended = tenants.findByCode(other).orElseThrow();
+        suspended.suspend(NOW);
+        tenants.save(suspended);
+
+        identifyByDomain(other.toLowerCase() + ".edu.pe")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value(unaffiliated))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+    }
+
+    @Test
+    @DisplayName("A domain that does not look like one is answered as a bad request")
+    void aDomainThatDoesNotLookLikeOneIsABadRequest() throws Exception {
+
+        for (String malformed :
+                new String[] {"", "   ", "localhost", "student@" + domain(), "some " + domain(), "." + domain(), domain() + "."}) {
+            identifyByDomain(malformed)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.message").exists());
+        }
+    }
+
+    @Test
+    @DisplayName("Both the domain and the email are refused")
+    void bothTheDomainAndTheEmailAreRefused() throws Exception {
+
+        mockMvc.perform(
+                        get("/api/v1/access/university")
+                                .param("domain", domain())
+                                .param("email", "someone@" + domain()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Send exactly one of domain or email"))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+    }
+
+    @Test
+    @DisplayName("Neither the domain nor the email is refused")
+    void neitherTheDomainNorTheEmailIsRefused() throws Exception {
 
         mockMvc.perform(get("/api/v1/access/university"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("email is required"));
+                .andExpect(jsonPath("$.message").value("Send exactly one of domain or email"))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
     }
 }

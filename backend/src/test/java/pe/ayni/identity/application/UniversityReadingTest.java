@@ -82,6 +82,34 @@ class UniversityReadingTest {
     }
 
     @Test
+    @DisplayName("the identity of the university that claims a domain sent alone")
+    void theIdentityOfTheUniversityThatClaimsADomainSentAlone() {
+        when(tenants.findByStatus(TenantStatus.ACTIVE)).thenReturn(List.of(upc()));
+
+        assertThat(findByEmail.executeForDomain(" UPC.pe ").code()).isEqualTo("UPC");
+    }
+
+    @Test
+    @DisplayName("a domain sent alone that no active university claims is not found")
+    void aDomainSentAloneThatNoActiveUniversityClaimsIsNotFound() {
+        when(tenants.findByStatus(TenantStatus.ACTIVE)).thenReturn(List.of(upc()));
+
+        assertThatThrownBy(() -> findByEmail.executeForDomain("gmail.com"))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("The institution is not affiliated with Ayni");
+    }
+
+    @Test
+    @DisplayName("a domain that does not look like one is refused before any university is looked at")
+    void aDomainThatDoesNotLookLikeOneIsRefused() {
+        assertThatThrownBy(() -> findByEmail.executeForDomain("someone@upc.pe")).isInstanceOf(IdentityRuleViolation.class);
+        assertThatThrownBy(() -> findByEmail.executeForDomain("upc")).isInstanceOf(IdentityRuleViolation.class);
+        assertThatThrownBy(() -> findByEmail.executeForDomain(null)).isInstanceOf(IdentityRuleViolation.class);
+
+        org.mockito.Mockito.verifyNoInteractions(tenants);
+    }
+
+    @Test
     @DisplayName("the university of the session comes with its domains and its time zone")
     void theUniversityOfTheSession() {
         when(tenants.findByCode("UPC")).thenReturn(Optional.of(upc()));
