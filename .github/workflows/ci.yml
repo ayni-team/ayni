@@ -51,6 +51,11 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # ESLint: the rules of hooks, exhaustive effect dependencies and accessibility of the markup.
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
       # Type checks (strict, against the types generated from docs/api/openapi.json) and builds.
       - name: Build
         working-directory: web

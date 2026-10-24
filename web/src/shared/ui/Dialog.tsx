@@ -37,10 +37,12 @@ function DialogPanel({ onClose, title, description, children, footer, dismissibl
   close.current = onClose;
   const canDismiss = useRef(dismissible);
   canDismiss.current = dismissible;
+  const focusTarget = useRef(initialFocus);
+  focusTarget.current = initialFocus;
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const first = initialFocus?.current ?? panel.current?.querySelector<HTMLElement>(FOCUSABLE) ?? panel.current;
+    const first = focusTarget.current?.current ?? panel.current?.querySelector<HTMLElement>(FOCUSABLE) ?? panel.current;
     first?.focus();
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
