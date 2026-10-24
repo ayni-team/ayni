@@ -21,8 +21,8 @@ export async function clientChecks() {
   await api.delete('/api/v1/bookings/{id}');
 
   // A required query parameter is required.
-  // @ts-expect-error email is missing
-  await api.get('/api/v1/access/university', { query: {} });
+  // @ts-expect-error name is missing
+  await api.get('/api/v1/catalog/similar', { query: {} });
 
   // A path that does not exist, or does not answer the method, is refused.
   // @ts-expect-error not a path of the API
