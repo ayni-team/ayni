@@ -13,6 +13,7 @@
 #                                        HoldRaceTest.exactlyOneStudentHoldsTheHour
 #   Block taken, while confirming        BookABlockAcceptanceTest.confirmingAnHourAnotherStudentHoldsChargesNothing
 #                                        BookingConfirmationDatabaseTest.theVersionColumnDecidesARaceAtConfirmation
+#   The hold says the server time       BookABlockAcceptanceTest.theHoldSaysWhatTimeItIsForTheServer
 #   Temporary hold expiry                BookABlockAcceptanceTest.anUnconfirmedHoldExpiresAfterFiveMinutes
 #                                        BookABlockAcceptanceTest.confirmingAnExpiredHoldIsRefused
 #                                        ExpiredHoldsJobTest.freesTheExpiredHoldsOfEveryUniversity
@@ -79,6 +80,11 @@ Feature: Booking a block of tutoring
     When Bruno takes over the hour and confirms first
     Then Ana is told that the hour was just taken
     And nothing is charged to Ana
+
+  Scenario: The hold says what time it is for the server
+    Given Ana holds tomorrow's hour at 09:00
+    Then the answer says the time of the server and when the hold runs out, five minutes later
+    And with the clock of the application moved ahead the two follow it, still five minutes apart
 
   Scenario: Temporary hold expiry
     Given Ana holds tomorrow's hour at 11:00

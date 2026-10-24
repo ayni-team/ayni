@@ -3,6 +3,7 @@ package pe.ayni.identity.interfaces.rest;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -194,13 +195,64 @@ class AccessControllerTest {
     }
 
     @Test
-    @DisplayName("answers 400 in the common error shape when the email is missing")
-    void answersBadRequestWhenTheEmailIsMissing() throws Exception {
+    @DisplayName("shows the identity of the university of a domain sent alone")
+    void showsTheIdentityOfTheUniversityOfADomain() throws Exception {
+        when(findUniversity.executeForDomain("upc.edu.pe"))
+                .thenReturn(
+                        new UniversityIdentityView(
+                                "UPC", "Universidad Peruana", "https://cdn.ayni.pe/upc.png", "#E30613", "#1A1A1A"));
+
+        mvc.perform(get("/api/v1/access/university").param("domain", "upc.edu.pe"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("UPC"));
+
+        verify(findUniversity, never()).execute(anyString());
+    }
+
+    @Test
+    @DisplayName("answers 404 in the common error shape when no university claims the domain")
+    void answersNotFoundWhenNoUniversityClaimsTheDomain() throws Exception {
+        when(findUniversity.executeForDomain("gmail.com"))
+                .thenThrow(new NoSuchElementException("The institution is not affiliated with Ayni"));
+
+        mvc.perform(get("/api/v1/access/university").param("domain", "gmail.com"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+    }
+
+    @Test
+    @DisplayName("answers 400 in the common error shape when the domain is refused")
+    void answersBadRequestWhenTheDomainIsRefused() throws Exception {
+        when(findUniversity.executeForDomain("upc"))
+                .thenThrow(new IdentityRuleViolation("Domain is not valid"));
+
+        mvc.perform(get("/api/v1/access/university").param("domain", "upc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Domain is not valid"));
+    }
+
+    @Test
+    @DisplayName("answers 400 in the common error shape when neither the domain nor the email is sent")
+    void answersBadRequestWhenNeitherIsSent() throws Exception {
         mvc.perform(get("/api/v1/access/university"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("email is required"))
+                .andExpect(jsonPath("$.message").value("Send exactly one of domain or email"))
                 .andExpect(jsonPath("$.path").value("/api/v1/access/university"));
+
+        verifyNoInteractions(findUniversity);
+    }
+
+    @Test
+    @DisplayName("answers 400 in the common error shape when both the domain and the email are sent")
+    void answersBadRequestWhenBothAreSent() throws Exception {
+        mvc.perform(
+                        get("/api/v1/access/university")
+                                .param("domain", "upc.edu.pe")
+                                .param("email", "u202400001@upc.edu.pe"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Send exactly one of domain or email"));
 
         verifyNoInteractions(findUniversity);
     }

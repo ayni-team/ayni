@@ -69,4 +69,25 @@ class EmailDomainsTest {
         assertThatThrownBy(() -> EmailDomains.normalize(Arrays.asList("upc.edu.pe", null)))
                 .isInstanceOf(IdentityRuleViolation.class);
     }
+
+    @Test
+    @DisplayName("a lookup domain is trimmed and put in lower case")
+    void aLookupDomainIsNormalized() {
+        assertThat(EmailDomains.requireLookupDomain("  UPC.edu.PE ")).isEqualTo("upc.edu.pe");
+    }
+
+    @ParameterizedTest(name = "\"{0}\" is not a lookup domain")
+    @ValueSource(strings = {"", "   ", "upc", "someone@upc.edu.pe", "upc edu.pe", ".upc.pe", "upc.pe.", "upc..pe"})
+    void aLookupDomainThatDoesNotLookLikeOneIsRefused(String value) {
+        assertThatThrownBy(() -> EmailDomains.requireLookupDomain(value))
+                .isInstanceOf(IdentityRuleViolation.class);
+    }
+
+    @Test
+    @DisplayName("a missing or too long lookup domain is refused")
+    void aMissingOrTooLongLookupDomainIsRefused() {
+        assertThatThrownBy(() -> EmailDomains.requireLookupDomain(null)).isInstanceOf(IdentityRuleViolation.class);
+        assertThatThrownBy(() -> EmailDomains.requireLookupDomain("a".repeat(251) + ".pe"))
+                .isInstanceOf(IdentityRuleViolation.class);
+    }
 }

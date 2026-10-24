@@ -23,6 +23,7 @@ import pe.ayni.identity.application.FindUniversityByEmailQuery;
 import pe.ayni.identity.application.RequestAccessUseCase;
 import pe.ayni.identity.application.SignOutUseCase;
 import pe.ayni.identity.application.UniversityIdentityView;
+import pe.ayni.identity.domain.model.IdentityRuleViolation;
 import pe.ayni.identity.interfaces.web.AccessControlFilter;
 
 /**
@@ -159,14 +160,16 @@ public class AccessController {
 
     @GetMapping("/university")
     @Operation(
-            summary = "Shows the name, logo and colours of the university an email belongs to",
+            summary = "Shows the name, logo and colours of the university a domain belongs to",
             description =
                     """
                     US39: so that the person sees their university before signing in. Only the \
-                    domain of the email decides, as when a link is requested; nothing says whether \
-                    the address has an account, and nothing about its people is returned. A domain \
-                    that belongs to no active university, a suspended one included, is answered \
-                    404.
+                    domain decides, as when a link is requested, so send `domain` (for example \
+                    `upc.edu.pe`) and the address of a person never reaches the server. `email` \
+                    still works but is deprecated: only its domain is read, yet all of it travels. \
+                    Send exactly one of the two. Nothing says whether an address has an account, \
+                    and nothing about its people is returned. A domain that belongs to no active \
+                    university, a suspended one included, is answered 404.
                     """)
     @ApiResponse(
             responseCode = "200",
@@ -184,15 +187,38 @@ public class AccessController {
                                                     """)))
     @ApiResponse(
             responseCode = "400",
-            description = "The email is missing or is not an address",
+            description =
+                    "Neither `domain` nor `email` was sent, both were, the domain does not look"
+                            + " like one, or the email is not an address",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(
             responseCode = "404",
-            description = "The domain of the email belongs to no active university",
+            description = "The domain belongs to no active university",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     public UniversityIdentityView findUniversity(
-            @Parameter(example = "u202400001@upc.edu.pe") @RequestParam String email) {
-        return findUniversityByEmail.execute(email);
+            @Parameter(
+                            description =
+                                    "Domain the university claims, in any case: a name with at"
+                                            + " least one dot, without `@` or spaces",
+                            example = "upc.edu.pe")
+                    @RequestParam(required = false)
+                    String domain,
+            @Parameter(
+                            deprecated = true,
+                            description =
+                                    "Use `domain`. Only the domain of the address is read, but the"
+                                            + " whole address would reach the access logs",
+                            example = "u202400001@upc.edu.pe")
+                    @RequestParam(required = false)
+                    String email) {
+
+        if ((domain == null) == (email == null)) {
+            throw new IdentityRuleViolation("Send exactly one of domain or email");
+        }
+
+        return domain != null
+                ? findUniversityByEmail.executeForDomain(domain)
+                : findUniversityByEmail.execute(email);
     }
 
     @PostMapping("/logout")

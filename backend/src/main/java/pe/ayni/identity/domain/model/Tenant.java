@@ -116,11 +116,23 @@ public class Tenant {
             return false;
         }
 
-        String domain = normalizedEmail.substring(separator + 1);
+        return claimsDomain(normalizedEmail.substring(separator + 1));
+    }
+
+    /**
+     * Whether this university owns the domain, whatever its case. What decides it is the domain
+     * alone: it is all an address is compared by.
+     */
+    public boolean claimsDomain(String domain) {
+        if (domain == null) {
+            return false;
+        }
+
+        String normalizedDomain = domain.trim().toLowerCase(Locale.ROOT);
 
         return emailDomains.stream()
                 .map(value -> value.toLowerCase(Locale.ROOT))
-                .anyMatch(domain::equals);
+                .anyMatch(normalizedDomain::equals);
     }
 
     /** Whether this university already holds at least one of the domains, whatever their case. */

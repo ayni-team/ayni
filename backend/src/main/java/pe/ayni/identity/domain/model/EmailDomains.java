@@ -12,6 +12,7 @@ import java.util.Locale;
 public final class EmailDomains {
 
     private static final int MAXIMUM_ADDRESS_LENGTH = 254;
+    private static final int MAXIMUM_DOMAIN_LENGTH = 253;
 
     private EmailDomains() {}
 
@@ -36,6 +37,32 @@ public final class EmailDomains {
         }
 
         return address;
+    }
+
+    /**
+     * The domain somebody looks a university up by, in the form it is compared, or a refusal when
+     * it cannot be one: it is a name with at least one dot between labels, with no at sign and no
+     * whitespace. Unlike the domains a university claims, which only have to be names, this one
+     * comes from outside and has to look like what it is.
+     */
+    public static String requireLookupDomain(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IdentityRuleViolation("Domain must not be blank");
+        }
+
+        String domain = value.trim().toLowerCase(Locale.ROOT);
+
+        if (domain.length() > MAXIMUM_DOMAIN_LENGTH
+                || domain.indexOf('@') >= 0
+                || domain.chars().anyMatch(Character::isWhitespace)
+                || domain.indexOf('.') < 0
+                || domain.startsWith(".")
+                || domain.endsWith(".")
+                || domain.contains("..")) {
+            throw new IdentityRuleViolation("Domain is not valid");
+        }
+
+        return domain;
     }
 
     /**

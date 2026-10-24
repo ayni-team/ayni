@@ -69,6 +69,17 @@ class TenantTest {
     }
 
     @Test
+    @DisplayName("claims a domain whatever its case, and not one it does not hold")
+    void claimsADomain() {
+        Tenant tenant = activeTenant();
+
+        assertThat(tenant.claimsDomain("UPC.edu.pe")).isTrue();
+        assertThat(tenant.claimsDomain(" upc.edu.pe ")).isTrue();
+        assertThat(tenant.claimsDomain("gmail.com")).isFalse();
+        assertThat(tenant.claimsDomain(null)).isFalse();
+    }
+
+    @Test
     @DisplayName("a suspended tenant is no longer active")
     void suspendedTenantIsNotActive() {
         Tenant tenant = activeTenant();
