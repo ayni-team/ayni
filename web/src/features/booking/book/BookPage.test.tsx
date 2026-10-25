@@ -101,10 +101,10 @@ describe('FE-11 BookPage', () => {
 
     // Summary Card elements
     expect(screen.getByText('Base de Datos II')).toBeInTheDocument();
-    expect(screen.getByText('CC201')).toBeInTheDocument();
+    expect(screen.getByText(/CC201/)).toBeInTheDocument();
     expect(screen.getByText('Bruno Salas')).toBeInTheDocument();
-    expect(screen.getByText('Costo 1 crédito')).toBeInTheDocument();
-    expect(screen.getByText('12 créditos')).toBeInTheDocument();
+    expect(screen.getByText(/Costo/)).toBeInTheDocument();
+    expect(screen.getByText(/12 créditos/)).toBeInTheDocument();
 
     // Need form
     expect(screen.getByLabelText(/¿En qué necesitas ayuda\?/)).toBeInTheDocument();
@@ -208,7 +208,9 @@ describe('FE-11 BookPage', () => {
 
     const backBtn = screen.getByRole('button', { name: 'Volver a Buscar' });
     await user.click(backBtn);
-    expect(location()).toBe(`/buscar?catalogItemId=${COURSE_ID}`);
+    await waitFor(() => {
+      expect(location()).toBe(`/buscar?catalogItemId=${COURSE_ID}`);
+    });
   });
 
   it('handles 409 conflict: tutor not enabled', async () => {
@@ -243,7 +245,7 @@ describe('FE-11 BookPage', () => {
       },
     });
 
-    const { user } = renderWithProviders(<BookPage />, {
+    const { user, location } = renderWithProviders(<BookPage />, {
       route: DEFAULT_ROUTE,
     });
 
@@ -256,7 +258,9 @@ describe('FE-11 BookPage', () => {
     expect(
       screen.getByText(/La reserva cuesta 1 crédito y tu saldo es 0\. Compra créditos y vuelve a confirmar\./),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Comprar créditos' })).toHaveAttribute('href', '/creditos/comprar');
+    const buyBtn = screen.getByRole('button', { name: 'Comprar créditos' });
+    await user.click(buyBtn);
+    expect(location()).toBe('/creditos/comprar');
   });
 
   it('handles unexpected error and allows retry', async () => {

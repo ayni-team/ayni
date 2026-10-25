@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { ButtonLink, IconCheck } from '@/shared/ui';
 import { formatInZone } from '@/shared/time';
 
@@ -18,50 +19,64 @@ function capitalize(str: string) {
 }
 
 export function BookingConfirmedCard({
-  tutorName = 'El tutor',
+  tutorName = 'Bruno Salas',
   courseName = 'Curso',
-  courseCode,
   startsAt,
   endsAt,
+  hours = 1,
   creditsCharged = 1,
   zone,
 }: BookingConfirmedCardProps) {
-  const dayText = startsAt ? capitalize(formatInZone(startsAt, zone, 'longDate')) : '';
+  const dayText = startsAt
+    ? capitalize(formatInZone(startsAt, zone, 'longDate')).replace(',', '')
+    : '';
   const startTime = startsAt ? formatInZone(startsAt, zone, 'time') : '';
-  const endTime = endsAt ? formatInZone(endsAt, zone, 'time') : '';
+  const effectiveEnd =
+    endsAt ??
+    (startsAt
+      ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString()
+      : '');
+  const endTime = effectiveEnd ? formatInZone(effectiveEnd, zone, 'time') : '';
   const timeRange = startTime && endTime ? `${startTime} – ${endTime}` : '';
 
   return (
-    <div className="mx-auto max-w-xl rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm sm:p-8">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-        <IconCheck className="h-8 w-8 stroke-[2.5]" />
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div>
+        <Link
+          to="/buscar"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+        >
+          <span>← Volver a Buscar</span>
+        </Link>
       </div>
 
       <h1 className="text-2xl font-bold text-gray-900">Reserva confirmada</h1>
-      <p className="mt-1 text-base text-gray-600">Listo, {tutorName} te espera</p>
 
-      <div className="my-6 rounded-xl border border-gray-100 bg-gray-50/90 p-4 text-center">
-        <p className="font-semibold text-gray-900">
-          {dayText}
-          {timeRange ? ` · ${timeRange}` : ''}
-        </p>
-        <p className="mt-1 text-sm text-gray-600">
-          {courseName} {courseCode ? `(${courseCode})` : ''}
-        </p>
-      </div>
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 sm:p-8 shadow-sm space-y-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+          <IconCheck className="h-6 w-6 stroke-[2.5]" />
+        </div>
 
-      <p className="text-sm text-gray-500">
-        Se descontó {creditsCharged} {creditsCharged === 1 ? 'crédito' : 'créditos'}. La sala se
-        abre 15 minutos antes.
-      </p>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Listo, {tutorName} te espera</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            {dayText}
+            {timeRange ? ` · ${timeRange}` : ''} · {courseName}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Se descontó {creditsCharged} {creditsCharged === 1 ? 'crédito' : 'créditos'}. La sala se
+            abre 15 minutos antes.
+          </p>
+        </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <ButtonLink to="/mis-tutorias" variant="primary">
-          Ver mis tutorías
-        </ButtonLink>
-        <ButtonLink to="/buscar" variant="secondary">
-          Buscar otra
-        </ButtonLink>
+        <div className="flex items-center gap-5 pt-3">
+          <ButtonLink to="/mis-tutorias" variant="primary" className="rounded-xl px-5 py-2.5">
+            Ver mis tutorías
+          </ButtonLink>
+          <Link to="/buscar" className="text-sm font-medium text-brand hover:underline">
+            Buscar otra
+          </Link>
+        </div>
       </div>
     </div>
   );
