@@ -1,89 +1,436 @@
-import { screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+    screen,
+    waitFor,
+} from '@testing-library/react';
+import {
+    afterEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
-import { UPC, USIL_IDENTITY } from '@/test/fixtures';
+import {
+    UPC,
+    USIL_IDENTITY,
+} from '@/test/fixtures';
 import { renderWithProviders } from '@/test/render';
 import SignInPage from './SignInPage';
 
 /**
- * The example of a feature test: the screen is rendered as it is, and the server is faked at the
- * `fetch` level with what each request answers.
+ * FE-01 · /ingresar
+ *
+ * Feature tests for:
+ * - university preview by domain,
+ * - university branding,
+ * - non-affiliated domains,
+ * - access-link request,
+ * - resend waiting period,
+ * - returning to another email.
  */
 function serveUniversities() {
-  return fakeServer().on('GET', '/api/v1/access/university', ({ query }) => {
-    const domain = query.get('domain');
-    if (domain === 'upc.edu.pe') return { body: UPC };
-    if (domain === 'usil.edu.pe') return { body: USIL_IDENTITY };
-    return { status: 404, body: { status: 404, message: 'The institution is not affiliated with Ayni' } };
-  });
+    return fakeServer().on(
+        'GET',
+        '/api/v1/access/university',
+        ({ query }) => {
+            const domain = query.get('domain');
+
+            if (domain === 'upc.edu.pe') {
+                return {
+                    body: UPC,
+                };
+            }
+
+            if (domain === 'usil.edu.pe') {
+                return {
+                    body: USIL_IDENTITY,
+                };
+            }
+
+            return {
+                status: 404,
+                body: {
+                    status: 404,
+                    message:
+                        'The institution is not affiliated with Ayni',
+                },
+            };
+        },
+    );
 }
 
-const brand = () => document.documentElement.style.getPropertyValue('--brand-primary');
+const brand = () =>
+    document.documentElement.style.getPropertyValue(
+        '--brand-primary',
+    );
 
 describe('FE-01 sign in', () => {
-  afterEach(() => vi.unstubAllGlobals());
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
 
-  it("paints UPC's name, logo and colours before signing in", async () => {
-    serveUniversities();
-    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+    it(
+        "paints UPC's name, logo and colours before signing in",
+        async () => {
+            serveUniversities();
 
-    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'u202400001@upc.edu.pe');
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
 
-    expect(await screen.findByText('Universidad Peruana de Ciencias Aplicadas')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /Logo de Universidad Peruana/ })).toHaveAttribute('src', '/logos/upc.png');
-    expect(brand()).toBe('#E42322');
-    expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled();
-  });
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'u202400001@upc.edu.pe',
+            );
 
-  it('switches to USIL when the address is of USIL', async () => {
-    serveUniversities();
-    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
-    const email = screen.getByRole('textbox', { name: 'Correo institucional' });
+            expect(
+                await screen.findByText(
+                    'Universidad Peruana de Ciencias Aplicadas',
+                ),
+            ).toBeInTheDocument();
 
-    await user.type(email, 'u202400001@upc.edu.pe');
-    await waitFor(() => expect(brand()).toBe('#E42322'));
-    await user.clear(email);
-    await user.type(email, 'lucia.paredes@usil.edu.pe');
+            expect(
+                screen.getByRole('img', {
+                    name: /Logo de Universidad Peruana/,
+                }),
+            ).toHaveAttribute(
+                'src',
+                '/logos/upc.png',
+            );
 
-    expect(await screen.findByText('Universidad San Ignacio de Loyola')).toBeInTheDocument();
-    await waitFor(() => expect(brand()).toBe('#07256D'));
-  });
+            expect(brand()).toBe('#E42322');
 
-  it('refuses a made-up domain and keeps the submit disabled', async () => {
-    const server = serveUniversities();
-    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+            expect(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            ).toBeEnabled();
+        },
+    );
 
-    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'alguien@inventada.pe');
+    it(
+        'switches to USIL when the address is of USIL',
+        async () => {
+            serveUniversities();
 
-    expect(await screen.findByText('Tu universidad todavía no está afiliada a Ayni')).toBeInTheDocument();
-    expect(screen.queryByText(/not affiliated/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeDisabled();
-    expect(server.requests('POST')).toHaveLength(0);
-  });
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
 
-  it('sends only the domain to look the university up, never the address', async () => {
-    const server = serveUniversities();
-    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+            const email = screen.getByRole(
+                'textbox',
+                {
+                    name: 'Correo institucional',
+                },
+            );
 
-    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'U202400001@UPC.edu.pe');
-    await screen.findByText('Universidad Peruana de Ciencias Aplicadas');
+            await user.type(
+                email,
+                'u202400001@upc.edu.pe',
+            );
 
-    const lookups = server.requests('GET', '/api/v1/access/university');
-    expect(lookups).toHaveLength(1);
-    expect(lookups[0].query.get('domain')).toBe('upc.edu.pe');
-    expect(lookups[0].query.has('email')).toBe(false);
-    expect(lookups[0].query.toString()).not.toContain('202400001');
-  });
+            await waitFor(() => {
+                expect(brand()).toBe('#E42322');
+            });
 
-  it('asks for the link and says where it went', async () => {
-    const server = serveUniversities().on('POST', '/api/v1/access/request', { status: 202 });
-    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+            await user.clear(email);
 
-    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'u202400001@upc.edu.pe');
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: 'Enviarme el enlace' }));
+            await user.type(
+                email,
+                'lucia.paredes@usil.edu.pe',
+            );
 
-    expect(await screen.findByText('Te enviamos un enlace a u202400001@upc.edu.pe. Vence en 10 minutos.')).toBeInTheDocument();
-    expect(server.requests('POST', '/api/v1/access/request')[0].body).toEqual({ email: 'u202400001@upc.edu.pe' });
-  });
+            expect(
+                await screen.findByText(
+                    'Universidad San Ignacio de Loyola',
+                ),
+            ).toBeInTheDocument();
+
+            await waitFor(() => {
+                expect(brand()).toBe('#07256D');
+            });
+        },
+    );
+
+    it(
+        'refuses a made-up domain and keeps the submit disabled',
+        async () => {
+            const server = serveUniversities();
+
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
+
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'alguien@inventada.pe',
+            );
+
+            expect(
+                await screen.findByText(
+                    'Tu universidad todavía no está afiliada a Ayni',
+                ),
+            ).toBeInTheDocument();
+
+            expect(
+                screen.queryByText(/not affiliated/),
+            ).not.toBeInTheDocument();
+
+            expect(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            ).toBeDisabled();
+
+            expect(
+                server.requests('POST'),
+            ).toHaveLength(0);
+        },
+    );
+
+    it(
+        'sends only the domain to look the university up, never the address',
+        async () => {
+            const server = serveUniversities();
+
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
+
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'U202400001@UPC.edu.pe',
+            );
+
+            await screen.findByText(
+                'Universidad Peruana de Ciencias Aplicadas',
+            );
+
+            const lookups = server.requests(
+                'GET',
+                '/api/v1/access/university',
+            );
+
+            expect(lookups).toHaveLength(1);
+
+            expect(
+                lookups[0].query.get('domain'),
+            ).toBe('upc.edu.pe');
+
+            expect(
+                lookups[0].query.has('email'),
+            ).toBe(false);
+
+            expect(
+                lookups[0].query.toString(),
+            ).not.toContain('202400001');
+        },
+    );
+
+    it(
+        'asks for the link and says where it went',
+        async () => {
+            const server =
+                serveUniversities().on(
+                    'POST',
+                    '/api/v1/access/request',
+                    {
+                        status: 202,
+                    },
+                );
+
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
+
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'u202400001@upc.edu.pe',
+            );
+
+            await waitFor(() => {
+                expect(
+                    screen.getByRole('button', {
+                        name: 'Enviarme el enlace',
+                    }),
+                ).toBeEnabled();
+            });
+
+            await user.click(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            );
+
+            expect(
+                await screen.findByText(
+                    'Te enviamos un enlace a u202400001@upc.edu.pe. Vence en 10 minutos.',
+                ),
+            ).toBeInTheDocument();
+
+            expect(
+                server.requests(
+                    'POST',
+                    '/api/v1/access/request',
+                )[0].body,
+            ).toEqual({
+                email: 'u202400001@upc.edu.pe',
+            });
+        },
+    );
+
+    it(
+        'shows the resend countdown after the access link is sent',
+        async () => {
+            serveUniversities().on(
+                'POST',
+                '/api/v1/access/request',
+                {
+                    status: 202,
+                },
+            );
+
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
+
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'u202400001@upc.edu.pe',
+            );
+
+            await waitFor(() => {
+                expect(
+                    screen.getByRole('button', {
+                        name: 'Enviarme el enlace',
+                    }),
+                ).toBeEnabled();
+            });
+
+            await user.click(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            );
+
+            expect(
+                await screen.findByRole(
+                    'heading',
+                    {
+                        name: 'Revisa tu correo',
+                    },
+                ),
+            ).toBeInTheDocument();
+
+            const resendButton =
+                await screen.findByRole(
+                    'button',
+                    {
+                        name: /Reenviar en 0:\d{2}/,
+                    },
+                );
+
+            expect(
+                resendButton,
+            ).toBeDisabled();
+
+            expect(
+                screen.getByRole('button', {
+                    name: 'Usar otro correo',
+                }),
+            ).toBeEnabled();
+
+            expect(
+                screen.getByText(
+                    'Reenviar se habilita 30 segundos después del envío.',
+                ),
+            ).toBeInTheDocument();
+        },
+    );
+
+    it(
+        'lets the user return and enter another email after the link was sent',
+        async () => {
+            serveUniversities().on(
+                'POST',
+                '/api/v1/access/request',
+                {
+                    status: 202,
+                },
+            );
+
+            const { user } =
+                renderWithProviders(<SignInPage />, {
+                    route: '/ingresar',
+                });
+
+            await user.type(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+                'u202400001@upc.edu.pe',
+            );
+
+            await waitFor(() => {
+                expect(
+                    screen.getByRole('button', {
+                        name: 'Enviarme el enlace',
+                    }),
+                ).toBeEnabled();
+            });
+
+            await user.click(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            );
+
+            await screen.findByRole(
+                'heading',
+                {
+                    name: 'Revisa tu correo',
+                },
+            );
+
+            await user.click(
+                screen.getByRole('button', {
+                    name: 'Usar otro correo',
+                }),
+            );
+
+            expect(
+                screen.getByRole('heading', {
+                    name: 'Ingresa a Ayni',
+                }),
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByRole('textbox', {
+                    name: 'Correo institucional',
+                }),
+            ).toHaveValue('');
+
+            expect(
+                screen.getByRole('button', {
+                    name: 'Enviarme el enlace',
+                }),
+            ).toBeDisabled();
+        },
+    );
 });
