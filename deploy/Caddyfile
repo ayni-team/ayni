@@ -7,10 +7,23 @@
 	email {$ACME_EMAIL}
 }
 
+# Headers every site of the stack answers with. HSTS tells a browser that has seen the site once to
+# refuse plain HTTP to it for a year; it names no subdomain, so other names of the domain are not
+# bound by it. The referrer policy keeps the access link, which carries its token in the address,
+# from reaching another site in a Referer header: only the origin crosses.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
 # api.<domain>: the backend on its own hostname, for Swagger UI (when enabled) and any client that
 # is not the web application. Caddy forwards WebSocket upgrades (the whiteboard) without help and
 # adds X-Forwarded-For, -Host and -Proto, which the prod profile trusts.
 api.{$AYNI_DOMAIN} {
+	import security_headers
 	encode zstd gzip
 
 	# Evidence uploads are up to three files of 5 MB (16 MB per request in application.yml).
@@ -30,6 +43,9 @@ api.{$AYNI_DOMAIN} {
 # with a relative address, so serving both here needs no CORS: the browser sees a single origin.
 # Set AYNI_ALLOWED_ORIGINS to https://app.<domain> all the same: the whiteboard's WebSocket checks it.
 app.{$AYNI_DOMAIN} {
+	import security_headers
+	# Nothing frames the web application, so no other site may put it in a frame.
+	header X-Frame-Options DENY
 	encode zstd gzip
 
 	@backend path /api/* /actuator/health /actuator/health/*
@@ -61,6 +77,7 @@ app.{$AYNI_DOMAIN} {
 # microphone over it. The media does not pass through here: it goes over 10000/udp straight to the
 # videobridge.
 meet.{$AYNI_DOMAIN} {
+	import security_headers
 	encode zstd gzip
 	reverse_proxy jitsi-web:80
 }

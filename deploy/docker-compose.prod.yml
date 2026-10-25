@@ -17,16 +17,33 @@
 
 name: ayni
 
+# Docker keeps every line a container prints, with no limit, and a machine that stays on for weeks
+# fills its disk with them. Each service keeps at most three files of 10 MB.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
 
   backend:
     image: ${AYNI_IMAGE_REPOSITORY:?Set AYNI_IMAGE_REPOSITORY in deploy/.env}:${AYNI_IMAGE_TAG:?Set AYNI_IMAGE_TAG in deploy/.env}
     restart: unless-stopped
+    logging: *logging
+    # The JVM below was measured inside this limit (README.md, "Memory"). Swap is off for the
+    # container: past the limit it is killed and restarted instead of slowing everything down.
+    mem_limit: ${AYNI_BACKEND_MEMORY_LIMIT:-650m}
+    memswap_limit: ${AYNI_BACKEND_MEMORY_LIMIT:-650m}
     environment:
       # Under prod the application refuses to start, naming it, when a required variable is
       # missing. The ones below with ":?" fail here first, before any container is touched.
       SPRING_PROFILES_ACTIVE: prod
-      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75}
+      # Sized for a machine of 1 GB (README.md, "Memory"). A percentage of the container would let
+      # the heap grow until the memory outside it no longer fits, and the kernel kills the process.
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:+UseSerialGC -Xms128m -Xmx256m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=32m -Xss512k -XX:TieredStopAtLevel=1}
+      # Each request thread costs memory of its own; Tomcat's default is 200.
+      SERVER_TOMCAT_THREADS_MAX: ${AYNI_TOMCAT_THREADS_MAX:-50}
       AYNI_PORT: ${AYNI_PORT:-8080}
 
       AYNI_DB_URL: ${AYNI_DB_URL:?Set AYNI_DB_URL in deploy/.env}
@@ -110,6 +127,7 @@ services:
   proxy:
     image: caddy:2.8.4-alpine
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
@@ -146,6 +164,7 @@ services:
   jitsi-web:
     image: jitsi/web:stable-9584
     restart: unless-stopped
+    logging: *logging
     environment: &jitsi
       ENABLE_AUTH: "1"
       AUTH_TYPE: jwt
@@ -182,6 +201,7 @@ services:
   jitsi-prosody:
     image: jitsi/prosody:stable-9584
     restart: unless-stopped
+    logging: *logging
     expose:
       - "5222"
       - "5280"
@@ -195,6 +215,7 @@ services:
   jitsi-jicofo:
     image: jitsi/jicofo:stable-9584
     restart: unless-stopped
+    logging: *logging
     environment: *jitsi
     networks: [jitsi]
     depends_on:
@@ -203,6 +224,7 @@ services:
   jitsi-jvb:
     image: jitsi/jvb:stable-9584
     restart: unless-stopped
+    logging: *logging
     ports:
       # The media of every call. With this port closed to the Internet a call connects and nobody
       # hears or sees anything. The TCP fallback on 4443 is off; README.md, "Firewall", says how
@@ -224,6 +246,7 @@ services:
     image: axllent/mailpit:v1.27
     profiles: [mailpit]
     restart: unless-stopped
+    logging: *logging
     networks: [edge]
 
 networks:

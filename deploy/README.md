@@ -40,8 +40,8 @@ You need:
 
 - A domain you control, and access to its DNS.
 - A Linux virtual machine with a public IPv4 address that does not change, and SSH access to it. Any
-  current Ubuntu LTS works; the commands below assume it. Size it by measuring: the JVM, Caddy and
-  the four Jitsi containers share it, and the videobridge grows with the number of calls.
+  current Ubuntu LTS works; the commands below assume it. The backend alone fits in 1 GB with the
+  settings of [Memory](#memory); the four Jitsi containers do not fit next to it in that much.
 - A managed PostgreSQL server (version 16 is what the project is developed against), a server
   administrator login for it, and the ability to allow the machine's address through its firewall.
 - A way to send email (see [Mail](#mail)).
@@ -97,6 +97,48 @@ sudo usermod -aG docker "$USER"     # log out and back in afterwards
 docker compose version
 docker run --rm hello-world
 ```
+
+On a machine of 1 GB, add a swap file as well. The backend container never swaps (see
+[Memory](#memory)), but the system, Docker and the proxy get room when memory runs short, instead
+of the kernel killing a process:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h                             # Swap: 2.0Gi
+```
+
+### Memory
+
+`docker-compose.prod.yml` limits the backend to `AYNI_BACKEND_MEMORY_LIMIT` (650 MB) and gives the
+JVM a fixed heap instead of a share of the container. Past the limit the container is killed and
+started again (`restart: unless-stopped`); it does not swap.
+
+Measured on 2026-10-25 with the production image against an empty PostgreSQL 16, two rounds of
+4000 authenticated requests, 20 at a time:
+
+| JVM options | Container limit | Memory after start | Peak | Result |
+|---|---|---|---|---|
+| `-XX:MaxRAMPercentage=75` (the image's own) | 700 MB | 635 MiB | | Killed for lack of memory after about 880 requests |
+| `-XX:+UseSerialGC -Xmx300m`, bounded metaspace and code cache | 700 MB | 575 MiB | 651 MiB | 8000 of 8000 answered, 95th percentile 47 to 88 ms |
+| The default of the stack (below) | 600 MB | 491 MiB | 533 MiB | 8000 of 8000 answered, 95th percentile 46 to 53 ms, the same peak in both rounds |
+
+The default of the stack:
+
+```
+-XX:+UseSerialGC -Xms128m -Xmx256m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=48m
+-XX:MaxDirectMemorySize=32m -Xss512k -XX:TieredStopAtLevel=1
+```
+
+with at most 50 request threads (`AYNI_TOMCAT_THREADS_MAX`). The limit of 650 MB leaves about
+100 MB above the peak measured. The measurement ran on an arm64 laptop and did not exercise the
+whiteboard, evidence uploads or a database with data in it: measure again on the machine with
+`docker stats` and `grep anon /sys/fs/cgroup/memory.stat` inside the container. On a larger machine
+raise `-Xmx` and the limit together, keeping the same distance between them.
+
+Every container keeps at most three log files of 10 MB (`x-logging` in the compose file), so a
+machine that stays on does not fill its disk with logs.
 
 ## 3. The database
 
@@ -608,3 +650,6 @@ browser, and should be run by hand the first time:
 - The connection to the managed database with `sslmode=require`, and the role checks of step 6.
 - The `Release` and `Deploy` workflows on GitHub, with the `production` environment.
 - `update.sh` on the machine, including the web build with Node in Docker.
+- The memory of the backend on the machine itself, under real use (see [Memory](#memory)).
+- The security headers of the `Caddyfile` as a browser receives them:
+  `curl -sSI https://app.example.org/ | grep -i strict-transport`.

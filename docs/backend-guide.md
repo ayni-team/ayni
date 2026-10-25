@@ -2328,7 +2328,7 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_PAYMENTS_TIMEOUT` | no | no | `PT2S` | Timeout of a call to the provider |
 | `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS` | no | no | `2` | Calls to the provider at once |
 | `SPRING_PROFILES_ACTIVE` | no | no | `prod` in the image | Never `dev` in a deployment: it seeds demo people |
-| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image | Options of the JVM |
+| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image; `deploy/docker-compose.prod.yml` replaces it with a fixed heap for a machine of 1 GB (`deploy/README.md`, "Memory") | Options of the JVM |
 
 The scenarios are in `features/production-packaging.feature`: `ProductionProfileTest` starts `prod`
 over an empty PostgreSQL with only these variables, signs the bootstrapped administrator in by the
