@@ -88,6 +88,9 @@ services:
       AYNI_REAL_RELAY_SSL: ${AYNI_REAL_RELAY_SSL:-}
 
       AYNI_ACADEMIC_DIRECTORY: ${AYNI_ACADEMIC_DIRECTORY:-/var/lib/ayni/academic-directory}
+      # Set, the documents of the academic system come from this address of another service (a
+      # GitHub Pages site) instead of the folder above, which keeps only the local students.
+      AYNI_ACADEMIC_DIRECTORY_URL: ${AYNI_ACADEMIC_DIRECTORY_URL:-}
       AYNI_SKILLS_EVIDENCE_DIR: ${AYNI_SKILLS_EVIDENCE_DIR:-/var/lib/ayni/evidence}
 
       AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}

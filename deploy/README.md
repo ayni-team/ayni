@@ -14,6 +14,10 @@ machines to a healthy system with HTTPS and video. The decisions behind it are s
 - **The web application is static files** on Azure Static Web Apps, at `app.<domain>`. The
   **Deploy** workflow builds it with the address of the API (`VITE_API_BASE_URL`) and publishes it;
   no machine serves it. It calls `api.<domain>` across origins, which `AYNI_ALLOWED_ORIGINS` allows.
+- **The academic system of the universities is another service** (ADR 0006): their documents
+  (`UPC.json`, `USIL.json`) are static files on a GitHub Pages site, which the backend reads over
+  HTTPS (`AYNI_ACADEMIC_DIRECTORY_URL`), keeping each copy a minute and the last one while the site
+  does not answer.
 - **Caddy** ends TLS on each machine, and gets and renews its certificates by itself.
 - **Jitsi is self hosted** (US08). A browser only gives a page the camera and the microphone over
   HTTPS, and the media travels over UDP port 10000 straight to the videobridge, so both must be
@@ -24,8 +28,9 @@ machines to a healthy system with HTTPS and video. The decisions behind it are s
 Internet ── 443 ──────▶ app.<domain>  web/dist: the page, which then calls api. and meet.
    │
    │                   backend machine
-   ├────── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ──▶ managed PostgreSQL (sslmode=require)
-   │                      api.<domain>   backend, WebSocket included
+   ├────── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ─┬─▶ managed PostgreSQL (sslmode=require)
+   │                      api.<domain>   WebSocket too    └─▶ GitHub Pages: <CODE>.json, the
+   │                                                          academic system (ADR 0006)
    │
    │                   video machine
    ├────── 80, 443 ──▶ proxy (Caddy) ──▶ meet.<domain>  jitsi-web ─ prosody ─ jicofo
@@ -85,6 +90,7 @@ each result as you go.
 | The backend machine | Yes, 750 hours a month of each of the B1s, B2ats v2 and B2pts v2 sizes | `Standard_B2ats_v2` (AMD, 2 vCPU, 1 GB): the published image is amd64 |
 | The video machine | Yes, the same allowance, a different size | `Standard_B2pts_v2` (Arm, 2 vCPU, 1 GB): the Jitsi images exist for arm64 |
 | Their disks | Yes, two P6 disks | **Premium SSD of exactly 64 GB** each. Another size or type is billed |
+| The academic system | Yes | GitHub Pages of a **public** repository, which is all a free organisation can publish: invented students only |
 | The web application | Yes, always | Static Web Apps on the **Free** plan: two custom domains and their certificates are included |
 | PostgreSQL | Yes, for the first 12 months | Flexible server, `Standard_B1ms`, 32 GB of storage, backups kept 7 days, no geo-redundant backup, no high availability |
 | **The public IPv4 addresses** | **No** | None. They are billed by the hour whether the machine runs or not. This is the cost of the deployment |
@@ -630,8 +636,53 @@ An empty installation has no platform administrator, and nothing but one can reg
    ```
 
 4. Give it its academic directory (ADR 0006): one `<CODE>.json` per university, in the format of
-   `backend/academic-directory/README.md`. The backend reads it each time a student is looked up, so
-   no restart is needed:
+   `backend/academic-directory/README.md`. Either way below, the backend reads it when a student
+   is looked up, so no restart is needed. Do not publish or copy the demonstration students of the
+   repository into an installation for real people.
+
+   **From another service (this deployment).** A public repository whose GitHub Pages site serves
+   the documents as they are, one file each: `https://<owner>.github.io/<repository>/UPC.json`.
+   Nothing runs there; the path is the file name. Create it once, from your own computer, with the
+   `gh` CLI (this publishes the files to the Internet):
+
+   ```bash
+   gh repo create ayni-team/ayni-academic-system --public --clone && cd ayni-academic-system
+   cp ../ayni/backend/academic-directory/UPC.json ../ayni/backend/academic-directory/USIL.json .
+   touch .nojekyll                       # serve the files as they are
+   git add . && git commit -m "Publish the academic documents of UPC and USIL" && git push
+   gh api -X POST repos/ayni-team/ayni-academic-system/pages \
+     -f 'source[branch]=main' -f 'source[path]=/'
+   curl -sS https://ayni-team.github.io/ayni-academic-system/UPC.json | head -c 80   # {"university"...
+   ```
+
+   Then, on the backend machine, set in `backend/.env` and apply:
+
+   ```
+   AYNI_ACADEMIC_DIRECTORY_URL=https://ayni-team.github.io/ayni-academic-system/
+   ```
+
+   ```bash
+   cd /opt/ayni/deploy/backend && docker compose up -d
+   docker compose logs backend | grep 'academic system reads'   # ... from the address https://...
+   ```
+
+   An edit pushed to that repository reaches the backend within a minute (Pages publishes it in
+   about as much). While the site does not answer, the backend uses the last copy it read; with no
+   copy, the lookup fails and the log names the university. `logoUrl` in a document is a path of
+   the web application (`/logos/upc.png`), which Static Web Apps serves.
+
+   A real person added for a demonstration, such as the lead signing in with a mailbox of their
+   own, never goes in that repository: put them in `<CODE>.local.json` in the folder of the
+   backend, which is read from there also when the documents come from the address:
+
+   ```bash
+   cd /opt/ayni/deploy/backend
+   chmod 644 UPC.local.json
+   docker compose cp UPC.local.json backend:/var/lib/ayni/academic-directory/UPC.local.json
+   ```
+
+   **From the folder.** With `AYNI_ACADEMIC_DIRECTORY_URL` empty, copy the documents into the
+   volume instead:
 
    ```bash
    cd /opt/ayni/deploy/backend
@@ -639,8 +690,7 @@ An empty installation has no platform administrator, and nothing but one can reg
    docker compose cp UPC.json backend:/var/lib/ayni/academic-directory/UPC.json
    ```
 
-   The folder is a volume, so the file survives updates. Do not copy the demonstration students of
-   the repository into a real installation.
+   The folder is a volume, so its files survive updates.
 
 5. Invite the university's coordinator with `POST /api/v1/admin/universities/{code}/coordinators`
    (TS10); their students then sign in with the link of their own institutional address.
@@ -653,7 +703,7 @@ What holds state, and how to copy it:
 |---|---|---|
 | Everything of the universities | The managed PostgreSQL | `pg_dump`, below (and whatever automatic backup your provider offers: check its retention yourself) |
 | Evidence files (US16) | Volume `ayni-prod-evidence` | `tar`, below |
-| Academic directory | Volume `ayni-prod-academic-directory` | `tar`, below |
+| Academic directory | The repository of its GitHub Pages site, and the volume `ayni-prod-academic-directory` for the local students (or every document, without the site) | `git`; `tar`, below |
 | Certificates | Volume `ayni-prod-caddy-data` | Not needed: they are issued again, within the authority's limits |
 | Secrets | `deploy/backend/.env` and `deploy/jitsi/.env` | Your password manager, never the same place as the dumps |
 
@@ -951,6 +1001,8 @@ machines, a real domain and a real browser, and should be run by hand the first 
   HTTP.
 - WebSocket through the proxy: open the whiteboard of a session from `app.example.org`, across
   origins to `api.example.org`.
+- The academic system on GitHub Pages: the `gh` commands, and the backend reading
+  `https://<owner>.github.io/...` over HTTPS from the machine (tested against a local HTTP server).
 - The web application on Static Web Apps: the `az staticwebapp` commands, the custom domain and its
   certificate, the routes and headers of `staticwebapp.config.json` (that a route such as
   `/access/confirm` answers the page, that `assets/` keeps its long cache over the global
