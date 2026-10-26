@@ -2328,20 +2328,23 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_PAYMENTS_TIMEOUT` | no | no | `PT2S` | Timeout of a call to the provider |
 | `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS` | no | no | `2` | Calls to the provider at once |
 | `SPRING_PROFILES_ACTIVE` | no | no | `prod` in the image | Never `dev` in a deployment: it seeds demo people |
-| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image; `deploy/docker-compose.prod.yml` replaces it with a fixed heap for a machine of 1 GB (`deploy/README.md`, "Memory") | Options of the JVM |
+| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image; `deploy/backend/docker-compose.yml` replaces it with a fixed heap for a machine of 1 GB (`deploy/README.md`, "Memory") | Options of the JVM |
 
 The scenarios are in `features/production-packaging.feature`: `ProductionProfileTest` starts `prod`
 over an empty PostgreSQL with only these variables, signs the bootstrapped administrator in by the
 emailed link and registers a first university.
 
-**The stack that runs it.** `deploy/` holds the production stack and its runbook: a
-`docker-compose.prod.yml` with the backend image, a Caddy proxy (`api.`, `app.` and `meet.`
-hostnames, TLS by itself), the four Jitsi containers always on with `10000/udp` published, and an
-optional Mailpit behind a password; a commented `.env.example` with every variable above; and
-`deploy/README.md`, the step by step guide from an empty virtual machine to a healthy backend, with
-the database roles, backup and restore, updating, rolling back and the two ways to send email. The
-`Release` workflow publishes `ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the
-manual `Deploy` workflow runs `deploy/update.sh` on the machine over SSH.
+**The stacks that run it.** `deploy/` holds two production stacks, one per virtual machine, and
+their runbook. `deploy/backend/` has the backend image, a Caddy proxy (`api.` and `app.`
+hostnames, TLS by itself) and an optional Mailpit behind a password, with a commented
+`.env.example` holding every variable above. `deploy/jitsi/` has the four Jitsi containers with
+`10000/udp` published and a Caddy proxy of their own for `meet.`; the backend never calls that
+machine, the two only share the secret of the video passes. `deploy/README.md` is the step by step
+guide from empty machines to a healthy system, with the choices that keep an Azure for Students
+subscription inside its free services, the database roles, backup and restore, updating, rolling
+back and the ways to send email. The `Release` workflow publishes
+`ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the manual `Deploy` workflow
+runs `deploy/backend/update.sh` on the backend machine over SSH.
 
 ---
 

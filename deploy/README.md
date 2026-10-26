@@ -1,36 +1,48 @@
 # Deploying Ayni
 
-A runbook for putting Ayni on one Linux virtual machine, from an empty machine to a healthy backend
-with HTTPS and video. The decisions behind it are short:
+A runbook for putting the backend of Ayni and its video on two Linux virtual machines, from empty
+machines to a healthy system with HTTPS and video. The decisions behind it are short:
 
-- **One virtual machine** runs everything with `docker compose`: the backend, a Caddy proxy and the
-  four containers of Jitsi.
-- **PostgreSQL is a managed server**, not a container. The stack never holds the data of the
-  universities; the evidence files and the academic directory are the only state on the machine.
-- **Caddy** ends TLS, and gets and renews its certificates by itself.
+- **Two virtual machines**, each running its own `docker compose` stack from this folder:
+  `backend/` (the backend and a Caddy proxy) and `jitsi/` (the four containers of Jitsi and a Caddy
+  proxy of their own). Both fit machines of 1 GB (see [Memory](#memory)).
+- **The backend never talks to the video machine.** It signs a pass with a secret both machines
+  hold, and the browser takes it to `meet.<domain>`. No port opens between the two machines.
+- **PostgreSQL is a managed server**, not a container. The stacks never hold the data of the
+  universities; the evidence files and the academic directory are the only state on the backend
+  machine, and the video machine holds none.
+- **Caddy** ends TLS on each machine, and gets and renews its certificates by itself.
 - **Jitsi is self hosted** (US08). A browser only gives a page the camera and the microphone over
   HTTPS, and the media travels over UDP port 10000 straight to the videobridge, so both must be
   reachable from the Internet.
 
 ```
-Internet ── 80, 443/tcp ──▶ proxy (Caddy) ──▶ backend :8080 ──▶ managed PostgreSQL (sslmode=require)
-   │                           │  api.<domain>   backend, WebSocket included
-   │                           │  app.<domain>   web/dist, and /api to the backend (one origin)
-   │                           └─ meet.<domain>  jitsi-web ─ prosody ─ jicofo
-   └──── 10000/udp ───────────────────────────────────────▶ jitsi-jvb (the media of every call)
+                       backend machine
+Internet ── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ──▶ managed PostgreSQL (sslmode=require)
+   │                      │  api.<domain>   backend, WebSocket included
+   │                      └─ app.<domain>   web/dist, and /api to the backend (one origin)
+   │
+   │                   video machine
+   ├────── 80, 443 ──▶ proxy (Caddy) ──▶ meet.<domain>  jitsi-web ─ prosody ─ jicofo
+   └──── 10000/udp ───────────────────▶ jitsi-jvb (the media of every call)
 ```
 
 | File | What it is |
 |---|---|
-| `docker-compose.prod.yml` | The stack. Mailpit is optional, under the `mailpit` profile |
-| `.env.example` | Every variable, commented. Copy it to `.env` |
-| `Caddyfile` | The three hostnames (and the optional fourth, for Mailpit) |
-| `update.sh` | Builds the web application, sets the version, pulls and restarts |
+| `backend/docker-compose.yml` | The backend machine. Mailpit is optional, under the `mailpit` profile |
+| `backend/.env.example` | Every variable of the backend machine, commented. Copy it to `backend/.env` |
+| `backend/Caddyfile` | `api.` and `app.` (and the optional `mail.`, for Mailpit) |
+| `backend/update.sh` | Builds the web application, sets the version, pulls and restarts |
+| `jitsi/docker-compose.yml` | The video machine |
+| `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
+| `jitsi/Caddyfile` | `meet.` |
 | `../.github/workflows/release.yml` | A `v*` tag publishes `ghcr.io/<owner>/ayni-backend:<tag>` |
-| `../.github/workflows/deploy.yml` | Manual: runs `update.sh` on the machine over SSH |
+| `../.github/workflows/deploy.yml` | Manual: runs `backend/update.sh` on the backend machine over SSH |
 
-Nothing here states what the machine or the database will cost, or what their limits are: those
-change, so read them from your provider when you choose.
+Nothing here states what the machines or the database will cost: prices change, so read them from
+your provider. [Azure, inside the free services](#azure-inside-the-free-services) says which
+choices keep a student subscription inside what Azure gives for free, and where the money goes when
+it does not.
 
 ---
 
@@ -39,58 +51,189 @@ change, so read them from your provider when you choose.
 You need:
 
 - A domain you control, and access to its DNS.
-- A Linux virtual machine with a public IPv4 address that does not change, and SSH access to it. Any
-  current Ubuntu LTS works; the commands below assume it. The backend alone fits in 1 GB with the
-  settings of [Memory](#memory); the four Jitsi containers do not fit next to it in that much.
+- Two Linux virtual machines, each with a public IPv4 address that does not change, and SSH access
+  to them. Any current Ubuntu LTS works; the commands below assume it. Machines of 1 GB are enough
+  with the settings of [Memory](#memory); the four Jitsi containers do not fit next to the backend
+  in that much, which is why they get a machine of their own.
 - A managed PostgreSQL server (version 16 is what the project is developed against), a server
-  administrator login for it, and the ability to allow the machine's address through its firewall.
+  administrator login for it, and the ability to allow the backend machine's address through its
+  firewall.
 - A way to send email (see [Mail](#mail)).
-- A release tag. The image the stack runs is published by pushing a tag (see
+- A release tag. The image the backend runs is published by pushing a tag (see
   [Publishing a version](#publishing-a-version)).
 
 Use `example.org` below for your domain.
 
 ---
 
-## 1. The machine and the DNS
+## Azure, inside the free services
 
-1. Create the virtual machine and give it a static public IP. Note the address: it is
-   `AYNI_PUBLIC_IP`.
-2. Create these records at your DNS provider, all pointing at that address:
+What follows is for an Azure for Students subscription. The commands use the Azure CLI (`az login`
+first); the portal has the same options. **They were not run against a real subscription**: check
+each result as you go.
+
+### What is free and what is not
+
+| Resource | Free? | The choice that keeps it free |
+|---|---|---|
+| The backend machine | Yes, 750 hours a month of each of the B1s, B2ats v2 and B2pts v2 sizes | `Standard_B2ats_v2` (AMD, 2 vCPU, 1 GB): the published image is amd64 |
+| The video machine | Yes, the same allowance, a different size | `Standard_B2pts_v2` (Arm, 2 vCPU, 1 GB): the Jitsi images exist for arm64 |
+| Their disks | Yes, two P6 disks | **Premium SSD of exactly 64 GB** each. Another size or type is billed |
+| PostgreSQL | Yes, for the first 12 months | Flexible server, `Standard_B1ms`, 32 GB of storage, backups kept 7 days, no geo-redundant backup, no high availability |
+| **The public IPv4 addresses** | **No** | None. They are billed by the hour whether the machine runs or not. This is the cost of the deployment |
+| Azure Backup, Microsoft Defender plans, extra storage accounts | No | Do not turn them on when a wizard offers them |
+
+Microsoft lists the free services on <https://azure.microsoft.com/pricing/free-services>, and the
+two pages it has disagree on whether the machines are free for 12 months or always: read it again
+when you create them. 750 hours cover one machine of each size for a whole month, not two of the
+same size.
+
+**Find where money goes before it is spent.** In the portal: Cost Management, Budgets, create a
+monthly budget of USD 5 on the subscription with an alert at 20 %. To find what was charged: Cost
+Management, Cost analysis, filter by the resource group and group by *Meter*; every line names
+what was billed.
+
+### Creating the resources
+
+Choose a region that offers both sizes, and use it for everything:
+
+```bash
+az vm list-skus --location eastus2 --resource-type virtualMachines \
+  --query "[?name=='Standard_B2ats_v2' || name=='Standard_B2pts_v2'].name" -o tsv
+az group create --name ayni --location eastus2
+```
+
+Make one SSH key for the machines on your own computer, and keep the private half there:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/ayni_vm -C ayni-vm
+```
+
+The backend machine. The disk is the P6 of the free services:
+
+```bash
+az vm create --resource-group ayni --name ayni-backend \
+  --image Ubuntu2404 --size Standard_B2ats_v2 \
+  --os-disk-size-gb 64 --storage-sku Premium_LRS \
+  --public-ip-sku Standard --public-ip-address-allocation static \
+  --admin-username ayni --ssh-key-values ~/.ssh/ayni_vm.pub
+```
+
+The video machine is Arm, so it takes the Arm image of Ubuntu. Check its name first; the second
+command prints the address of the image to pass to `--image`:
+
+```bash
+az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server-arm64 --all \
+  --query "[-1].urn" -o tsv
+az vm create --resource-group ayni --name ayni-jitsi \
+  --image <the urn printed above> --size Standard_B2pts_v2 \
+  --os-disk-size-gb 64 --storage-sku Premium_LRS \
+  --public-ip-sku Standard --public-ip-address-allocation static \
+  --admin-username ayni --ssh-key-values ~/.ssh/ayni_vm.pub
+```
+
+Each `az vm create` prints `publicIpAddress`: the backend's goes in the DNS records of `api.` and
+`app.`, the video machine's in the record of `meet.` and in `AYNI_JITSI_PUBLIC_IP`. The firewall of
+each machine (its network security group, `<name>NSG`) is in [Firewall](#firewall).
+
+The database, allowing in the backend machine's address only. The administrator password is
+yours to generate (`openssl rand -base64 48`) and keep; pass it from a variable, never written in a
+file of the repository:
+
+```bash
+az postgres flexible-server create --resource-group ayni --name <server-name> \
+  --location eastus2 --version 16 --tier Burstable --sku-name Standard_B1ms \
+  --storage-size 32 --backup-retention 7 --geo-redundant-backup Disabled \
+  --high-availability Disabled --public-access <backend public IP> \
+  --admin-user ayniadmin --admin-password "$AYNI_PG_ADMIN_PASSWORD"
+```
+
+Then follow [The database](#3-the-database) to create the two roles.
+
+### When a call needs more than 1 GB
+
+The video machine was measured idle, not during a call (see [Memory](#memory-of-the-video-machine)).
+If a call runs out of memory, give the machine a larger size for the day of the presentation and
+take it back afterwards. A larger size is billed by the hour, and only while the machine runs.
+`Standard_B2pls_v2` is the Arm size of 4 GB; the first command lists what the machine can take, so
+check it is there:
+
+```bash
+az vm list-vm-resize-options --resource-group ayni --name ayni-jitsi -o table
+az vm deallocate --resource-group ayni --name ayni-jitsi
+az vm resize --resource-group ayni --name ayni-jitsi --size Standard_B2pls_v2
+az vm start --resource-group ayni --name ayni-jitsi
+```
+
+and the same with `Standard_B2pts_v2` to go back. Raise `VIDEOBRIDGE_MAX_MEMORY` and
+`JICOFO_MAX_MEMORY` in `jitsi/.env` while it is larger. A machine stopped from inside (`sudo
+poweroff`) is still billed; only `az vm deallocate` (or Stop in the portal) stops the bill of a paid
+size. The public address stays the same, because it is static.
+
+---
+
+## 1. The machines and the DNS
+
+1. Create the two virtual machines and give each a static public IP (on Azure, above). Note both
+   addresses.
+2. Create these records at your DNS provider:
 
    | Name | Type | Value |
    |---|---|---|
-   | `api.example.org` | A | the public IP |
-   | `app.example.org` | A | the public IP |
-   | `meet.example.org` | A | the public IP |
-   | `mail.example.org` | A | the public IP, only for the [protected Mailpit](#option-b-mailpit-behind-a-password) |
+   | `api.example.org` | A | the backend machine's IP |
+   | `app.example.org` | A | the backend machine's IP |
+   | `meet.example.org` | A | the video machine's IP |
+   | `mail.example.org` | A | the backend machine's IP, only for the [protected Mailpit](#option-b-mailpit-behind-a-password) |
 
-3. Wait until they resolve, from your own computer: `dig +short app.example.org` must print the
-   address. Caddy cannot get a certificate before this is true.
+3. Wait until they resolve, from your own computer: `dig +short app.example.org` and
+   `dig +short meet.example.org` must print their addresses. Caddy cannot get a certificate before
+   this is true.
 
 ### Firewall
 
-Open these in the cloud firewall of the machine (on Azure, the network security group), and nothing
-else towards the Internet except SSH, which should be allowed only from where you work:
+Open these in the cloud firewall of each machine (on Azure, its network security group), and
+nothing else towards the Internet except SSH, which should be allowed only from where you work:
 
-| Port | Protocol | Why |
-|---|---|---|
-| 80 | TCP | Certificate authority validation and the redirect to HTTPS |
-| 443 | TCP | The three sites |
-| **10000** | **UDP** | **The media of every video call. Closed, a call opens and nobody sees or hears anyone** |
-| 4443 | TCP | Optional: media over TCP for people whose network blocks UDP. Off in this stack |
+| Machine | Port | Protocol | Why |
+|---|---|---|---|
+| both | 80 | TCP | Certificate authority validation and the redirect to HTTPS |
+| both | 443 | TCP | The sites |
+| video | **10000** | **UDP** | **The media of every video call. Closed, a call opens and nobody sees or hears anyone** |
+| video | 4443 | TCP | Optional: media over TCP for people whose network blocks UDP. Off in this stack |
+
+On Azure, `az vm create` opened SSH to the whole Internet. Narrow it to your address, then open the
+rest (`ayni-backendNSG` for the backend machine, `ayni-jitsiNSG` for the video one):
+
+```bash
+az network nsg rule update --resource-group ayni --nsg-name ayni-backendNSG \
+  --name default-allow-ssh --source-address-prefixes <your public IP>/32
+az network nsg rule create --resource-group ayni --nsg-name ayni-backendNSG \
+  --name web --priority 1010 --direction Inbound --access Allow --protocol Tcp \
+  --destination-port-ranges 80 443
+```
+
+and for the video machine the same two commands with `ayni-jitsiNSG`, plus:
+
+```bash
+az network nsg rule create --resource-group ayni --nsg-name ayni-jitsiNSG \
+  --name media --priority 1020 --direction Inbound --access Allow --protocol Udp \
+  --destination-port-ranges 10000
+```
 
 Docker publishes ports by writing its own firewall rules, which skip `ufw`: do not rely on `ufw`
-to close a port that compose publishes. The stack publishes only 80, 443 and 10000/udp. The backend
-(8080), Jitsi's internal ports and Mailpit are not published at all.
+to close a port that compose publishes. The backend machine publishes only 80 and 443, the video
+machine 80, 443 and 10000/udp. The backend (8080), Jitsi's internal ports and Mailpit are not
+published at all.
 
 To turn on the TCP fallback, add `JVB_TCP_HARVESTER_DISABLED: "false"` to the environment of
-`jitsi-jvb` and `"4443:4443"` to its `ports`, and open 4443/tcp. It is untested here.
+`jitsi-jvb` in `jitsi/docker-compose.yml` and `"4443:4443"` to its `ports`, and open 4443/tcp on the
+video machine. It is untested here.
 
 ## 2. Docker
 
-Install Docker Engine and the Compose plugin from Docker's own repository, following
-<https://docs.docker.com/engine/install/ubuntu/>, then let your user run it and check:
+On both machines, install Docker Engine and the Compose plugin from Docker's own repository,
+following <https://docs.docker.com/engine/install/ubuntu/> (its packages exist for amd64 and arm64
+alike), then let your user run it and check:
 
 ```bash
 sudo usermod -aG docker "$USER"     # log out and back in afterwards
@@ -98,9 +241,9 @@ docker compose version
 docker run --rm hello-world
 ```
 
-On a machine of 1 GB, add a swap file as well. The backend container never swaps (see
-[Memory](#memory)), but the system, Docker and the proxy get room when memory runs short, instead
-of the kernel killing a process:
+On a machine of 1 GB, add a swap file as well, on both. The backend container never swaps (see
+[Memory](#memory)), but the system, Docker, the proxies and Jitsi get room when memory runs short,
+instead of the kernel killing a process:
 
 ```bash
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
@@ -111,8 +254,8 @@ free -h                             # Swap: 2.0Gi
 
 ### Memory
 
-`docker-compose.prod.yml` limits the backend to `AYNI_BACKEND_MEMORY_LIMIT` (650 MB) and gives the
-JVM a fixed heap instead of a share of the container. Past the limit the container is killed and
+`backend/docker-compose.yml` limits the backend to `AYNI_BACKEND_MEMORY_LIMIT` (650 MB) and gives
+the JVM a fixed heap instead of a share of the container. Past the limit the container is killed and
 started again (`restart: unless-stopped`); it does not swap.
 
 Measured on 2026-10-25 with the production image against an empty PostgreSQL 16, two rounds of
@@ -137,8 +280,31 @@ whiteboard, evidence uploads or a database with data in it: measure again on the
 `docker stats` and `grep anon /sys/fs/cgroup/memory.stat` inside the container. On a larger machine
 raise `-Xmx` and the limit together, keeping the same distance between them.
 
-Every container keeps at most three log files of 10 MB (`x-logging` in the compose file), so a
+Every container of both machines keeps at most three log files of 10 MB (`x-logging` in each
+compose file), so a
 machine that stays on does not fill its disk with logs.
+
+### Memory of the video machine
+
+The images of jicofo and of the videobridge give each Java process a heap of 3 GB unless told
+otherwise. `jitsi/docker-compose.yml` caps them with `JICOFO_MAX_MEMORY` (256 MB) and
+`VIDEOBRIDGE_MAX_MEMORY` (384 MB).
+
+Measured on 2026-10-25 with those caps, the whole stack started and idle, with no call:
+
+| Container | Memory |
+|---|---|
+| `proxy` | 14 MiB |
+| `jitsi-web` | 9 MiB |
+| `jitsi-prosody` | 17 MiB |
+| `jitsi-jicofo` | 146 MiB |
+| `jitsi-jvb` | 173 MiB |
+| **Total** | **359 MiB** |
+
+A call was not measured: the browser of the measurement had no camera or microphone. A call of two
+people is peer to peer by default and barely touches the videobridge; from the third person on,
+the media of everyone crosses it. Measure during the first real call (`docker stats`), and see
+[When a call needs more than 1 GB](#when-a-call-needs-more-than-1-gb).
 
 ## 3. The database
 
@@ -150,7 +316,8 @@ row level security bind the application, so build it exactly:
 | `ayni` | The owner. Flyway migrates as it, and it owns every schema and table | Not a superuser |
 | `ayni_app` | What the application connects as | **No `BYPASSRLS`, not a superuser, owns nothing** |
 
-1. On the managed server, allow the machine's public IP through the server's firewall. Allow nothing
+1. On the managed server, allow the backend machine's public IP through the server's firewall (on
+   Azure, `--public-access` above did it). The video machine never connects to it. Allow nothing
    else.
 2. Connect as the server's administrator. Any PostgreSQL client works; this one needs only Docker
    (use the same major version as the server):
@@ -192,52 +359,77 @@ You do not create any table or schema: the first start does. After it, check the
 
 ## 4. The code and the configuration
 
-On the machine:
+On each machine, the same checkout of the repository; each uses only its own folder of `deploy/`:
 
 ```bash
 sudo mkdir -p /opt/ayni && sudo chown "$USER" /opt/ayni
 git clone https://github.com/ayni-team/ayni.git /opt/ayni
-cd /opt/ayni/deploy
-cp .env.example .env && chmod 600 .env
 ```
 
-If the repository is private, give the machine read access first, with a read-only deploy key of the
-repository (Settings, Deploy keys) or a fine-grained token.
+If the repository is private, give the machines read access first, with a read-only deploy key of
+the repository (Settings, Deploy keys) or a fine-grained token.
 
-Edit `.env`. Every variable is explained there, with whether it is a secret. The ones to set now:
-
-- `AYNI_DOMAIN`, `AYNI_PUBLIC_IP`, `ACME_EMAIL`.
-- `AYNI_DB_URL`, the two users and the two passwords from step 3.
-- `AYNI_JITSI_JWT_SECRET`, `JICOFO_AUTH_PASSWORD`, `JICOFO_COMPONENT_SECRET`, `JVB_AUTH_PASSWORD`.
-- `AYNI_BOOTSTRAP_ADMIN_EMAIL`: a mailbox you can read.
-- The mail variables (see [Mail](#mail)).
-
-Generate each secret on its own, never reuse one:
+Generate each secret on its own, never reuse one, and write it straight into the `.env` that needs
+it:
 
 ```bash
 openssl rand -base64 48
 ```
 
-`.env` is ignored by git and holds every secret of the installation: keep it out of chats, tickets
-and backups that other people can read. The backend refuses to start, naming what is missing, if a
+A `.env` is ignored by git and holds the secrets of its machine: keep it out of chats, tickets and
+backups that other people can read. The backend refuses to start, naming what is missing, if a
 required variable is blank, and compose refuses before that.
 
-Check the file without starting anything:
+### The backend machine
+
+```bash
+cd /opt/ayni/deploy/backend
+cp .env.example .env && chmod 600 .env
+```
+
+Edit `.env`. Every variable is explained there, with whether it is a secret. The ones to set now:
+
+- `AYNI_DOMAIN`, `ACME_EMAIL`.
+- `AYNI_DB_URL`, the two users and the two passwords from step 3.
+- `AYNI_JITSI_JWT_SECRET`: generate it here, and copy the same value to the video machine.
+- `AYNI_BOOTSTRAP_ADMIN_EMAIL`: a mailbox you can read.
+- The mail variables (see [Mail](#mail)).
+
+### The video machine
+
+```bash
+cd /opt/ayni/deploy/jitsi
+cp .env.example .env && chmod 600 .env
+```
+
+Set:
+
+- `AYNI_DOMAIN` and `ACME_EMAIL`, the same as on the backend machine.
+- `AYNI_JITSI_PUBLIC_IP`: the public address of this machine.
+- `AYNI_JITSI_JWT_SECRET`: **the same value** as on the backend machine. Copy it from one `.env` to
+  the other over SSH, not through a chat or a document. With two different values every video pass
+  is refused.
+- `JICOFO_AUTH_PASSWORD`, `JICOFO_COMPONENT_SECRET`, `JVB_AUTH_PASSWORD`: three new values, used
+  only inside this machine.
+
+### Checking both
+
+In each folder, without starting anything:
 
 ```bash
 docker compose config > /dev/null && echo valid
 ```
 
-Run every `docker compose` command from `/opt/ayni/deploy`. `.env` sets `COMPOSE_FILE` there so that
-the production file is the one compose uses; from the root of the repository the same command would
-pick the development `docker-compose.yml` instead.
+Run every `docker compose` command of a machine from its folder: `/opt/ayni/deploy/backend` or
+`/opt/ayni/deploy/jitsi`. From the root of the repository the same command would pick the
+development `docker-compose.yml` instead.
 
 ## 5. First start
 
 ### Publishing a version
 
-The machine runs an image built by GitHub, never one built on the machine. A maintainer cuts a
-release from `main`:
+The backend machine runs an image built by GitHub, never one built on the machine. A maintainer
+cuts a release from `main`:
 
 ```bash
 git tag v1.0.0 && git push origin v1.0.0
@@ -245,31 +437,38 @@ git tag v1.0.0 && git push origin v1.0.0
 
 The **Release** workflow builds `backend/Dockerfile.prod` and publishes
 `ghcr.io/<owner>/ayni-backend:v1.0.0`. Wait for it to finish (Actions tab). The first publication
-makes a private package, so the machine needs to be able to pull it, in one of two ways:
+makes a private package, so the backend machine needs to be able to pull it, in one of two ways:
 
 - Make the package public (the package's settings on GitHub), or
-- Sign the machine in once, with a personal access token that can only read packages:
+- Sign the backend machine in once, with a personal access token that can only read packages:
   `echo <token> | docker login ghcr.io -u <github-user> --password-stdin`.
 
 ### Starting
 
-From the checkout of that tag, on the machine:
+Start the video machine first; it does not depend on the backend:
+
+```bash
+cd /opt/ayni/deploy/jitsi
+docker compose pull && docker compose up -d
+```
+
+Then the backend machine, from the checkout of that tag:
 
 ```bash
 cd /opt/ayni
 git fetch --tags && git checkout --detach refs/tags/v1.0.0
-./deploy/update.sh v1.0.0
+./deploy/backend/update.sh v1.0.0
 ```
 
 `update.sh` builds the web application into `web/dist` (with a throwaway Node container), writes the
-tag into `.env`, pulls the images and starts the stack, waiting until the backend is healthy. The
-first start runs every migration and can take a couple of minutes. Caddy gets its three certificates
-the first time each name is asked for.
+tag into `backend/.env`, pulls the images and starts the stack, waiting until the backend is
+healthy. The first start runs every migration and can take a couple of minutes. Each Caddy gets its
+certificates the first time each name is asked for.
 
 While you are still testing the setup, you can ask Let's Encrypt for its staging certificates, which
 have no usage limit and are not trusted by browsers, by adding this line to the global block at the
-top of `Caddyfile` and running `docker compose restart proxy`. Remove it, and restart again, before
-real people use the site:
+top of the machine's `Caddyfile` and running `docker compose restart proxy`. Remove it, and restart
+again, before real people use the site:
 
 ```
 acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
@@ -286,12 +485,20 @@ curl -sSI https://app.example.org/ | head -n 1                 # HTTP/2 200
 curl -sSI https://meet.example.org/ | head -n 1                # HTTP/2 200
 ```
 
-On the machine:
+On the backend machine:
 
 ```bash
-cd /opt/ayni/deploy
-docker compose ps                         # backend (healthy), proxy, the four jitsi containers
+cd /opt/ayni/deploy/backend
+docker compose ps                         # backend (healthy) and proxy
 docker compose logs --tail 100 backend
+```
+
+On the video machine:
+
+```bash
+cd /opt/ayni/deploy/jitsi
+docker compose ps                         # proxy and the four jitsi containers
+curl -sSI https://meet.example.org/ | grep -i strict-transport   # the headers of the Caddyfile
 ```
 
 Then check that the database is what the isolation of the universities assumes. As the
@@ -307,16 +514,26 @@ SELECT DISTINCT tableowner FROM pg_tables
  WHERE schemaname NOT IN ('pg_catalog', 'information_schema');
 ```
 
+Once the first university exists (step 7), row level security can be seen at work: connected as
+`ayni_app`, which sets no university, a table of the universities reads empty, while the
+administrator reads its rows.
+
+```sql
+SELECT count(*) FROM identity.credit_policies;   -- ayni_app: 0; the administrator: 1 per university
+```
+
 If something fails:
 
 | What you see | Look at |
 |---|---|
 | `docker compose` complains about a variable | The named variable is missing or blank in `.env` |
 | The backend exits at once, `Missing required environment variables: ...` | The variables it names; the list is in `.env.example` |
-| The backend stays unhealthy, the log says the connection was refused or timed out | The database server's firewall does not allow the machine's IP |
+| The backend stays unhealthy, the log says the connection was refused or timed out | The database server's firewall does not allow the backend machine's IP |
 | The log says authentication failed | A wrong password, or `AYNI_DB_APP_PASSWORD` differs from the password of a role that already existed |
 | The log says SSL is required | `sslmode=require` is missing from `AYNI_DB_URL` |
 | `502` from Caddy | The backend is not healthy yet: `docker compose logs backend` |
+| A call opens and says the pass is not valid | `AYNI_JITSI_JWT_SECRET` or `AYNI_JITSI_APP_ID` differ between `backend/.env` and `jitsi/.env` |
+| A call opens and nobody sees or hears anyone | 10000/udp closed on the video machine, or `AYNI_JITSI_PUBLIC_IP` is not its public address |
 | The browser warns about the certificate, or `curl` fails to connect | DNS does not point here yet, 80 or 443 is closed, or the staging line is still in the `Caddyfile`; `docker compose logs proxy` says which |
 | Swagger UI answers 404 | It is off in production unless `AYNI_API_DOCS_ENABLED=true` |
 
@@ -362,7 +579,7 @@ An empty installation has no platform administrator, and nothing but one can reg
    no restart is needed:
 
    ```bash
-   cd /opt/ayni/deploy
+   cd /opt/ayni/deploy/backend
    chmod 644 UPC.json
    docker compose cp UPC.json backend:/var/lib/ayni/academic-directory/UPC.json
    ```
@@ -383,9 +600,12 @@ What holds state, and how to copy it:
 | Evidence files (US16) | Volume `ayni-prod-evidence` | `tar`, below |
 | Academic directory | Volume `ayni-prod-academic-directory` | `tar`, below |
 | Certificates | Volume `ayni-prod-caddy-data` | Not needed: they are issued again, within the authority's limits |
-| Secrets | `deploy/.env` | Your password manager, never the same place as the dumps |
+| Secrets | `deploy/backend/.env` and `deploy/jitsi/.env` | Your password manager, never the same place as the dumps |
 
-**Back up** before every update, and on a schedule. On the machine, with the owner's password:
+The video machine holds no state: its `.env` is all it needs to be built again.
+
+**Back up** before every update, and on a schedule. On the backend machine, with the owner's
+password:
 
 ```bash
 mkdir -p ~/ayni-backups && cd ~/ayni-backups
@@ -406,7 +626,7 @@ Copy the files off the machine. A backup that lives only on the machine it prote
 **Restore** into an empty database. This replaces everything that is there now:
 
 ```bash
-cd /opt/ayni/deploy
+cd /opt/ayni/deploy/backend
 docker compose stop backend
 ```
 
@@ -445,17 +665,27 @@ Practise a restore into a spare database before you need one.
 3. Deploy it, either way:
    - **From GitHub:** Actions, **Deploy**, Run workflow, with the tag. This needs the `production`
      environment configured once (below).
-   - **By hand, on the machine:**
+   - **By hand, on the backend machine:**
 
      ```bash
      cd /opt/ayni
      git fetch --tags --force origin && git checkout --detach refs/tags/v1.1.0
-     ./deploy/update.sh v1.1.0
+     ./deploy/backend/update.sh v1.1.0
      ```
 4. Check [Verifying](#6-verifying).
 
 Flyway applies the new migrations when the new backend starts. The backend replaces itself in a few
-seconds, and the other containers stay up.
+seconds, and the proxy stays up.
+
+The video machine changes only when `jitsi/docker-compose.yml` does (a new Jitsi version is a new
+image tag in that file). When it does, on the video machine:
+
+```bash
+cd /opt/ayni && git fetch --tags --force origin && git checkout --detach refs/tags/v1.1.0
+cd deploy/jitsi && docker compose pull && docker compose up -d
+```
+
+A call in progress is cut; do it when there is none.
 
 ### Configuring the deploy workflow, once
 
@@ -464,7 +694,7 @@ reviewers if more than one person can run workflows). In it:
 
 | Name | Kind | Value |
 |---|---|---|
-| `DEPLOY_HOST` | secret | The machine's address |
+| `DEPLOY_HOST` | secret | The backend machine's address |
 | `DEPLOY_USER` | secret | The user that owns `/opt/ayni` and may run docker |
 | `DEPLOY_SSH_KEY` | secret | A private key whose public half is in that user's `~/.ssh/authorized_keys`. Make a key for this and nothing else: `ssh-keygen -t ed25519 -f deploy_key -C ayni-deploy` |
 | `DEPLOY_KNOWN_HOSTS` | secret, optional | The output of `ssh-keyscan -t ed25519 <host>`. Without it the workflow trusts the key the machine shows at that moment |
@@ -479,7 +709,7 @@ The images of old tags stay in the registry, so the code goes back by deploying 
 ```bash
 cd /opt/ayni
 git checkout --detach refs/tags/v1.0.0
-./deploy/update.sh v1.0.0
+./deploy/backend/update.sh v1.0.0
 ```
 
 **Look at the migrations first.** They only go forward. Between the two tags, list what the newer
@@ -506,13 +736,15 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
 - **Never connect the application as the owner role**, nor give `ayni_app` `BYPASSRLS`, superuser
   rights or ownership of a table: the isolation between universities stops applying.
 - **Never edit a migration** that has been released. Write a new one.
-- **Never commit `deploy/.env`**, paste it anywhere, or send it in a message.
+- **Never commit `deploy/backend/.env` or `deploy/jitsi/.env`**, paste them anywhere, or send them
+  in a message.
 - **Never open the database's firewall to the whole Internet**, nor drop `sslmode=require`.
-- **Never expose port 8080, the Jitsi ports or the database from the machine.** Only 80, 443 and
-  10000/udp are published.
-- **Do not change `AYNI_JITSI_JWT_SECRET` casually.** The backend and Jitsi must hold the same
-  value; changing it in `.env` and running `docker compose up -d` recreates both, and the video
-  passes already issued stop working.
+- **Never expose port 8080, the Jitsi ports or the database from a machine.** Only 80 and 443 are
+  published on the backend machine, and 80, 443 and 10000/udp on the video machine.
+- **Do not change `AYNI_JITSI_JWT_SECRET` casually.** The two machines must hold the same value.
+  To change it, write the new value in both `.env` files and run `docker compose up -d` on both,
+  one right after the other: in between, every pass is refused, and the passes already issued stop
+  working.
 - **Do not change `AYNI_DB_APP_PASSWORD`** in `.env` without changing the role's password in the
   database to the same value, in that order: the other way round the application cannot connect.
 - **Do not point `AYNI_SKILLS_EVIDENCE_DIR` or `AYNI_ACADEMIC_DIRECTORY` elsewhere.** The volumes
@@ -522,7 +754,8 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
 
 The backend sends one kind of email that matters: the link that signs people in. Without delivery
 nobody can enter, including the first administrator. Choose one of two ways, or the third, which
-adds a real relay for a few addresses to the second.
+adds a real relay for a few addresses to the second. All of it happens on the backend machine: the
+variables go in `deploy/backend/.env`, and `docker compose` runs from `deploy/backend`.
 
 ### Option A: SMTP with a domain you verified
 
@@ -638,18 +871,26 @@ To go back to B, empty the seven `AYNI_REAL_RELAY_*` variables.
 
 ## Not verified without a real machine
 
-Everything in this folder was checked statically (`docker compose config` against `.env.example`,
-the shell scripts and the workflow syntax). These need a real machine, a real domain and a real
-browser, and should be run by hand the first time:
+Everything in this folder was checked statically (`docker compose config` of both stacks against
+their `.env.example`, `caddy validate` of both `Caddyfile`, the shell scripts and the workflow
+syntax). The backend and the video stack were also started on a laptop and measured (see
+[Memory](#memory) and [Memory of the video machine](#memory-of-the-video-machine)); there the proxy
+of the video machine answered `meet.` with the headers of its `Caddyfile`. These need real
+machines, a real domain and a real browser, and should be run by hand the first time:
 
-- Certificates actually issued for the three names, and the redirect from HTTP.
+- Certificates actually issued for the three names, on their two machines, and the redirect from
+  HTTP.
 - WebSocket through the proxy: open the whiteboard of a session from `app.example.org`.
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
-  both ways (the manual test of US08), including that `JVB_ADVERTISE_IPS` is the right address.
+  both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
 - The connection to the managed database with `sslmode=require`, and the role checks of step 6.
 - The `Release` and `Deploy` workflows on GitHub, with the `production` environment.
-- `update.sh` on the machine, including the web build with Node in Docker.
-- The memory of the backend on the machine itself, under real use (see [Memory](#memory)).
+- `backend/update.sh` on the backend machine, including the web build with Node in Docker.
+- The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
+  the memory of the video machine during a call of three people.
+- The Jitsi images on an Arm machine (`Standard_B2pts_v2`); they were measured on an arm64 laptop.
+- Every `az` command of [Azure, inside the free services](#azure-inside-the-free-services), and
+  that a month of the two machines and the database bills nothing but the two public addresses.
 - The security headers of the `Caddyfile` as a browser receives them:
   `curl -sSI https://app.example.org/ | grep -i strict-transport`.

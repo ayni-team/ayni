@@ -1,6 +1,6 @@
-# The proxy of the production stack. Caddy gets and renews a TLS certificate for each hostname
-# below by itself. {$NAME} is replaced by the environment of the proxy container, which
-# docker-compose.prod.yml fills from deploy/.env.
+# The proxy of the backend machine. Caddy gets and renews a TLS certificate for each hostname below
+# by itself. {$NAME} is replaced by the environment of the proxy container, which docker-compose.yml
+# fills from deploy/backend/.env. meet.<domain> is served by the video machine (deploy/jitsi).
 
 {
 	# The address the certificate authority writes to about an expiring certificate or a problem.
@@ -73,17 +73,8 @@ app.{$AYNI_DOMAIN} {
 	}
 }
 
-# meet.<domain>: Jitsi. It needs HTTPS, because a browser only gives a page the camera and the
-# microphone over it. The media does not pass through here: it goes over 10000/udp straight to the
-# videobridge.
-meet.{$AYNI_DOMAIN} {
-	import security_headers
-	encode zstd gzip
-	reverse_proxy jitsi-web:80
-}
-
 # The page of the optional Mailpit, behind a user and a password. With the mailpit profile off the
-# address is an http one that nothing outside the container reaches (docker-compose.prod.yml).
+# address is an http one that nothing outside the container reaches (docker-compose.yml).
 {$MAILPIT_SITE} {
 	basic_auth {
 		{$MAILPIT_BASIC_AUTH_USER} {$MAILPIT_PASSWORD_HASH}
