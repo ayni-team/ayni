@@ -2,12 +2,13 @@
 # The stack of the backend machine (deploy/README.md, "The two machines").
 #
 #   backend  the production image (backend/Dockerfile.prod), profile prod
-#   proxy    Caddy: TLS certificates for the api. and app. hostnames
+#   proxy    Caddy: the TLS certificate of the api. hostname
 #   mailpit  optional, only with --profile mailpit (see "Mail" in deploy/README.md)
 #
 # PostgreSQL is not here: it is the managed server the DB variables point to. Jitsi is not here
 # either: it runs on a machine of its own (deploy/jitsi), and the backend never calls it, it only
-# signs the passes browsers take there.
+# signs the passes browsers take there. Nor is the web application: Azure Static Web Apps serves it
+# at app.<domain>, and the deploy workflow publishes it.
 #
 # Everything is configured from deploy/backend/.env (copy .env.example). Run it from this folder:
 #
@@ -145,8 +146,6 @@ services:
       MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH:-$$2a$$14$$JxrZe/D8eza7Y5aznxiU5.qzDJI0V4WsrZy8EOVgeB1sMlfH319yO}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # The web application, built into web/dist (deploy/README.md, "The web application").
-      - ../../web/dist:/srv/app:ro
       # Certificates and Caddy's account. Losing them means asking for every certificate again,
       # and certificate authorities limit how often that can be done.
       - caddy-data:/data

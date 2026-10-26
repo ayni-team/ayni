@@ -11,16 +11,21 @@ machines to a healthy system with HTTPS and video. The decisions behind it are s
 - **PostgreSQL is a managed server**, not a container. The stacks never hold the data of the
   universities; the evidence files and the academic directory are the only state on the backend
   machine, and the video machine holds none.
+- **The web application is static files** on Azure Static Web Apps, at `app.<domain>`. The
+  **Deploy** workflow builds it with the address of the API (`VITE_API_BASE_URL`) and publishes it;
+  no machine serves it. It calls `api.<domain>` across origins, which `AYNI_ALLOWED_ORIGINS` allows.
 - **Caddy** ends TLS on each machine, and gets and renews its certificates by itself.
 - **Jitsi is self hosted** (US08). A browser only gives a page the camera and the microphone over
   HTTPS, and the media travels over UDP port 10000 straight to the videobridge, so both must be
   reachable from the Internet.
 
 ```
-                       backend machine
-Internet ── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ──▶ managed PostgreSQL (sslmode=require)
-   │                      │  api.<domain>   backend, WebSocket included
-   │                      └─ app.<domain>   web/dist, and /api to the backend (one origin)
+                       Azure Static Web Apps
+Internet ── 443 ──────▶ app.<domain>  web/dist: the page, which then calls api. and meet.
+   │
+   │                   backend machine
+   ├────── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ──▶ managed PostgreSQL (sslmode=require)
+   │                      api.<domain>   backend, WebSocket included
    │
    │                   video machine
    ├────── 80, 443 ──▶ proxy (Caddy) ──▶ meet.<domain>  jitsi-web ─ prosody ─ jicofo
@@ -31,13 +36,14 @@ Internet ── 80, 443 ──▶ proxy (Caddy) ──▶ backend :8080 ──�
 |---|---|
 | `backend/docker-compose.yml` | The backend machine. Mailpit is optional, under the `mailpit` profile |
 | `backend/.env.example` | Every variable of the backend machine, commented. Copy it to `backend/.env` |
-| `backend/Caddyfile` | `api.` and `app.` (and the optional `mail.`, for Mailpit) |
-| `backend/update.sh` | Builds the web application, sets the version, pulls and restarts |
+| `backend/Caddyfile` | `api.` (and the optional `mail.`, for Mailpit) |
+| `backend/update.sh` | Sets the version, pulls and restarts |
 | `jitsi/docker-compose.yml` | The video machine |
 | `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
 | `jitsi/Caddyfile` | `meet.` |
 | `../.github/workflows/release.yml` | A `v*` tag publishes `ghcr.io/<owner>/ayni-backend:<tag>` |
-| `../.github/workflows/deploy.yml` | Manual: runs `backend/update.sh` on the backend machine over SSH |
+| `../.github/workflows/deploy.yml` | Manual: runs `backend/update.sh` on the backend machine over SSH, then builds and publishes the web application |
+| `../web/public/staticwebapp.config.json` | The routes and headers of the web application on Static Web Apps |
 
 Nothing here states what the machines or the database will cost: prices change, so read them from
 your provider. [Azure, inside the free services](#azure-inside-the-free-services) says which
@@ -79,6 +85,7 @@ each result as you go.
 | The backend machine | Yes, 750 hours a month of each of the B1s, B2ats v2 and B2pts v2 sizes | `Standard_B2ats_v2` (AMD, 2 vCPU, 1 GB): the published image is amd64 |
 | The video machine | Yes, the same allowance, a different size | `Standard_B2pts_v2` (Arm, 2 vCPU, 1 GB): the Jitsi images exist for arm64 |
 | Their disks | Yes, two P6 disks | **Premium SSD of exactly 64 GB** each. Another size or type is billed |
+| The web application | Yes, always | Static Web Apps on the **Free** plan: two custom domains and their certificates are included |
 | PostgreSQL | Yes, for the first 12 months | Flexible server, `Standard_B1ms`, 32 GB of storage, backups kept 7 days, no geo-redundant backup, no high availability |
 | **The public IPv4 addresses** | **No** | None. They are billed by the hour whether the machine runs or not. This is the cost of the deployment |
 | Azure Backup, Microsoft Defender plans, extra storage accounts | No | Do not turn them on when a wizard offers them |
@@ -132,8 +139,8 @@ az vm create --resource-group ayni --name ayni-jitsi \
   --admin-username ayni --ssh-key-values ~/.ssh/ayni_vm.pub
 ```
 
-Each `az vm create` prints `publicIpAddress`: the backend's goes in the DNS records of `api.` and
-`app.`, the video machine's in the record of `meet.` and in `AYNI_JITSI_PUBLIC_IP`. The firewall of
+Each `az vm create` prints `publicIpAddress`: the backend's goes in the DNS record of `api.`, the
+video machine's in the record of `meet.` and in `AYNI_JITSI_PUBLIC_IP`. The firewall of
 each machine (its network security group, `<name>NSG`) is in [Firewall](#firewall).
 
 The database, allowing in the backend machine's address only. The administrator password is
@@ -149,6 +156,31 @@ az postgres flexible-server create --resource-group ayni --name <server-name> \
 ```
 
 Then follow [The database](#3-the-database) to create the two roles.
+
+The web application, on the Free plan. Static Web Apps exists in fewer regions than the machines;
+`eastus2` is one of them:
+
+```bash
+az staticwebapp create --resource-group ayni --name ayni-web --location eastus2 --sku Free
+az staticwebapp show --resource-group ayni --name ayni-web --query defaultHostname -o tsv
+```
+
+The second command prints a name like `<words>.azurestaticapps.net`: it is the value of the DNS
+record of `app.` (below). Its deployment token is a secret of the **Deploy** workflow; this hands it
+to GitHub without printing it (it needs the `gh` CLI, signed in, and the `production` environment
+of [Configuring the deploy workflow](#configuring-the-deploy-workflow-once)):
+
+```bash
+gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env production --body \
+  "$(az staticwebapp secrets list --resource-group ayni --name ayni-web --query properties.apiKey -o tsv)"
+```
+
+Once the record of `app.` resolves, give the web application its address; Static Web Apps checks
+the record and issues the certificate by itself, which can take some minutes:
+
+```bash
+az staticwebapp hostname set --resource-group ayni --name ayni-web --hostname app.example.org
+```
 
 ### When a call needs more than 1 GB
 
@@ -181,13 +213,14 @@ size. The public address stays the same, because it is static.
    | Name | Type | Value |
    |---|---|---|
    | `api.example.org` | A | the backend machine's IP |
-   | `app.example.org` | A | the backend machine's IP |
+   | `app.example.org` | CNAME | the default name of the static web app, `<words>.azurestaticapps.net` |
    | `meet.example.org` | A | the video machine's IP |
    | `mail.example.org` | A | the backend machine's IP, only for the [protected Mailpit](#option-b-mailpit-behind-a-password) |
 
-3. Wait until they resolve, from your own computer: `dig +short app.example.org` and
-   `dig +short meet.example.org` must print their addresses. Caddy cannot get a certificate before
-   this is true.
+3. Wait until they resolve, from your own computer: `dig +short api.example.org` and
+   `dig +short meet.example.org` must print their addresses, and `dig +short app.example.org` the
+   name of the static web app. Neither Caddy nor Static Web Apps can get a certificate before this
+   is true.
 
 ### Firewall
 
@@ -460,10 +493,23 @@ git fetch --tags && git checkout --detach refs/tags/v1.0.0
 ./deploy/backend/update.sh v1.0.0
 ```
 
-`update.sh` builds the web application into `web/dist` (with a throwaway Node container), writes the
-tag into `backend/.env`, pulls the images and starts the stack, waiting until the backend is
-healthy. The first start runs every migration and can take a couple of minutes. Each Caddy gets its
-certificates the first time each name is asked for.
+`update.sh` writes the tag into `backend/.env`, pulls the images and starts the stack, waiting until
+the backend is healthy. The first start runs every migration and can take a couple of minutes.
+Each Caddy gets its certificates the first time each name is asked for.
+
+Last, the web application. Run **Deploy** (Actions, Deploy, Run workflow) with the same tag: it
+repeats the step above, which changes nothing the second time, and then builds the web with
+`VITE_API_BASE_URL` and publishes it. To publish it by hand instead, from your own computer, with
+the token of the static web app in `SWA_CLI_DEPLOYMENT_TOKEN` (untested here):
+
+```bash
+git checkout --detach refs/tags/v1.0.0 && cd web
+npm ci && VITE_API_BASE_URL=https://api.example.org npm run build
+npx --yes @azure/static-web-apps-cli deploy ./dist --env production
+```
+
+A web built without `VITE_API_BASE_URL` calls `app.` itself, where there is no API, and every
+screen fails.
 
 While you are still testing the setup, you can ask Let's Encrypt for its staging certificates, which
 have no usage limit and are not trusted by browsers, by adding this line to the global block at the
@@ -480,9 +526,18 @@ From your own computer:
 
 ```bash
 curl -sS https://api.example.org/actuator/health/readiness     # {"status":"UP"}
-curl -sS https://app.example.org/actuator/health               # {"status":"UP"}
 curl -sSI https://app.example.org/ | head -n 1                 # HTTP/2 200
+curl -sSI https://app.example.org/access/confirm | head -n 1   # HTTP/2 200 too: a route is index.html
 curl -sSI https://meet.example.org/ | head -n 1                # HTTP/2 200
+```
+
+And that the API lets the web application in from its origin, and names downloaded files to it:
+
+```bash
+curl -sS -o /dev/null -D - -H 'Origin: https://app.example.org' \
+  'https://api.example.org/api/v1/access/university?email=someone@upc.edu.pe' | grep -i '^access-control'
+# access-control-allow-origin: https://app.example.org
+# access-control-expose-headers: Content-Disposition
 ```
 
 On the backend machine:
@@ -675,7 +730,8 @@ Practise a restore into a spare database before you need one.
 4. Check [Verifying](#6-verifying).
 
 Flyway applies the new migrations when the new backend starts. The backend replaces itself in a few
-seconds, and the proxy stays up.
+seconds, and the proxy stays up. **Deploy** publishes the web application of the tag afterwards; by
+hand, publish it as in [Starting](#starting).
 
 The video machine changes only when `jitsi/docker-compose.yml` does (a new Jitsi version is a new
 image tag in that file). When it does, on the video machine:
@@ -699,18 +755,25 @@ reviewers if more than one person can run workflows). In it:
 | `DEPLOY_SSH_KEY` | secret | A private key whose public half is in that user's `~/.ssh/authorized_keys`. Make a key for this and nothing else: `ssh-keygen -t ed25519 -f deploy_key -C ayni-deploy` |
 | `DEPLOY_KNOWN_HOSTS` | secret, optional | The output of `ssh-keyscan -t ed25519 <host>`. Without it the workflow trusts the key the machine shows at that moment |
 | `DEPLOY_PATH` | variable, optional | The checkout on the machine, `/opt/ayni` by default |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN` | secret | The deployment token of the static web app (see [Creating the resources](#creating-the-resources)) |
+| `AYNI_API_BASE_URL` | variable | The origin of the API the web calls: `https://api.example.org`, no trailing slash |
 
 None of these is written in the repository.
 
 ## 10. Rolling back
 
 The images of old tags stay in the registry, so the code goes back by deploying an older tag:
+**Deploy** with that tag moves the backend and the web application together. By hand, on the
+backend machine:
 
 ```bash
 cd /opt/ayni
 git checkout --detach refs/tags/v1.0.0
 ./deploy/backend/update.sh v1.0.0
 ```
+
+and publish the web application of that tag as in [Starting](#starting), or the newer web stays
+in front of the older API.
 
 **Look at the migrations first.** They only go forward. Between the two tags, list what the newer
 version added:
@@ -732,6 +795,9 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
   certificates. `docker compose down` without `-v` is safe: it only stops the stack. (The
   development `docker compose down -v` in the main README erases a database that holds nothing
   real; here the files are the only copy.)
+- **Never publish a web application built without `VITE_API_BASE_URL`**, and keep
+  `https://app.<domain>` in `AYNI_ALLOWED_ORIGINS`: the web on `app.` and the API on `api.` must
+  name each other, or every call is refused.
 - **Never run the `dev` profile** (`SPRING_PROFILES_ACTIVE=dev`). It seeds demonstration people.
 - **Never connect the application as the owner role**, nor give `ayni_app` `BYPASSRLS`, superuser
   rights or ownership of a table: the isolation between universities stops applying.
@@ -875,12 +941,20 @@ Everything in this folder was checked statically (`docker compose config` of bot
 their `.env.example`, `caddy validate` of both `Caddyfile`, the shell scripts and the workflow
 syntax). The backend and the video stack were also started on a laptop and measured (see
 [Memory](#memory) and [Memory of the video machine](#memory-of-the-video-machine)); there the proxy
-of the video machine answered `meet.` with the headers of its `Caddyfile`. These need real
+of the video machine answered `meet.` with the headers of its `Caddyfile`. The web application,
+built with `VITE_API_BASE_URL` and served from another origin than the API, signed the platform
+administrator in through the emailed link and made calls with the session (preflight included);
+another origin was refused with `403`. These need real
 machines, a real domain and a real browser, and should be run by hand the first time:
 
 - Certificates actually issued for the three names, on their two machines, and the redirect from
   HTTP.
-- WebSocket through the proxy: open the whiteboard of a session from `app.example.org`.
+- WebSocket through the proxy: open the whiteboard of a session from `app.example.org`, across
+  origins to `api.example.org`.
+- The web application on Static Web Apps: the `az staticwebapp` commands, the custom domain and its
+  certificate, the routes and headers of `staticwebapp.config.json` (that a route such as
+  `/access/confirm` answers the page, that `assets/` keeps its long cache over the global
+  `no-cache`), and the publishing job of the **Deploy** workflow.
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
@@ -893,4 +967,4 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - Every `az` command of [Azure, inside the free services](#azure-inside-the-free-services), and
   that a month of the two machines and the database bills nothing but the two public addresses.
 - The security headers of the `Caddyfile` as a browser receives them:
-  `curl -sSI https://app.example.org/ | grep -i strict-transport`.
+  `curl -sSI https://api.example.org/actuator/health | grep -i strict-transport`.
