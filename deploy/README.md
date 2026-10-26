@@ -666,8 +666,9 @@ An empty installation has no platform administrator, and nothing but one can reg
    docker compose logs backend | grep 'academic system reads'   # ... from the address https://...
    ```
 
-   An edit pushed to that repository reaches the backend within a minute (Pages publishes it in
-   about as much). While the site does not answer, the backend uses the last copy it read; with no
+   An edit pushed to that repository can take about ten minutes to reach the backend: Pages
+   publishes it in a minute or two, its servers answer with `cache-control: max-age=600`, and the
+   backend keeps its own copy a minute more. While the site does not answer, the backend uses the last copy it read; with no
    copy, the lookup fails and the log names the university. `logoUrl` in a document is a path of
    the web application (`/logos/upc.png`), which Static Web Apps serves.
 
