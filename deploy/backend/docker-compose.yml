@@ -138,7 +138,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      AYNI_DOMAIN: ${AYNI_DOMAIN:?Set AYNI_DOMAIN in deploy/backend/.env}
+      AYNI_API_HOST: ${AYNI_API_HOST:?Set AYNI_API_HOST in deploy/backend/.env}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in deploy/backend/.env}
       AYNI_PORT: ${AYNI_PORT:-8080}
       # The address of the Mailpit page. While the mailpit profile is off it stays an address that

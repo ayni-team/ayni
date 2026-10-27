@@ -1,7 +1,7 @@
 # The proxy of the backend machine. Caddy gets and renews a TLS certificate for each hostname below
 # by itself. {$NAME} is replaced by the environment of the proxy container, which docker-compose.yml
-# fills from deploy/backend/.env. app.<domain> is the web application on Azure Static Web Apps and
-# meet.<domain> the video machine (deploy/jitsi); neither passes through here.
+# fills from deploy/backend/.env. The web application is on Azure Static Web Apps and Jitsi on the
+# video machine (deploy/jitsi); neither passes through here.
 
 {
 	# The address the certificate authority writes to about an expiring certificate or a problem.
@@ -20,11 +20,11 @@
 	}
 }
 
-# api.<domain>: the backend. The web application, served from app.<domain>, calls it here across
-# origins, which AYNI_ALLOWED_ORIGINS allows; so do Swagger UI (when enabled) and any other client.
+# AYNI_API_HOST (api.<domain>): the backend. The web application calls it here from its own origin,
+# which AYNI_ALLOWED_ORIGINS allows; so do Swagger UI (when enabled) and any other client.
 # Caddy forwards WebSocket upgrades (the whiteboard) without help and adds X-Forwarded-For, -Host
 # and -Proto, which the prod profile trusts.
-api.{$AYNI_DOMAIN} {
+{$AYNI_API_HOST} {
 	import security_headers
 	encode zstd gzip
 
