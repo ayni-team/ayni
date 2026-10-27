@@ -1,0 +1,51 @@
+# The proxy of the backend machine. Caddy gets and renews a TLS certificate for each hostname below
+# by itself. {$NAME} is replaced by the environment of the proxy container, which docker-compose.yml
+# fills from deploy/backend/.env. app.<domain> is the web application on Azure Static Web Apps and
+# meet.<domain> the video machine (deploy/jitsi); neither passes through here.
+
+{
+	# The address the certificate authority writes to about an expiring certificate or a problem.
+	email {$ACME_EMAIL}
+}
+
+# Headers every site of the stack answers with. HSTS tells a browser that has seen the site once to
+# refuse plain HTTP to it for a year; it names no subdomain, so other names of the domain are not
+# bound by it. The referrer policy keeps the access link, which carries its token in the address,
+# from reaching another site in a Referer header: only the origin crosses.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+# api.<domain>: the backend. The web application, served from app.<domain>, calls it here across
+# origins, which AYNI_ALLOWED_ORIGINS allows; so do Swagger UI (when enabled) and any other client.
+# Caddy forwards WebSocket upgrades (the whiteboard) without help and adds X-Forwarded-For, -Host
+# and -Proto, which the prod profile trusts.
+api.{$AYNI_DOMAIN} {
+	import security_headers
+	encode zstd gzip
+
+	# Evidence uploads are up to three files of 5 MB (16 MB per request in application.yml).
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy backend:{$AYNI_PORT} {
+		# Takes the backend out of rotation while its readiness is not UP, for instance during a
+		# graceful stop.
+		health_uri /actuator/health/readiness
+		health_interval 10s
+	}
+}
+
+# The page of the optional Mailpit, behind a user and a password. With the mailpit profile off the
+# address is an http one that nothing outside the container reaches (docker-compose.yml).
+{$MAILPIT_SITE} {
+	basic_auth {
+		{$MAILPIT_BASIC_AUTH_USER} {$MAILPIT_PASSWORD_HASH}
+	}
+	reverse_proxy mailpit:8025
+}

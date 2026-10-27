@@ -77,4 +77,17 @@ class CorsOriginsTest {
           .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, allowed));
     }
   }
+
+  @Test
+  @DisplayName("An allowed origin reads the name of a downloaded file")
+  void anAllowedOriginReadsTheNameOfADownloadedFile() throws Exception {
+    // Any answer to an allowed origin says so; an attachment is one of them.
+    mockMvc
+        .perform(
+            get("/api/v1/access/university")
+                .param("email", "someone@nowhere.example")
+                .header(HttpHeaders.ORIGIN, "https://app.ayni.test"))
+        .andExpect(
+            header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION));
+  }
 }

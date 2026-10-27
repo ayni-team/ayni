@@ -521,6 +521,18 @@ so a real address never reaches the repository. `backend/academic-directory/` ho
 university in is putting its document in the folder, registering it from the document and
 synchronising its curriculum: no restart, no code.
 
+**From another service.** With `ayni.identity.academic-directory-url` (`AYNI_ACADEMIC_DIRECTORY_URL`)
+set, `AcademicSystemConfig` gives the adapter an `HttpAcademicDocumentSource` instead of the folder:
+each document is a static file under that address, `<address>/UPC.json`, as a GitHub Pages site
+serves it in a deployment (`deploy/README.md`, step 7). This is the second phase ADR 0006 foresaw,
+behind the same `AcademicSystemPort`, with no use case touched. A read has a timeout
+(`academic-directory-timeout`, `PT3S`); each answer is kept for `academic-directory-fresh-for`
+(`PT1M`, measured with the real clock, not the demonstration's); a 404 is a university without a
+document; while the address does not answer, the last copy is used, however old, and the log says
+so; with no copy the read fails as a mistake of the platform, as a broken file does. The local
+students are still read from the folder, so a real address added for a demonstration is never
+published. The log of the startup says which source is in use.
+
 | What happens | Answer of the activation |
 |---|---|
 | The university has no document in the folder | `400`, the university has no academic system configured; the link stays unused |
@@ -2254,7 +2266,9 @@ goal of the Spring Boot plugin); like every path outside `/api`, it needs a sess
 **Origins.** `ayni.cors.allowed-origins` (`AYNI_ALLOWED_ORIGINS`, comma separated,
 `http://localhost:5173` by default) is the one list both `CorsConfig` and the whiteboard's live
 channel (`WhiteboardSocketConfig`) accept. Any other origin gets no CORS header, and its WebSocket
-handshake is refused with `403`.
+handshake is refused with `403`. An allowed origin may also read `Content-Disposition`, so the web
+application keeps the name of a downloaded file when it is served from another host than the API,
+as in a deployment (`app.` calling `api.`).
 
 **The first administrator.** An empty installation has no platform administrator, and nothing but
 one can register a university. With `AYNI_BOOTSTRAP_ADMIN_EMAIL` set, identity's
@@ -2313,6 +2327,7 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_JITSI_URL` | set it | no | `http://localhost:8000` | Public address of Jitsi |
 | `AYNI_JITSI_APP_ID` | no | no | `ayni` | Application id the video passes carry |
 | `AYNI_ACADEMIC_DIRECTORY` | no | no | `/var/lib/ayni/academic-directory` in the image | Folder of the simulated academic system (ADR 0006), one `<CODE>.json` per university; mount it |
+| `AYNI_ACADEMIC_DIRECTORY_URL` | no | no | empty | Address of the service that publishes those documents instead (`<address>/UPC.json`); the folder then keeps only `<CODE>.local.json` |
 | `AYNI_SKILLS_EVIDENCE_DIR` | no | no | `/var/lib/ayni/evidence` in the image | Folder of the evidence files (US16); mount a volume |
 | `AYNI_DB_POOL_SIZE` | no | no | `10` | Most connections the application keeps open |
 | `AYNI_API_DOCS_ENABLED` | no | no | `false` | Serves Swagger UI and `/v3/api-docs` |
@@ -2328,20 +2343,23 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_PAYMENTS_TIMEOUT` | no | no | `PT2S` | Timeout of a call to the provider |
 | `AYNI_PAYMENTS_MAX_CONCURRENT_CALLS` | no | no | `2` | Calls to the provider at once |
 | `SPRING_PROFILES_ACTIVE` | no | no | `prod` in the image | Never `dev` in a deployment: it seeds demo people |
-| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image | Options of the JVM |
+| `JAVA_TOOL_OPTIONS` | no | no | `-XX:MaxRAMPercentage=75` in the image; `deploy/backend/docker-compose.yml` replaces it with a fixed heap for a machine of 1 GB (`deploy/README.md`, "Memory") | Options of the JVM |
 
 The scenarios are in `features/production-packaging.feature`: `ProductionProfileTest` starts `prod`
 over an empty PostgreSQL with only these variables, signs the bootstrapped administrator in by the
 emailed link and registers a first university.
 
-**The stack that runs it.** `deploy/` holds the production stack and its runbook: a
-`docker-compose.prod.yml` with the backend image, a Caddy proxy (`api.`, `app.` and `meet.`
-hostnames, TLS by itself), the four Jitsi containers always on with `10000/udp` published, and an
-optional Mailpit behind a password; a commented `.env.example` with every variable above; and
-`deploy/README.md`, the step by step guide from an empty virtual machine to a healthy backend, with
-the database roles, backup and restore, updating, rolling back and the two ways to send email. The
-`Release` workflow publishes `ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the
-manual `Deploy` workflow runs `deploy/update.sh` on the machine over SSH.
+**The stacks that run it.** `deploy/` holds two production stacks, one per virtual machine, and
+their runbook. `deploy/backend/` has the backend image, a Caddy proxy (the `api.`
+hostname, TLS by itself) and an optional Mailpit behind a password, with a commented
+`.env.example` holding every variable above. `deploy/jitsi/` has the four Jitsi containers with
+`10000/udp` published and a Caddy proxy of their own for `meet.`; the backend never calls that
+machine, the two only share the secret of the video passes. `deploy/README.md` is the step by step
+guide from empty machines to a healthy system, with the choices that keep an Azure for Students
+subscription inside its free services, the database roles, backup and restore, updating, rolling
+back and the ways to send email. The `Release` workflow publishes
+`ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the manual `Deploy` workflow
+runs `deploy/backend/update.sh` on the backend machine over SSH.
 
 ---
 
