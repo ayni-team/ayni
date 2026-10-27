@@ -1,0 +1,22 @@
+# The proxy of the video machine. Caddy gets and renews the TLS certificate of meet.<domain> by
+# itself. {$NAME} is replaced by the environment of the proxy container, which docker-compose.yml
+# fills from deploy/jitsi/.env.
+
+{
+	# The address the certificate authority writes to about an expiring certificate or a problem.
+	email {$ACME_EMAIL}
+}
+
+# meet.<domain>: Jitsi. It needs HTTPS, because a browser only gives a page the camera and the
+# microphone over it. The media does not pass through here: it goes over 10000/udp straight to the
+# videobridge. The headers are those of the backend machine's sites; no X-Frame-Options, so a page
+# may still hold the call in a frame.
+meet.{$AYNI_DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	encode zstd gzip
+	reverse_proxy jitsi-web:80
+}

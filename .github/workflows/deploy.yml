@@ -1,12 +1,12 @@
 name: Deploy
 
-# Moves the production virtual machine to a release. Started by hand from the Actions tab, with the
-# tag of a release whose image release.yml already published:
+# Moves the backend machine to a release; the video machine is updated by hand (deploy/README.md).
+# Started from the Actions tab, with the tag of a release whose image release.yml already published:
 #
 #   Actions > Deploy > Run workflow > tag: v1.2.0
 #
-# It signs in to the machine over SSH and runs deploy/update.sh there, which builds the web
-# application, writes the tag into deploy/.env, pulls the images and restarts what changed.
+# It signs in to the machine over SSH and runs deploy/backend/update.sh there, which builds the web
+# application, writes the tag into deploy/backend/.env, pulls the images and restarts what changed.
 #
 # The connection data lives in the GitHub environment named production (Settings > Environments),
 # never in the repository:
@@ -83,7 +83,7 @@ jobs:
           # web application come from it, the backend from the image of the same tag.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && git fetch --tags --force origin && git checkout --detach 'refs/tags/$TAG' && ./deploy/update.sh '$TAG'"
+            "cd '$DEPLOY_PATH' && git fetch --tags --force origin && git checkout --detach 'refs/tags/$TAG' && ./deploy/backend/update.sh '$TAG'"
 
       - name: Remove the key
         if: always()
