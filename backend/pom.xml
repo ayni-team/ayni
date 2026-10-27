@@ -24,6 +24,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-modulith.version>1.3.1</spring-modulith.version>
     <springdoc.version>2.7.0</springdoc.version>
+    <!--
+      Newer than the version Spring Boot pins: the Docker client bundled with that one speaks an
+      API version that Docker Engine 29 no longer accepts.
+    -->
+    <testcontainers.version>1.21.3</testcontainers.version>
+    <docker-java.version>3.5.1</docker-java.version>
+    <greenmail.version>2.1.14</greenmail.version>
   </properties>
 
   <dependencyManagement>
@@ -56,11 +63,47 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+    <!-- Sends the emails notifications delivers: the access link first of all. SMTP, so in
+         development it reaches Mailpit and in a deployment whatever relay the university allows. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
+    <!-- The shared whiteboard (US10, TS08): both participants draw on it in real time over a
+         WebSocket, authenticated with the session token. See ADR 0009. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-websocket</artifactId>
+    </dependency>
 
     <!-- Declares the module boundaries and verifies them in a test -->
     <dependency>
       <groupId>org.springframework.modulith</groupId>
       <artifactId>spring-modulith-starter-core</artifactId>
+    </dependency>
+    <!--
+      @ApplicationModuleListener: a listener that runs after the publisher's transaction
+      commits, in a transaction of its own.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-events-api</artifactId>
+    </dependency>
+    <!--
+      The event publication registry (TS04, amendment of ADR 0005): every publication to an
+      @ApplicationModuleListener is stored in public.event_publication in the publisher's own
+      transaction, and removed once the listener completes. What failed, or what the process did
+      not get to deliver before it stopped, is delivered again. events-core is declared on its own
+      because the starter brings it only at runtime, and config implements its EventSerializer.
+    -->
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-starter-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.modulith</groupId>
+      <artifactId>spring-modulith-events-core</artifactId>
     </dependency>
 
     <!-- Database. Flyway creates the schema, Hibernate only validates it. -->
@@ -102,6 +145,40 @@
       <artifactId>spring-modulith-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!--
+      A real PostgreSQL for the tests that are about the database itself: the trigger that
+      refuses to change the ledger, and the balance agreeing with the history. An in-memory
+      database would not have the trigger, and a test of a trigger that is not there proves
+      nothing. Needs Docker, which the project already requires.
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      An SMTP server inside the test JVM. The tests that are about an email arriving read it from
+      here, the way a student would read it from their inbox, instead of trusting a mock of the
+      mail sender.
+    -->
+    <dependency>
+      <groupId>com.icegreen</groupId>
+      <artifactId>greenmail-junit5</artifactId>
+      <version>${greenmail.version}</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Generates the module diagrams used by chapter IV of the report -->
     <dependency>
       <groupId>org.springframework.modulith</groupId>
@@ -116,6 +193,29 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <!-- META-INF/build-info.properties, so /actuator/info says which version is running -->
+          <execution>
+            <goals>
+              <goal>build-info</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <!--
+              The Docker API version the Testcontainers client speaks. Without it the client
+              offers 1.32, which Docker Engine 29 refuses, and every test that needs a database
+              fails before it starts. 1.41 is understood by every engine from 20.10 onwards.
+            -->
+            <api.version>1.41</api.version>
+          </systemPropertyVariables>
+        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -1,0 +1,38 @@
+@startuml activity-recognition
+title Activity diagram: requesting recognition
+
+|Student|
+start
+:Check progress towards recognition;
+|Ayni|
+:Compare verified hours taught and rating\nagainst the university rule;
+if (Criteria met?) then (no)
+  :Show remaining hours;
+  |Student|
+  stop
+else (yes)
+endif
+|Student|
+:Submit recognition request;
+|Ayni|
+:Freeze hours, sessions count and average rating;
+:Link backing sessions\n(a session backs one request only);
+:Publish RecognitionRequested;
+|Coordinator|
+:Open request from the queue;
+|Ayni|
+:Mark UNDER_REVIEW;
+:Show file: sessions, attendance,\nratings and audit anomalies;
+|Coordinator|
+if (Approve?) then (yes)
+  :Approve with a reason;
+else (no)
+  :Reject with a reason;
+endif
+|Ayni|
+:Record decision;
+:Publish RecognitionResolved;
+:Notify the student;
+note right: credits are never consumed
+stop
+@enduml

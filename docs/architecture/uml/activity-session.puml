@@ -1,0 +1,51 @@
+@startuml activity-session
+title Activity diagram: running a session with presence check
+
+|Participants|
+start
+:Join the session\n(from 15 minutes before);
+|Ayni|
+:Mark session IN_PROGRESS;
+:Open Jitsi room and shared whiteboard;
+|Jitsi Meet|
+:Carry video, audio and screen sharing;
+|Ayni|
+:Wait until 5 minutes after the start;
+:Issue a six digit code per participant\n(stored hashed, expires, max 5 attempts);
+|Email Service|
+:Deliver each code;
+|Participants|
+:Enter the code in the platform;
+|Ayni|
+if (Code valid?) then (yes)
+  :Record presence confirmed;
+else (no)
+  :Count attempt;
+endif
+|Participants|
+:Work on the problem;
+:End session;
+|Ayni|
+:Save whiteboard and attendance;
+if (Every participant confirmed presence?) then (yes)
+  :Mark COMPLETED;
+  :Publish SessionCompleted;
+  fork
+    :wallet credits the tutor\n(EARNED, never expires);
+  fork again
+    :reputation opens the rating window;
+  fork again
+    :recognition updates progress;
+  end fork
+else (no)
+  :Mark UNVERIFIED;
+  :Publish SessionUnverified;
+  fork
+    :wallet refunds the student;
+  fork again
+    :audit records failed presence;
+  end fork
+  note right: the tutor earns no credits
+endif
+stop
+@enduml

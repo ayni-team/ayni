@@ -1,0 +1,52 @@
+# Production image. Builds the jar in one stage and runs it on a plain JRE in another, as a user
+# without privileges. The development image is ./Dockerfile, which docker compose uses.
+#
+#   docker build -f backend/Dockerfile.prod backend
+#
+# It needs the variables of the Production section of README.md, and SPRING_PROFILES_ACTIVE=prod,
+# which this image sets.
+
+# ---- Build ------------------------------------------------------------------------------------
+FROM eclipse-temurin:21-jdk AS build
+
+WORKDIR /build
+
+# The Maven wrapper and the dependencies first, in a layer of their own: changing the sources does
+# not download them again.
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+
+COPY src src
+RUN ./mvnw -B -DskipTests package \
+    && java -Djarmode=tools -jar target/ayni-backend-*.jar extract --layers --launcher \
+        --destination target/extracted
+
+# ---- Run --------------------------------------------------------------------------------------
+FROM eclipse-temurin:21-jre
+
+# A system user without a shell or a home to write in. The two folders are where a deployment
+# mounts the simulated academic system (ADR 0006) and the evidence files (US16).
+RUN groupadd --system ayni \
+    && useradd --system --gid ayni --no-create-home --shell /usr/sbin/nologin ayni \
+    && mkdir -p /app /var/lib/ayni/academic-directory /var/lib/ayni/evidence \
+    && chown -R ayni:ayni /var/lib/ayni
+
+WORKDIR /app
+
+# The layers of the jar, from the one that changes least to the one that changes on every build.
+COPY --from=build /build/target/extracted/dependencies/ ./
+COPY --from=build /build/target/extracted/spring-boot-loader/ ./
+COPY --from=build /build/target/extracted/snapshot-dependencies/ ./
+COPY --from=build /build/target/extracted/application/ ./
+
+ENV SPRING_PROFILES_ACTIVE=prod \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75" \
+    AYNI_ACADEMIC_DIRECTORY=/var/lib/ayni/academic-directory \
+    AYNI_SKILLS_EVIDENCE_DIR=/var/lib/ayni/evidence
+
+USER ayni
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

@@ -1,5 +1,7 @@
 # ----- Java / Maven -----
 target/
+# Written at the repository root when the tests run from there (Spring Modulith docs)
+/build/
 *.class
 *.log
 
@@ -23,3 +25,10 @@ dist/
 # ----- OS -----
 .DS_Store
 Thumbs.db
+
+# ----- Structurizr local -----
+docs/architecture/.structurizr/
+
+# ----- Academic directory -----
+# A local addition of students to a university's document, with real addresses: never committed
+backend/academic-directory/*.local.json

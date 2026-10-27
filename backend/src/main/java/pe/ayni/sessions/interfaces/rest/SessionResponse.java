@@ -1,0 +1,172 @@
+package pe.ayni.sessions.interfaces.rest;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import pe.ayni.sessions.SessionStatus;
+import pe.ayni.sessions.application.PresenceState;
+import pe.ayni.sessions.application.SessionCounterpart;
+import pe.ayni.sessions.application.SessionCourse;
+import pe.ayni.sessions.application.SessionDetails;
+import pe.ayni.sessions.application.SupportMaterialView;
+import pe.ayni.sessions.domain.model.ParticipantRole;
+
+/**
+ * A session, as one of its participants sees it. The room name is only given by joining, and the
+ * presence code only by email.
+ */
+@Schema(name = "Session")
+public record SessionResponse(
+    @Schema(example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f") UUID id,
+    @Schema(example = "d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f") UUID bookingId,
+    @Schema(example = "11111111-1111-4111-8111-111111111111") UUID studentId,
+    @Schema(example = "22222222-2222-4222-8222-222222222222") UUID tutorId,
+    @Schema(description = "The course the session is about",
+        example = "b0000000-0000-4000-8000-000000000102")
+        UUID catalogItemId,
+    @Schema(description = "The course the session is about, with its name. Same id as "
+        + "catalogItemId") CatalogItem catalogItem,
+    @Schema(description = "Which of the two the reader is", example = "TUTOR") ParticipantRole role,
+    @Schema(description = "The other person of the session: the tutor when the reader is the "
+        + "student, the student when the reader is the tutor") Counterpart counterpart,
+    @Schema(example = "SCHEDULED") SessionStatus status,
+    @Schema(description = "UTC", example = "2026-09-30T20:00:00Z") Instant scheduledStart,
+    @Schema(description = "UTC", example = "2026-09-30T21:00:00Z") Instant scheduledEnd,
+    @Schema(description = "First moment the room can be joined, UTC",
+        example = "2026-09-30T19:45:00Z")
+        Instant joinOpensAt,
+    @Schema(description = "When both participants had checked in and the session began; null "
+        + "until then", nullable = true, example = "2026-09-30T19:52:10Z")
+        Instant startedAt,
+    @Schema(description = "When the student first arrived in the room, UTC; null if they have "
+        + "not. Visible to both participants", nullable = true,
+        example = "2026-09-30T19:50:03Z")
+        Instant studentJoinedAt,
+    @Schema(description = "When the tutor first arrived in the room, UTC; null if they have not. "
+        + "Visible to both participants", nullable = true, example = "2026-09-30T19:52:10Z")
+        Instant tutorJoinedAt,
+    @Schema(description = "Who had not checked in within ten minutes of the scheduled start. "
+        + "Filled only once the session is ABANDONED, empty before",
+        example = "[\"11111111-1111-4111-8111-111111111111\"]")
+        List<UUID> absentParticipantIds,
+    @Schema(description = "What the student needs help with, written when booking",
+        example = "Normal forms before Friday's exam")
+        String needDescription,
+    @Schema(description = "When the presence codes are emailed: five minutes after the scheduled "
+        + "start, UTC", example = "2026-09-30T20:05:00Z")
+        Instant presenceCheckAt,
+    @Schema(description = "The reader's own presence code, without the code; null until it is sent",
+        nullable = true)
+        Presence presence,
+    @Schema(description = "When the reader confirmed the end; null if they have not",
+        nullable = true, example = "2026-09-30T20:58:00Z")
+        Instant endConfirmedAt,
+    @Schema(description = "When the session closed; null while it has not", nullable = true,
+        example = "2026-09-30T20:59:10Z")
+        Instant endedAt,
+    @Schema(description = "When the session closes on its own if the participants do not close "
+        + "it: fifteen minutes after the booked hour, UTC", example = "2026-09-30T21:15:00Z")
+        Instant closesAt,
+    @Schema(description = "What was prepared from the need so the tutor arrives prepared (US07); "
+        + "null when the service did not prepare it, and then the session shows only the need",
+        nullable = true)
+        Material supportMaterial) {
+
+  /** The course or tool a session is about, with the name the catalogue gives it. */
+  @Schema(name = "SessionCatalogItem")
+  public record CatalogItem(
+      @Schema(example = "b0000000-0000-4000-8000-000000000102") UUID id,
+      @Schema(description = "Null when the catalogue no longer shows the item to this university",
+          nullable = true, example = "Bases de Datos I")
+          String name,
+      @Schema(description = "Code of the course in the university; null for a global tool",
+          nullable = true, example = "1ASI0657")
+          String courseCode) {
+
+    static CatalogItem of(SessionCourse course) {
+      return new CatalogItem(course.id(), course.name(), course.courseCode());
+    }
+  }
+
+  /** The other person of a session, from the reader's point of view. */
+  @Schema(name = "SessionCounterpart")
+  public record Counterpart(
+      @Schema(example = "22222222-2222-4222-8222-222222222222") UUID id,
+      @Schema(description = "Null when the person is no longer known", nullable = true,
+          example = "Julián Arce")
+          String name) {
+
+    static Counterpart of(SessionCounterpart counterpart) {
+      return new Counterpart(counterpart.id(), counterpart.name());
+    }
+  }
+
+  /** The support material of the session, prepared from the student's need (US07). */
+  @Schema(name = "SessionSupportMaterial")
+  public record Material(
+      @Schema(description = "What the student needs, in short",
+          example = "Formas normales antes del examen del viernes.")
+          String summary,
+      @Schema(description = "What the tutor could prepare",
+          example = "[\"Prepara un ejemplo resuelto sobre normalización\"]")
+          List<String> suggestions,
+      @Schema(description = "When it was prepared, UTC", example = "2026-09-29T16:00:02Z")
+          Instant generatedAt) {
+
+    static Material of(SupportMaterialView material) {
+      return material == null
+          ? null
+          : new Material(material.summary(), material.suggestions(), material.generatedAt());
+    }
+  }
+
+  /** The reader's presence code as the screen needs it. The code itself only travels by email. */
+  @Schema(name = "SessionPresence")
+  public record Presence(
+      @Schema(description = "UTC", example = "2026-09-30T20:05:00Z") Instant issuedAt,
+      @Schema(description = "Last moment the code can be typed in, UTC",
+          example = "2026-09-30T20:20:00Z")
+          Instant expiresAt,
+      @Schema(description = "When presence was confirmed; null until then", nullable = true,
+          example = "2026-09-30T20:06:30Z")
+          Instant confirmedAt,
+      @Schema(description = "Wrong codes that can still be typed before the code is useless",
+          example = "5")
+          int attemptsLeft) {
+
+    static Presence of(PresenceState state) {
+      return state == null
+          ? null
+          : new Presence(
+              state.issuedAt(), state.expiresAt(), state.confirmedAt(), state.attemptsLeft());
+    }
+  }
+
+  static SessionResponse of(SessionDetails session) {
+    return new SessionResponse(
+        session.id(),
+        session.bookingId(),
+        session.studentId(),
+        session.tutorId(),
+        session.catalogItemId(),
+        CatalogItem.of(session.catalogItem()),
+        session.role(),
+        Counterpart.of(session.counterpart()),
+        session.status(),
+        session.scheduledStart(),
+        session.scheduledEnd(),
+        session.joinOpensAt(),
+        session.startedAt(),
+        session.studentJoinedAt(),
+        session.tutorJoinedAt(),
+        session.absentParticipantIds(),
+        session.needDescription(),
+        session.presenceCheckAt(),
+        Presence.of(session.presence()),
+        session.endConfirmedAt(),
+        session.endedAt(),
+        session.closesAt(),
+        Material.of(session.supportMaterial()));
+  }
+}

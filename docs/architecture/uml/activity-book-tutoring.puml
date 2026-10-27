@@ -1,0 +1,62 @@
+@startuml activity-book-tutoring
+title Activity diagram: booking a tutoring session
+
+|Student|
+start
+:Search offers by skill and date range;
+|Ayni|
+:Read matching projection\n(all enabled tutors free at each hour);
+|Student|
+:Choose tutor and one or more consecutive hours;
+|Ayni|
+if (Hours contiguous and AVAILABLE?) then (no)
+  :Show that the hour is no longer available;
+  |Student|
+  stop
+else (yes)
+endif
+|Ayni|
+:Hold the hours for 5 minutes;
+|Student|
+:Describe the need (required);
+:Confirm booking;
+|Ayni|
+if (Hold still valid?) then (no)
+  :Release hours and notify the student;
+  |Student|
+  stop
+else (yes)
+endif
+|Ayni|
+partition "One transaction" {
+  if (Tutor enabled for the skill?) then (no)
+    :Roll back, release hours;
+    stop
+  else (yes)
+  endif
+  :Charge credits, closest to expiring first;
+  if (Enough credits?) then (no)
+    :Roll back, show missing credits\nand how to get them;
+    stop
+  else (yes)
+  endif
+  :Mark hours BOOKED (version check);
+  if (Hour taken concurrently?) then (yes)
+    :Roll back charge and booking;
+    stop
+  else (no)
+  endif
+  :Save booking CONFIRMED;
+}
+:Publish BookingConfirmed;
+fork
+  :sessions creates the session\nand its private room;
+fork again
+  :matching removes the hours from search;
+fork again
+  :notifications tells student and tutor;
+end fork
+|Student|
+:See the confirmed booking;
+stop
+@enduml

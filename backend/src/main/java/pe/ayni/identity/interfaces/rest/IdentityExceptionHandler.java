@@ -1,0 +1,169 @@
+package pe.ayni.identity.interfaces.rest;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.CreditPolicyConflict;
+import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
+import pe.ayni.identity.domain.model.OnboardingConflict;
+import pe.ayni.identity.domain.model.UniversityAlreadyRegistered;
+import java.util.NoSuchElementException;
+import pe.ayni.shared.tenancy.MissingTenantException;
+import pe.ayni.shared.tenancy.MissingUserException;
+
+@RestControllerAdvice(
+        assignableTypes = {
+                AccessController.class,
+                IdentityMeController.class,
+                AdminUniversitiesController.class,
+                CoordinatorInvitationController.class,
+                CreditPolicyController.class,
+                UniversityIdentityController.class,
+                UniversityController.class
+        })
+class IdentityExceptionHandler {
+
+    private final Clock clock;
+
+    IdentityExceptionHandler(Clock clock) {
+        this.clock = clock;
+    }
+
+    @ExceptionHandler(IdentityRuleViolation.class)
+    ResponseEntity<ApiError> handleIdentityRuleViolation(
+            IdentityRuleViolation exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CoordinatorRequired.class)
+    ResponseEntity<ApiError> handleCoordinatorRequired(
+            CoordinatorRequired exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(InvitationConflict.class)
+    ResponseEntity<ApiError> handleInvitationConflict(
+            InvitationConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(CreditPolicyConflict.class)
+    ResponseEntity<ApiError> handleCreditPolicyConflict(
+            CreditPolicyConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(OnboardingConflict.class)
+    ResponseEntity<ApiError> handleOnboardingConflict(
+            OnboardingConflict exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(UniversityAlreadyRegistered.class)
+    ResponseEntity<ApiError> handleUniversityAlreadyRegistered(
+            UniversityAlreadyRegistered exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiError> handleInvalidRequest(
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request) {
+
+        String message =
+                exception.getBindingResult().getFieldErrors().stream()
+                        .findFirst()
+                        .map(error -> error.getField() + " " + error.getDefaultMessage())
+                        .orElse("The request is invalid");
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                message,
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ApiError> handleMissingParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                exception.getParameterName() + " is required",
+                request);
+    }
+
+    private ResponseEntity<ApiError> answer(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request) {
+
+        return ResponseEntity.status(status)
+                .body(ApiError.of(
+                        status,
+                        message,
+                        request,
+                        clock.instant()));
+    }
+    @ExceptionHandler(NoSuchElementException.class)
+    ResponseEntity<ApiError> handleNotFound(
+            NoSuchElementException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                request);
+    }
+
+    @ExceptionHandler({
+            MissingTenantException.class,
+            MissingUserException.class
+    })
+    ResponseEntity<ApiError> handleMissingContext(
+            RuntimeException exception,
+            HttpServletRequest request) {
+
+        return answer(
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                request);
+    }
+}

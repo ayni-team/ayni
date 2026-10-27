@@ -158,11 +158,11 @@ prevents rather than detects.
 
 The code is single use, expires, and the number of attempts is capped.
 
-> **Open, and it needs your decision.** What happens when somebody does not confirm. *Proposal:* the
-> session ends as `UNVERIFIED`, the tutor earns **no** credits, the student is refunded and the audit
-> is notified. Earned credits are what backs a recognition request, so handing them out without proof
-> of presence would hollow out the mechanism. Treating it as a no show instead would punish somebody
-> whose email merely did not arrive.
+> **Decided.** When somebody does not confirm the code, the session ends as `UNVERIFIED`. The tutor
+> earns **no** credits, the student recovers theirs and the audit is notified. Earned credits are
+> what backs a recognition request, so handing them out without proof of presence would hollow out
+> the mechanism. Treating it as a no show instead would punish somebody whose email merely did not
+> arrive. Implemented in US54 and US11.
 
 *Policy: as the end approaches, both participants are warned.*
 
@@ -183,8 +183,9 @@ leaves a trail.
 
 ## 6. When things do not go well
 
-*Policy: cancelling always refunds the student*, and the credits return to the group they came from,
-with the expiry they had.
+*Policy: a cancellation refunds the student* unless the student cancelled it themselves inside the
+twelve hours before the start; a tutor's cancellation refunds at any hour. The credits return to the
+group they came from, with the expiry they had.
 
 *Policy: a cancellation within twelve hours of the start is recorded against whoever made it.* The
 same twelve hours the backlog already gives the student, so there is one rule to explain and not
@@ -285,18 +286,23 @@ There is no user-facing reporting of sessions. Detection is automatic.
 7. **No passwords.** A single use link by email, for every role, and a long session afterwards.
 8. **All available tutors are shown** for an hour, and the student chooses.
 9. **A presence code five minutes into the session**, by email, entered in the platform.
-10. **Twelve hours** is the cancellation window, and a refund is always issued.
+10. **Twelve hours** is the cancellation window. A student who cancels inside it is warned and not
+    refunded; a tutor's cancellation is always refunded and, inside the window, recorded against
+    them.
 11. **The catalogue is global for tools and per university for courses.**
+12. **An unconfirmed presence check ends the session as `UNVERIFIED`**: the tutor earns no credits,
+    the student recovers theirs and the audit is notified (US54, US11).
 
 ## Still open
 
-- What happens when a presence check is not confirmed. Proposal above.
 - Which notices exist exactly, and when each is sent.
 - What happens to the data of a university that is suspended.
 - Whether a student may ever receive tutoring from another university. Isolation forbids it today;
   it is a product question, not a technical one.
 
 ## What these decisions contradict in the report
+
+All of these were corrected in version 1.1.0 of the report (2026-09-23). The list stays as history.
 
 - The report states one credit equals thirty minutes (hypothesis H2).
 - US35 grants purchased credits with an expiry date.

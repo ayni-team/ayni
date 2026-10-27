@@ -1,0 +1,4198 @@
+{
+  "university": {
+    "code": "UPC",
+    "name": "Universidad Peruana de Ciencias Aplicadas",
+    "logoUrl": "/logos/upc.png",
+    "primaryColor": "#E42322",
+    "secondaryColor": "#FFFFFF",
+    "emailDomains": [
+      "upc.edu.pe"
+    ],
+    "timezone": "America/Lima",
+    "minimumTeachingGrade": 15.0,
+    "currentTerm": "2026-2"
+  },
+  "careers": [
+    "Ingeniería de Software",
+    "Ingeniería de Sistemas de Información"
+  ],
+  "courses": [
+    {
+      "code": "CC126",
+      "name": "Introducción a los Algoritmos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "CC200",
+      "name": "Fundamentos en Programación",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "HU548",
+      "name": "Ética y Ciudadanía",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "HU612",
+      "name": "Creatividad y Liderazgo (Ing)",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "HU625",
+      "name": "Comprensión y Producción de Lenguaje I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "MA420",
+      "name": "Matemática Básica",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 1
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 1
+        }
+      ]
+    },
+    {
+      "code": "AD99",
+      "name": "Organización y Dirección de Empresas",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "CC201",
+      "name": "Programación Orientado a Objetos",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "CC215",
+      "name": "Algoritmos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "HU159",
+      "name": "Seminario de Investigación Académica I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "HU626",
+      "name": "Comprensión y Producción de Lenguaje II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "MA262",
+      "name": "Cálculo I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 2
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 2
+        }
+      ]
+    },
+    {
+      "code": "CA59",
+      "name": "Contabilidad y Presupuestos",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "CC182",
+      "name": "Algoritmos y Estructuras de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "MA265",
+      "name": "Matemática Discreta",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "MA466",
+      "name": "Física I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "SI397",
+      "name": "Especificación y Análisis de Requerimientos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "SI400",
+      "name": "Diseño de Base de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "SI720",
+      "name": "Diseño y Patrones de Software",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 3
+        }
+      ]
+    },
+    {
+      "code": "MA462",
+      "name": "Física II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "MA475",
+      "name": "Matemática Computacional",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "SI385",
+      "name": "IHC y Tecnologías Móviles",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "SI643",
+      "name": "Arquitectura de Computadoras y Sistemas Operativos",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "SI725",
+      "name": "Arquitectura de Computadoras",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 4
+        }
+      ]
+    },
+    {
+      "code": "MA263",
+      "name": "Cálculo II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "MA642",
+      "name": "Estadística Aplicada I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "SI393",
+      "name": "Fundamentos de Sistemas de Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "SI704",
+      "name": "Arquitectura de Negocio",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "SI726",
+      "name": "Sistemas Operativos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "SI729",
+      "name": "Desarrollo de Aplicaciones Open Source",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "SI730",
+      "name": "Aplicaciones Web",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 5
+        }
+      ]
+    },
+    {
+      "code": "AD204",
+      "name": "Emprendimiento de Negocios Sostenibles: Formulación",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "CC184",
+      "name": "Complejidad Algorítmica",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "CC238",
+      "name": "Aplicaciones para Dispositivos Móviles",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "SI640",
+      "name": "Redes y Comunicaciones de Datos",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 6
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "SI651",
+      "name": "Diseño de Experimentos en SI",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "SI705",
+      "name": "Arquitectura de Aplicaciones Web",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 6
+        }
+      ]
+    },
+    {
+      "code": "SI427",
+      "name": "Gerencia de Proyectos de SI/TI",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI572",
+      "name": "Desarrollo de Soluciones IoT",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI642",
+      "name": "Finanzas e Ingeniería Económica",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI645",
+      "name": "Implementación de Sistemas Empresariales",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI657",
+      "name": "Fundamentos de Arquitectura de Software",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI706",
+      "name": "Arquitectura Empresarial",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI707",
+      "name": "Gestión de Seguridad de Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "SI732",
+      "name": "Diseño de Experimentos de Ingeniería de Software",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 7
+        }
+      ]
+    },
+    {
+      "code": "IN397",
+      "name": "Seminario de Investigación Académica II (Ing)",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI639",
+      "name": "Taller de Desempeño Profesional",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI708",
+      "name": "Technical Sales and Marketing",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI727",
+      "name": "Gerencia de Proyectos en Computación",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI728",
+      "name": "Arquitecturas de Software Emergentes",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 8
+        }
+      ]
+    },
+    {
+      "code": "SI381",
+      "name": "Soluciones Móviles y Cloud",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "SI438",
+      "name": "Calidad y Mejora de Procesos Software",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "SI570",
+      "name": "Desarrollo Ágil de Productos de Software",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "SI644",
+      "name": "Taller de Proyecto I",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 9
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "SI709",
+      "name": "Business Predictive Analytics",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 9
+        }
+      ]
+    },
+    {
+      "code": "SI646",
+      "name": "Curso de Trabajo de Investigación - Taller de Proyecto II",
+      "careers": [
+        {
+          "career": "Ingeniería de Software",
+          "cycle": 10
+        },
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    },
+    {
+      "code": "SI710",
+      "name": "Gestión de Tecnologías de Información",
+      "careers": [
+        {
+          "career": "Ingeniería de Sistemas de Información",
+          "cycle": 10
+        }
+      ]
+    }
+  ],
+  "students": [
+    {
+      "email": "u202500025@upc.edu.pe",
+      "studentCode": "U202500025",
+      "fullName": "Valeria Vargas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 2,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 16.83,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 18.81,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 16.33,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 19.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.51,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202500003@upc.edu.pe",
+      "studentCode": "U202500003",
+      "fullName": "Carla Mendoza",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 3,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 15.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.43,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.65,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.9,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 16.02,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.32,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 11.4,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.71,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 15.53,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202400032@upc.edu.pe",
+      "studentCode": "U202400032",
+      "fullName": "Paula Salazar",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 3,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 15.44,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 13.58,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 13.78,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 18.08,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.49,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.76,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 14.16,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 15.53,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 12.27,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 12.64,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202400031@upc.edu.pe",
+      "studentCode": "U202400031",
+      "fullName": "Alejandra Chávez",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 17.58,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 11.65,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 14.43,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.46,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 18.26,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 18.29,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 14.87,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 15.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 15.61,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.42,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 18.97,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 11.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 16.86,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202400028@upc.edu.pe",
+      "studentCode": "U202400028",
+      "fullName": "Daniela Cornejo",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "HU548",
+          "grade": 13.37,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 11.78,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 15.28,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 11.22,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 17.39,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 13.75,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 12.68,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.43,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 17.22,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 13.59,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300029@upc.edu.pe",
+      "studentCode": "U202300029",
+      "fullName": "Daniela Gutiérrez",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 14.2,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 15.28,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.15,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 16.47,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.55,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 17.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 12.23,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 13.63,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 16.45,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 16.16,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 15.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 11.82,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 13.5,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 16.92,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 15.46,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 15.17,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 12.06,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 11.71,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300034@upc.edu.pe",
+      "studentCode": "U202300034",
+      "fullName": "Claudia Palomino",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 14.02,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 17.54,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.66,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 13.26,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 13.17,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 11.03,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 12.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 14.71,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 11.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 13.5,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 15.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 18.41,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 14.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 11.26,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 12.21,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 14.54,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 13.43,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 16.71,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 13.49,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300027@upc.edu.pe",
+      "studentCode": "U202300027",
+      "fullName": "Isabella Tapia",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 11.79,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 15.34,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.2,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 18.85,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 14.48,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 15.7,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 18.69,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 18.76,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 14.41,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 15.61,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.04,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 14.52,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 11.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 15.29,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 17.26,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 15.11,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 15.52,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 14.95,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 11.81,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 13.55,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 11.24,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 15.6,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300024@upc.edu.pe",
+      "studentCode": "U202300024",
+      "fullName": "Julián Arce",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 15.7,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 17.84,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 12.43,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.7,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 12.17,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 18.94,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.32,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 12.44,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 13.51,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 16.42,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 14.03,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 15.55,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 16.44,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 17.96,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 16.85,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 17.14,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 17.03,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 14.23,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300033@upc.edu.pe",
+      "studentCode": "U202300033",
+      "fullName": "Milagros Castillo",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 17.63,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 16.73,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.75,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 12.37,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.48,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 16.22,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 13.75,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 11.71,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.03,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 14.33,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 15.11,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 13.91,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 17.7,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 19.28,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 14.18,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 13.89,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 17.29,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 17.91,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 12.39,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 16.57,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300030@upc.edu.pe",
+      "studentCode": "U202300030",
+      "fullName": "Sebastián Cárdenas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 13.09,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.39,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 16.26,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 16.19,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 13.88,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 18.31,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 12.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 20.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.06,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 13.16,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.76,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.37,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 14.64,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 13.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 16.96,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 20.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 19.03,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 16.82,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 17.38,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202100023@upc.edu.pe",
+      "studentCode": "U202100023",
+      "fullName": "Renata Delgado",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 9,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 16.28,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 13.1,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 12.0,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 12.62,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.61,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 11.03,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 15.3,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 20.0,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 15.01,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 12.26,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 11.78,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 11.82,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 11.0,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 11.96,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 13.56,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 12.45,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 12.79,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 16.39,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 15.68,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 12.68,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "AD204",
+          "grade": 14.35,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 19.14,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI651",
+          "grade": 13.27,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI705",
+          "grade": 13.13,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI427",
+          "grade": 13.55,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 16.31,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI645",
+          "grade": 15.09,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI706",
+          "grade": 13.87,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI707",
+          "grade": 15.82,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 17.26,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI708",
+          "grade": 13.61,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202100026@upc.edu.pe",
+      "studentCode": "U202100026",
+      "fullName": "Mateo Cárdenas",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 16.21,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 17.38,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 17.74,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 16.29,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.25,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 16.9,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 17.29,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 17.92,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.63,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 16.1,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 16.67,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.02,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 17.3,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 17.61,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 18.77,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 16.47,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 18.92,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 14.59,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 17.24,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 16.8,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 16.64,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 17.9,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 15.79,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD204",
+          "grade": 14.92,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 15.64,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI651",
+          "grade": 17.48,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI705",
+          "grade": 15.92,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI427",
+          "grade": 18.61,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 17.12,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI645",
+          "grade": 16.66,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI706",
+          "grade": 16.7,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI707",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "IN397",
+          "grade": 18.16,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 18.05,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI708",
+          "grade": 17.61,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI381",
+          "grade": 18.33,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI644",
+          "grade": 19.17,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI709",
+          "grade": 16.64,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300035@upc.edu.pe",
+      "studentCode": "U202300035",
+      "fullName": "Sebastián Ramos",
+      "career": "Ingeniería de Sistemas de Información",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "INACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC200",
+          "grade": 13.48,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 14.77,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.59,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.24,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.4,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 17.02,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC201",
+          "grade": 15.67,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.06,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.72,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 15.41,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CA59",
+          "grade": 15.9,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.42,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.52,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 18.45,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 20.0,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 15.08,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 11.38,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI643",
+          "grade": 15.95,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 18.43,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 13.34,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI393",
+          "grade": 17.03,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI704",
+          "grade": 14.86,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD204",
+          "grade": 12.61,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 11.96,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI651",
+          "grade": 11.05,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI705",
+          "grade": 20.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI427",
+          "grade": 15.08,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 12.96,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI645",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI706",
+          "grade": 11.17,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI707",
+          "grade": 14.53,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "IN397",
+          "grade": 12.02,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 13.53,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI708",
+          "grade": 16.62,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI381",
+          "grade": 11.3,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI644",
+          "grade": 13.52,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI709",
+          "grade": 17.54,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202400017@upc.edu.pe",
+      "studentCode": "U202400017",
+      "fullName": "Ana Medina",
+      "career": "Ingeniería de Software",
+      "cycle": 3,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 13.51,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 11.58,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 12.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 11.52,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 16.06,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 17.56,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 11.94,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 14.85,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202400001@upc.edu.pe",
+      "studentCode": "U202400001",
+      "fullName": "Ana Torres",
+      "career": "Ingeniería de Software",
+      "cycle": 4,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 12.49,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 11.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 20.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 13.42,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 17.38,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 16.38,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 13.53,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.01,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 13.5,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 12.51,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 11.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.83,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.35,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 18.88,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 12.48,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300012@upc.edu.pe",
+      "studentCode": "U202300012",
+      "fullName": "Ana Flores",
+      "career": "Ingeniería de Software",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 15.35,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 18.16,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.15,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 19.64,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.58,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 14.61,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 17.83,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.07,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 15.6,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.12,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 12.07,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 12.66,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 16.65,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 18.54,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 13.6,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 18.17,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 14.02,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 13.77,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300013@upc.edu.pe",
+      "studentCode": "U202300013",
+      "fullName": "Sebastián Cornejo",
+      "career": "Ingeniería de Software",
+      "cycle": 5,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 14.45,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 14.58,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 13.37,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.37,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 17.09,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 14.14,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.6,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 16.87,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 14.71,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 15.48,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 14.6,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 18.1,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 14.91,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 15.36,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 17.47,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 15.82,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 12.74,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 13.9,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300016@upc.edu.pe",
+      "studentCode": "U202300016",
+      "fullName": "Paula Palomino",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 13.77,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 14.14,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 13.72,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 12.84,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 11.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.03,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 13.8,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 17.94,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 13.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 11.42,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 13.34,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.99,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 18.79,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 14.36,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 18.28,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 14.04,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 15.06,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 13.74,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 14.75,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 18.27,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 12.93,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 13.36,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300011@upc.edu.pe",
+      "studentCode": "U202300011",
+      "fullName": "Renzo Salas",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.91,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.1,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 18.94,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 19.39,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 17.28,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 17.5,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 15.55,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 17.69,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 17.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.18,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 17.04,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.01,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 14.76,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 18.7,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 16.77,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 16.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 17.92,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 17.33,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 18.61,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 16.39,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 17.54,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 15.44,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 18.41,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300015@upc.edu.pe",
+      "studentCode": "U202300015",
+      "fullName": "Sofía Cornejo",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.7,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.55,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 16.15,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.91,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 17.49,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 17.51,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 18.14,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.63,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 17.25,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 17.25,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 16.15,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 17.39,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 17.3,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 15.22,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 18.24,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 16.02,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 16.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 16.61,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 16.36,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 19.18,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 14.8,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 16.61,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 17.24,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 14.82,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300014@upc.edu.pe",
+      "studentCode": "U202300014",
+      "fullName": "Valeria Medina",
+      "career": "Ingeniería de Software",
+      "cycle": 6,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 15.82,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 18.82,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 14.73,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.69,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 16.4,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 14.96,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 15.73,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 18.53,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 18.53,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.04,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 11.67,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.86,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 18.11,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 16.64,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 16.51,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 17.32,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 14.96,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 18.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 12.98,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 13.2,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 13.51,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 15.42,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 15.67,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202200019@upc.edu.pe",
+      "studentCode": "U202200019",
+      "fullName": "Andrés Zegarra",
+      "career": "Ingeniería de Software",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.91,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 14.82,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 16.74,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 12.38,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 12.24,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 20.0,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 15.18,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 12.35,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 18.03,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 13.7,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 12.82,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.23,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 15.72,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 14.92,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 14.97,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 14.79,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 15.16,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 16.48,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 16.55,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 15.41,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 13.84,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 18.24,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 13.79,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 13.07,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 14.05,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202200018@upc.edu.pe",
+      "studentCode": "U202200018",
+      "fullName": "Daniela Salas",
+      "career": "Ingeniería de Software",
+      "cycle": 7,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.58,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 15.72,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 17.04,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.15,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.42,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 16.34,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 15.57,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.85,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 14.51,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 16.11,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 17.12,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 18.69,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.55,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 17.45,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 17.73,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 15.99,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 17.74,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 16.0,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 15.84,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 18.74,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 16.12,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 15.88,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 17.88,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 17.29,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 16.94,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 17.01,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 15.82,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 17.66,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300002@upc.edu.pe",
+      "studentCode": "U202300002",
+      "fullName": "Bruno Salas",
+      "career": "Ingeniería de Software",
+      "cycle": 8,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.86,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.72,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 19.32,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 16.77,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 15.94,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 12.81,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 18.54,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 15.93,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 18.1,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 13.86,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.72,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 15.26,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 16.21,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 17.63,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 17.24,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 17.3,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 13.6,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 16.85,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 14.39,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 17.94,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 15.58,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 14.9,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 19.14,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 14.15,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 17.17,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 16.23,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 17.16,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 15.02,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI572",
+          "grade": 16.54,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 16.64,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI657",
+          "grade": 17.53,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI732",
+          "grade": 16.74,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202100021@upc.edu.pe",
+      "studentCode": "U202100021",
+      "fullName": "Joaquín Palomino",
+      "career": "Ingeniería de Software",
+      "cycle": 9,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 15.27,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 16.37,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 14.99,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 17.35,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 16.42,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 19.87,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 16.82,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 18.32,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 17.65,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 17.22,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 15.1,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.76,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 18.91,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 17.79,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 15.51,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 16.78,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 16.91,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 14.25,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 14.53,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 16.83,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 16.29,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 16.82,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 17.1,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 18.1,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 17.84,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 19.91,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 16.79,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 16.02,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI572",
+          "grade": 16.93,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 15.27,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI657",
+          "grade": 19.27,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI732",
+          "grade": 19.35,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "IN397",
+          "grade": 16.2,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 17.05,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI727",
+          "grade": 15.5,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI728",
+          "grade": 16.88,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202300022@upc.edu.pe",
+      "studentCode": "U202300022",
+      "fullName": "Carla Lazo",
+      "career": "Ingeniería de Software",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "GRADUATED",
+      "approvedCourses": [
+        {
+          "courseCode": "CC126",
+          "grade": 16.06,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU548",
+          "grade": 19.26,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 17.79,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 15.16,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 14.77,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.86,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 18.99,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 16.55,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 15.59,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 16.23,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 15.06,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.69,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.69,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 15.88,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 15.17,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 11.0,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 15.93,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 15.31,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 17.96,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 17.26,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 14.24,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 12.24,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 14.68,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 14.89,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 13.3,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 15.02,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 17.56,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI572",
+          "grade": 15.39,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 15.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI657",
+          "grade": 15.35,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI732",
+          "grade": 15.23,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "IN397",
+          "grade": 18.34,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 11.0,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI727",
+          "grade": 15.68,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI728",
+          "grade": 16.18,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI438",
+          "grade": 11.0,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI570",
+          "grade": 14.63,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI644",
+          "grade": 11.0,
+          "term": "2026-1"
+        }
+      ]
+    },
+    {
+      "email": "u202100020@upc.edu.pe",
+      "studentCode": "U202100020",
+      "fullName": "Lucía Gutiérrez",
+      "career": "Ingeniería de Software",
+      "cycle": 10,
+      "currentTerm": "2026-2",
+      "status": "ACTIVE",
+      "approvedCourses": [
+        {
+          "courseCode": "HU548",
+          "grade": 17.64,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU612",
+          "grade": 11.0,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "HU625",
+          "grade": 15.21,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "MA420",
+          "grade": 11.03,
+          "term": "2022-1"
+        },
+        {
+          "courseCode": "AD99",
+          "grade": 15.85,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC215",
+          "grade": 17.46,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU159",
+          "grade": 14.65,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "HU626",
+          "grade": 11.58,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "MA262",
+          "grade": 17.33,
+          "term": "2022-2"
+        },
+        {
+          "courseCode": "CC182",
+          "grade": 14.39,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA265",
+          "grade": 16.94,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA466",
+          "grade": 15.11,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI397",
+          "grade": 11.57,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "SI400",
+          "grade": 18.53,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI720",
+          "grade": 15.37,
+          "term": "2023-1"
+        },
+        {
+          "courseCode": "MA462",
+          "grade": 18.96,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA475",
+          "grade": 12.25,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI385",
+          "grade": 16.73,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "SI725",
+          "grade": 16.46,
+          "term": "2023-2"
+        },
+        {
+          "courseCode": "MA263",
+          "grade": 13.32,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "MA642",
+          "grade": 11.41,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI726",
+          "grade": 13.07,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI729",
+          "grade": 12.14,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "SI730",
+          "grade": 19.27,
+          "term": "2024-1"
+        },
+        {
+          "courseCode": "CC184",
+          "grade": 11.0,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "CC238",
+          "grade": 15.97,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI640",
+          "grade": 14.62,
+          "term": "2024-2"
+        },
+        {
+          "courseCode": "SI642",
+          "grade": 15.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI657",
+          "grade": 11.32,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "SI732",
+          "grade": 13.19,
+          "term": "2025-1"
+        },
+        {
+          "courseCode": "IN397",
+          "grade": 13.79,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI639",
+          "grade": 15.06,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI727",
+          "grade": 17.77,
+          "term": "2025-2"
+        },
+        {
+          "courseCode": "SI438",
+          "grade": 18.11,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI570",
+          "grade": 16.16,
+          "term": "2026-1"
+        },
+        {
+          "courseCode": "SI644",
+          "grade": 14.84,
+          "term": "2026-1"
+        }
+      ]
+    }
+  ]
+}

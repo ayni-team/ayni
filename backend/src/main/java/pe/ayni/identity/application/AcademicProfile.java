@@ -1,0 +1,68 @@
+package pe.ayni.identity.application;
+
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * What a university's academic system says about one of its students (ADR 0006).
+ *
+ * <p>The student code is the university's, as its directory keeps it: Ayni copies it and never
+ * derives it nor checks its format, because every university writes its codes its own way. The
+ * name of each approved course is the one the curriculum of the university gives its code.
+ *
+ * @param cycle the cycle of the career the student is in, {@code null} when the university does not
+ *     say
+ * @param status whether the university still considers them its student
+ */
+public record AcademicProfile(
+        String studentCode,
+        String fullName,
+        String career,
+        Integer cycle,
+        String currentTerm,
+        AcademicStatus status,
+        List<AcademicCourseData> approvedCourses) {
+
+    public AcademicProfile {
+        studentCode =
+                Objects.requireNonNull(
+                        studentCode,
+                        "studentCode must not be null");
+
+        if (studentCode.isBlank()) {
+            throw new IllegalArgumentException(
+                    "studentCode must not be blank");
+        }
+
+        fullName =
+                Objects.requireNonNull(
+                        fullName,
+                        "fullName must not be null");
+
+        career =
+                Objects.requireNonNull(
+                        career,
+                        "career must not be null");
+
+        currentTerm =
+                Objects.requireNonNull(
+                        currentTerm,
+                        "currentTerm must not be null");
+
+        status =
+                Objects.requireNonNull(
+                        status,
+                        "status must not be null");
+
+        approvedCourses =
+                List.copyOf(
+                        Objects.requireNonNull(
+                                approvedCourses,
+                                "approvedCourses must not be null"));
+    }
+
+    /** Whether the university still considers them its student, the only ones Ayni activates. */
+    public boolean isEnrolled() {
+        return status == AcademicStatus.ACTIVE;
+    }
+}

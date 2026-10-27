@@ -1,0 +1,117 @@
+@startuml class-recognition-audit-notifications
+title Class diagram: recognition, audit, notifications and analytics bounded contexts
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "recognition" {
+  class RecognitionRule <<Entity>> {
+    - minimumHours: int
+    - minimumRating: BigDecimal
+    - validFrom: LocalDate
+    - supersededAt: Instant
+    + isMetBy(hours: int, averageRating: BigDecimal): boolean
+  }
+  class RecognitionRequest <<Aggregate Root>> {
+    - id: UUID
+    - studentId: UUID
+    - totalHours: int
+    - sessionsCount: int
+    - averageRating: BigDecimal
+    - status: RequestStatus
+    - reviewedBy: UUID
+    - reviewedAt: Instant
+    - decisionReason: String
+    - submittedAt: Instant
+    + {static} submit(student: UUID, sessions: List<SessionSummary>, rating: BigDecimal, rule: RecognitionRule): RecognitionRequest
+    + startReview(coordinatorId: UUID): void
+    + approve(coordinatorId: UUID, reason: String, now: Instant): void
+    + reject(coordinatorId: UUID, reason: String, now: Instant): void
+  }
+  class RequestSession <<Entity>> {
+    - sessionId: UUID
+    - hours: int
+  }
+  enum RequestStatus {
+    SUBMITTED
+    UNDER_REVIEW
+    APPROVED
+    REJECTED
+  }
+}
+
+package "audit" {
+  class ActivityLogEntry <<Entity>> {
+    - actorId: UUID
+    - actorRole: String
+    - action: String
+    - resourceType: String
+    - resourceId: UUID
+    - metadata: JSON
+    - occurredAt: Instant
+  }
+  class Anomaly <<Aggregate Root>> {
+    - id: UUID
+    - kind: AnomalyKind
+    - subjectId: UUID
+    - severity: Severity
+    - detail: JSON
+    - status: AnomalyStatus
+    - sessionIds: Set<UUID>
+    + dismiss(coordinatorId: UUID, now: Instant): void
+    + confirm(coordinatorId: UUID, now: Instant): void
+  }
+  class AnomalyDetector <<Domain Service>> {
+    + detect(tenantId: String, now: Instant): List<Anomaly>
+  }
+  enum AnomalyKind {
+    REPEATED_PAIR
+    UNUSUAL_FREQUENCY
+    SHORT_DURATION
+    FAILED_PRESENCE
+    NO_BOARD_ACTIVITY
+  }
+}
+
+package "notifications" {
+  class Notification <<Aggregate Root>> {
+    - id: UUID
+    - recipientId: UUID
+    - recipientEmail: String
+    - kind: NotificationKind
+    - payload: JSON
+    - sentAt: Instant
+    - failedReason: String
+    - readAt: Instant
+    + markSent(now: Instant): void
+    + markFailed(reason: String): void
+    + markRead(now: Instant): void
+  }
+  interface EmailSenderPort <<Port>> {
+    + send(notification: Notification): void
+  }
+}
+
+package "analytics" {
+  class DailyIndicators <<Read Model>> {
+    - day: LocalDate
+    - sessionsCompleted: int
+    - hoursExchanged: int
+    - activeStudents: int
+    - newStudents: int
+    - requestsApproved: int
+  }
+  class UncoveredDemand <<Read Model>> {
+    - catalogItemId: UUID
+    - day: LocalDate
+    - searches: int
+    - offersAvailable: int
+  }
+}
+
+RecognitionRequest "1" *-- "1..*" RequestSession
+RecognitionRequest ..> RecognitionRule
+RecognitionRequest --> RequestStatus
+AnomalyDetector ..> Anomaly : raises
+Anomaly --> AnomalyKind
+Notification ..> EmailSenderPort
+@enduml

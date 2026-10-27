@@ -1,0 +1,36 @@
+package pe.ayni.identity.infrastructure;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import pe.ayni.identity.domain.model.User;
+import pe.ayni.identity.domain.model.UserStatus;
+import pe.ayni.identity.UserRole;
+public interface UserRepository extends JpaRepository<User, UUID> {
+
+    boolean existsByTenantIdAndEmailIgnoreCase(
+            String tenantId,
+            String email);
+
+    Optional<User> findByTenantIdAndId(
+            String tenantId,
+            UUID id);
+
+    List<User> findByTenantIdAndIdIn(
+            String tenantId,
+            Collection<UUID> ids);
+
+    Optional<User> findByTenantIdAndEmailIgnoreCase(
+            String tenantId,
+            String email);
+    long countByTenantIdAndRole(
+            String tenantId,
+            UserRole role);
+
+    List<User> findByTenantIdAndStatusAndRoleIn(
+            String tenantId,
+            UserStatus status,
+            Collection<UserRole> roles);
+}

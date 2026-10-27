@@ -6,18 +6,39 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "api:types": "openapi-typescript ../docs/api/openapi.json -o src/shared/api/schema.d.ts",
+    "api:snapshot": "node scripts/fetch-openapi.mjs && npm run api:types"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.59.20",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "react-hook-form": "7.53.2",
     "react-router-dom": "6.28.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.0.1",
+    "@testing-library/user-event": "14.5.2",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
+    "autoprefixer": "10.4.20",
+    "eslint": "9.39.5",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "jsdom": "25.0.1",
+    "openapi-typescript": "7.4.3",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.14",
     "typescript": "5.7.2",
-    "vite": "5.4.11"
+    "typescript-eslint": "8.72.0",
+    "vite": "5.4.11",
+    "vitest": "2.1.5"
   }
 }

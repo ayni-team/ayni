@@ -43,13 +43,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
 
+      # Exactly the versions of the lock file.
       - name: Install dependencies
         working-directory: web
-        run: npm install
+        run: npm ci
 
-      # Type checks and builds. Catches the errors an editor would show to
-      # somebody who has the dependencies installed, for everybody else.
+      # ESLint: the rules of hooks, exhaustive effect dependencies and accessibility of the markup.
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      # Type checks (strict, against the types generated from docs/api/openapi.json) and builds.
       - name: Build
         working-directory: web
         run: npm run build
+
+      # Vitest and Testing Library, with the server faked at the fetch level.
+      - name: Test
+        working-directory: web
+        run: npm test

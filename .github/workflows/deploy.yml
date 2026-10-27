@@ -1,0 +1,140 @@
+name: Deploy
+
+# Moves the backend machine and the web application to a release; the video machine is updated by
+# hand (deploy/README.md). Started from the Actions tab, with the tag of a release whose image
+# release.yml already published:
+#
+#   Actions > Deploy > Run workflow > tag: v1.2.0
+#
+# The first job signs in to the backend machine over SSH and runs deploy/backend/update.sh there,
+# which writes the tag into deploy/backend/.env, pulls the image and restarts what changed. Once the
+# backend is healthy, the second builds the web application of the same tag, pointed at the API,
+# and publishes it to Azure Static Web Apps.
+#
+# The connection data lives in the GitHub environment named production (Settings > Environments),
+# never in the repository:
+#
+#   secret    DEPLOY_HOST         address of the virtual machine
+#   secret    DEPLOY_USER         the user that owns the checkout and may run docker
+#   secret    DEPLOY_SSH_KEY      private key of that user, OpenSSH format
+#   secret    DEPLOY_KNOWN_HOSTS  optional: the line of the machine in known_hosts
+#                                 (ssh-keyscan -t ed25519 <host>), checked when it is set
+#   variable  DEPLOY_PATH         optional: the checkout on the machine, /opt/ayni by default
+#   secret    AZURE_STATIC_WEB_APPS_API_TOKEN   deployment token of the static web app
+#   variable  AYNI_API_BASE_URL   origin of the API the web calls, https://api.<domain>
+#
+# Protect the environment with required reviewers if more than one person can run workflows.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to deploy, for example v1.2.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Two deployments at once would fight over the same machine.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+
+  deploy:
+    name: Deploy ${{ inputs.tag }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # The tag ends up inside a command run on the machine, so only a plain release tag passes.
+      - name: Check the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' is not a release tag such as v1.2.0"
+            exit 1
+          fi
+
+      - name: Update the machine
+        env:
+          TAG: ${{ inputs.tag }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ayni' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$DEPLOY_HOST" || -z "$DEPLOY_USER" || -z "$DEPLOY_SSH_KEY" ]]; then
+            echo "::error::DEPLOY_HOST, DEPLOY_USER and DEPLOY_SSH_KEY must be secrets of the production environment"
+            exit 1
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if [[ -n "$DEPLOY_KNOWN_HOSTS" ]]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::DEPLOY_KNOWN_HOSTS is not set: trusting the key the machine shows now"
+            ssh-keyscan -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+
+          # The checkout on the machine must be at the version being deployed: deploy/ and the
+          # web application come from it, the backend from the image of the same tag.
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && git fetch --tags --force origin && git checkout --detach 'refs/tags/$TAG' && ./deploy/backend/update.sh '$TAG'"
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+  web:
+    name: Web ${{ inputs.tag }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # The web of a release calls the API of that release: built from the same tag, after the
+      # backend answered healthy.
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      # A web built without the origin of the API would call itself and find no API there.
+      - name: Check the address of the API
+        env:
+          AYNI_API_BASE_URL: ${{ vars.AYNI_API_BASE_URL }}
+        run: |
+          if [[ ! "$AYNI_API_BASE_URL" =~ ^https://[^/]+$ ]]; then
+            echo "::error::AYNI_API_BASE_URL must be a variable of the production environment, such as https://api.example.org"
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build
+        working-directory: web
+        env:
+          VITE_API_BASE_URL: ${{ vars.AYNI_API_BASE_URL }}
+        run: npm ci && npm run build
+
+      # Uploads web/dist as it is, with the routing and headers of web/public/staticwebapp.config.json.
+      - name: Publish
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: web/dist
+          skip_app_build: true
+          skip_api_build: true

@@ -24,8 +24,11 @@ The first run downloads images and dependencies and takes a few minutes. After t
 | API | http://localhost:8080 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Database | `localhost:5432`, database `ayni`, user `ayni`, password `ayni` |
+| Emails sent by the backend | http://localhost:8025 (Mailpit: nothing leaves your machine) |
+| Video calls of the sessions | http://localhost:8000, only with `docker compose --profile video up` |
 
-The home page shows whether the API is answering. If it says `UP`, everything works.
+The web application opens at the sign-in screen: typing `u202400001@upc.edu.pe` paints UPC's name
+and colours, which means the web reaches the API. `web/README.md` explains the web on its own.
 
 ### While you work
 
@@ -42,10 +45,53 @@ docker compose up -d          # run in the background
 docker compose logs -f backend
 docker compose down           # stop everything
 docker compose down -v        # stop and erase the database
+docker compose --profile video up -d   # also the self hosted Jitsi of the video calls (US08)
 ```
 
-If you prefer running the backend from IntelliJ, start only the database with
-`docker compose up postgres` and run `AyniApplication` from the IDE. You need Java 21 for that.
+If you prefer running the backend from IntelliJ, start only the database and the mail catcher with
+`docker compose up postgres mailpit` and run `AyniApplication` from the IDE. You need Java 21 for
+that.
+
+---
+
+## Production
+
+The deployable image is `backend/Dockerfile.prod`; it runs the `prod` profile as an unprivileged
+user on port 8080:
+
+```bash
+docker build -f backend/Dockerfile.prod -t ayni-backend backend
+```
+
+`prod` has no development defaults. It refuses to start, naming what is missing, without these
+**required** variables (secrets in bold):
+
+`AYNI_DB_URL`, `AYNI_DB_USER`, **`AYNI_DB_PASSWORD`**, `AYNI_DB_APP_USER`,
+**`AYNI_DB_APP_PASSWORD`**, **`AYNI_JITSI_JWT_SECRET`** (32 characters or more),
+`AYNI_IDENTITY_ACCESS_LINK_BASE_URL`.
+
+**Set them too** in a real deployment, though they have defaults: `AYNI_ALLOWED_ORIGINS`,
+`AYNI_MAIL_HOST`, `AYNI_MAIL_PORT`, `AYNI_JITSI_URL`, and `AYNI_BOOTSTRAP_ADMIN_EMAIL` on the first
+start. **Optional:** `AYNI_BOOTSTRAP_ADMIN_FULL_NAME`, `AYNI_MAIL_USER`, **`AYNI_MAIL_PASSWORD`**,
+`AYNI_MAIL_FROM`, `AYNI_JITSI_APP_ID`, `AYNI_ACADEMIC_DIRECTORY`, `AYNI_SKILLS_EVIDENCE_DIR`,
+`AYNI_DB_POOL_SIZE`, `AYNI_API_DOCS_ENABLED`, `AYNI_PORT`, the ten `AYNI_PAYMENTS_*` settings
+(`MONTHLY_CREDIT_LIMIT`, `PRICE_PER_CREDIT`, `PENDING_TIMEOUT`, `RECONCILIATION_DELAY`,
+`SIMULATED_OUTCOME`, `SIMULATED_RESOLUTION_OUTCOME`, `FAILURE_THRESHOLD`, `CIRCUIT_OPEN_DURATION`,
+`TIMEOUT`, `MAX_CONCURRENT_CALLS`), `SPRING_PROFILES_ACTIVE` and `JAVA_TOOL_OPTIONS`.
+
+- **Two database roles.** Flyway migrates first as the owner (`AYNI_DB_USER`), which creates the
+  schemas and, if it does not exist, the application's role with `AYNI_DB_APP_PASSWORD`; then the
+  application connects as `AYNI_DB_APP_USER`, which has no `BYPASSRLS` and owns nothing.
+- **The first administrator.** With `AYNI_BOOTSTRAP_ADMIN_EMAIL` set, the first start creates that
+  platform administrator. They ask for an access link with that address and register the first
+  university.
+- **Health.** `/actuator/health/liveness` and `/actuator/health/readiness` (the database) are public.
+
+Defaults, descriptions and permissions of every variable: "Deployment (prod profile)" in
+`docs/backend-guide.md`. Never commit a real value of any of them.
+
+The whole production stack (proxy with TLS, Jitsi, the managed database) and the steps to put it on
+a virtual machine are in [`deploy/README.md`](deploy/README.md).
 
 ---
 
@@ -129,14 +175,36 @@ A story is implemented end to end by one person: database, backend and screen.
 The database design, table by table, is in `docs/database`. It is already decided: follow it rather
 than inventing columns.
 
-### The university of each request
+### The university and the person of each request
 
-Every request carries the header `X-Tenant-Id` with the university code, for example `UPC`. In
-Postman, add it to the collection once and forget about it. Read it in code with
-`TenantContext.require()` and filter your queries by it.
+Every request carries the session token that opening an access link returns (TS03, ADR 0007):
 
-This is temporary: when sign in is added, the same value will come from the access token and only
-`TenantFilter` changes.
+```
+Authorization: Bearer <sessionToken>
+```
+
+The backend looks the session up by the hash of the token and binds its university and its person
+for the rest of the request:
+
+| What | Read it in code with |
+|---|---|
+| the university code, for example `UPC` | `TenantContext.require()` |
+| who is asking, as a UUID | `CurrentUser.require()` |
+
+To get a token locally: `POST /api/v1/access/request` with an institutional email (the demo
+student is `u202400001@upc.edu.pe`, the platform administrator `admin@ayni.local`), open the link
+that arrives at Mailpit (http://localhost:8025), or send its `token` to `POST
+/api/v1/access/confirm`, and paste the `sessionToken` into Swagger UI's **Authorize** button. Filter
+every query by the university anyway.
+
+The database enforces the same separation (TS01): the application connects as `ayni_app`, a role
+row level security applies to, and every transaction tells PostgreSQL its university. A query that
+forgets the filter answers nothing. A new table with `tenant_id` needs its policy in the same
+migration; the backend guide says how.
+
+`X-Tenant-Id` and `X-User-Id` are no longer read by the application. The tests written before TS03
+still send them: a filter that exists only in `src/test` accepts them there, so those scenarios keep
+proving their use case without signing in first.
 
 ---
 

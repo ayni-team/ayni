@@ -1,0 +1,368 @@
+package pe.ayni.identity.application;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.NoSuchElementException;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.identity.UserRole;
+import pe.ayni.identity.domain.model.AccessLink;
+import pe.ayni.identity.domain.model.AccessPurpose;
+import pe.ayni.identity.domain.model.AccessRole;
+import pe.ayni.identity.domain.model.CoordinatorRequired;
+import pe.ayni.identity.domain.model.IdentityRuleViolation;
+import pe.ayni.identity.domain.model.InvitationConflict;
+import pe.ayni.identity.domain.model.PlatformAdmin;
+import pe.ayni.identity.domain.model.User;
+import pe.ayni.identity.domain.model.UserSession;
+import pe.ayni.identity.domain.model.UserStatus;
+import pe.ayni.identity.infrastructure.AccessLinkRepository;
+import pe.ayni.identity.infrastructure.PlatformAdminRepository;
+import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.identity.infrastructure.UserSessionRepository;
+import pe.ayni.shared.events.CoordinatorActivated;
+import pe.ayni.shared.events.StudentActivated;
+import pe.ayni.shared.tenancy.TenantContext;
+
+/**
+ * US38: opening the link received by email either signs an existing student in
+ * or activates a new student using the university academic system.
+ *
+ * <p>The token identifies the access link. The tenant is read from that link,
+ * never supplied by the client.
+ *
+ * <p>An activation asks the academic-system boundary for the student with that
+ * institutional email, which answers their student code, name, career, cycle,
+ * current term, status and approved courses (ADR 0006), through
+ * {@link StudentActivation}. A student the university no longer considers its
+ * own is refused, and the link stays unused.
+ *
+ * <p>The link is consumed with a conditional database update before account
+ * or session data is written. Therefore the same link cannot open two sessions
+ * or activate the same student twice.
+ *
+ * <p>A link with no university belongs to a platform administrator (TS03): it
+ * opens a session with no university for the active administrator of that
+ * address, and for nobody else.
+ */
+@Service
+public class ConfirmAccessUseCase {
+
+    static final String INVALID =
+            "This access link is not valid. Ask for a new one";
+
+    static final String EXPIRED_OR_USED =
+            "This access link has expired or was already used. Ask for a new one";
+
+    static final String NOT_A_COORDINATOR =
+            "This invitation does not belong to a coordinator";
+
+    static final String NO_UNIVERSITY =
+            "This link has no university and its address is not an active platform administrator";
+
+    static final String NOT_ACTIVE =
+            "This account is not active";
+
+    private final AccessLinkRepository accessLinks;
+    private final UserRepository users;
+    private final PlatformAdminRepository admins;
+    private final UserSessionRepository sessions;
+    private final StudentActivation studentActivation;
+    private final AccessTokenGenerator tokens;
+    private final ApplicationEventPublisher events;
+    private final Clock clock;
+    private final Duration sessionTtl;
+
+    ConfirmAccessUseCase(
+            AccessLinkRepository accessLinks,
+            UserRepository users,
+            PlatformAdminRepository admins,
+            UserSessionRepository sessions,
+            StudentActivation studentActivation,
+            AccessTokenGenerator tokens,
+            ApplicationEventPublisher events,
+            Clock clock,
+            @Value("${ayni.identity.session-ttl:P7D}") Duration sessionTtl) {
+
+        this.accessLinks = accessLinks;
+        this.users = users;
+        this.admins = admins;
+        this.sessions = sessions;
+        this.studentActivation = studentActivation;
+        this.tokens = tokens;
+        this.events = events;
+        this.clock = clock;
+        this.sessionTtl = sessionTtl;
+    }
+
+    @Transactional
+    public ConfirmAccessResult execute(String rawToken) {
+
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new IdentityRuleViolation(
+                    "Access token must not be blank");
+        }
+
+        Instant now = clock.instant();
+
+        AccessLink accessLink =
+                accessLinks
+                        .findByTokenHash(tokens.hash(rawToken))
+                        .orElseThrow(
+                                () ->
+                                        new IdentityRuleViolation(
+                                                INVALID));
+
+        if (accessLink.getPurpose() == AccessPurpose.COORDINATOR_INVITE
+                && accessLink.getConsumedAt() != null) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
+        if (!accessLink.isUsable(now)) {
+            throw new IdentityRuleViolation(
+                    EXPIRED_OR_USED);
+        }
+
+        String tenantId = accessLink.getTenantId();
+
+        if (tenantId == null) {
+            return openPlatformAdminSession(
+                    accessLink,
+                    now);
+        }
+
+        // The request has no university: the link says which one it is, and from here on
+        // everything is read and written as that university's (row level security, TS01).
+        return TenantContext.callAs(
+                tenantId,
+                () -> {
+                    User user =
+                            switch (accessLink.getPurpose()) {
+                                case LOGIN ->
+                                        confirmExistingStudent(accessLink, tenantId, now);
+                                case ACTIVATION ->
+                                        activateStudent(accessLink, tenantId, now);
+                                case COORDINATOR_INVITE ->
+                                        activateCoordinator(accessLink, tenantId, now);
+                            };
+                    return openSession(tenantId, user, now);
+                });
+    }
+
+    private User confirmExistingStudent(
+            AccessLink accessLink,
+            String tenantId,
+            Instant now) {
+
+        User user =
+                users.findByTenantIdAndEmailIgnoreCase(
+                                tenantId,
+                                accessLink.getEmail())
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found for access link"));
+
+        if (!user.isActive()) {
+            throw new IdentityRuleViolation(
+                    NOT_ACTIVE);
+        }
+
+        consume(
+                accessLink,
+                now);
+
+        return user;
+    }
+
+    private User activateStudent(
+            AccessLink accessLink,
+            String tenantId,
+            Instant now) {
+
+        String email = accessLink.getEmail();
+
+        AcademicProfile profile =
+                studentActivation.admit(
+                        tenantId,
+                        email);
+
+        /*
+         * The potentially external academic lookup happens before the
+         * single-use write. If it fails, the link remains available.
+         */
+        consume(
+                accessLink,
+                now);
+
+        User user =
+                studentActivation.create(
+                        tenantId,
+                        UUID.randomUUID(),
+                        email,
+                        profile,
+                        now);
+
+        /*
+         * Skills reacts to StudentActivated and may immediately ask
+         * IdentityApi for the approved courses: they were flushed above.
+         */
+        events.publishEvent(
+                new StudentActivated(
+                        tenantId,
+                        user.getId(),
+                        user.getEmail(),
+                        user.getStudentCode(),
+                        now));
+
+        return user;
+    }
+
+    private User activateCoordinator(
+            AccessLink accessLink,
+            String tenantId,
+            Instant now) {
+
+        User coordinator =
+                users.findByTenantIdAndEmailIgnoreCase(
+                                tenantId,
+                                accessLink.getEmail())
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found for access link"));
+
+        if (coordinator.getRole()
+                != UserRole.COORDINATOR) {
+
+            throw new CoordinatorRequired(
+                    NOT_A_COORDINATOR);
+        }
+
+        if (coordinator.getStatus()
+                != UserStatus.PENDING) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
+        /*
+         * Consume first, with the conditional update. Of two confirmations of
+         * the same link at once, the one that finds it consumed changes nothing:
+         * it activates nobody and publishes nothing.
+         */
+        if (accessLinks.consume(
+                accessLink.getId(),
+                now)
+                == 0) {
+
+            throw InvitationConflict.alreadyUsed();
+        }
+
+        coordinator.activateCoordinator(
+                now);
+
+        users.saveAndFlush(
+                coordinator);
+
+        events.publishEvent(
+                new CoordinatorActivated(
+                        tenantId,
+                        coordinator.getId(),
+                        now));
+
+        return coordinator;
+    }
+
+    private ConfirmAccessResult openSession(
+            String tenantId,
+            User user,
+            Instant now) {
+
+        GeneratedAccessToken sessionToken =
+                tokens.generate();
+
+        Instant expiresAt =
+                now.plus(sessionTtl);
+
+        sessions.save(
+                new UserSession(
+                        UUID.randomUUID(),
+                        tenantId,
+                        user.getId(),
+                        sessionToken.tokenHash(),
+                        expiresAt,
+                        now));
+
+        return new ConfirmAccessResult(
+                sessionToken.rawToken(),
+                tenantId,
+                user.getId(),
+                user.getRole() == UserRole.COORDINATOR
+                        ? AccessRole.COORDINATOR
+                        : AccessRole.STUDENT,
+                expiresAt);
+    }
+
+    /**
+     * An administrator signs in like everybody else, by link, and gets a
+     * session with no university: they read aggregates across universities
+     * and never the rows of one (ADR 0007).
+     */
+    private ConfirmAccessResult openPlatformAdminSession(
+            AccessLink accessLink,
+            Instant now) {
+
+        PlatformAdmin admin =
+                admins.findByEmailIgnoreCase(
+                                accessLink.getEmail())
+                        .filter(PlatformAdmin::isActive)
+                        .orElseThrow(
+                                () ->
+                                        new IdentityRuleViolation(
+                                                NO_UNIVERSITY));
+
+        consume(
+                accessLink,
+                now);
+
+        GeneratedAccessToken sessionToken =
+                tokens.generate();
+
+        Instant expiresAt =
+                now.plus(sessionTtl);
+
+        sessions.save(
+                UserSession.forPlatformAdmin(
+                        UUID.randomUUID(),
+                        admin.getId(),
+                        sessionToken.tokenHash(),
+                        expiresAt,
+                        now));
+
+        return new ConfirmAccessResult(
+                sessionToken.rawToken(),
+                null,
+                admin.getId(),
+                AccessRole.PLATFORM_ADMIN,
+                expiresAt);
+    }
+
+    private void consume(
+            AccessLink accessLink,
+            Instant now) {
+
+        if (accessLinks.consume(
+                accessLink.getId(),
+                now)
+                == 0) {
+
+            throw new IdentityRuleViolation(
+                    EXPIRED_OR_USED);
+        }
+    }
+}

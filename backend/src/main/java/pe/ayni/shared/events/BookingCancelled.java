@@ -1,19 +1,32 @@
 package pe.ayni.shared.events;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Published by the booking module when a reservation is cancelled.
+ * Published by booking when a reservation is cancelled.
  *
- * <p>It carries whether the cancellation qualifies for a refund, so that wallet can post the
- * compensating entry without having to know the cancellation policy, which belongs to booking.
+ * <p>Wallet refunds the student for every one of these except a late cancellation by the student
+ * themselves. {@code late} says whether it happened less than twelve hours before the start, and
+ * {@code cancelledBy} says who did it: a tutor's cancellation refunds whatever the hour, and booking
+ * records a late one against the tutor. Matching offers the released blocks again.
  */
 public record BookingCancelled(
     String tenantId,
     UUID bookingId,
     UUID studentId,
     UUID tutorId,
-    boolean refundable,
+    List<UUID> releasedBlockIds,
+    CancelledBy cancelledBy,
+    boolean late,
     Instant occurredOn)
-    implements DomainEvent {}
+    implements DomainEvent {
+
+  /** Who cancelled. {@code SYSTEM} covers a session that ended unverified. */
+  public enum CancelledBy {
+    STUDENT,
+    TUTOR,
+    SYSTEM
+  }
+}

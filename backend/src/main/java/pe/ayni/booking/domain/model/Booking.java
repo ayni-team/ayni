@@ -1,0 +1,336 @@
+package pe.ayni.booking.domain.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
+import pe.ayni.booking.BookingStatus;
+import pe.ayni.shared.domain.Credits;
+
+/**
+ * A reservation of one or more consecutive hours with the same tutor.
+ *
+ * <p>It only ever comes into existence confirmed: the credits were charged and the hours were
+ * marked in the same transaction that saves it. There is no pending booking, because a booking
+ * that might still fail is what the hold on the hours is for.
+ *
+ * <p>The price is not a parameter. One credit is one hour, so what a booking charges is decided
+ * here from the hours it covers, the same rule {@code ck_bookings_pricing} enforces in the
+ * database.
+ */
+@Entity
+@Table(schema = "booking", name = "bookings")
+public class Booking {
+
+  private static final Duration LATE_CANCELLATION_WINDOW = Duration.ofHours(12);
+
+  /**
+   * How long before its start a participant may enter the session, the window in which sessions
+   * opens the room; the lists of US04 and US21 point it out.
+   */
+  public static final Duration JOINING_OPENS_BEFORE = Duration.ofMinutes(15);
+
+  @Id
+  @Column(name = "id", nullable = false, updatable = false)
+  private UUID id;
+
+  @Column(name = "tenant_id", length = 32, nullable = false, updatable = false)
+  private String tenantId;
+
+  @Column(name = "student_id", nullable = false, updatable = false)
+  private UUID studentId;
+
+  @Column(name = "tutor_id", nullable = false, updatable = false)
+  private UUID tutorId;
+
+  @Column(name = "catalog_item_id", nullable = false, updatable = false)
+  private UUID catalogItemId;
+
+  @Column(name = "starts_at", nullable = false, updatable = false)
+  private Instant startsAt;
+
+  @Column(name = "ends_at", nullable = false, updatable = false)
+  private Instant endsAt;
+
+  @Column(name = "hours", nullable = false, updatable = false)
+  private short hours;
+
+  @Column(name = "credits_charged", nullable = false, updatable = false)
+  private int creditsCharged;
+
+  @Column(name = "need_description", nullable = false, updatable = false, columnDefinition = "text")
+  private String needDescription;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", length = 16, nullable = false)
+  private BookingStatus status;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "cancelled_by", length = 16)
+  private CancelledBy cancelledBy;
+
+  @Column(name = "cancelled_at")
+  private Instant cancelledAt;
+
+  @Column(name = "cancelled_late")
+  private Boolean cancelledLate;
+
+  @Column(name = "cancellation_reason", length = 500)
+  private String cancellationReason;
+
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
+
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
+
+  protected Booking() {
+    // Required by JPA
+  }
+
+  private Booking(
+      UUID id,
+      String tenantId,
+      UUID studentId,
+      UUID tutorId,
+      UUID catalogItemId,
+      Instant startsAt,
+      Instant endsAt,
+      int hours,
+      String needDescription,
+      Instant now) {
+    this.id = Objects.requireNonNull(id, "id must not be null");
+    this.tenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
+    this.studentId = Objects.requireNonNull(studentId, "studentId must not be null");
+    this.tutorId = Objects.requireNonNull(tutorId, "tutorId must not be null");
+    this.catalogItemId = Objects.requireNonNull(catalogItemId, "catalogItemId must not be null");
+    this.startsAt = Objects.requireNonNull(startsAt, "startsAt must not be null");
+    this.endsAt = Objects.requireNonNull(endsAt, "endsAt must not be null");
+    Objects.requireNonNull(needDescription, "needDescription must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+
+    if (studentId.equals(tutorId)) {
+      throw new BookingRuleViolation("A student cannot book their own hours");
+    }
+    if (hours < 1 || hours > Short.MAX_VALUE) {
+      throw new BookingRuleViolation("A booking covers at least one hour");
+    }
+    if (!endsAt.isAfter(startsAt)) {
+      throw new BookingRuleViolation("ends_at must be strictly after starts_at");
+    }
+    if (needDescription.isBlank()) {
+      // The tutor reads it before the session: without it they arrive unprepared.
+      throw new BookingRuleViolation("Describe what you need help with");
+    }
+
+    this.hours = (short) hours;
+    this.creditsCharged = hours;
+    this.needDescription = needDescription.strip();
+    this.status = BookingStatus.CONFIRMED;
+    this.createdAt = now;
+    this.updatedAt = now;
+  }
+
+  /**
+   * A booking over hours that have just been charged and taken.
+   *
+   * @param startsAt the start of the first hour
+   * @param endsAt the end of the last hour
+   * @param hours how many one hour blocks it covers, which is also what it costs
+   * @throws BookingRuleViolation when the student is the tutor, there are no hours, the range is
+   *     backwards or the need is not described
+   */
+  public static Booking confirm(
+      UUID id,
+      String tenantId,
+      UUID studentId,
+      UUID tutorId,
+      UUID catalogItemId,
+      Instant startsAt,
+      Instant endsAt,
+      int hours,
+      String needDescription,
+      Instant now) {
+    return new Booking(
+        id, tenantId, studentId, tutorId, catalogItemId, startsAt, endsAt, hours, needDescription,
+        now);
+  }
+
+  /** What this booking costs: one credit per hour. */
+  public Credits price() {
+    return Credits.of(creditsCharged);
+  }
+
+  /**
+   * Which side of this booking a person is.
+   *
+   * @throws NotBookingParticipant when they are neither the student nor the tutor
+   */
+  public CancelledBy participantRole(UUID userId) {
+    Objects.requireNonNull(userId, "userId must not be null");
+
+    if (studentId.equals(userId)) {
+      return CancelledBy.STUDENT;
+    }
+    if (tutorId.equals(userId)) {
+      return CancelledBy.TUTOR;
+    }
+    throw new NotBookingParticipant("Only the student or the tutor of a booking can cancel it");
+  }
+
+  /**
+   * Whether cancelling at this moment is late: strictly less than twelve hours before the start.
+   * Exactly twelve hours is not late.
+   */
+  public boolean isLateToCancelAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return Duration.between(now, startsAt).compareTo(LATE_CANCELLATION_WINDOW) < 0;
+  }
+
+  /**
+   * Whether the student gets their credits back when this booking is cancelled now by this person.
+   *
+   * <p>The tutor's cancellation always refunds, however late: the student did nothing wrong. The
+   * student's refunds only while it is not late.
+   */
+  public boolean refundsWhenCancelledBy(CancelledBy by, Instant now) {
+    Objects.requireNonNull(by, "by must not be null");
+    return by == CancelledBy.TUTOR || !isLateToCancelAt(now);
+  }
+
+  /**
+   * Cancels this booking and records who cancelled it and whether it was late.
+   *
+   * <p>A cancellation is late when it occurs strictly less than twelve hours before the scheduled
+   * start. The exact twelve-hour boundary is not late.
+   */
+  public boolean cancel(CancelledBy by, String reason, Instant now) {
+    Objects.requireNonNull(by, "by must not be null");
+    Objects.requireNonNull(reason, "reason must not be null");
+    Objects.requireNonNull(now, "now must not be null");
+
+    if (status != BookingStatus.CONFIRMED) {
+      throw new BookingRuleViolation("Only a confirmed booking can be cancelled");
+    }
+    if (!now.isBefore(startsAt)) {
+      throw new BookingRuleViolation("A tutoring session cannot be cancelled after it has started");
+    }
+
+    boolean late = isLateToCancelAt(now);
+    this.status = BookingStatus.CANCELLED;
+    this.cancelledBy = by;
+    this.cancelledAt = now;
+    this.cancelledLate = late;
+    this.cancellationReason = reason.isBlank() ? null : reason.strip();
+    this.updatedAt = now;
+    return late;
+  }
+
+  /** Records that the scheduled session was abandoned because somebody did not check in. */
+  public void markNoShow(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (status == BookingStatus.NO_SHOW) {
+      return;
+    }
+    if (status != BookingStatus.CONFIRMED) {
+      throw new IllegalStateException(
+          "Booking " + id + " is " + status + " and cannot be marked no-show");
+    }
+    this.status = BookingStatus.NO_SHOW;
+    this.updatedAt = now;
+  }
+
+  /**
+   * Whether this booking is still ahead of its participants: confirmed, and its last hour has not
+   * ended. A session in progress is still upcoming; a cancelled one, or one whose hours are over,
+   * belongs to the history (US04, US21).
+   */
+  public boolean isUpcomingAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return status == BookingStatus.CONFIRMED && endsAt.isAfter(now);
+  }
+
+  /**
+   * Whether its participants may enter the session now: confirmed, from {@link
+   * #JOINING_OPENS_BEFORE} before the start until the end of the last hour, the same window
+   * sessions lets them in.
+   */
+  public boolean isJoinableAt(Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    return isUpcomingAt(now) && !now.isBefore(startsAt.minus(JOINING_OPENS_BEFORE));
+  }
+
+  public UUID getId() {
+    return id;
+  }
+
+  public String getTenantId() {
+    return tenantId;
+  }
+
+  public UUID getStudentId() {
+    return studentId;
+  }
+
+  public UUID getTutorId() {
+    return tutorId;
+  }
+
+  public UUID getCatalogItemId() {
+    return catalogItemId;
+  }
+
+  public Instant getStartsAt() {
+    return startsAt;
+  }
+
+  public Instant getEndsAt() {
+    return endsAt;
+  }
+
+  public int getHours() {
+    return hours;
+  }
+
+  public int getCreditsCharged() {
+    return creditsCharged;
+  }
+
+  public String getNeedDescription() {
+    return needDescription;
+  }
+
+  public BookingStatus getStatus() {
+    return status;
+  }
+
+  public CancelledBy getCancelledBy() {
+    return cancelledBy;
+  }
+
+  public Instant getCancelledAt() {
+    return cancelledAt;
+  }
+
+  public Boolean getCancelledLate() {
+    return cancelledLate;
+  }
+
+  public String getCancellationReason() {
+    return cancellationReason;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
+}

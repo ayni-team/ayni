@@ -2,12 +2,21 @@ spring:
   application:
     name: ayni-backend
 
+  profiles:
+    group:
+      # The demo profile (docs/demo.md) starts with everything dev seeds, and adds a clock that can
+      # be moved while the application runs.
+      demo: dev
+
   datasource:
     # Inside docker compose the host is "postgres"; running from an IDE it is
     # localhost. The default below covers the second case.
     url: ${AYNI_DB_URL:jdbc:postgresql://localhost:5432/ayni}
-    username: ${AYNI_DB_USER:ayni}
-    password: ${AYNI_DB_PASSWORD:ayni}
+    # The application connects with its own role, which owns no table and has no BYPASSRLS, so the
+    # row level security policies apply to every query it makes (TS01, ADR 0007). Flyway creates
+    # it on the first migration that needs it, with the name and password below.
+    username: ${AYNI_DB_APP_USER:ayni_app}
+    password: ${AYNI_DB_APP_PASSWORD:ayni_app}
 
   jpa:
     open-in-view: false
@@ -19,16 +28,63 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        type:
+          # LocalTime and LocalDate reach the driver as they are, with no zone involved. Without
+          # this a LocalTime goes through java.sql.Time and time_zone above shifts it by the JVM's
+          # offset: 18:00 declared from a laptop in Lima was stored as 23:00. Instant is not
+          # affected by this setting.
+          java_time_use_direct_jdbc: true
         format_sql: true
+
+  servlet:
+    multipart:
+      # The evidence a student attaches (US16): up to three files of five megabytes. Spring's own
+      # default of one megabyte per file would refuse most portfolios before the rules are asked.
+      max-file-size: 5MB
+      max-request-size: 16MB
 
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Migrations run as the owner of the schemas, which the policies do not restrict.
+    user: ${AYNI_DB_USER:ayni}
+    password: ${AYNI_DB_PASSWORD:ayni}
+    placeholders:
+      app_user: ${AYNI_DB_APP_USER:ayni_app}
+      app_password: ${AYNI_DB_APP_PASSWORD:ayni_app}
+
+  # The event publication registry (TS04, amendment of ADR 0005). Every delivery to a module
+  # listener is stored with the change that produced the event; a completed one is deleted, since
+  # audit already keeps what happened and a finished delivery has nothing left to say. What a
+  # stopped process left behind is delivered again when the application starts.
+  modulith:
+    events:
+      completion-mode: delete
+      republish-outstanding-events-on-restart: true
+
+  # Where notifications hands its emails. Mailpit under docker compose, which shows every email at
+  # http://localhost:8025 instead of delivering it; from the IDE, the same Mailpit on localhost.
+  mail:
+    host: ${AYNI_MAIL_HOST:localhost}
+    port: ${AYNI_MAIL_PORT:1025}
+    username: ${AYNI_MAIL_USER:}
+    password: ${AYNI_MAIL_PASSWORD:}
+    properties:
+      # An unreachable server fails the delivery in seconds, and the failure is recorded, instead of
+      # holding the request that asked for the link.
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 server:
   port: ${AYNI_PORT:8080}
   error:
     include-message: always
+  servlet:
+    context-parameters:
+      # The largest message the live channel of a whiteboard takes (ADR 0009). Tomcat's default is
+      # 8 KB, and a long stroke is more.
+      "[org.apache.tomcat.websocket.textBufferSize]": 262144
 
 management:
   endpoints:
@@ -46,3 +102,126 @@ springdoc:
 logging:
   level:
     pe.ayni: DEBUG
+    # The transaction manager lives in pe.ayni.config and would log every transaction at DEBUG.
+    pe.ayni.config.TenantTransactionManager: INFO
+
+
+ayni:
+  events:
+    # How often the deliveries a listener did not complete, a minute after they were stored, are
+    # handed back to it.
+    resubmit-delay: PT5M
+  booking:
+    # How many weeks ahead a tutor's hours exist, and when the nightly job moves that horizon.
+    generation-weeks: 4
+    generation-cron: "0 0 2 * * *"
+    # How often expired holds (five minutes without confirming) go back to AVAILABLE. An expired
+    # hold can already be taken over before this runs; the sweep makes it read as free again.
+    hold-release-delay: PT1M
+  sessions:
+    # How often the presence codes that are due (five minutes into a session) are looked for.
+    presence-check-delay: PT1M
+    # A participant whose email with the presence code did not arrive may ask for it again: this
+    # many times per person and session, with at least this long between one and the next (US54).
+    presence-resend-max: 3
+    presence-resend-min-interval: PT60S
+    # How often the sessions left open fifteen minutes past their booked hour are closed.
+    closing-delay: PT1M
+    # How often the sessions whose tutor had not come ten minutes after the start are abandoned.
+    no-show-delay: PT1M
+    # The video call of a session (US08): the self hosted Jitsi of docker compose, which only lets
+    # in whoever holds a token signed with this secret. The secret has no default here: compose
+    # sets the development one, and without it joining hands over no video pass.
+    video:
+      url: ${AYNI_JITSI_URL:http://localhost:8000}
+      app-id: ${AYNI_JITSI_APP_ID:ayni}
+      audience: jitsi
+      domain: meet.jitsi
+      jwt-secret: ${AYNI_JITSI_JWT_SECRET:}
+      # A pass lets in for this long, never past the end of the session; joining again issues one.
+      token-ttl: PT5M
+  wallet:
+    # The daily wallet job warns once for each expiring group this many days in advance.
+    expiry-notice-days: 7
+    expiry-cron: "0 0 3 * * *"
+    # How often the chain of every university's ledger is verified (TS02), and how many entries
+    # are read at a time while doing it.
+    integrity-check-delay: PT24H
+    integrity-page-size: 500
+    # How long a student has to confirm a redemption or a donation after reading the warning.
+    credit-use-confirmation-validity: PT10M
+  audit:
+    # How often the pairs of tutor and student that meet more than is usual are looked for.
+    analysis-delay: PT1H
+    # A completed session is short when it lasted less than this fraction of what was booked.
+    short-session-ratio: 0.5
+    # A pair is repeated when it completes more than this many sessions together in the period.
+    repeated-pair-threshold: 3
+    repeated-pair-period: P30D
+    # How many entries of the chain of the activity log are read at a time while verifying it
+    # (US48). Only the last entry of a page is kept to check the next one against.
+    integrity-page-size: 500
+  reputation:
+    # US33: a tutor's average in a skill below this, once it has three ratings, marks the skill at
+    # risk in their own reputation. Only a mark: no skill is withdrawn and no notice is sent. The
+    # value is a product decision of the lead, between 1 and 5.
+    minimum-average: 3.0
+  notifications:
+    mail-from: ${AYNI_MAIL_FROM:Ayni <no-reply@ayni.local>}
+    # An optional second server for a short list of addresses (MailRoutingConfig). Everything else
+    # still leaves through spring.mail above, Mailpit in development. All empty means no real relay;
+    # the list without the host, or the host without the list, stops the startup. Each variable is
+    # mapped by hand: Spring's relaxed binding would not find AYNI_REAL_RELAY_* by itself.
+    real-relay:
+      allowed-recipients: ${AYNI_REAL_RELAY_ALLOWED_RECIPIENTS:}
+      host: ${AYNI_REAL_RELAY_HOST:}
+      port: ${AYNI_REAL_RELAY_PORT:}
+      username: ${AYNI_REAL_RELAY_USERNAME:}
+      password: ${AYNI_REAL_RELAY_PASSWORD:}
+      starttls: ${AYNI_REAL_RELAY_STARTTLS:}
+      ssl: ${AYNI_REAL_RELAY_SSL:}
+  payments:
+    # The first product rule uses a UTC calendar month until universities expose academic cycles.
+    monthly-credit-limit: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:5}
+    price-per-credit: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:5.00}
+    pending-timeout: ${AYNI_PAYMENTS_PENDING_TIMEOUT:PT24H}
+    reconciliation-delay: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:PT1M}
+    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE for a simulated initial charge.
+    simulated-outcome: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:CONFIRMED}
+    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE when reconciling an unresolved payment.
+    simulated-resolution-outcome: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:CONFIRMED}
+    resilience:
+      failure-threshold: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:3}
+      open-duration: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:PT30S}
+      timeout: ${AYNI_PAYMENTS_TIMEOUT:PT2S}
+      max-concurrent-calls: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:2}
+  skills:
+    # Where the evidence files of US16 are kept, one folder per university. docker compose mounts a
+    # named volume here, so the files survive the container; without it, the temporary folder.
+    evidence-dir: ${AYNI_SKILLS_EVIDENCE_DIR:${java.io.tmpdir}/ayni/evidence}
+  identity:
+    # The simulated academic system (ADR 0006): one document per university, <CODE>.json, with the
+    # university, its curriculum and its students, read each time it is asked (and <CODE>.local.json
+    # next to it, when there is one). docker compose mounts the folder; relative to where the
+    # backend runs otherwise, which is backend/ for ./mvnw.
+    academic-directory: ${AYNI_ACADEMIC_DIRECTORY:academic-directory}
+    # Set, the documents come from this address of another service instead, one static file per
+    # university under it (<address>/UPC.json): a GitHub Pages site in a deployment. Each answer is
+    # kept for fresh-for, and the last one is used while the address does not answer. The local
+    # students (<CODE>.local.json) are still read from the folder above.
+    academic-directory-url: ${AYNI_ACADEMIC_DIRECTORY_URL:}
+    academic-directory-timeout: PT3S
+    academic-directory-fresh-for: PT1M
+    # A link lives minutes and works once; the session it opens is what lasts.
+    access-link-ttl: PT10M
+    session-ttl: P7D
+    access-link-base-url: http://localhost:5173/access/confirm
+  cors:
+    # The origins a browser may call the API and open a whiteboard's live channel from, comma
+    # separated. The web application of development by default; a deployment sets its own address.
+    allowed-origins: ${AYNI_ALLOWED_ORIGINS:http://localhost:5173}
+  bootstrap:
+    # The first platform administrator of an empty installation (PlatformAdminBootstrap): created
+    # ACTIVE at startup unless an administrator with this address exists. Empty, nothing happens.
+    admin-email: ${AYNI_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-full-name: ${AYNI_BOOTSTRAP_ADMIN_FULL_NAME:Ayni Platform Administrator}

@@ -1,0 +1,444 @@
+package pe.ayni.wallet;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.testcontainers.containers.PostgreSQLContainer;
+import pe.ayni.identity.CreditPolicyView;
+import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.PolicyKind;
+import pe.ayni.shared.domain.CreditType;
+import pe.ayni.shared.domain.Credits;
+import pe.ayni.shared.events.BookingCancelled;
+import pe.ayni.shared.events.PurchaseConfirmed;
+import pe.ayni.shared.events.SessionAbandoned;
+import pe.ayni.shared.events.SessionCompleted;
+import pe.ayni.shared.events.SessionUnverified;
+import pe.ayni.shared.events.StudentActivated;
+import pe.ayni.shared.tenancy.TenantContext;
+
+/**
+ * What wallet does when something happens in another module.
+ *
+ * <p>The events are published inside a transaction, as the module that owns them would: the
+ * listeners run once it commits, so a session that is rolled back never credits anybody. Publishing
+ * them outside one would silently do nothing, which is worth knowing before writing a listener of
+ * your own.
+ */
+@SpringBootTest
+class WalletEventListenersTest {
+
+  @ServiceConnection
+  static final PostgreSQLContainer<?> POSTGRES =
+          WalletTestDatabase.INSTANCE;
+
+  private static final String UPC = "UPC";
+
+  private final UUID student = UUID.randomUUID();
+  private final UUID tutor = UUID.randomUUID();
+
+  @Autowired private WalletApi wallet;
+  @Autowired private ApplicationEventPublisher events;
+  @Autowired private TransactionTemplate transactions;
+  @Autowired private JdbcTemplate jdbc;
+
+  @MockitoBean
+  private IdentityApi identity;
+
+  @Test
+  @DisplayName(
+          "a completed session credits the tutor with credits that never expire")
+  void aCompletedSessionCreditsTheTutor() {
+
+    publish(
+            new SessionCompleted(
+                    UPC,
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    tutor,
+                    student,
+                    UUID.randomUUID(),
+                    Credits.of(2),
+                    Instant.now()));
+
+    assertThat(balanceOf(tutor))
+            .isEqualTo(Credits.of(2));
+
+    // Earned, so they count towards recognition and nothing takes them away.
+    assertThat(earnedTotalOf(tutor))
+            .isEqualTo(Credits.of(2));
+  }
+
+  @Test
+  @DisplayName(
+          "a cancelled booking returns the credits it took")
+  void aCancelledBookingReturnsTheCredits() {
+
+    UUID booking =
+            UUID.randomUUID();
+
+    TenantContext.runAs(
+            UPC,
+            () -> {
+              wallet.grant(
+                      student,
+                      Credits.of(6),
+                      CreditType.SEED,
+                      Instant.now()
+                              .plus(Duration.ofDays(30)),
+                      UUID.randomUUID());
+
+              wallet.charge(
+                      student,
+                      Credits.of(4),
+                      booking);
+            });
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(2));
+
+    BookingCancelled cancelled =
+            new BookingCancelled(
+                    UPC,
+                    booking,
+                    student,
+                    tutor,
+                    List.of(UUID.randomUUID()),
+                    BookingCancelled.CancelledBy.STUDENT,
+                    false,
+                    Instant.now());
+
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+
+    // Delivered twice, refunded once.
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+  }
+
+  @Test
+  @DisplayName(
+          "a late cancellation by the student returns nothing, however many times it is delivered")
+  void aLateCancellationByTheStudentReturnsNothing() {
+
+    UUID booking = aChargedBooking(4);
+
+    BookingCancelled cancelled =
+            cancelledBooking(booking, BookingCancelled.CancelledBy.STUDENT, true);
+
+    publish(cancelled);
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(2));
+  }
+
+  @Test
+  @DisplayName(
+          "a late cancellation by the tutor returns the credits once, even if delivered twice")
+  void aLateCancellationByTheTutorReturnsTheCreditsOnce() {
+
+    UUID booking = aChargedBooking(4);
+
+    BookingCancelled cancelled =
+            cancelledBooking(booking, BookingCancelled.CancelledBy.TUTOR, true);
+
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+
+    publish(cancelled);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+  }
+
+  @Test
+  @DisplayName(
+          "a session that failed the presence check refunds the student and pays nobody")
+  void anUnverifiedSessionRefundsTheStudent() {
+
+    UUID booking =
+            UUID.randomUUID();
+
+    TenantContext.runAs(
+            UPC,
+            () -> {
+              wallet.grant(
+                      student,
+                      Credits.of(6),
+                      CreditType.SEED,
+                      Instant.now()
+                              .plus(Duration.ofDays(30)),
+                      UUID.randomUUID());
+
+              wallet.charge(
+                      student,
+                      Credits.of(1),
+                      booking);
+            });
+
+    SessionUnverified unverified =
+            new SessionUnverified(
+                    UPC,
+                    UUID.randomUUID(),
+                    booking,
+                    tutor,
+                    student,
+                    List.of(tutor),
+                    Instant.now());
+
+    publish(unverified);
+
+    // Delivered twice, refunded once.
+    publish(unverified);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(6));
+
+    assertThat(balanceOf(tutor))
+            .isEqualTo(Credits.ZERO);
+  }
+
+  @Test
+  @DisplayName("a tutor no-show refunds the student who was there once, even if delivered twice")
+  void aTutorNoShowRefundsTheAttendingStudentOnce() {
+
+    UUID booking = aChargedBooking(1);
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    SessionAbandoned abandoned = abandonedBooking(booking, true);
+
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(6));
+    assertThat(refundsOf(booking)).isEqualTo(1);
+    assertThat(balanceOf(tutor)).as("the tutor earns nothing").isEqualTo(Credits.ZERO);
+  }
+
+  @Test
+  @DisplayName("a session abandoned with both absent refunds nobody")
+  void aSessionAbandonedWithBothAbsentRefundsNobody() {
+
+    UUID booking = aChargedBooking(1);
+    SessionAbandoned abandoned = abandonedBooking(booking, false);
+
+    publish(abandoned);
+    publish(abandoned);
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    assertThat(refundsOf(booking)).isZero();
+  }
+
+  @Test
+  @DisplayName(
+          "a confirmed purchase places credits that never expire")
+  void aConfirmedPurchasePlacesCredits() {
+
+    publish(
+            new PurchaseConfirmed(
+                    UPC,
+                    UUID.randomUUID(),
+                    student,
+                    Credits.of(3),
+                    Instant.now()));
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(3));
+
+    // Paid for, so they do not count towards recognition however many there are.
+    assertThat(earnedTotalOf(student))
+            .isEqualTo(Credits.ZERO);
+  }
+
+  @Test
+  @DisplayName("The allocation is not duplicated")
+  void anActivatedStudentReceivesInitialCreditsOnce() {
+
+    UUID policyId =
+            UUID.randomUUID();
+
+    Instant activatedAt =
+            Instant.parse(
+                    "2026-10-02T20:00:00Z");
+
+    when(
+            identity.currentPolicy(
+                    UPC,
+                    PolicyKind.BASELINE))
+            .thenReturn(
+                    Optional.of(
+                            new CreditPolicyView(
+                                    policyId,
+                                    PolicyKind.BASELINE,
+                                    Credits.of(5),
+                                    30)));
+
+    StudentActivated activated =
+            new StudentActivated(
+                    UPC,
+                    student,
+                    "u202500003@upc.edu.pe",
+                    "U202500003",
+                    activatedAt);
+
+    publish(activated);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(5));
+
+    /*
+     * Application events can be delivered again. US25 must not make
+     * money by receiving the same fact twice.
+     */
+    publish(activated);
+
+    assertThat(balanceOf(student))
+            .isEqualTo(Credits.of(5));
+  }
+
+  @Test
+  @DisplayName("Initial credits of the term")
+  void anActivatedStudentSeesTheInitialCreditsWithTheirExpiry() {
+    UUID policyId = UUID.randomUUID();
+    Instant activatedAt = Instant.parse("2026-10-02T20:00:00Z");
+    when(identity.currentPolicy(UPC, PolicyKind.BASELINE))
+        .thenReturn(
+            Optional.of(
+                new CreditPolicyView(policyId, PolicyKind.BASELINE, Credits.of(5), 30)));
+
+    publish(
+        new StudentActivated(UPC, student, "u202500003@upc.edu.pe", "U202500003", activatedAt));
+
+    assertThat(balanceOf(student)).isEqualTo(Credits.of(5));
+    assertThat(expiryOfSeedCredits(student)).isEqualTo(activatedAt.plus(Duration.ofDays(30)));
+  }
+
+  /** Publishes as the owning module would: inside a transaction that then commits. */
+  /** The student is left with 6 credits minus what the booking took. */
+  private UUID aChargedBooking(int credits) {
+    UUID booking = UUID.randomUUID();
+
+    TenantContext.runAs(
+            UPC,
+            () -> {
+              wallet.grant(
+                      student,
+                      Credits.of(6),
+                      CreditType.SEED,
+                      Instant.now().plus(Duration.ofDays(30)),
+                      UUID.randomUUID());
+
+              wallet.charge(student, Credits.of(credits), booking);
+            });
+
+    return booking;
+  }
+
+  private BookingCancelled cancelledBooking(
+          UUID booking, BookingCancelled.CancelledBy by, boolean late) {
+    return new BookingCancelled(
+            UPC,
+            booking,
+            student,
+            tutor,
+            List.of(UUID.randomUUID()),
+            by,
+            late,
+            Instant.now());
+  }
+
+  private SessionAbandoned abandonedBooking(UUID booking, boolean studentCheckedIn) {
+    return new SessionAbandoned(
+            UPC,
+            UUID.randomUUID(),
+            booking,
+            tutor,
+            student,
+            UUID.randomUUID(),
+            studentCheckedIn,
+            Instant.now());
+  }
+
+  private int refundsOf(UUID booking) {
+    return jdbc.queryForObject(
+            """
+            select count(*) from wallet.ledger_entries
+            where tenant_id = ? and reference_type = 'BOOKING' and reference_id = ?
+              and reason = 'BOOKING_REFUND'
+            """,
+            Integer.class,
+            UPC,
+            booking);
+  }
+
+  private void publish(Object event) {
+    transactions.executeWithoutResult(
+            status ->
+                    events.publishEvent(event));
+  }
+
+  private Credits balanceOf(UUID userId) {
+    Credits[] available =
+            new Credits[1];
+
+    TenantContext.runAs(
+            UPC,
+            () ->
+                    available[0] =
+                            wallet.balanceOf(userId)
+                                    .available());
+
+    return available[0];
+  }
+
+  /** When the credits the university granted this student stop being usable. */
+  private Instant expiryOfSeedCredits(UUID userId) {
+    return jdbc.queryForObject(
+            """
+            select lot.expires_at
+            from wallet.credit_lots lot
+            join wallet.credit_accounts account on account.id = lot.account_id
+            where account.tenant_id = ? and account.user_id = ? and lot.credit_type = 'SEED'
+            """,
+            java.sql.Timestamp.class,
+            UPC,
+            userId)
+        .toInstant();
+  }
+
+  private Credits earnedTotalOf(UUID userId) {
+    Credits[] earned =
+            new Credits[1];
+
+    TenantContext.runAs(
+            UPC,
+            () ->
+                    earned[0] =
+                            wallet.earnedTotal(userId));
+
+    return earned[0];
+  }
+}

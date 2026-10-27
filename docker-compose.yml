@@ -27,16 +27,67 @@ services:
       timeout: 5s
       retries: 10
 
+  # Catches every email the backend sends and shows it at http://localhost:8025 instead of
+  # delivering it. The access link to sign in arrives here.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: ayni-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
   backend:
     build: ./backend
     container_name: ayni-backend
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       AYNI_DB_URL: jdbc:postgresql://postgres:5432/ayni
+      # Two roles (TS01): Flyway migrates as the owner, ayni; the application connects as
+      # ayni_app, which has no BYPASSRLS, so row level security applies to it. The first migration
+      # that needs ayni_app creates it with this password. Development values only.
       AYNI_DB_USER: ayni
       AYNI_DB_PASSWORD: ayni
+      AYNI_DB_APP_USER: ayni_app
+      AYNI_DB_APP_PASSWORD: ayni_app
+      # The secret the video passes are signed with, shared with Jitsi below (US08). Development
+      # value only: a deployment sets its own, of at least 32 characters.
+      AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
+      AYNI_JITSI_URL: ${AYNI_JITSI_URL:-http://localhost:8000}
+      # The simulated academic system (ADR 0006): one <CODE>.json per university in the folder
+      # mounted below, read each time a student is looked up. Adding a university's file needs no
+      # restart.
+      AYNI_ACADEMIC_DIRECTORY: /app/academic-directory
+      # The evidence a student submits for a tool (US16), one folder per university, in a named
+      # volume so it survives the container being replaced.
+      AYNI_SKILLS_EVIDENCE_DIR: /var/lib/ayni/evidence
+      AYNI_MAIL_HOST: mailpit
+      AYNI_MAIL_PORT: 1025
+      # An optional real relay for a short list of addresses, such as the lead's own mailbox
+      # (docs/demo.md). Empty means everything goes to Mailpit; the list without the host, or the
+      # host without the list, stops the backend from starting.
+      AYNI_REAL_RELAY_ALLOWED_RECIPIENTS: ${AYNI_REAL_RELAY_ALLOWED_RECIPIENTS:-}
+      AYNI_REAL_RELAY_HOST: ${AYNI_REAL_RELAY_HOST:-}
+      AYNI_REAL_RELAY_PORT: ${AYNI_REAL_RELAY_PORT:-}
+      AYNI_REAL_RELAY_USERNAME: ${AYNI_REAL_RELAY_USERNAME:-}
+      AYNI_REAL_RELAY_PASSWORD: ${AYNI_REAL_RELAY_PASSWORD:-}
+      AYNI_REAL_RELAY_STARTTLS: ${AYNI_REAL_RELAY_STARTTLS:-}
+      AYNI_REAL_RELAY_SSL: ${AYNI_REAL_RELAY_SSL:-}
+      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
+      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
+      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
+      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
+      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
+      # Development profile: modules whose data would otherwise come from a module
+      # that does not exist yet fill a couple of examples at startup, so the
+      # endpoints answer something in Swagger. Never set in a deployment.
+      # SPRING_PROFILES_ACTIVE=demo docker compose up starts the presentation profile instead,
+      # dev plus a clock the administrator moves (docs/demo.md).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
     ports:
       - "8080:8080"
     volumes:
@@ -45,13 +96,18 @@ services:
       # download the internet again.
       - ./backend/src:/app/src
       - ./backend/pom.xml:/app/pom.xml
+      - ./backend/academic-directory:/app/academic-directory:ro
       - maven-cache:/root/.m2
+      - skills-evidence:/var/lib/ayni/evidence
 
   web:
     build: ./web
     container_name: ayni-web
     depends_on:
       - backend
+    environment:
+      # Where Vite's proxy sends /api: the backend by its name on the compose network.
+      AYNI_API_URL: http://backend:8080
     ports:
       - "5173:5173"
     volumes:
@@ -60,8 +116,92 @@ services:
       - ./web:/app
       - /app/node_modules
 
+  # ---------------------------------------------------------------------------
+  # The video call of the sessions (US08): a self hosted Jitsi that only lets in
+  # whoever holds a token the backend signed for that room. Four containers and a
+  # few hundred megabytes, so it is not part of the normal start. Start it with:
+  #
+  #     docker compose --profile video up
+  #
+  # and open the room at http://localhost:8000/<room>?jwt=<token>, both of which
+  # POST /api/v1/sessions/{id}/join answers.
+  # ---------------------------------------------------------------------------
+
+  jitsi-web:
+    image: jitsi/web:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-web
+    ports:
+      - "8000:80"
+    environment: &jitsi
+      ENABLE_AUTH: "1"
+      AUTH_TYPE: jwt
+      ENABLE_GUESTS: "0"
+      JWT_APP_ID: ayni
+      JWT_APP_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
+      JWT_ACCEPTED_ISSUERS: ayni
+      JWT_ACCEPTED_AUDIENCES: jitsi
+      PUBLIC_URL: http://localhost:8000
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_SERVER: xmpp.meet.jitsi
+      XMPP_BOSH_URL_BASE: http://xmpp.meet.jitsi:5280
+      JICOFO_AUTH_PASSWORD: ayni-development-jicofo
+      JVB_AUTH_PASSWORD: ayni-development-jvb
+      JVB_ADVERTISE_IPS: 127.0.0.1
+      TZ: UTC
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-prosody:
+    image: jitsi/prosody:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-prosody
+    expose:
+      - "5222"
+      - "5280"
+      - "5347"
+    environment: *jitsi
+    networks:
+      jitsi:
+        aliases:
+          - xmpp.meet.jitsi
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-jicofo
+    environment: *jitsi
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-jvb:
+    image: jitsi/jvb:stable-9584
+    profiles: [video]
+    container_name: ayni-jitsi-jvb
+    ports:
+      - "10000:10000/udp"
+    environment: *jitsi
+    networks:
+      - jitsi
+    depends_on:
+      - jitsi-prosody
+
+networks:
+  jitsi:
+    name: ayni-jitsi
+
 volumes:
   postgres-data:
     name: ayni-postgres-data
   maven-cache:
     name: ayni-maven-cache
+  skills-evidence:
+    name: ayni-skills-evidence

@@ -1,0 +1,234 @@
+package pe.ayni.identity.application;
+
+import java.time.Clock;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.identity.AcademicCourseView;
+import pe.ayni.identity.ApprovedCourseView;
+import pe.ayni.identity.CreditPolicyView;
+import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.PolicyKind;
+import pe.ayni.identity.TenantView;
+import pe.ayni.identity.UserView;
+import pe.ayni.identity.domain.model.AcademicSystemNotConfigured;
+import pe.ayni.identity.domain.model.CreditPolicy;
+import pe.ayni.identity.domain.model.Tenant;
+import pe.ayni.identity.domain.model.TenantStatus;
+import pe.ayni.identity.domain.model.User;
+import pe.ayni.identity.infrastructure.AcademicRecordRepository;
+import pe.ayni.identity.infrastructure.CreditPolicyRepository;
+import pe.ayni.identity.infrastructure.TenantRepository;
+import pe.ayni.identity.infrastructure.UserRepository;
+import pe.ayni.shared.domain.Credits;
+import pe.ayni.shared.tenancy.TenantContext;
+
+@Service
+@Transactional(readOnly = true)
+public class IdentityApiImpl implements IdentityApi {
+
+    private final TenantRepository tenants;
+    private final UserRepository users;
+    private final AcademicRecordRepository academicRecords;
+    private final CreditPolicyRepository creditPolicies;
+    private final AcademicSystemPort academicSystem;
+    private final Clock clock;
+
+    public IdentityApiImpl(
+            TenantRepository tenants,
+            UserRepository users,
+            AcademicRecordRepository academicRecords,
+            CreditPolicyRepository creditPolicies,
+            AcademicSystemPort academicSystem,
+            Clock clock) {
+
+        this.tenants = tenants;
+        this.users = users;
+        this.academicRecords = academicRecords;
+        this.creditPolicies = creditPolicies;
+        this.academicSystem = academicSystem;
+        this.clock = clock;
+    }
+
+    @Override
+    public Optional<TenantView> findTenantByEmailDomain(String email) {
+        return tenants.findByStatus(TenantStatus.ACTIVE).stream()
+                .filter(tenant -> tenant.claims(email))
+                .findFirst()
+                .map(this::toTenantView);
+    }
+
+    @Override
+    public TenantView requireTenant(String tenantCode) {
+        Tenant tenant =
+                tenants.findByCode(tenantCode)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "Tenant not found: " + tenantCode));
+
+        return toTenantView(tenant);
+    }
+
+    @Override
+    public UserView requireUser(UUID userId) {
+        String tenantId = TenantContext.require();
+
+        User user =
+                users.findByTenantIdAndId(tenantId, userId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found: " + userId));
+
+        return toUserView(user);
+    }
+
+    @Override
+    public Map<UUID, String> namesOf(Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        String tenantId = TenantContext.require();
+
+        Map<UUID, String> names = new HashMap<>();
+        users.findByTenantIdAndIdIn(tenantId, userIds)
+                .forEach(user -> names.put(user.getId(), user.getFullName()));
+
+        return names;
+    }
+
+    @Override
+    public boolean isActive(UUID userId) {
+        String tenantId = TenantContext.require();
+
+        return users.findByTenantIdAndId(tenantId, userId)
+                .map(User::isActive)
+                .orElse(false);
+    }
+
+    @Override
+    public Optional<CreditPolicyView> currentPolicy(
+            String tenantCode,
+            PolicyKind kind) {
+
+        // The caller names the university, so it is read as that one's, whatever is bound (TS01).
+        return TenantContext.callAs(
+                tenantCode,
+                () ->
+                        creditPolicies
+                                .findByTenantIdAndKindAndSupersededAtIsNull(
+                                        tenantCode,
+                                        kind)
+                                .map(this::toCreditPolicyView));
+    }
+
+    @Override
+    public List<ApprovedCourseView> approvedCourses(UUID userId) {
+        String tenantId = TenantContext.require();
+
+        return academicRecords
+                .findByTenantIdAndUserId(tenantId, userId)
+                .stream()
+                .map(
+                        record ->
+                                new ApprovedCourseView(
+                                        record.getCourseCode(),
+                                        record.getCourseName(),
+                                        record.getGrade(),
+                                        record.getTerm()))
+                .toList();
+    }
+
+    @Override
+    public List<AcademicCourseView> academicCurriculum(String tenantCode) {
+        AcademicUniversity university;
+        try {
+            university = academicSystem.fetchUniversity(tenantCode);
+        } catch (AcademicSystemNotConfigured missing) {
+            // The published interface speaks in the exceptions every module knows.
+            throw new NoSuchElementException(missing.getMessage());
+        }
+
+        return university.courses()
+                .stream()
+                .map(
+                        course ->
+                                new AcademicCourseView(
+                                        course.code(),
+                                        course.name(),
+                                        course.careers()
+                                                .stream()
+                                                .map(
+                                                        placement ->
+                                                                new AcademicCourseView.Placement(
+                                                                        placement.career(),
+                                                                        placement.cycle()))
+                                                .toList()))
+                .toList();
+    }
+
+    @Override
+    public List<String> activeTenantCodes() {
+        return tenants.findByStatus(TenantStatus.ACTIVE)
+                .stream()
+                .map(Tenant::getCode)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void completeOnboarding(UUID userId) {
+        String tenantId = TenantContext.require();
+
+        User user =
+                users.findByTenantIdAndId(tenantId, userId)
+                        .orElseThrow(
+                                () ->
+                                        new NoSuchElementException(
+                                                "User not found: " + userId));
+
+        // The rule is the user's: it refuses with an OnboardingConflict, an IllegalStateException
+        // as the published interface says.
+        user.completeOnboarding(clock.instant());
+    }
+
+    private TenantView toTenantView(Tenant tenant) {
+        return new TenantView(
+                tenant.getCode(),
+                tenant.getName(),
+                tenant.getTimezone().getId(),
+                tenant.getMinimumTeachingGrade(),
+                tenant.isActive());
+    }
+
+    private UserView toUserView(User user) {
+        return new UserView(
+                user.getId(),
+                user.getTenantId(),
+                user.getRole(),
+                user.getEmail(),
+                user.getStudentCode(),
+                user.getFullName(),
+                user.getCareer(),
+                user.getCurrentTerm(),
+                user.getPhotoUrl());
+    }
+
+    private CreditPolicyView toCreditPolicyView(
+            CreditPolicy policy) {
+
+        return new CreditPolicyView(
+                policy.getId(),
+                policy.getKind(),
+                Credits.of(policy.getCreditsAmount()),
+                policy.getValidityDays());
+    }
+}

@@ -1,0 +1,47 @@
+@startuml activity-access
+title Activity diagram: getting in with an institutional email
+
+|Student|
+start
+:Enter institutional email;
+|Ayni|
+if (A university claims the email domain?) then (no)
+  :Answer that the institution\nis not affiliated;
+  |Student|
+  stop
+else (yes)
+endif
+|Ayni|
+:Create single use access link\n(token stored hashed, expires in minutes);
+:Publish AccessRequested;
+|Email Service|
+:Deliver the link;
+|Student|
+:Open the link;
+|Ayni|
+if (Link valid, unexpired and unused?) then (no)
+  :Reject and offer a new link;
+  |Student|
+  stop
+else (yes)
+endif
+|Ayni|
+:Consume the link and open a long lived session;
+if (First entry?) then (yes)
+  |University Academic System|
+  :Return name, career, term,\napproved courses and grades;
+  |Ayni|
+  :Activate student;
+  :Publish StudentActivated;
+  fork
+    :wallet grants the university's credits;
+  fork again
+    :skills enables courses\nthe grades already justify;
+  end fork
+  :Resume onboarding from the last step;
+else (no)
+endif
+|Student|
+:Use the platform;
+stop
+@enduml

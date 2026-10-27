@@ -1,0 +1,1 @@
+export { NoticesBell } from './NoticesBell';

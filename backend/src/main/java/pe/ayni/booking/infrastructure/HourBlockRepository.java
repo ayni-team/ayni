@@ -1,0 +1,101 @@
+package pe.ayni.booking.infrastructure;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import pe.ayni.booking.domain.model.HourBlock;
+
+/**
+ * The generated hours.
+ *
+ * <p>Every method takes the university: until the database enforces the separation by itself, a
+ * query without that filter reads another university's data.
+ */
+public interface HourBlockRepository extends JpaRepository<HourBlock, UUID> {
+
+  Optional<HourBlock> findByTenantIdAndId(String tenantId, UUID id);
+
+  List<HourBlock> findByTenantIdAndBookingIdOrderByStartsAtAsc(String tenantId, UUID bookingId);
+
+  /**
+   * A tutor's hours in a window, from the first moment included to the first moment excluded.
+   *
+   * <p>Half open rather than {@code between}, which includes both ends: two windows laid end to end
+   * would otherwise both claim the hour on the boundary, and an agenda would show it twice.
+   */
+  @Query(
+      """
+      select block from HourBlock block
+      where block.tenantId = :tenantId
+        and block.tutorId = :tutorId
+        and block.startsAt >= :from
+        and block.startsAt < :to
+      order by block.startsAt
+      """)
+  List<HourBlock> findWithin(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("from") Instant from,
+      @Param("to") Instant to);
+
+  @Modifying
+  @Query(
+      """
+      update HourBlock block
+      set block.patternId = null
+      where block.tenantId = :tenantId
+        and block.tutorId = :tutorId
+        and block.patternId = :patternId
+      """)
+  int detachPattern(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("patternId") UUID patternId);
+
+  /**
+   * A tutor's hours from an instant on that can still be booked: free, or held by somebody for the
+   * few minutes a hold lasts.
+   *
+   * <p>A held hour is included on purpose. It either ends booked, which {@code BookingConfirmed}
+   * announces, or goes back to circulation without anybody saying so; leaving it out would make it
+   * vanish from the search for good in the second case.
+   */
+  @Query(
+      """
+      select block from HourBlock block
+      where block.tenantId = :tenantId
+        and block.tutorId = :tutorId
+        and block.startsAt >= :from
+        and block.status in (
+          pe.ayni.booking.domain.model.HourBlockStatus.AVAILABLE,
+          pe.ayni.booking.domain.model.HourBlockStatus.HELD)
+      order by block.startsAt
+      """)
+  List<HourBlock> findOpenFrom(
+      @Param("tenantId") String tenantId,
+      @Param("tutorId") UUID tutorId,
+      @Param("from") Instant from);
+
+  /**
+   * The holds of a university whose time ran out, for the job that returns them to circulation.
+   *
+   * <p>Strictly before {@code now}, the same comparison {@link HourBlock#isHoldExpired} makes: a
+   * hold is still alive at the very instant it ends. The partial index on {@code held_until} where
+   * the status is HELD is what keeps this cheap.
+   */
+  @Query(
+      """
+      select block from HourBlock block
+      where block.tenantId = :tenantId
+        and block.status = pe.ayni.booking.domain.model.HourBlockStatus.HELD
+        and block.heldUntil < :now
+      order by block.heldUntil
+      """)
+  List<HourBlock> findExpiredHolds(
+      @Param("tenantId") String tenantId, @Param("now") Instant now);
+}

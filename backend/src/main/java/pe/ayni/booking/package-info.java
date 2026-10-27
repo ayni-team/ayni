@@ -1,3 +1,3 @@
-/** Tutor availability, thirty minute slots and reservations. */
+/** Tutor availability, one hour blocks and reservations. */
 @org.springframework.modulith.ApplicationModule(displayName = "Booking")
 package pe.ayni.booking;

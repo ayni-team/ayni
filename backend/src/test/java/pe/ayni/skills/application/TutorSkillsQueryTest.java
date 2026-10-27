@@ -1,0 +1,116 @@
+package pe.ayni.skills.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import pe.ayni.shared.tenancy.TenantContext;
+import pe.ayni.skills.CatalogScope;
+import pe.ayni.skills.domain.model.CatalogItem;
+import pe.ayni.skills.domain.model.OfferedSkill;
+import pe.ayni.skills.domain.model.ValidationRequest;
+import pe.ayni.skills.infrastructure.CatalogItemRepository;
+import pe.ayni.skills.infrastructure.OfferedSkillRepository;
+import pe.ayni.skills.infrastructure.ValidationRequestRepository;
+
+/** US18, scenario 1: the tutor sees every skill with where it stands. */
+class TutorSkillsQueryTest {
+
+  private static final String UPC = "UPC";
+  private static final UUID TUTOR = UUID.randomUUID();
+  private static final Instant NOW = Instant.parse("2026-10-04T15:00:00Z");
+
+  private final OfferedSkillRepository offeredSkills = mock(OfferedSkillRepository.class);
+  private final CatalogItemRepository catalogItems = mock(CatalogItemRepository.class);
+  private final ValidationRequestRepository requests = mock(ValidationRequestRepository.class);
+  private final TutorSkillsQuery query = new TutorSkillsQuery(offeredSkills, catalogItems, requests);
+
+  private static CatalogItem course(String name, String courseCode) {
+    return new CatalogItem(
+        UUID.randomUUID(), CatalogScope.UNIVERSITY, UPC, UUID.randomUUID(), name, null, courseCode, NOW);
+  }
+
+  private static OfferedSkill enabledFor(CatalogItem item) {
+    return OfferedSkill.enableByAcademicRecord(
+        UUID.randomUUID(), UPC, TUTOR, item.getId(), new BigDecimal("15.00"), new BigDecimal("13.00"), NOW);
+  }
+
+  @Test
+  @DisplayName("lists every skill, withdrawn ones included, sorted by the name of the item")
+  void listsEverySkillSortedByName() {
+    CatalogItem databases = course("Databases", "1ASI0616");
+    CatalogItem architecture = course("Architecture", "1ASI0657");
+    OfferedSkill enabled = enabledFor(databases);
+    OfferedSkill withdrawn = enabledFor(architecture);
+    withdrawn.withdraw(NOW.plusSeconds(60));
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(enabled, withdrawn));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(databases.getId(), architecture.getId()), UPC))
+        .thenReturn(List.of(databases, architecture));
+
+    List<TutorSkillsQuery.TutorSkill> result = runAsUpc();
+
+    assertThat(result)
+        .extracting(tutorSkill -> tutorSkill.item().getName())
+        .containsExactly("Architecture", "Databases");
+    assertThat(result.get(0).skill()).isSameAs(withdrawn);
+  }
+
+  @Test
+  @DisplayName("a skill whose evidence was rejected and sent again shows only the last submission")
+  void aSkillShowsOnlyItsLastSubmission() {
+    CatalogItem tool =
+        new CatalogItem(
+            UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), "Figma", null, null, NOW);
+    OfferedSkill skill =
+        OfferedSkill.requestValidation(UUID.randomUUID(), UPC, TUTOR, tool.getId(), NOW);
+    ValidationRequest first = ValidationRequest.submit(UUID.randomUUID(), UPC, skill.getId(), null, NOW);
+    first.reject(UUID.randomUUID(), "The certificate is not legible", NOW.plusSeconds(60));
+    ValidationRequest second =
+        ValidationRequest.submit(UUID.randomUUID(), UPC, skill.getId(), null, NOW.plusSeconds(3600));
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(tool.getId()), UPC)).thenReturn(List.of(tool));
+    // Read in the opposite order on purpose: the newest one wins whatever comes first.
+    when(requests.findByTenantIdAndOfferedSkillIdIn(UPC, List.of(skill.getId())))
+        .thenReturn(List.of(second, first));
+
+    List<TutorSkillsQuery.TutorSkill> result = runAsUpc();
+
+    assertThat(result).singleElement().satisfies(tutorSkill -> assertThat(tutorSkill.latestReview()).isSameAs(second));
+  }
+
+  @Test
+  @DisplayName("a course enabled by its grade has no submission to show")
+  void aCourseHasNoSubmissionToShow() {
+    CatalogItem course = course("Databases", "1ASI0616");
+    OfferedSkill skill = enabledFor(course);
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of(skill));
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(course.getId()), UPC)).thenReturn(List.of(course));
+
+    assertThat(runAsUpc())
+        .singleElement()
+        .satisfies(tutorSkill -> assertThat(tutorSkill.latestReview()).isNull());
+  }
+
+  @Test
+  @DisplayName("a tutor with no skills gets an empty list")
+  void aTutorWithNoSkillsGetsAnEmptyList() {
+    when(offeredSkills.findByTenantIdAndTutorId(UPC, TUTOR)).thenReturn(List.of());
+    when(catalogItems.findAllByIdInAndTenantVisibility(List.of(), UPC)).thenReturn(List.of());
+
+    assertThat(runAsUpc()).isEmpty();
+  }
+
+  private List<TutorSkillsQuery.TutorSkill> runAsUpc() {
+    Object[] result = new Object[1];
+    TenantContext.runAs(UPC, () -> result[0] = query.of(TUTOR));
+    @SuppressWarnings("unchecked")
+    List<TutorSkillsQuery.TutorSkill> typed = (List<TutorSkillsQuery.TutorSkill>) result[0];
+    return typed;
+  }
+}

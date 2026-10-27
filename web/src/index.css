@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Ayni's colours until the university is known; shared/brand overwrites them on the root with the
+ * university's (and derives the soft, pressed and text tones from its primary).
+ */
+:root {
+  --brand-primary: #0f766e;
+  --brand-secondary: #ffffff;
+  --brand-primary-soft: #e7f1f1;
+  --brand-primary-pressed: #0c5e58;
+  --brand-text: #0f766e;
+  color-scheme: light;
+}
+
+body {
+  @apply bg-surface font-sans text-gray-900 antialiased;
+}

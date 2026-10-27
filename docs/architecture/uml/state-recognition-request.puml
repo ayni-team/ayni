@@ -1,0 +1,18 @@
+@startuml state-recognition-request
+title RecognitionRequest state diagram
+hide empty description
+
+[*] --> SUBMITTED : SubmitRecognitionRequest\n[university criteria met]\n/ figures frozen, sessions linked, RecognitionRequested
+
+SUBMITTED --> UNDER_REVIEW : coordinator opens the file
+UNDER_REVIEW --> APPROVED : coordinator approves with a reason\n/ RecognitionResolved
+UNDER_REVIEW --> REJECTED : coordinator rejects with a reason\n/ RecognitionResolved
+
+APPROVED --> [*]
+REJECTED --> [*]
+
+note right of SUBMITTED
+  Each session can back exactly one request.
+  Credits are not consumed.
+end note
+@enduml

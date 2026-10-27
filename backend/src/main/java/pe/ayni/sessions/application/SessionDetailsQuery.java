@@ -1,0 +1,143 @@
+package pe.ayni.sessions.application;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import pe.ayni.booking.BookingApi;
+import pe.ayni.booking.BookingView;
+import pe.ayni.sessions.SessionStatus;
+import pe.ayni.sessions.domain.model.NotAParticipant;
+import pe.ayni.sessions.domain.model.ParticipantRole;
+import pe.ayni.sessions.domain.model.Participation;
+import pe.ayni.sessions.domain.model.Session;
+import pe.ayni.sessions.infrastructure.ParticipationRepository;
+import pe.ayni.sessions.infrastructure.PresenceCheckRepository;
+import pe.ayni.sessions.infrastructure.SessionRepository;
+import pe.ayni.sessions.infrastructure.SupportMaterialRepository;
+import pe.ayni.shared.tenancy.TenantContext;
+
+/**
+ * A session, for one of its two participants and nobody else.
+ *
+ * <p>The need description stays in booking, which owns it, and is read through {@link BookingApi}
+ * rather than copied into sessions: the session keeps only the booking's id, as the booking module
+ * already expected.
+ *
+ * <p>The room name is not part of the answer. It is what lets anyone into the call, so it is only
+ * handed over by joining, inside the window the room is open. Nor is the presence code, which only
+ * travels by email: the answer says whether it was sent, until when it can be typed in and whether
+ * it was, for the reader alone. The first arrival of each participant is visible to both, and once
+ * the session was abandoned so is who did not check in. The support material prepared from the
+ * need comes with it, when there is any (US07). The course and the other person come with their
+ * names, read from skills and identity through their published interfaces.
+ */
+@Service
+public class SessionDetailsQuery {
+
+  private final SessionRepository sessions;
+  private final ParticipationRepository participations;
+  private final PresenceCheckRepository presenceChecks;
+  private final SupportMaterialRepository materials;
+  private final BookingApi booking;
+  private final SessionParties parties;
+
+  SessionDetailsQuery(
+      SessionRepository sessions,
+      ParticipationRepository participations,
+      PresenceCheckRepository presenceChecks,
+      SupportMaterialRepository materials,
+      BookingApi booking,
+      SessionParties parties) {
+    this.sessions = sessions;
+    this.participations = participations;
+    this.presenceChecks = presenceChecks;
+    this.materials = materials;
+    this.booking = booking;
+    this.parties = parties;
+  }
+
+  /**
+   * @throws NoSuchElementException when the session does not exist in the current university
+   * @throws NotAParticipant when the reader is neither the student nor the tutor
+   */
+  @Transactional(readOnly = true)
+  public SessionDetails execute(UUID sessionId, UUID userId) {
+    Objects.requireNonNull(sessionId, "sessionId must not be null");
+    Objects.requireNonNull(userId, "userId must not be null");
+
+    String tenantId = TenantContext.require();
+    Session session =
+        sessions
+            .findByTenantIdAndId(tenantId, sessionId)
+            .orElseThrow(() -> new NoSuchElementException("Session not found: " + sessionId));
+    // Refused before anything else is read, booking included.
+    ParticipantRole role = session.roleOf(userId);
+    BookingView booked = booking.requireBooking(session.getBookingId());
+    PresenceState presence =
+        presenceChecks
+            .findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId)
+            .map(
+                check ->
+                    new PresenceState(
+                        check.getIssuedAt(),
+                        check.getExpiresAt(),
+                        check.getConfirmedAt(),
+                        check.attemptsLeft()))
+            .orElse(null);
+    Instant endConfirmedAt =
+        participations
+            .findByTenantIdAndSessionIdAndUserId(tenantId, sessionId, userId)
+            .map(Participation::getEndConfirmedAt)
+            .orElse(null);
+    List<Participation> arrivals = participations.findByTenantIdAndSessionId(tenantId, sessionId);
+    List<UUID> absent =
+        session.getStatus() == SessionStatus.ABANDONED
+            ? session.absentAtDeadline(arrivals)
+            : List.of();
+
+    return new SessionDetails(
+        session.getId(),
+        session.getBookingId(),
+        session.getStudentId(),
+        session.getTutorId(),
+        booked.catalogItemId(),
+        parties.courseOf(booked.catalogItemId()),
+        role,
+        parties.counterpartOf(session, role),
+        session.getStatus(),
+        session.getScheduledStart(),
+        session.getScheduledEnd(),
+        session.joinOpensAt(),
+        session.getStartedAt(),
+        arrivalOf(arrivals, session.getStudentId()),
+        arrivalOf(arrivals, session.getTutorId()),
+        absent,
+        booked.needDescription(),
+        session.presenceCheckAt(),
+        presence,
+        endConfirmedAt,
+        session.getEndedAt(),
+        session.closesAt(),
+        materials
+            .findByTenantIdAndSessionId(tenantId, sessionId)
+            .map(
+                material ->
+                    new SupportMaterialView(
+                        material.getSummary(),
+                        material.getSuggestions(),
+                        material.getGeneratedAt()))
+            .orElse(null));
+  }
+
+  private static Instant arrivalOf(List<Participation> arrivals, UUID userId) {
+    return arrivals.stream()
+        .filter(arrival -> arrival.getUserId().equals(userId))
+        .map(Participation::getJoinedAt)
+        .findFirst()
+        .orElse(null);
+  }
+}

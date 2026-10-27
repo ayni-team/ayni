@@ -1,0 +1,79 @@
+# US08 - As a student or a tutor, I want to meet the other person in the session's room, so that the
+# tutoring happens where Ayni can vouch for it.
+#
+# Also the part of US07 (arriving prepared) that sessions owns: the tutor reads what the student
+# needs before the session.
+#
+# Every scenario names the test that runs it, against a real PostgreSQL, in
+# JoinSessionAcceptanceTest, with the same name. The rules of the room are covered without Spring by
+# SessionTest. Since US09 joining does not start the session by itself: both participants have to
+# check in, and what happens when one does not is that story's.
+
+Feature: Meeting in the session's room
+
+  Background:
+    Given Ana booked an hour with Bruno, which scheduled their session
+
+  Scenario: The tutor reads the session and what the student needs
+    When Bruno reads the session
+    Then he sees when it starts, when the room opens and what Ana needs help with
+    And he does not see the room name, which is only given by joining
+
+  Scenario: Somebody else cannot see the session or join it
+    When a student who is neither Ana nor Bruno reads the session or tries to join it
+    Then they are refused, whatever link they hold
+    And nothing is recorded for them
+
+  Scenario: Both participants check in before the session starts
+    Given the session starts in ten minutes
+    When Ana joins
+    Then she gets the room name and the session stays scheduled
+    And Bruno can see that Ana has checked in
+    When Bruno joins
+    Then he gets the same room and the session is in progress
+    And both check-in times are visible to them
+    And SessionStarted was published once
+
+  Scenario: Coming back after a dropped connection
+    Given Ana joined the session
+    When she joins again
+    Then she gets the room again, and her first arrival is what stays recorded
+
+  Scenario: Both arriving at the same moment start the session once
+    When Ana and Bruno join at the same moment, however many times it is tried
+    Then both are let in
+    And the session is in progress, started once
+    And SessionStarted is published once
+
+  Scenario: The room is not open too early, after the end, or for a cancelled session
+    Then joining an hour before the start is refused, saying the room opens fifteen minutes before
+    And joining after the scheduled end is refused
+    And joining a cancelled session is refused
+
+  Scenario: A session of another university, or one that does not exist, is not found
+    Then joining it is answered as not found
+
+  # Scenario 2 of US08: meeting in the video call itself. The passes are proven in
+  # VideoRoomAcceptanceTest, over HTTP against a real PostgreSQL, and the token in
+  # JitsiVideoRoomPassesTest. The self hosted Jitsi runs under `docker compose --profile video`.
+  Scenario: Joining hands a pass to the video call of that room only
+    Given the session starts in five minutes
+    When Ana and then Bruno join
+    Then each gets a pass to the video call, signed for the session's room and nobody else's
+    And Bruno's lets him in as moderator, Ana's does not
+
+  Scenario: The pass lasts a few minutes and never past the end of the session
+    When a participant joins five minutes before the start, or two minutes before the end
+    Then the first pass lasts five minutes, and the second ends with the session
+
+  Scenario: Somebody who is not a participant gets no pass
+    When a student who is neither Ana nor Bruno tries to join
+    Then they are refused, and no pass is handed
+
+  # Seeing and hearing each other needs two browsers with a camera and a microphone against the
+  # Jitsi stack: not something the build can run. It is checked by hand with
+  # `docker compose --profile video up`.
+  @pending
+  Scenario: Both participants see and hear each other in the call
+    Given Ana and Bruno opened the call with their passes
+    Then each sees and hears the other

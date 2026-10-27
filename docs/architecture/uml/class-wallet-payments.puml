@@ -1,0 +1,113 @@
+@startuml class-wallet-payments
+title Class diagram: wallet and payments bounded contexts
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "shared.domain" {
+  class Credits <<Value Object>> {
+    + amount: int
+    + plus(other: Credits): Credits
+    + minus(other: Credits): Credits
+    + isGreaterThanOrEqualTo(other: Credits): boolean
+  }
+  enum CreditType {
+    SEED
+    ALLOCATED
+    EARNED
+    PURCHASED
+    + expires(): boolean
+    + countsTowardsRecognition(): boolean
+  }
+}
+
+package "wallet" {
+  class CreditAccount <<Aggregate Root>> {
+    - id: UUID
+    - userId: UUID
+    + available(now: Instant): Credits
+    + charge(amount: Credits, bookingId: UUID, now: Instant): ChargeReceipt
+    + refund(bookingId: UUID): void
+    + grant(amount: Credits, type: CreditType, expiresAt: Instant, source: UUID): void
+    + expire(now: Instant): Credits
+  }
+  class CreditLot <<Entity>> {
+    - id: UUID
+    - creditType: CreditType
+    - originalAmount: Credits
+    - remainingAmount: Credits
+    - expiresAt: Instant
+    - sourceType: SourceType
+    - sourceId: UUID
+    + consume(amount: Credits): Credits
+    + restore(amount: Credits): void
+    + isExpired(now: Instant): boolean
+  }
+  class LedgerEntry <<Entity>> {
+    - id: UUID
+    - lotId: UUID
+    - sequenceNumber: long
+    - direction: EntryDirection
+    - amount: Credits
+    - reason: EntryReason
+    - referenceType: String
+    - referenceId: UUID
+    - previousHash: String
+    - entryHash: String
+    - occurredAt: Instant
+    + computeHash(): String
+  }
+  class LedgerVerifier <<Domain Service>> {
+    + verifyChain(entries: List<LedgerEntry>): Optional<LedgerEntry>
+  }
+  enum EntryDirection {
+    DEBIT
+    CREDIT
+  }
+  enum EntryReason {
+    GRANT
+    BOOKING_CHARGE
+    BOOKING_REFUND
+    SESSION_EARNING
+    EXPIRY
+    PURCHASE
+    ADJUSTMENT
+  }
+}
+
+package "payments" {
+  class Purchase <<Aggregate Root>> {
+    - id: UUID
+    - studentId: UUID
+    - credits: Credits
+    - amount: BigDecimal
+    - currency: String
+    - status: PurchaseStatus
+    - providerReference: String
+    - idempotencyKey: String
+    - confirmedAt: Instant
+    + confirm(providerReference: String, now: Instant): void
+    + fail(): void
+    + expire(): void
+  }
+  interface PaymentProviderPort <<Port>> {
+    + requestPayment(purchase: Purchase): String
+  }
+  enum PurchaseStatus {
+    PENDING
+    CONFIRMED
+    FAILED
+    EXPIRED
+  }
+}
+
+CreditAccount "1" *-- "0..*" CreditLot
+CreditAccount "1" *-- "0..*" LedgerEntry
+LedgerEntry "0..*" --> "0..1" CreditLot
+LedgerVerifier ..> LedgerEntry
+CreditLot --> CreditType
+CreditLot ..> Credits
+LedgerEntry --> EntryDirection
+LedgerEntry --> EntryReason
+Purchase --> PurchaseStatus
+Purchase ..> PaymentProviderPort
+@enduml

@@ -1,0 +1,105 @@
+@startuml class-sessions-reputation
+title Class diagram: sessions and reputation bounded contexts
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "sessions" {
+  class Session <<Aggregate Root>> {
+    - id: UUID
+    - bookingId: UUID
+    - studentId: UUID
+    - tutorId: UUID
+    - scheduledStart: Instant
+    - scheduledEnd: Instant
+    - roomName: String
+    - startedAt: Instant
+    - endedAt: Instant
+    - status: SessionStatus
+    + join(userId: UUID, now: Instant): void
+    + issuePresenceChecks(now: Instant): Map<UUID, String>
+    + confirmPresence(userId: UUID, code: String, now: Instant): void
+    + end(now: Instant): void
+    + isVerified(): boolean
+    + cancel(): void
+  }
+  class Participation <<Entity>> {
+    - userId: UUID
+    - role: ParticipantRole
+    - joinedAt: Instant
+    - leftAt: Instant
+    - connectedSeconds: int
+  }
+  class PresenceCheck <<Entity>> {
+    - userId: UUID
+    - codeHash: String
+    - issuedAt: Instant
+    - expiresAt: Instant
+    - confirmedAt: Instant
+    - attempts: int
+    + verify(code: String, now: Instant): boolean
+    + isConfirmed(): boolean
+  }
+  class Whiteboard <<Entity>> {
+    - content: JSON
+    - hasActivity: boolean
+    - updatedAt: Instant
+    + update(content: JSON, now: Instant): void
+  }
+  class SupportMaterial <<Entity>> {
+    - summary: String
+    - suggestions: JSON
+    - generatedAt: Instant
+  }
+  interface VideoRoomPort <<Port>> {
+    + createRoom(roomName: String): String
+  }
+  enum SessionStatus {
+    SCHEDULED
+    IN_PROGRESS
+    COMPLETED
+    UNVERIFIED
+    ABANDONED
+    CANCELLED
+  }
+}
+
+package "reputation" {
+  class Rating <<Aggregate Root>> {
+    - id: UUID
+    - sessionId: UUID
+    - ratedBy: UUID
+    - ratedUser: UUID
+    - direction: RatingDirection
+    - stars: Integer
+    - wasPunctual: Boolean
+    - connectionOk: Boolean
+    - sessionFlowed: Boolean
+    - comment: String
+    - tags: Set<String>
+    + {static} byStudent(session: UUID, tutor: UUID, stars: int, tags: Set<String>): Rating
+    + {static} byTutor(session: UUID, student: UUID, punctual: boolean, connectionOk: boolean, flowed: boolean): Rating
+  }
+  class TutorStanding <<Read Model>> {
+    - tutorId: UUID
+    - catalogItemId: UUID
+    - sessionsTaught: int
+    - ratingsCount: int
+    - averageStars: BigDecimal
+    + apply(rating: Rating): void
+    + displayedAverage(): Optional<BigDecimal>
+  }
+  enum RatingDirection {
+    STUDENT_TO_TUTOR
+    TUTOR_TO_STUDENT
+  }
+}
+
+Session "1" *-- "2" Participation
+Session "1" *-- "0..2" PresenceCheck
+Session "1" *-- "0..1" Whiteboard
+Session "1" *-- "0..1" SupportMaterial
+Session ..> VideoRoomPort
+Session --> SessionStatus
+Rating --> RatingDirection
+TutorStanding ..> Rating : rebuilt from
+@enduml

@@ -1,0 +1,85 @@
+@startuml class-skills
+title Class diagram: skills bounded context
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "skills" {
+  class Category <<Entity>> {
+    - id: UUID
+    - name: String
+    - sortOrder: int
+  }
+  class CatalogItem <<Aggregate Root>> {
+    - id: UUID
+    - scope: CatalogScope
+    - tenantId: String
+    - name: String
+    - description: String
+    - courseCode: String
+    - status: CatalogItemStatus
+    + isVisibleTo(tenantId: String): boolean
+    + retire(): void
+  }
+  class OfferedSkill <<Aggregate Root>> {
+    - id: UUID
+    - tutorId: UUID
+    - catalogItemId: UUID
+    - status: OfferedSkillStatus
+    - accreditationPath: AccreditationPath
+    - accreditedGrade: BigDecimal
+    - enabledAt: Instant
+    + {static} offerCourse(tutorId: UUID, item: CatalogItem, grade: BigDecimal, threshold: BigDecimal): OfferedSkill
+    + {static} requestValidation(tutorId: UUID, item: CatalogItem, note: String): OfferedSkill
+    + approve(coordinatorId: UUID, now: Instant): void
+    + reject(coordinatorId: UUID, reason: String, now: Instant): void
+    + withdraw(): void
+  }
+  class ValidationRequest <<Entity>> {
+    - id: UUID
+    - studentNote: String
+    - status: ValidationStatus
+    - reviewedBy: UUID
+    - reviewedAt: Instant
+    - decisionReason: String
+  }
+  class EvidenceFile <<Entity>> {
+    - fileName: String
+    - storageKey: String
+    - contentType: String
+    - sizeBytes: long
+  }
+  class LearningInterest <<Entity>> {
+    - studentId: UUID
+    - catalogItemId: UUID
+  }
+  enum CatalogScope {
+    GLOBAL
+    UNIVERSITY
+  }
+  enum OfferedSkillStatus {
+    PENDING
+    ENABLED
+    REJECTED
+    WITHDRAWN
+  }
+  enum AccreditationPath {
+    ACADEMIC_RECORD
+    REVIEWED_EVIDENCE
+  }
+  enum ValidationStatus {
+    SUBMITTED
+    APPROVED
+    REJECTED
+  }
+}
+
+Category "1" -- "0..*" CatalogItem
+CatalogItem "1" -- "0..*" OfferedSkill : taught as <
+CatalogItem "1" -- "0..*" LearningInterest : wanted as <
+OfferedSkill "1" *-- "0..*" ValidationRequest
+ValidationRequest "1" *-- "1..*" EvidenceFile
+CatalogItem --> CatalogScope
+OfferedSkill --> OfferedSkillStatus
+OfferedSkill --> AccreditationPath
+ValidationRequest --> ValidationStatus
+@enduml
