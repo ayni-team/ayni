@@ -521,6 +521,18 @@ so a real address never reaches the repository. `backend/academic-directory/` ho
 university in is putting its document in the folder, registering it from the document and
 synchronising its curriculum: no restart, no code.
 
+**From another service.** With `ayni.identity.academic-directory-url` (`AYNI_ACADEMIC_DIRECTORY_URL`)
+set, `AcademicSystemConfig` gives the adapter an `HttpAcademicDocumentSource` instead of the folder:
+each document is a static file under that address, `<address>/UPC.json`, as a GitHub Pages site
+serves it in a deployment (`deploy/README.md`, step 7). This is the second phase ADR 0006 foresaw,
+behind the same `AcademicSystemPort`, with no use case touched. A read has a timeout
+(`academic-directory-timeout`, `PT3S`); each answer is kept for `academic-directory-fresh-for`
+(`PT1M`, measured with the real clock, not the demonstration's); a 404 is a university without a
+document; while the address does not answer, the last copy is used, however old, and the log says
+so; with no copy the read fails as a mistake of the platform, as a broken file does. The local
+students are still read from the folder, so a real address added for a demonstration is never
+published. The log of the startup says which source is in use.
+
 | What happens | Answer of the activation |
 |---|---|
 | The university has no document in the folder | `400`, the university has no academic system configured; the link stays unused |
@@ -2315,6 +2327,7 @@ Secrets go in the deployment's secret store, never in a file of the repository.
 | `AYNI_JITSI_URL` | set it | no | `http://localhost:8000` | Public address of Jitsi |
 | `AYNI_JITSI_APP_ID` | no | no | `ayni` | Application id the video passes carry |
 | `AYNI_ACADEMIC_DIRECTORY` | no | no | `/var/lib/ayni/academic-directory` in the image | Folder of the simulated academic system (ADR 0006), one `<CODE>.json` per university; mount it |
+| `AYNI_ACADEMIC_DIRECTORY_URL` | no | no | empty | Address of the service that publishes those documents instead (`<address>/UPC.json`); the folder then keeps only `<CODE>.local.json` |
 | `AYNI_SKILLS_EVIDENCE_DIR` | no | no | `/var/lib/ayni/evidence` in the image | Folder of the evidence files (US16); mount a volume |
 | `AYNI_DB_POOL_SIZE` | no | no | `10` | Most connections the application keeps open |
 | `AYNI_API_DOCS_ENABLED` | no | no | `false` | Serves Swagger UI and `/v3/api-docs` |
