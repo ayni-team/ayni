@@ -2254,7 +2254,9 @@ goal of the Spring Boot plugin); like every path outside `/api`, it needs a sess
 **Origins.** `ayni.cors.allowed-origins` (`AYNI_ALLOWED_ORIGINS`, comma separated,
 `http://localhost:5173` by default) is the one list both `CorsConfig` and the whiteboard's live
 channel (`WhiteboardSocketConfig`) accept. Any other origin gets no CORS header, and its WebSocket
-handshake is refused with `403`.
+handshake is refused with `403`. An allowed origin may also read `Content-Disposition`, so the web
+application keeps the name of a downloaded file when it is served from another host than the API,
+as in a deployment (`app.` calling `api.`).
 
 **The first administrator.** An empty installation has no platform administrator, and nothing but
 one can register a university. With `AYNI_BOOTSTRAP_ADMIN_EMAIL` set, identity's
@@ -2335,8 +2337,8 @@ over an empty PostgreSQL with only these variables, signs the bootstrapped admin
 emailed link and registers a first university.
 
 **The stacks that run it.** `deploy/` holds two production stacks, one per virtual machine, and
-their runbook. `deploy/backend/` has the backend image, a Caddy proxy (`api.` and `app.`
-hostnames, TLS by itself) and an optional Mailpit behind a password, with a commented
+their runbook. `deploy/backend/` has the backend image, a Caddy proxy (the `api.`
+hostname, TLS by itself) and an optional Mailpit behind a password, with a commented
 `.env.example` holding every variable above. `deploy/jitsi/` has the four Jitsi containers with
 `10000/udp` published and a Caddy proxy of their own for `meet.`; the backend never calls that
 machine, the two only share the secret of the video passes. `deploy/README.md` is the step by step

@@ -1,6 +1,7 @@
 # The proxy of the backend machine. Caddy gets and renews a TLS certificate for each hostname below
 # by itself. {$NAME} is replaced by the environment of the proxy container, which docker-compose.yml
-# fills from deploy/backend/.env. meet.<domain> is served by the video machine (deploy/jitsi).
+# fills from deploy/backend/.env. app.<domain> is the web application on Azure Static Web Apps and
+# meet.<domain> the video machine (deploy/jitsi); neither passes through here.
 
 {
 	# The address the certificate authority writes to about an expiring certificate or a problem.
@@ -19,9 +20,10 @@
 	}
 }
 
-# api.<domain>: the backend on its own hostname, for Swagger UI (when enabled) and any client that
-# is not the web application. Caddy forwards WebSocket upgrades (the whiteboard) without help and
-# adds X-Forwarded-For, -Host and -Proto, which the prod profile trusts.
+# api.<domain>: the backend. The web application, served from app.<domain>, calls it here across
+# origins, which AYNI_ALLOWED_ORIGINS allows; so do Swagger UI (when enabled) and any other client.
+# Caddy forwards WebSocket upgrades (the whiteboard) without help and adds X-Forwarded-For, -Host
+# and -Proto, which the prod profile trusts.
 api.{$AYNI_DOMAIN} {
 	import security_headers
 	encode zstd gzip
@@ -36,40 +38,6 @@ api.{$AYNI_DOMAIN} {
 		# graceful stop.
 		health_uri /actuator/health/readiness
 		health_interval 10s
-	}
-}
-
-# app.<domain>: the web application and the API on one origin. The web application calls "/api"
-# with a relative address, so serving both here needs no CORS: the browser sees a single origin.
-# Set AYNI_ALLOWED_ORIGINS to https://app.<domain> all the same: the whiteboard's WebSocket checks it.
-app.{$AYNI_DOMAIN} {
-	import security_headers
-	# Nothing frames the web application, so no other site may put it in a frame.
-	header X-Frame-Options DENY
-	encode zstd gzip
-
-	@backend path /api/* /actuator/health /actuator/health/*
-	handle @backend {
-		request_body {
-			max_size 20MB
-		}
-		reverse_proxy backend:{$AYNI_PORT}
-	}
-
-	handle {
-		root * /srv/app
-
-		# The files under assets/ carry a hash of their content in the name, so a browser may keep
-		# them for good. Everything else is index.html under some route, which names those files
-		# and has to be asked for again after an update.
-		@assets path /assets/*
-		header @assets Cache-Control "public, max-age=31536000, immutable"
-		@pages not path /assets/*
-		header @pages Cache-Control "no-cache"
-
-		# A route of the single page application (for example /access/confirm) is index.html.
-		try_files {path} /index.html
-		file_server
 	}
 }
 
