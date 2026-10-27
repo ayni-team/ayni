@@ -30,8 +30,8 @@ services:
 
   # ---------------------------------------------------------------------------
   # The proxy: the only service that publishes web ports. A browser only gives a page the camera
-  # and the microphone over HTTPS, so meet. needs its certificate, which needs its DNS record to
-  # point at this machine and ports 80 and 443 to be open.
+  # and the microphone over HTTPS, so AYNI_MEET_HOST needs its certificate, which needs its DNS name
+  # to point at this machine and ports 80 and 443 to be open.
   # ---------------------------------------------------------------------------
   proxy:
     image: caddy:2.8.4-alpine
@@ -41,7 +41,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      AYNI_DOMAIN: ${AYNI_DOMAIN:?Set AYNI_DOMAIN in deploy/jitsi/.env}
+      AYNI_MEET_HOST: ${AYNI_MEET_HOST:?Set AYNI_MEET_HOST in deploy/jitsi/.env}
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in deploy/jitsi/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
@@ -72,7 +72,7 @@ services:
       JWT_ACCEPTED_AUDIENCES: jitsi
       # The address the browser is told to use. TLS ends at the proxy, so this container speaks
       # plain HTTP to it.
-      PUBLIC_URL: https://meet.${AYNI_DOMAIN:?Set AYNI_DOMAIN in deploy/jitsi/.env}
+      PUBLIC_URL: https://${AYNI_MEET_HOST:?Set AYNI_MEET_HOST in deploy/jitsi/.env}
       DISABLE_HTTPS: "1"
       ENABLE_HTTP_REDIRECT: "0"
       # Internal names of the XMPP server. They never reach a browser, and the backend signs its

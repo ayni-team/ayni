@@ -80,8 +80,8 @@ Use `example.org` below for your domain.
 ## Azure, inside the free services
 
 What follows is for an Azure for Students subscription. The commands use the Azure CLI (`az login`
-first); the portal has the same options. **They were not run against a real subscription**: check
-each result as you go.
+first, version 2.90); the portal has the same options. They were run against a real subscription on
+2026-10-27, up to the static web app; check each result as you go.
 
 ### What is free and what is not
 
@@ -89,17 +89,26 @@ each result as you go.
 |---|---|---|
 | The backend machine | Yes, 750 hours a month of each of the B1s, B2ats v2 and B2pts v2 sizes | `Standard_B2ats_v2` (AMD, 2 vCPU, 1 GB): the published image is amd64 |
 | The video machine | Yes, the same allowance, a different size | `Standard_B2pts_v2` (Arm, 2 vCPU, 1 GB): the Jitsi images exist for arm64 |
-| Their disks | Yes, two P6 disks | **Premium SSD of exactly 64 GB** each. Another size or type is billed |
+| The backend's disk | Yes, two P6 disks | **Premium SSD of exactly 64 GB**. Another size or type is billed |
+| The video machine's disk | No, about USD 1.5 a month | Standard HDD of 32 GB: Jitsi barely touches its disk. A P6 is free only if no other machine of the subscription holds one |
 | The academic system | Yes | GitHub Pages of a **public** repository, which is all a free organisation can publish: invented students only |
 | The web application | Yes, always | Static Web Apps on the **Free** plan: two custom domains and their certificates are included |
-| PostgreSQL | Yes, for the first 12 months | Flexible server, `Standard_B1ms`, 32 GB of storage, backups kept 7 days, no geo-redundant backup, no high availability |
-| **The public IPv4 addresses** | **No** | None. They are billed by the hour whether the machine runs or not. This is the cost of the deployment |
-| Azure Backup, Microsoft Defender plans, extra storage accounts | No | Do not turn them on when a wizard offers them |
+| PostgreSQL | Yes, for the first 12 months | Flexible server, `Standard_B1ms`, 32 GB of storage, backups kept 7 days, no geo-redundant backup, no zonal resiliency |
+| The names under `cloudapp.azure.com` | Yes | A label on each public IP (see [The machines and the DNS](#1-the-machines-and-the-dns)) |
+| **The public IPv4 addresses** | **No**, about USD 3.6 a month each | None. They are billed by the hour whether the machine runs or not. This is the cost of the deployment |
+| Azure Backup, Microsoft Defender plans, extra storage accounts | No | Do not turn them on when a wizard offers them. Cloud Shell asks for a storage account: choose *No storage account required* |
 
 Microsoft lists the free services on <https://azure.microsoft.com/pricing/free-services>, and the
 two pages it has disagree on whether the machines are free for 12 months or always: read it again
-when you create them. 750 hours cover one machine of each size for a whole month, not two of the
-same size.
+when you create them.
+
+**The allowance is the subscription's, not the deployment's.** 750 hours cover one machine of each
+size running a whole month, and one PostgreSQL B1ms; two P6 disks and 32 GB of PostgreSQL storage
+in all. Another project of the same subscription that holds a B2ats v2, a B1ms or a P6 spends the
+same allowance: two machines of one size running all month are billed some 710 hours. Stopping
+both when they are not used (`az vm deallocate`) keeps them inside it. A PostgreSQL server stopped
+with `az postgres flexible-server stop` starts again by itself after seven days, and its storage is
+billed while stopped.
 
 **Find where money goes before it is spent.** In the portal: Cost Management, Budgets, create a
 monthly budget of USD 5 on the subscription with an alert at 20 %. To find what was charged: Cost
@@ -108,81 +117,126 @@ what was billed.
 
 ### Creating the resources
 
-Choose a region that offers both sizes, and use it for everything:
+**Find the regions first.** An Azure for Students subscription carries a policy that allows only
+some regions, and not every region offers both sizes. These list the allowed regions and the
+sizes each offers (the second takes about a minute a region):
 
 ```bash
-az vm list-skus --location eastus2 --resource-type virtualMachines \
+az policy assignment list --query "[].parameters.listOfAllowedLocations.value" -o tsv
+az vm list-skus --location <region> --resource-type virtualMachines \
   --query "[?name=='Standard_B2ats_v2' || name=='Standard_B2pts_v2'].name" -o tsv
-az group create --name ayni --location eastus2
 ```
 
-Make one SSH key for the machines on your own computer, and keep the private half there:
+On the subscription this was written with, the policy allowed `brazilsouth`, `centralus`,
+`chilecentral`, `eastus` and `canadacentral`; `Standard_B2ats_v2` was offered only in
+`chilecentral`, and `Standard_B2pts_v2` in `centralus` and `canadacentral`. So the backend and the
+database live in `chilecentral` and the video machine in `centralus`, all in one resource group: a
+group may hold resources of several regions. The commands below use those regions; change them to
+what yours offers.
+
+```bash
+az group create --name ayni --location chilecentral
+```
+
+Make one SSH key for the machines **on your own computer**, not in Cloud Shell, and keep the private
+half there:
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/ayni_vm -C ayni-vm
 ```
 
-The backend machine. The disk is the P6 of the free services:
+The backend machine. The disk is the P6 of the free services, deleted together with the machine:
 
 ```bash
-az vm create --resource-group ayni --name ayni-backend \
+az vm create --resource-group ayni --name ayni-backend --location chilecentral \
   --image Ubuntu2404 --size Standard_B2ats_v2 \
-  --os-disk-size-gb 64 --storage-sku Premium_LRS \
+  --os-disk-size-gb 64 --storage-sku Premium_LRS --os-disk-delete-option Delete \
   --public-ip-sku Standard --public-ip-address-allocation static \
   --admin-username ayni --ssh-key-values ~/.ssh/ayni_vm.pub
 ```
 
-The video machine is Arm, so it takes the Arm image of Ubuntu. Check its name first; the second
-command prints the address of the image to pass to `--image`:
+The video machine is Arm, so it takes the Arm image of Ubuntu, and a Standard HDD of 32 GB. The
+filter keeps the stable image: the offer also matches `ubuntu-24_04-lts-daily`. The first command
+prints the name of the latest image; `latest` in the second picks the same:
 
 ```bash
-az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server-arm64 --all \
-  --query "[-1].urn" -o tsv
-az vm create --resource-group ayni --name ayni-jitsi \
-  --image <the urn printed above> --size Standard_B2pts_v2 \
-  --os-disk-size-gb 64 --storage-sku Premium_LRS \
+az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server-arm64 \
+  --location centralus --all \
+  --query "[?offer=='ubuntu-24_04-lts' && sku=='server-arm64'] | [-1].urn" -o tsv
+az vm create --resource-group ayni --name ayni-jitsi --location centralus \
+  --image Canonical:ubuntu-24_04-lts:server-arm64:latest --size Standard_B2pts_v2 \
+  --os-disk-size-gb 32 --storage-sku Standard_LRS --os-disk-delete-option Delete \
   --public-ip-sku Standard --public-ip-address-allocation static \
   --admin-username ayni --ssh-key-values ~/.ssh/ayni_vm.pub
 ```
 
-Each `az vm create` prints `publicIpAddress`: the backend's goes in the DNS record of `api.`, the
-video machine's in the record of `meet.` and in `AYNI_JITSI_PUBLIC_IP`. The firewall of
-each machine (its network security group, `<name>NSG`) is in [Firewall](#firewall).
+Each `az vm create` prints `publicIpAddress`: the backend's is the one the database lets in, the
+video machine's goes in `AYNI_JITSI_PUBLIC_IP`, and each gets a DNS name (see
+[The machines and the DNS](#1-the-machines-and-the-dns)). The firewall of each machine (its network
+security group, `<name>NSG`) is in [Firewall](#firewall).
+
+If the key was made somewhere else first (Cloud Shell), add the one of your computer to a machine
+without SSH, from your computer:
+
+```bash
+az vm user update --resource-group ayni --name ayni-backend --username ayni \
+  --ssh-key-value "$(cat ~/.ssh/ayni_vm.pub)"
+```
+
+It adds the key to `~/.ssh/authorized_keys` and keeps the ones already there; remove the other line
+from that file once you can enter with this one.
 
 The database, allowing in the backend machine's address only. The administrator password is
-yours to generate (`openssl rand -base64 48`) and keep; pass it from a variable, never written in a
-file of the repository:
+yours to generate and keep; `-hex` keeps `/`, `+` and `=` out of it. Pass it from a variable, never
+written in a file of the repository, and keep the output off the screen: the command prints the
+password in its result.
 
 ```bash
+export AYNI_PG_ADMIN_PASSWORD="$(openssl rand -hex 32)"
 az postgres flexible-server create --resource-group ayni --name <server-name> \
-  --location eastus2 --version 16 --tier Burstable --sku-name Standard_B1ms \
-  --storage-size 32 --backup-retention 7 --geo-redundant-backup Disabled \
-  --high-availability Disabled --public-access <backend public IP> \
-  --admin-user ayniadmin --admin-password "$AYNI_PG_ADMIN_PASSWORD"
+  --location chilecentral --version 16 --tier Burstable --sku-name Standard_B1ms \
+  --storage-size 32 --storage-auto-grow Disabled --backup-retention 7 \
+  --geo-redundant-backup Disabled --zonal-resiliency Disabled \
+  --public-access <backend public IP> \
+  --admin-user ayniadmin --admin-password "$AYNI_PG_ADMIN_PASSWORD" --output none
 ```
 
-Then follow [The database](#3-the-database) to create the two roles.
+`--zonal-resiliency` is what older versions of the CLI called `--high-availability`. To change the
+password later: `az postgres flexible-server update --resource-group ayni --name <server-name>
+--admin-password "$AYNI_PG_ADMIN_PASSWORD" --output none`. Then follow
+[The database](#3-the-database) to create the two roles, from the backend machine: it is the only
+address the server lets in.
 
-The web application, on the Free plan. Static Web Apps exists in fewer regions than the machines;
-`eastus2` is one of them:
+The web application, on the Free plan. Static Web Apps exists in fewer regions than the machines,
+which this lists; `centralus` is the one of them the policy above allows. Its files are served from
+everywhere anyway:
 
 ```bash
-az staticwebapp create --resource-group ayni --name ayni-web --location eastus2 --sku Free
+az provider show -n Microsoft.Web \
+  --query "resourceTypes[?resourceType=='staticSites'].locations" -o tsv
+```
+
+```bash
+az staticwebapp create --resource-group ayni --name ayni-web --location centralus --sku Free \
+  --output none
 az staticwebapp show --resource-group ayni --name ayni-web --query defaultHostname -o tsv
 ```
 
-The second command prints a name like `<words>.azurestaticapps.net`: it is the value of the DNS
-record of `app.` (below). Its deployment token is a secret of the **Deploy** workflow; this hands it
-to GitHub without printing it (it needs the `gh` CLI, signed in, and the `production` environment
-of [Configuring the deploy workflow](#configuring-the-deploy-workflow-once)):
+Give it no `--source`: that would have Azure write a workflow of its own into the repository. The
+second command prints a name like `<words>.azurestaticapps.net`: the address of the web
+application, or the value of the DNS record of `app.` (below). Its deployment token is a secret of
+the **Deploy** workflow; this hands it to GitHub without printing it (it needs the `gh` CLI, signed
+in, and the `production` environment of
+[Configuring the deploy workflow](#configuring-the-deploy-workflow-once)):
 
 ```bash
 gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env production --body \
   "$(az staticwebapp secrets list --resource-group ayni --name ayni-web --query properties.apiKey -o tsv)"
 ```
 
-Once the record of `app.` resolves, give the web application its address; Static Web Apps checks
-the record and issues the certificate by itself, which can take some minutes:
+With a domain of your own, once the record of `app.` resolves, give the web application its
+address; Static Web Apps checks the record and issues the certificate by itself, which can take some
+minutes:
 
 ```bash
 az staticwebapp hostname set --resource-group ayni --name ayni-web --hostname app.example.org
@@ -214,7 +268,10 @@ size. The public address stays the same, because it is static.
 
 1. Create the two virtual machines and give each a static public IP (on Azure, above). Note both
    addresses.
-2. Create these records at your DNS provider:
+2. Give each machine a name. Each stack takes the whole name of its site (`AYNI_API_HOST` in
+   `backend/.env`, `AYNI_MEET_HOST` in `jitsi/.env`), so either way works:
+
+   **With a domain you control**, create these records at your DNS provider:
 
    | Name | Type | Value |
    |---|---|---|
@@ -223,10 +280,24 @@ size. The public address stays the same, because it is static.
    | `meet.example.org` | A | the video machine's IP |
    | `mail.example.org` | A | the backend machine's IP, only for the [protected Mailpit](#option-b-mailpit-behind-a-password) |
 
-3. Wait until they resolve, from your own computer: `dig +short api.example.org` and
-   `dig +short meet.example.org` must print their addresses, and `dig +short app.example.org` the
-   name of the static web app. Neither Caddy nor Static Web Apps can get a certificate before this
-   is true.
+   **Without a domain**, give each public IP a label; Azure answers for
+   `<label>.<region>.cloudapp.azure.com` at no cost, and the web application keeps its
+   `<words>.azurestaticapps.net` name:
+
+   ```bash
+   az network public-ip update --resource-group ayni --name ayni-backendPublicIP --dns-name ayni-api
+   az network public-ip update --resource-group ayni --name ayni-jitsiPublicIP --dns-name ayni-meet
+   ```
+
+   They make `ayni-api.chilecentral.cloudapp.azure.com` and
+   `ayni-meet.centralus.cloudapp.azure.com`. A label is unique within its region: if one is taken,
+   choose another. An IP carries one name only, so the protected Mailpit, which needs a name of its
+   own, waits for a domain.
+
+3. Wait until they resolve, from your own computer: `dig +short <api name>` and
+   `dig +short <meet name>` must print their addresses, and with a domain
+   `dig +short app.example.org` the name of the static web app. Neither Caddy nor Static Web Apps can get a certificate before
+   this is true.
 
 ### Firewall
 
@@ -428,7 +499,9 @@ cp .env.example .env && chmod 600 .env
 
 Edit `.env`. Every variable is explained there, with whether it is a secret. The ones to set now:
 
-- `AYNI_DOMAIN`, `ACME_EMAIL`.
+- `AYNI_API_HOST` (the name of this machine), `ACME_EMAIL`.
+- `AYNI_IDENTITY_ACCESS_LINK_BASE_URL` and `AYNI_ALLOWED_ORIGINS`, with the address of the static
+  web app; `AYNI_JITSI_URL`, `https://` and the name of the video machine.
 - `AYNI_DB_URL`, the two users and the two passwords from step 3.
 - `AYNI_JITSI_JWT_SECRET`: generate it here, and copy the same value to the video machine.
 - `AYNI_BOOTSTRAP_ADMIN_EMAIL`: a mailbox you can read.
@@ -443,7 +516,7 @@ cp .env.example .env && chmod 600 .env
 
 Set:
 
-- `AYNI_DOMAIN` and `ACME_EMAIL`, the same as on the backend machine.
+- `AYNI_MEET_HOST` (the name of this machine) and `ACME_EMAIL`.
 - `AYNI_JITSI_PUBLIC_IP`: the public address of this machine.
 - `AYNI_JITSI_JWT_SECRET`: **the same value** as on the backend machine. Copy it from one `.env` to
   the other over SSH, not through a chat or a document. With two different values every video pass
@@ -998,8 +1071,7 @@ administrator in through the emailed link and made calls with the session (prefl
 another origin was refused with `403`. These need real
 machines, a real domain and a real browser, and should be run by hand the first time:
 
-- Certificates actually issued for the three names, on their two machines, and the redirect from
-  HTTP.
+- Certificates actually issued for the names of the two machines, and the redirect from HTTP.
 - WebSocket through the proxy: open the whiteboard of a session from `app.example.org`, across
   origins to `api.example.org`.
 - The academic system on GitHub Pages: the `gh` commands, and the backend reading
@@ -1017,7 +1089,10 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
   the memory of the video machine during a call of three people.
 - The Jitsi images on an Arm machine (`Standard_B2pts_v2`); they were measured on an arm64 laptop.
-- Every `az` command of [Azure, inside the free services](#azure-inside-the-free-services), and
-  that a month of the two machines and the database bills nothing but the two public addresses.
+- The `az` commands of [Azure, inside the free services](#azure-inside-the-free-services) after
+  the static web app (the token handed to GitHub, the custom domain), the labels under
+  `cloudapp.azure.com` and a certificate issued for them, and that a month of the two machines and
+  the database bills nothing but the two public addresses and the disk of the video machine. The
+  ones up to the static web app were run on 2026-10-27.
 - The security headers of the `Caddyfile` as a browser receives them:
   `curl -sSI https://api.example.org/actuator/health | grep -i strict-transport`.
