@@ -1,8 +1,6 @@
-import { useEffect, useId, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import type { Schema } from '@/shared/api';
 import { addDays, dayInZone, formatInZone, todayInZone } from '@/shared/time';
-import { Button } from '@/shared/ui';
+import { Button, Dialog } from '@/shared/ui';
 
 export interface LateCancellationDialogProps {
   open: boolean;
@@ -18,11 +16,16 @@ export interface LateCancellationDialogProps {
  * Returns the exact Spanish message shown in the Figma late cancellation dialog (409).
  * E.g. "Si cancelas Algoritmos de hoy a las 20:00 no se te devolverá el crédito."
  */
-function getLateCancellationMessage(booking: Schema<'StudentBooking'>, timezone: string): string {
+function getLateCancellationMessage(
+  booking: Schema<'StudentBooking'>,
+  timezone: string,
+  refundWillBeIssued: boolean,
+): string {
+  const refund = refundWillBeIssued ? 'se te devolverá el crédito' : 'no se te devolverá el crédito';
   const courseName = booking.catalogItem?.name ?? 'la tutoría';
   const startsAt = booking.startsAt;
   if (!startsAt) {
-    return `Si cancelas ${courseName} no se te devolverá el crédito.`;
+    return `Si cancelas ${courseName} ${refund}.`;
   }
 
   const bookingDay = dayInZone(startsAt, timezone);
@@ -37,95 +40,42 @@ function getLateCancellationMessage(booking: Schema<'StudentBooking'>, timezone:
   }
 
   const timeStr = formatInZone(startsAt, timezone, 'time');
-  return `Si cancelas ${courseName} ${dayPhrase} a las ${timeStr} no se te devolverá el crédito.`;
+  return `Si cancelas ${courseName} ${dayPhrase} a las ${timeStr} ${refund}.`;
 }
 
 /**
  * Confirmation dialog shown when the first DELETE attempt returns 409 Conflict with late=true.
- * Matches the Figma design:
- * - Centered on mobile and desktop
- * - Rounded 3xl corners
- * - Side-by-side buttons: "No, mantenerla" and "Cancelar igual"
- * - No close 'X' icon in the corner
+ * It is the shared Dialog (focus trap, Escape, focus given back), not dismissible while the second
+ * DELETE is on its way.
  */
 export function LateCancellationDialog({
   open,
   onClose,
   onConfirm,
   booking,
+  confirmation,
   timezone,
   confirming = false,
 }: LateCancellationDialogProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
+  if (!booking) return null;
 
-  // Close on Escape key
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !confirming) {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, confirming, onClose]);
-
-  if (!open || !booking) return null;
-
-  const description = getLateCancellationMessage(booking, timezone);
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-gray-900/40 backdrop-blur-[1px] transition-opacity"
-        aria-hidden="true"
-        onClick={() => !confirming && onClose()}
-      />
-
-      {/* Modal Dialog Card */}
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        tabIndex={-1}
-        className="relative w-full max-w-sm sm:max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl focus:outline-none"
-      >
-        <h2 id={titleId} className="text-xl font-bold text-gray-900 text-left">
-          Faltan menos de 12 horas
-        </h2>
-
-        <p id={descriptionId} className="mt-3 text-sm text-gray-600 leading-relaxed text-left">
-          {description}
-        </p>
-
-        {/* Side-by-side action buttons on mobile and desktop */}
-        <div className="mt-6 sm:mt-7 flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={confirming}
-            className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
-          >
-            No, mantenerla
-          </Button>
-
-          <Button
-            variant="danger"
-            onClick={onConfirm}
-            loading={confirming}
-            className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
-          >
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      dismissible={!confirming}
+      title="Faltan menos de 12 horas"
+      description={getLateCancellationMessage(booking, timezone, confirmation?.refundWillBeIssued === true)}
+      footer={
+        <>
+          <Button variant="danger" onClick={onConfirm} loading={confirming}>
             Cancelar igual
           </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+          <Button variant="secondary" onClick={onClose} disabled={confirming}>
+            No, mantenerla
+          </Button>
+        </>
+      }
+    />
   );
 }
