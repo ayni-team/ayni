@@ -8,6 +8,9 @@ import { AyniLogo, Button, Card, Field, TextField, UniversityLogo } from '@/shar
  * once it looks like an address the university of its domain paints its name, logo and colours, and
  * the submit asks for the link. The rest of the screen (resend after 30 seconds, the frame's final
  * look) is FE-01's pull request.
+ *
+ * A domain of no university only hints, it does not block: the platform administrator's address
+ * belongs to none and still gets a link. The backend decides, and refuses anybody else with a 400.
  */
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -17,20 +20,32 @@ export default function SignInPage() {
     onSuccess: (_, variables) => setSentTo(variables.body.email ?? null),
   });
 
+  // Once the lookup has answered, whatever it said, the backend is the one to decide.
+  const canSubmit = preview.status === 'found' || preview.status === 'notAffiliated' || preview.status === 'error';
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (preview.status !== 'found') return;
+    if (!canSubmit) return;
     request.mutate({ body: { email: email.trim() } });
   }
 
-  const error =
-    preview.status === 'notAffiliated'
-      ? 'Tu universidad todavía no está afiliada a Ayni'
-      : preview.status === 'error'
-        ? errorText(undefined)
-        : request.isError
-          ? errorText(request.error, { badRequest: 'No pudimos enviar el enlace a ese correo. Revisa que sea el institucional' })
-          : undefined;
+  const hint =
+    preview.status === 'searching'
+      ? 'Buscando tu universidad…'
+      : preview.status === 'notAffiliated'
+        ? 'No encontramos una universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace.'
+        : undefined;
+
+  const error = request.isError
+    ? errorText(request.error, {
+        badRequest:
+          preview.status === 'notAffiliated'
+            ? 'Tu universidad todavía no está afiliada a Ayni'
+            : 'No pudimos enviar el enlace a ese correo. Revisa que sea el institucional',
+      })
+    : preview.status === 'error'
+      ? errorText(undefined)
+      : undefined;
 
   return (
     <Card className="flex flex-col gap-6">
@@ -65,21 +80,20 @@ export default function SignInPage() {
             <h1 className="text-xl font-semibold text-gray-900">Ingresar</h1>
             <p className="mt-1 text-sm text-gray-600">Escribe tu correo institucional y te enviaremos un enlace para ingresar.</p>
           </div>
-          <Field
-            label="Correo institucional"
-            hint={preview.status === 'searching' ? 'Buscando tu universidad…' : undefined}
-            error={error}
-          >
+          <Field label="Correo institucional" hint={hint} error={error}>
             <TextField
               type="email"
               autoComplete="email"
               inputMode="email"
               placeholder="u202400001@upc.edu.pe"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (request.isError) request.reset();
+              }}
             />
           </Field>
-          <Button type="submit" fullWidth loading={request.isPending} disabled={preview.status !== 'found'}>
+          <Button type="submit" fullWidth loading={request.isPending} disabled={!canSubmit}>
             Enviarme el enlace
           </Button>
         </form>

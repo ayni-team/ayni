@@ -1,4 +1,4 @@
-export { api, buildUrl, downloadFile, uploadFiles } from './client';
+export { api, apiUrl, buildUrl, downloadFile, uploadFiles } from './client';
 export { ApiError, errorBody, errorText, isApiError, kindOf } from './errors';
 export type { ApiErrorKind, ServerError } from './errors';
 export { useApiMutation, useApiQuery } from './hooks';
