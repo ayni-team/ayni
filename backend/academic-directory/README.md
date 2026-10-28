@@ -15,6 +15,13 @@ document added or edited here is used at once, without restarting the backend. T
 `ayni.identity.academic-directory` (`AYNI_ACADEMIC_DIRECTORY`). `./mvnw` run from `backend/` reads
 this one; `docker compose` mounts it into the backend container.
 
+A deployment can read the same documents from another service instead: with
+`AYNI_ACADEMIC_DIRECTORY_URL` set, each one is fetched from `<address>/UPC.json`, for instance a
+GitHub Pages site that publishes copies of these files (`deploy/README.md`, step 7). Each answer is
+kept a minute, and the last one is used while the address does not answer; Pages itself lets its
+answers be kept ten minutes, so an edit there can take that long to arrive. `<CODE>.local.json`
+is still read from the folder.
+
 ## The documents are generated
 
 Do not edit `UPC.json` or `USIL.json` by hand. They are written by

@@ -2,6 +2,7 @@ package pe.ayni.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -17,6 +18,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * separated list, {@code http://localhost:5173} by default), the same list the live channel of the
  * whiteboards accepts. A deployment sets the address its web application is served from; any other
  * origin gets no CORS header and the browser refuses the answer.
+ *
+ * <p>Of the headers of an answer, a page on another origin only reads the few the browser deems
+ * safe. {@code Content-Disposition}, which names a downloaded file (the indicators' CSV, an
+ * evidence file), is exposed as well, so the web application keeps that name when it is served
+ * from another host than the API.
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
@@ -33,6 +39,7 @@ public class CorsConfig implements WebMvcConfigurer {
         .addMapping("/**")
         .allowedOrigins(allowedOrigins)
         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-        .allowedHeaders("*");
+        .allowedHeaders("*")
+        .exposedHeaders(HttpHeaders.CONTENT_DISPOSITION);
   }
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
 import { signIn } from '@/test/fixtures';
 import { currentSession } from '../session/session';
-import { api, buildUrl, downloadFile, uploadFiles } from './client';
+import { api, apiUrl, buildUrl, downloadFile, uploadFiles } from './client';
 import { ApiError } from './errors';
 
 describe('buildUrl', () => {
@@ -18,6 +18,33 @@ describe('buildUrl', () => {
 
   it('refuses a path parameter that is missing', () => {
     expect(() => buildUrl('/api/v1/bookings/{id}')).toThrow(/id/);
+  });
+});
+
+describe('apiUrl', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the path relative when no origin of the API is set, as in development', () => {
+    vi.stubEnv('VITE_API_BASE_URL', '');
+    expect(apiUrl('/api/v1/me')).toBe('/api/v1/me');
+  });
+
+  it('puts the origin of the API in front, without doubling the slash', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.org/');
+    expect(apiUrl('/api/v1/me')).toBe('https://api.example.org/api/v1/me');
+  });
+
+  it('sends every call to that origin when the web is served from another host', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.org');
+    const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetch);
+
+    await api.get('/api/v1/me');
+
+    expect(fetch.mock.calls[0][0]).toBe('https://api.example.org/api/v1/me');
   });
 });
 
