@@ -46,8 +46,8 @@ Internet ── 443 ──────▶ app.<domain>  web/dist: the page, whic
 | `jitsi/docker-compose.yml` | The video machine |
 | `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
 | `jitsi/Caddyfile` | `meet.` |
-| `../.github/workflows/release.yml` | A `v*` tag publishes `ghcr.io/<owner>/ayni-backend:<tag>` |
-| `../.github/workflows/deploy.yml` | After each release, and by hand for any tag: runs `backend/update.sh` on the backend machine through Azure (`az vm run-command`, no SSH), then builds and publishes the web application |
+| `../.github/workflows/release.yml` | A release pull request merged into `main` (or a `v*` tag pushed by hand): tags it, publishes `ghcr.io/<owner>/ayni-backend:<tag>` and calls `deploy.yml` |
+| `../.github/workflows/deploy.yml` | Called by each release, and by hand for any tag: runs `backend/update.sh` on the backend machine through Azure (`az vm run-command`, no SSH), then builds and publishes the web application |
 | `../web/public/staticwebapp.config.json` | The routes and headers of the web application on Static Web Apps |
 
 Nothing here states what the machines or the database will cost: prices change, so read them from
@@ -70,7 +70,7 @@ You need:
   administrator login for it, and the ability to allow the backend machine's address through its
   firewall.
 - A way to send email (see [Mail](#mail)).
-- A release tag. The image the backend runs is published by pushing a tag (see
+- A release tag. The image the backend runs is published by each release (see
   [Publishing a version](#publishing-a-version)).
 
 Use `example.org` below for your domain.
@@ -548,15 +548,19 @@ development `docker-compose.yml` instead.
 
 ### Publishing a version
 
-The backend machine runs an image built by GitHub, never one built on the machine. A maintainer
-cuts a release from `main`:
+The backend machine runs an image built by GitHub, never one built on the machine. A release is a
+pull request from `develop` into `main`, titled `chore(release): v1.0.0` and merged with a merge
+commit (`docs/pull-requests.md`, "Releases"). The first time, before the machines exist, a tag of
+a commit of `main` pushed by hand does the same:
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag -a v1.0.0 origin/main -m v1.0.0 && git push origin v1.0.0
 ```
 
-The **Release** workflow builds `backend/Dockerfile.prod` and publishes
-`ghcr.io/<owner>/ayni-backend:v1.0.0`. Wait for it to finish (Actions tab). The first publication
+The **Release** workflow tags the merge commit, builds `backend/Dockerfile.prod` and publishes
+`ghcr.io/<owner>/ayni-backend:v1.0.0`; its last job, **Deploy**, fails until the machines and
+[its configuration](#configuring-the-deploy-workflow-once) exist, which is expected on the first
+release. Wait for the image (Actions tab). The first publication
 makes a private package, so the backend machine needs to be able to pull it, in one of two ways:
 
 - Make the package public (the package's settings on GitHub), or
@@ -586,8 +590,8 @@ Each Caddy gets its certificates the first time each name is asked for.
 
 Last, the web application. Once
 [the deploy workflow is configured](#configuring-the-deploy-workflow-once), **Deploy** does it: it
-starts by itself when **Release** has published the image of a tag, and by hand from Actions
-(Deploy, Run workflow) with any tag. It repeats the step above through Azure,
+runs as the last job of each release, and by hand from Actions (Deploy, Run workflow) with any
+tag. It repeats the step above through Azure,
 which changes nothing the second time, and then builds the web with `VITE_API_BASE_URL` and
 publishes it. Before it is configured, publish the web by hand, from your own computer; the token
 goes from `az` to the tool without being printed. This is how it was published on 2026-10-27:
@@ -876,14 +880,15 @@ Practise a restore into a spare database before you need one.
 
 ## 9. Updating
 
-1. Take a [backup](#8-backup-and-restore), **before the tag**: once configured, **Deploy** starts
-   by itself as soon as the image is published.
-2. A maintainer pushes the new tag; the **Release** workflow publishes its image.
+1. Take a [backup](#8-backup-and-restore), **before the merge**: the release deploys itself as
+   soon as its image is published.
+2. The lead merges the release pull request into `main` with a merge commit
+   (`docs/pull-requests.md`, "Releases"). The **Release** workflow tags it and publishes its image.
 3. Deploy it, either way:
-   - **From GitHub:** **Deploy** runs by itself after **Release** (Actions shows it), or by hand
-     from Actions, Deploy, Run workflow, with the tag. This needs the `production` environment
-     configured once (below). If it fails because the backend machine is deallocated, start it
-     (`az vm start`) and run it by hand.
+   - **From GitHub:** the last job of **Release**, **Deploy**, does it (Actions shows it), or
+     Deploy by hand from Actions, Run workflow, with the tag. This needs the `production`
+     environment configured once (below). If it fails because the backend machine is deallocated,
+     start it (`az vm start`) and run Deploy by hand.
    - **By hand, on the backend machine:**
 
      ```bash
@@ -969,8 +974,9 @@ az vm run-command invoke --resource-group ayni --name ayni-backend --command-id 
 Azure reports success whatever the command returns, so the workflow looks for the last line of
 its output, which only a finished update prints, and fails without it. Add required reviewers to
 the environment (Settings, Environments, production) if a release should wait for someone before
-it reaches the machine. A release deployed while the backend machine is deallocated fails at its
-first step; start the machine and run **Deploy** by hand with the tag.
+it reaches the machine. A release merged while the backend machine is deallocated publishes its
+image and then fails at the first step of Deploy; start the machine and run **Deploy** by hand
+with the tag.
 
 ## 10. Rolling back
 
@@ -1193,8 +1199,9 @@ machines, a real domain and a real browser, and should be run by hand the first 
   `no-cache`), and the publishing job of the **Deploy** workflow.
 - The **Deploy** workflow through Azure: the managed identity and its federated credential, the
   sign in of `azure/login` with them, `az vm run-command` running `update.sh` as `ayni`, the
-  token of the static web app read at the time of use, and the start after **Release**. Checked
-  with `actionlint` and by running the command it builds through `bash -n`; not run on GitHub.
+  token of the static web app read at the time of use, and the call from **Release** after a
+  release pull request is merged (the tag taken from its title or counted from the latest one).
+  Checked with `actionlint`, the choice of the tag run against sample titles; not run on GitHub.
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
