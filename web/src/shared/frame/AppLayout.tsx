@@ -1,7 +1,9 @@
 import { Suspense, useMemo, type ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useUniversityStatus } from '../brand/BrandProvider';
 import { useMe } from '../session/useMe';
 import { useSession } from '../session/useSession';
+import { ErrorState } from '../ui/ErrorState';
 import { PageLoading } from '../ui/Spinner';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
@@ -37,6 +39,9 @@ export function AppLayout({ navigation, bell }: AppLayoutProps) {
     () => (role && !onboarding ? navigationFor(role, navigation) : []),
     [role, onboarding, navigation],
   );
+  // Nothing is drawn with a guessed zone: the content waits for the university (UTC is only the
+  // fallback of a platform administrator, who has none).
+  const university = useUniversityStatus();
   const showBell = role === 'STUDENT' || role === 'COORDINATOR';
 
   return (
@@ -44,9 +49,19 @@ export function AppLayout({ navigation, bell }: AppLayoutProps) {
       <SkipLink />
       <AppHeader sections={sections} bell={showBell ? bell : undefined} />
       <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none sm:py-8">
-        <Suspense fallback={<PageLoading />}>
-          <Outlet />
-        </Suspense>
+        {university.status === 'loading' ? (
+          <PageLoading />
+        ) : university.status === 'error' ? (
+          <ErrorState
+            title="No pudimos cargar tu universidad"
+            description="Sin ella no sabemos en qué día estás. Intenta de nuevo."
+            onRetry={university.retry}
+          />
+        ) : (
+          <Suspense fallback={<PageLoading />}>
+            <Outlet />
+          </Suspense>
+        )}
       </main>
       <AppFooter />
     </div>
