@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AYNI_COLORS } from '@/shared/brand';
 import { fakeServer } from '@/test/fakeServer';
 import { UPC, USIL_IDENTITY } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/render';
@@ -49,16 +50,61 @@ describe('FE-01 sign in', () => {
     await waitFor(() => expect(brand()).toBe('#07256D'));
   });
 
-  it('refuses a made-up domain and keeps the submit disabled', async () => {
+  it('only hints at a domain of no university, without blocking the submit', async () => {
     const server = serveUniversities();
     const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+    const email = screen.getByRole('textbox', { name: 'Correo institucional' });
 
-    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'alguien@inventada.pe');
+    await user.type(email, 'alguien@inventada.pe');
+
+    expect(await screen.findByText(/No encontramos una universidad afiliada a Ayni con ese dominio/)).toBeInTheDocument();
+    expect(screen.queryByText(/not affiliated/)).not.toBeInTheDocument();
+    expect(email).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled();
+    expect(brand()).toBe(AYNI_COLORS.primaryColor);
+    expect(server.requests('POST')).toHaveLength(0);
+  });
+
+  it('lets the platform administrator ask for a link with an address of no university', async () => {
+    const server = serveUniversities().on('POST', '/api/v1/access/request', { status: 202 });
+    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+
+    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'admin@example.org');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Enviarme el enlace' }));
+
+    expect(await screen.findByText('Te enviamos un enlace a admin@example.org. Vence en 10 minutos.')).toBeInTheDocument();
+    expect(server.requests('POST', '/api/v1/access/request')[0].body).toEqual({ email: 'admin@example.org' });
+  });
+
+  it('says the university is not affiliated when the backend refuses an address of no university', async () => {
+    serveUniversities().on('POST', '/api/v1/access/request', {
+      status: 400,
+      body: { status: 400, message: 'The institution is not affiliated with Ayni' },
+    });
+    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+    const email = screen.getByRole('textbox', { name: 'Correo institucional' });
+
+    await user.type(email, 'alguien@inventada.pe');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Enviarme el enlace' }));
 
     expect(await screen.findByText('Tu universidad todavía no está afiliada a Ayni')).toBeInTheDocument();
     expect(screen.queryByText(/not affiliated/)).not.toBeInTheDocument();
+    expect(email).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(email, 'x');
+    expect(screen.queryByText('Tu universidad todavía no está afiliada a Ayni')).not.toBeInTheDocument();
+  });
+
+  it('keeps the submit disabled until the address looks like one', async () => {
+    const server = serveUniversities();
+    const { user } = renderWithProviders(<SignInPage />, { route: '/ingresar' });
+
+    await user.type(screen.getByRole('textbox', { name: 'Correo institucional' }), 'alguien@');
+
     expect(screen.getByRole('button', { name: 'Enviarme el enlace' })).toBeDisabled();
-    expect(server.requests('POST')).toHaveLength(0);
+    expect(server.requests()).toHaveLength(0);
   });
 
   it('sends only the domain to look the university up, never the address', async () => {
