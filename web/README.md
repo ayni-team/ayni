@@ -52,6 +52,8 @@ every person and role, and how the administrator opens a session as any of them 
 | Script                 | What it does                                                                             |
 | ---------------------- | ---------------------------------------------------------------------------------------- |
 | `npm run dev`          | The development server on port 5173                                                      |
+| `npm run format`       | Formats the web with Prettier. Run it before opening the pull request                    |
+| `npm run format:check` | Checks the format without writing. CI runs it                                            |
 | `npm run lint`         | ESLint: the rules of hooks, exhaustive effect dependencies and accessibility. CI runs it |
 | `npm run build`        | Type checks (strict) and builds. CI runs it                                              |
 | `npm test`             | Vitest and Testing Library, once. CI runs it                                             |
