@@ -277,12 +277,16 @@ frame; the link is added by the lead.
   university of its domain (debounce 400 ms) and paint its name, logo and colours before signing
   in. Only the domain travels (`?domain=upc.edu.pe`), never the address. Submit asks for the link and shows "Te enviamos un enlace a {correo}. Vence en 10 minutos."
   with a "Reenviar" button that waits 30 seconds.
-- **Handles:** `404` on the preview → "Tu universidad todavía no está afiliada a Ayni" and the submit
-  stays disabled. `400` on the request → a text of the screen's own, in Spanish, under the field
-  ("No pudimos enviar el enlace a ese correo. Revisa que sea el institucional"), never the server's
-  `message`.
+- **Handles:** `404` on the preview → a hint under the field, not an error ("No encontramos una
+  universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace."),
+  and the page keeps Ayni's colours. The submit stays enabled: the platform administrator's address
+  belongs to no university and still gets a link, so the backend decides. `400` on the request → a
+  text of the screen's own, in Spanish, under the field, never the server's `message`: "Tu
+  universidad todavía no está afiliada a Ayni" when the preview found no university, "No pudimos
+  enviar el enlace a ese correo. Revisa que sea el institucional" otherwise.
 - **Done when:** a student of UPC sees UPC's colours and name before submitting, a made-up domain is
-  refused, and the email arrives in Mailpit.
+  refused by the backend, the administrator gets a link from the web with an address of any domain,
+  and the email arrives in Mailpit.
 
 #### FE-02 · Confirm the link · `/access/confirm?token=` · public
 
