@@ -241,7 +241,7 @@ describe('FE-11 BookPage', () => {
     server.on('POST', '/api/v1/bookings', {
       status: 409,
       body: {
-        message: 'Not enough credits: 1 more is needed to book these hours',
+        message: 'Insufficient credits, missing 1',
       },
     });
 
@@ -258,6 +258,9 @@ describe('FE-11 BookPage', () => {
     expect(
       screen.getByText(/La reserva cuesta 1 crédito y tu saldo es 0\. Compra créditos y vuelve a confirmar\./),
     ).toBeInTheDocument();
+    // The refusal gave the hold back: it has to be held again before confirming.
+    expect(screen.getByRole('button', { name: 'Apartar de nuevo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar reserva' })).toBeDisabled();
     const buyBtn = screen.getByRole('button', { name: 'Comprar créditos' });
     await user.click(buyBtn);
     expect(location()).toBe('/creditos/comprar');
@@ -309,5 +312,79 @@ describe('FE-11 BookPage', () => {
       expect(server.requests('DELETE', '/api/v1/bookings/holds')).toHaveLength(1);
     });
     expect(location()).toBe(`/buscar?catalogItemId=${COURSE_ID}`);
+  });
+
+  it('reads how many credits are missing from the refusal, not from the balance', async () => {
+    const server = setupServer();
+    server.on('POST', '/api/v1/bookings', { status: 409, body: { message: 'Insufficient credits, missing 3' } });
+
+    const { user } = renderWithProviders(<BookPage />, { route: DEFAULT_ROUTE });
+
+    await screen.findByText('Te guardamos esta hora');
+    await user.type(screen.getByLabelText(/¿En qué necesitas ayuda\?/), 'Normalización');
+    await user.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
+
+    expect(await screen.findByText('Te faltan 3 créditos')).toBeInTheDocument();
+  });
+
+  it('holds again after a refusal gave the hold back', async () => {
+    const server = setupServer();
+    server.on('POST', '/api/v1/bookings', { status: 409, body: { message: 'Insufficient credits, missing 1' } });
+
+    const { user } = renderWithProviders(<BookPage />, { route: DEFAULT_ROUTE });
+
+    await screen.findByText('Te guardamos esta hora');
+    await user.type(screen.getByLabelText(/¿En qué necesitas ayuda\?/), 'Normalización');
+    await user.click(screen.getByRole('button', { name: 'Confirmar reserva' }));
+    await user.click(await screen.findByRole('button', { name: 'Apartar de nuevo' }));
+
+    await waitFor(() => expect(server.requests('POST', '/api/v1/bookings/holds')).toHaveLength(2));
+    expect(await screen.findByRole('button', { name: 'Confirmar reserva' })).toBeEnabled();
+  });
+
+  it('sends one booking when confirm is clicked twice', async () => {
+    const server = setupServer();
+    let answer: (value: void) => void = () => {};
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    server.on('POST', '/api/v1/bookings', async () => {
+      await answered;
+      return { status: 201, body: CONFIRMED_BOOKING };
+    });
+
+    const { user } = renderWithProviders(<BookPage />, { route: DEFAULT_ROUTE });
+
+    await screen.findByText('Te guardamos esta hora');
+    await user.type(screen.getByLabelText(/¿En qué necesitas ayuda\?/), 'Normalización');
+    const confirm = screen.getByRole('button', { name: 'Confirmar reserva' });
+    await user.dblClick(confirm);
+    answer();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Reserva confirmada' })).toBeInTheDocument();
+    expect(server.requests('POST', '/api/v1/bookings')).toHaveLength(1);
+  });
+
+  it('holds nothing when the course or the hours are missing', async () => {
+    const server = setupServer();
+    renderWithProviders(<BookPage />, { route: `/reservar?tutorId=${BRUNO_ID}&start=${START_INSTANT}&hours=x` });
+
+    expect(await screen.findByText('No seleccionaste ninguna tutoría')).toBeInTheDocument();
+    expect(server.requests('POST')).toHaveLength(0);
+  });
+
+  it('invents no tutor, standing or balance it does not have', async () => {
+    const server = setupServer();
+    server
+      .on('POST', '/api/v1/bookings/holds', { status: 201, body: { ...HELD_HOURS, tutorName: undefined } })
+      .on('GET', '/api/v1/wallet', { status: 503, body: {} })
+      .on('GET', '/api/v1/catalog', { body: { items: [], totalElements: 0, totalPages: 0 } });
+
+    renderWithProviders(<BookPage />, { route: DEFAULT_ROUTE });
+
+    await screen.findByText('Te guardamos esta hora');
+    expect(screen.queryByText(/Bruno Salas/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/4\.8/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/12 créditos/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Algoritmos|CC215/)).not.toBeInTheDocument();
+    expect(server.requests('POST', '/api/v1/bookings/holds')).toHaveLength(1);
   });
 });
