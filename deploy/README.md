@@ -931,13 +931,20 @@ az role assignment create --role Contributor \
   --scope "$(az group show --name ayni --query id -o tsv)" --output none
 az identity federated-credential create --resource-group ayni --identity-name ayni-deploy \
   --name github-production --issuer https://token.actions.githubusercontent.com \
-  --subject repo:ayni-team/ayni:environment:production \
+  --subject "$(gh api repos/ayni-team/ayni/actions/oidc/customization/sub \
+    --jq .sub_claim_prefix):environment:production" \
   --audiences api://AzureADTokenExchange --output none
 ```
 
 `Contributor` on the group lets it run commands on the machines and read the token of the static
 web app, and touches nothing outside `ayni`. The subject ties it to the `production` environment of
-`ayni-team/ayni`: no other repository, branch or environment can use it.
+`ayni-team/ayni`: no other repository, branch or environment can use it. GitHub names the
+repository in it by the ids of the organization and the repository, not only by their names
+(`repo:ayni-team@323873871/ayni@1354294182:environment:production`), so a repository created
+later under the same name cannot use it; the `gh api` call reads that prefix. A subject written
+as `repo:ayni-team/ayni:...` fails the sign in with `AADSTS700213: No matching federated identity
+record found`, which is how the first release failed here; correct it with
+`az identity federated-credential update` and the same arguments, and re-run the failed jobs.
 
 Then the environment and its variables. None is a secret: an identifier alone signs nobody in.
 
@@ -1196,20 +1203,19 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - The web application on Static Web Apps: the `az staticwebapp` commands, the custom domain and its
   certificate, the routes and headers of `staticwebapp.config.json` (that a route such as
   `/access/confirm` answers the page, that `assets/` keeps its long cache over the global
-  `no-cache`), and the publishing job of the **Deploy** workflow.
-- The **Deploy** workflow through Azure: the managed identity and its federated credential, the
-  sign in of `azure/login` with them, `az vm run-command` running `update.sh` as `ayni`, the
-  token of the static web app read at the time of use, and the call from **Release** after a
-  release pull request is merged (the tag taken from its title or counted from the latest one).
-  Checked with `actionlint`, the choice of the tag run against sample titles; not run on GitHub.
+  `no-cache`).
+- Run on GitHub and Azure on 2026-10-28, with v0.1.1: merging the release pull request into `main`
+  tagged it from its title, published the image, signed in to Azure as the managed identity,
+  moved the backend machine to the tag through `az vm run-command` (as `ayni`, healthy), and
+  published the web application with the token read from Azure. Not yet run: a title without a
+  version (the next patch counted from the latest tag), a tag pushed by hand, and **Deploy** by
+  hand with an older tag (rolling back).
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
-- Mailpit at `/mailpit/` of the backend's name, and at the root of `MAILPIT_SITE` redirecting to
-  it: run on a laptop through the same `Caddyfile` (the password asked, the page and its API
-  served, the path left to the backend while it is off), not yet on the machine.
-- The `Release` and `Deploy` workflows on GitHub, with the `production` environment.
-- `backend/update.sh` on the backend machine, including the web build with Node in Docker.
+- Mailpit at the root of `MAILPIT_SITE` redirecting to `/mailpit/`: run on a laptop through the
+  same `Caddyfile`, not on the machine. At `/mailpit/` of the backend's name it was run on the
+  machine: without the password, or with a wrong one, it answers `401`.
 - The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
   the memory of the video machine during a call of three people.
 - The Jitsi images on an Arm machine (`Standard_B2pts_v2`); they were measured on an arm64 laptop.
