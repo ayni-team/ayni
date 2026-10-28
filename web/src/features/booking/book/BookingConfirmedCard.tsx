@@ -19,7 +19,7 @@ function capitalize(str: string) {
 }
 
 export function BookingConfirmedCard({
-  tutorName = 'Bruno Salas',
+  tutorName = 'tu tutor',
   courseName = 'Curso',
   startsAt,
   endsAt,

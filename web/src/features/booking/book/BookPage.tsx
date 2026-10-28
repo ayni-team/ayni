@@ -41,6 +41,8 @@ export default function BookPage() {
   const start = state?.start ?? searchParams.get('start') ?? '';
   const paramHours = searchParams.get('hours');
   const hours = state?.hours ?? (paramHours ? parseInt(paramHours, 10) : 1);
+  // Everything POST /api/v1/bookings needs: without it there is nothing to hold or book.
+  const canBook = Boolean(tutorId && start && catalogItemId) && Number.isInteger(hours) && hours >= 1;
 
   // Fallback course info from catalogue if reloaded
   const catalogQuery = useApiQuery(['skills', 'catalog'], '/api/v1/catalog', {
@@ -53,9 +55,9 @@ export default function BookPage() {
     [catalogQuery.data?.items, catalogItemId],
   );
 
-  const courseName = state?.courseName ?? catalogItem?.name ?? 'Algoritmos';
-  const courseCode = state?.courseCode ?? catalogItem?.courseCode ?? 'CC215';
-  const universityCode = university?.code ?? 'UPC';
+  const courseName = state?.courseName ?? catalogItem?.name ?? 'Curso';
+  const courseCode = state?.courseCode ?? catalogItem?.courseCode;
+  const universityCode = university?.code;
 
   // Student wallet balance
   const walletQuery = useApiQuery(['wallet', 'balance'], '/api/v1/wallet');
@@ -63,7 +65,9 @@ export default function BookPage() {
 
   // Hold lifecycle state
   const [heldHours, setHeldHours] = useState<Schema<'HeldHours'> | null>(null);
-  const [isHolding, setIsHolding] = useState<boolean>(() => Boolean(tutorId && start));
+  const [isHolding, setIsHolding] = useState<boolean>(() => canBook);
+  // A refused confirmation gives the holds back (backend guide, "When the confirmation fails").
+  const [holdReleased, setHoldReleased] = useState(false);
   const [holdError, setHoldError] = useState<ApiError | null>(null);
 
   // Booking confirmation state
@@ -71,6 +75,8 @@ export default function BookPage() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [bookingError, setBookingError] = useState<ApiError | null>(null);
   const attemptKeyRef = useRef<string | null>(null);
+  // Set synchronously, so a second click before React re-renders sends nothing.
+  const confirmingRef = useRef(false);
 
   // Track hold lifecycle
   const heldRef = useRef(false);
@@ -82,7 +88,7 @@ export default function BookPage() {
 
   // Request hold function
   const requestHold = useCallback(async () => {
-    if (!tutorId || !start) return;
+    if (!canBook) return;
     setIsHolding(true);
     setHoldError(null);
     try {
@@ -91,6 +97,7 @@ export default function BookPage() {
       });
       setHeldHours(data);
       heldRef.current = true;
+      setHoldReleased(false);
     } catch (err) {
       if (err instanceof ApiError) {
         setHoldError(err);
@@ -100,13 +107,13 @@ export default function BookPage() {
     } finally {
       setIsHolding(false);
     }
-  }, [tutorId, start, hours]);
+  }, [canBook, tutorId, start, hours]);
 
   // Request hold on mount and release on unmount
   useEffect(() => {
     let cancelled = false;
 
-    if (tutorId && start) {
+    if (canBook) {
       setIsHolding(true);
       setHoldError(null);
       api.post('/api/v1/bookings/holds', {
@@ -133,24 +140,24 @@ export default function BookPage() {
 
     return () => {
       cancelled = true;
-      if (heldRef.current && !confirmedRef.current && tutorId && start) {
+      if (heldRef.current && !confirmedRef.current && canBook) {
         api.delete('/api/v1/bookings/holds', {
           query: { tutorId, start, hours },
         }).catch(() => {});
         heldRef.current = false;
       }
     };
-  }, [tutorId, start, hours]);
+  }, [canBook, tutorId, start, hours]);
 
   const offsetMs = useMemo(() => clockOffset(heldHours?.serverNow), [heldHours?.serverNow]);
   const countdown = useCountdown(heldHours?.heldUntil, { offsetMs });
 
-  const tutorName = state?.tutorName ?? heldHours?.tutorName ?? 'Bruno Salas';
+  const tutorName = state?.tutorName ?? heldHours?.tutorName ?? undefined;
 
   const startsAt = heldHours?.startsAt ?? start;
   const endsAt =
     heldHours?.endsAt ??
-    (startsAt
+    (startsAt && canBook
       ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString()
       : undefined);
 
@@ -185,7 +192,8 @@ export default function BookPage() {
       const msg = (currentError.message ?? '').toLowerCase();
       if (msg.includes('credit') || msg.includes('crédit')) {
         conflictKind = 'INSUFFICIENT_CREDITS';
-        const match = /\b(\d+)\s+more\b/i.exec(currentError.message);
+        // The server says "Insufficient credits, missing 3".
+        const match = /missing\s+(\d+)/i.exec(currentError.message);
         if (match) {
           missingCreditsCount = parseInt(match[1], 10);
         } else if (availableBalance !== undefined) {
@@ -207,6 +215,7 @@ export default function BookPage() {
 
   // Check if hold is expired either via countdown, timing or backend refusal
   const isHoldExpired =
+    holdReleased ||
     Boolean(heldHours) &&
     (countdown.expired ||
       countdown.remainingMs === 0 ||
@@ -224,10 +233,11 @@ export default function BookPage() {
         setNeedError('Por favor cuéntale al tutor en qué necesitas ayuda.');
         return;
       }
-      if (isHoldExpired || !heldRef.current) {
+      if (isHoldExpired || !heldRef.current || confirmingRef.current) {
         return;
       }
 
+      confirmingRef.current = true;
       setNeedError(null);
       setIsConfirming(true);
       setBookingError(null);
@@ -255,6 +265,9 @@ export default function BookPage() {
         if (err instanceof ApiError) {
           if (!err.retriable) {
             attemptKeyRef.current = null;
+            // Refused: the server already gave the hold back, so it has to be held again.
+            heldRef.current = false;
+            setHoldReleased(true);
           }
           setBookingError(err);
         } else {
@@ -263,6 +276,7 @@ export default function BookPage() {
           );
         }
       } finally {
+        confirmingRef.current = false;
         setIsConfirming(false);
       }
     },
@@ -270,13 +284,9 @@ export default function BookPage() {
   );
 
   // If missing essential parameters
-  if (!tutorId || !start) {
+  if (!canBook) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 pb-12">
-        <div className="sr-only">
-          <span>FE-11</span>
-          <h2>En construcción</h2>
-        </div>
         <h1 className="text-2xl font-bold text-gray-900">Reservar</h1>
         <EmptyState
           title="No seleccionaste ninguna tutoría"
@@ -295,10 +305,6 @@ export default function BookPage() {
   if (confirmedBooking) {
     return (
       <div className="pb-12">
-        <div className="sr-only">
-          <span>FE-11</span>
-          <h2>En construcción</h2>
-        </div>
         <BookingConfirmedCard
           tutorName={tutorName}
           courseName={courseName}
@@ -318,12 +324,6 @@ export default function BookPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-12">
-      {/* Test identifier for route suite without modifying App.test.tsx */}
-      <div className="sr-only">
-        <span>FE-11</span>
-        <h2>En construcción</h2>
-      </div>
-
       {/* Top back navigation in red text */}
       <div>
         <button
@@ -347,7 +347,7 @@ export default function BookPage() {
           availableBalance={availableBalance}
           missingCredits={missingCreditsCount}
           onGoBackToSearch={handleReleaseAndBack}
-          onRetry={() => handleConfirm()}
+          onRetry={() => (heldRef.current ? void handleConfirm() : handleHoldAgain())}
           isRetrying={isConfirming}
         />
       )}

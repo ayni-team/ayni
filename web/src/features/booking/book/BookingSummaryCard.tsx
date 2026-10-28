@@ -25,8 +25,8 @@ function capitalize(str: string) {
 export function BookingSummaryCard({
   courseName = 'Curso de tutoría',
   courseCode,
-  universityCode = 'UPC',
-  tutorName = 'Bruno Salas',
+  universityCode,
+  tutorName = 'Tu tutor',
   averageStars,
   ratingsCount,
   sessionsTaught,
@@ -56,13 +56,11 @@ export function BookingSummaryCard({
   const stars =
     averageStars !== undefined && averageStars !== null && averageStars > 0
       ? averageStars.toFixed(1)
-      : newTutor
-      ? null
-      : '4.8';
-  const ratings = ratingsCount ?? 11;
-  const sessions = sessionsTaught ?? 14;
+      : null;
+  const ratings = ratingsCount ?? 0;
+  const sessionsText = sessionsTaught !== undefined && sessionsTaught !== null ? `${sessionsTaught} sesiones de este curso` : null;
 
-  const codeSubtitle = [courseCode, `curso ${universityCode}`].filter(Boolean).join(' · ');
+  const codeSubtitle = [courseCode, universityCode ? `curso ${universityCode}` : null].filter(Boolean).join(' · ');
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-4">
@@ -82,10 +80,12 @@ export function BookingSummaryCard({
           <p className="text-xs text-gray-500">
             {stars ? (
               <span>
-                ★ {stars} · {ratings} calificaciones · {sessions} sesiones de este curso
+                ★ {stars} · {ratings} calificaciones{sessionsText ? ` · ${sessionsText}` : ''}
               </span>
+            ) : newTutor ? (
+              <span>Nuevo tutor{sessionsText ? ` · ${sessionsText}` : ''}</span>
             ) : (
-              <span>Nuevo tutor · {sessions} sesiones de este curso</span>
+              sessionsText && <span>{sessionsText}</span>
             )}
           </p>
         </div>
@@ -115,7 +115,7 @@ export function BookingSummaryCard({
           <strong className="font-semibold text-gray-900">
             {availableBalance !== undefined
               ? `${availableBalance} ${availableBalance === 1 ? 'crédito' : 'créditos'}`
-              : '12 créditos'}
+              : '—'}
           </strong>
         </span>
       </div>
