@@ -2,7 +2,7 @@ name: Release
 
 # Pushing a tag that starts with v (v1.0.0) builds the production image and publishes it to the
 # GitHub Container Registry as ghcr.io/<owner>/ayni-backend:<tag>. Nothing is deployed from here:
-# deploy.yml does that, on request, once the image exists.
+# deploy.yml starts by itself once this run succeeds, and moves the backend and the web to the tag.
 #
 # The tag is cut from a commit that already went through CI on main; this workflow does not run the
 # tests again. It signs in with the GITHUB_TOKEN of the run and needs no secret of its own.
