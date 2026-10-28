@@ -205,6 +205,13 @@ ayni:
     # next to it, when there is one). docker compose mounts the folder; relative to where the
     # backend runs otherwise, which is backend/ for ./mvnw.
     academic-directory: ${AYNI_ACADEMIC_DIRECTORY:academic-directory}
+    # Set, the documents come from this address of another service instead, one static file per
+    # university under it (<address>/UPC.json): a GitHub Pages site in a deployment. Each answer is
+    # kept for fresh-for, and the last one is used while the address does not answer. The local
+    # students (<CODE>.local.json) are still read from the folder above.
+    academic-directory-url: ${AYNI_ACADEMIC_DIRECTORY_URL:}
+    academic-directory-timeout: PT3S
+    academic-directory-fresh-for: PT1M
     # A link lives minutes and works once; the session it opens is what lasts.
     access-link-ttl: PT10M
     session-ttl: P7D

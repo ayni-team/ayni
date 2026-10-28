@@ -1,0 +1,151 @@
+# =============================================================================
+# The stack of the video machine (deploy/README.md, "The two machines"): the video call of the
+# sessions (US08), self hosted.
+#
+#   proxy          Caddy: the TLS certificate of the meet. hostname
+#   jitsi-web      the page of the call, behind the proxy
+#   jitsi-prosody  the XMPP server; only lets in a pass the backend signed
+#   jitsi-jicofo   the focus that sets up each call
+#   jitsi-jvb      the videobridge; the media reaches it straight on 10000/udp
+#
+# Nothing here talks to the backend, and the backend never talks to this machine. The backend signs
+# a pass with AYNI_JITSI_JWT_SECRET and sends the browser to https://meet.<domain> with it; this
+# stack checks the pass with that same secret. The two .env files hold the same value.
+#
+# Everything is configured from deploy/jitsi/.env (copy .env.example). Run it from this folder:
+#
+#     docker compose pull && docker compose up -d
+# =============================================================================
+
+name: ayni-jitsi
+
+# Same rotation as the backend machine: at most three files of 10 MB per service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # The proxy: the only service that publishes web ports. A browser only gives a page the camera
+  # and the microphone over HTTPS, so AYNI_MEET_HOST needs its certificate, which needs its DNS name
+  # to point at this machine and ports 80 and 443 to be open.
+  # ---------------------------------------------------------------------------
+  proxy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      AYNI_MEET_HOST: ${AYNI_MEET_HOST:?Set AYNI_MEET_HOST in deploy/jitsi/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in deploy/jitsi/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificate and Caddy's account. Losing them means asking for the certificate again,
+      # and certificate authorities limit how often that can be done.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - jitsi-web
+    networks: [edge]
+
+  # ---------------------------------------------------------------------------
+  # The same four containers as the video profile of the development docker-compose.yml. They only
+  # let in whoever holds a token the backend signed for that room.
+  # ---------------------------------------------------------------------------
+
+  jitsi-web:
+    image: jitsi/web:stable-9584
+    restart: unless-stopped
+    logging: *logging
+    environment: &jitsi
+      ENABLE_AUTH: "1"
+      AUTH_TYPE: jwt
+      ENABLE_GUESTS: "0"
+      JWT_APP_ID: ${AYNI_JITSI_APP_ID:-ayni}
+      JWT_APP_SECRET: ${AYNI_JITSI_JWT_SECRET:?Set AYNI_JITSI_JWT_SECRET in deploy/jitsi/.env}
+      JWT_ACCEPTED_ISSUERS: ${AYNI_JITSI_APP_ID:-ayni}
+      JWT_ACCEPTED_AUDIENCES: jitsi
+      # The address the browser is told to use. TLS ends at the proxy, so this container speaks
+      # plain HTTP to it.
+      PUBLIC_URL: https://${AYNI_MEET_HOST:?Set AYNI_MEET_HOST in deploy/jitsi/.env}
+      DISABLE_HTTPS: "1"
+      ENABLE_HTTP_REDIRECT: "0"
+      # Internal names of the XMPP server. They never reach a browser, and the backend signs its
+      # passes for this subject (ayni.sessions.video.domain), so keep them as they are.
+      XMPP_DOMAIN: meet.jitsi
+      XMPP_AUTH_DOMAIN: auth.meet.jitsi
+      XMPP_GUEST_DOMAIN: guest.meet.jitsi
+      XMPP_MUC_DOMAIN: muc.meet.jitsi
+      XMPP_INTERNAL_MUC_DOMAIN: internal-muc.meet.jitsi
+      XMPP_SERVER: xmpp.meet.jitsi
+      XMPP_BOSH_URL_BASE: http://xmpp.meet.jitsi:5280
+      JICOFO_AUTH_PASSWORD: ${JICOFO_AUTH_PASSWORD:?Set JICOFO_AUTH_PASSWORD in deploy/jitsi/.env}
+      JICOFO_COMPONENT_SECRET: ${JICOFO_COMPONENT_SECRET:?Set JICOFO_COMPONENT_SECRET in deploy/jitsi/.env}
+      JVB_AUTH_PASSWORD: ${JVB_AUTH_PASSWORD:?Set JVB_AUTH_PASSWORD in deploy/jitsi/.env}
+      # The address the videobridge tells the browsers to send the media to: the public one of
+      # this machine, not of the backend's.
+      JVB_ADVERTISE_IPS: ${AYNI_JITSI_PUBLIC_IP:?Set AYNI_JITSI_PUBLIC_IP in deploy/jitsi/.env}
+      # The heaps of the two Java components. The images default to 3 GB each, more than the
+      # machine has (deploy/README.md, "Memory of the video machine").
+      JICOFO_MAX_MEMORY: ${JICOFO_MAX_MEMORY:-256m}
+      VIDEOBRIDGE_MAX_MEMORY: ${VIDEOBRIDGE_MAX_MEMORY:-384m}
+      TZ: UTC
+    networks: [edge, xmpp]
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-prosody:
+    image: jitsi/prosody:stable-9584
+    restart: unless-stopped
+    logging: *logging
+    expose:
+      - "5222"
+      - "5280"
+      - "5347"
+    environment: *jitsi
+    networks:
+      xmpp:
+        aliases:
+          - xmpp.meet.jitsi
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:stable-9584
+    restart: unless-stopped
+    logging: *logging
+    environment: *jitsi
+    networks: [xmpp]
+    depends_on:
+      - jitsi-prosody
+
+  jitsi-jvb:
+    image: jitsi/jvb:stable-9584
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      # The media of every call. With this port closed to the Internet a call connects and nobody
+      # hears or sees anything. The TCP fallback on 4443 is off; deploy/README.md, "Firewall", says
+      # how to turn it on.
+      - "10000:10000/udp"
+    environment: *jitsi
+    networks: [xmpp]
+    depends_on:
+      - jitsi-prosody
+
+networks:
+  # The proxy and the page of the call.
+  edge:
+    name: ayni-jitsi-edge
+  # The XMPP side of Jitsi, closed to everything else.
+  xmpp:
+    name: ayni-jitsi-xmpp
+
+volumes:
+  caddy-data:
+    name: ayni-jitsi-caddy-data
+  caddy-config:
+    name: ayni-jitsi-caddy-config
