@@ -1,11 +1,16 @@
 package pe.ayni.config;
 
+import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.core.converter.ModelConverter;
+import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import org.springdoc.core.customizers.OpenApiCustomizer;
@@ -34,6 +39,33 @@ public class OpenApiConfig {
 
   /** The headers the API trusted before TS03. Nothing reads them any more. */
   private static final Set<String> RETIRED_HEADERS = Set.of("x-tenant-id", "x-user-id");
+
+  /**
+   * Jackson writes a {@link LocalTime} as {@code "HH:mm:ss"}, but springdoc has no mapping for it
+   * and describes the bean ({@code hour, minute, second, nano}), so the types generated for the web
+   * lie. It is resolved as a string instead, with format {@code time}; what a field says about
+   * itself with {@code @Schema} (description, example, nullable) still applies. {@code LocalDate}
+   * already comes out as {@code string/date}.
+   */
+  @Bean
+  ModelConverter localTimeAsString() {
+    return (type, context, chain) -> {
+      if (Json.mapper().constructType(type.getType()).getRawClass() != LocalTime.class
+          || !chain.hasNext()) {
+        return chain.hasNext() ? chain.next().resolve(type, context, chain) : null;
+      }
+      AnnotatedType asString =
+          new AnnotatedType()
+              .type(String.class)
+              .ctxAnnotations(type.getCtxAnnotations())
+              .parent(type.getParent())
+              .schemaProperty(type.isSchemaProperty())
+              .propertyName(type.getPropertyName())
+              .skipOverride(type.isSkipOverride());
+      Schema<?> schema = chain.next().resolve(asString, context, chain);
+      return schema == null ? null : schema.format("time");
+    };
+  }
 
   @Bean
   OpenAPI ayniOpenApi() {

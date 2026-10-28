@@ -5299,13 +5299,13 @@
             "required": false,
             "schema": {
               "type": "string",
-              "default": "PROPOSED",
               "enum": [
                 "PROPOSED",
                 "APPROVED",
                 "MERGED",
                 "REJECTED"
-              ]
+              ],
+              "default": "PROPOSED"
             }
           },
           {
@@ -7915,10 +7915,16 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor becomes available. The range uses one-hour blocks.",
+            "format": "time",
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor stops being available. It must be after startsAtTime.",
+            "format": "time",
+            "example": "19:00:00"
           },
           "validFrom": {
             "type": "string",
@@ -7932,27 +7938,6 @@
             "format": "date",
             "nullable": true,
             "example": "2026-12-18"
-          }
-        }
-      },
-      "LocalTime": {
-        "type": "object",
-        "properties": {
-          "hour": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "minute": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "second": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "nano": {
-            "type": "integer",
-            "format": "int32"
           }
         }
       },
@@ -8014,10 +7999,16 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor becomes available.",
+            "format": "time",
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor stops being available.",
+            "format": "time",
+            "example": "19:00:00"
           },
           "validFrom": {
             "type": "string",
@@ -8140,10 +8131,18 @@
             "example": "2026-10-05"
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Start of the exception window. Required for ADD and timed REMOVE; null together with endsAtTime means a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "End of the exception window. Required for ADD and timed REMOVE; null together with startsAtTime means a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "18:00:00"
           },
           "kind": {
             "type": "string",
@@ -8178,10 +8177,18 @@
             "example": "2026-10-05"
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Start of the affected time window, or null for a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "End of the affected time window, or null for a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "18:00:00"
           },
           "kind": {
             "type": "string",
@@ -10166,13 +10173,15 @@
             "type": "string",
             "description": "Null together with endsAtTime for a REMOVE of the whole day.",
             "nullable": true,
-            "example": "10:00:00"
+            "example": "10:00:00",
+            "format": "time"
           },
           "endsAtTime": {
             "type": "string",
             "description": "Null together with startsAtTime for a REMOVE of the whole day.",
             "nullable": true,
-            "example": "11:00:00"
+            "example": "11:00:00",
+            "format": "time"
           },
           "kind": {
             "type": "string",
@@ -10232,11 +10241,13 @@
           },
           "startsAtTime": {
             "type": "string",
-            "example": "17:00:00"
+            "example": "17:00:00",
+            "format": "time"
           },
           "endsAtTime": {
             "type": "string",
-            "example": "19:00:00"
+            "example": "19:00:00",
+            "format": "time"
           },
           "validFrom": {
             "type": "string",
@@ -10356,12 +10367,14 @@
           "startTime": {
             "type": "string",
             "description": "Start, in the university's zone.",
-            "example": "09:00:00"
+            "example": "09:00:00",
+            "format": "time"
           },
           "endTime": {
             "type": "string",
             "description": "End, in the university's zone.",
-            "example": "10:00:00"
+            "example": "10:00:00",
+            "format": "time"
           },
           "booking": {
             "$ref": "#/components/schemas/TutorBooking"
@@ -12622,10 +12635,12 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "format": "time"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "format": "time"
           },
           "validFrom": {
             "type": "string",
