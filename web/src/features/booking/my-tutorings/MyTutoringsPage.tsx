@@ -126,12 +126,16 @@ export default function MyTutoringsPage() {
       await queryClient.invalidateQueries({ queryKey: ['booking'] });
       await queryClient.invalidateQueries({ queryKey: ['wallet'] });
     } catch (err) {
-      if (isApiError(err, 409)) {
-        const confirmation = errorBody<Schema<'LateCancellationConfirmation'>>(err);
+      const confirmation = isApiError(err, 409) ? errorBody<Schema<'LateCancellationConfirmation'>>(err) : undefined;
+      if (confirmation?.confirmationRequired || confirmation?.late) {
         setLateConfirmation({
           booking,
           confirmation,
         });
+      } else if (isApiError(err, 409)) {
+        // Not the late warning: the session already started, or the booking is no longer cancellable.
+        toast.error('Esta tutoría ya no se puede cancelar.');
+        await queryClient.invalidateQueries({ queryKey: ['booking'] });
       } else {
         toast.error(errorText(err));
       }
@@ -159,7 +163,8 @@ export default function MyTutoringsPage() {
       await queryClient.invalidateQueries({ queryKey: ['booking'] });
       await queryClient.invalidateQueries({ queryKey: ['wallet'] });
     } catch (err) {
-      toast.error(errorText(err));
+      setLateConfirmation(null);
+      toast.error(isApiError(err, 409) ? 'Esta tutoría ya no se puede cancelar.' : errorText(err));
     } finally {
       setIsConfirmingLate(false);
     }
@@ -202,10 +207,10 @@ export default function MyTutoringsPage() {
       if (session?.sessionId) {
         navigate(`/sesion/${session.sessionId}/repaso`);
       } else {
-        navigate(`/sesion/${booking.bookingId}/repaso`);
+        toast.error('No encontramos la sesión de esta tutoría.');
       }
-    } catch {
-      navigate(`/sesion/${booking.bookingId}/repaso`);
+    } catch (err) {
+      toast.error(errorText(err));
     } finally {
       setReviewingBookingId(null);
     }
@@ -213,12 +218,6 @@ export default function MyTutoringsPage() {
 
   return (
     <div className="mx-auto max-w-5xl py-4 sm:py-6">
-      {/* Test identifier for route suite without modifying App.test.tsx */}
-      <div className="sr-only">
-        <span>FE-12</span>
-        <h2>En construcción</h2>
-      </div>
-
       <PageHeader
         title="Mis tutorías"
         description={`Las que recibes. Horas en hora de ${zoneCity}.`}
