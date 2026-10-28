@@ -47,7 +47,7 @@ Internet ── 443 ──────▶ app.<domain>  web/dist: the page, whic
 | `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
 | `jitsi/Caddyfile` | `meet.` |
 | `../.github/workflows/release.yml` | A `v*` tag publishes `ghcr.io/<owner>/ayni-backend:<tag>` |
-| `../.github/workflows/deploy.yml` | Manual: runs `backend/update.sh` on the backend machine over SSH, then builds and publishes the web application |
+| `../.github/workflows/deploy.yml` | After each release, and by hand for any tag: runs `backend/update.sh` on the backend machine through Azure (`az vm run-command`, no SSH), then builds and publishes the web application |
 | `../web/public/staticwebapp.config.json` | The routes and headers of the web application on Static Web Apps |
 
 Nothing here states what the machines or the database will cost: prices change, so read them from
@@ -224,15 +224,10 @@ az staticwebapp show --resource-group ayni --name ayni-web --query defaultHostna
 
 Give it no `--source`: that would have Azure write a workflow of its own into the repository. The
 second command prints a name like `<words>.azurestaticapps.net`: the address of the web
-application, or the value of the DNS record of `app.` (below). Its deployment token is a secret of
-the **Deploy** workflow; this hands it to GitHub without printing it (it needs the `gh` CLI, signed
-in, and the `production` environment of
-[Configuring the deploy workflow](#configuring-the-deploy-workflow-once)):
-
-```bash
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env production --body \
-  "$(az staticwebapp secrets list --resource-group ayni --name ayni-web --query properties.apiKey -o tsv)"
-```
+application, or the value of the DNS record of `app.` (below). Its deployment token is not
+copied anywhere: the **Deploy** workflow reads it from Azure each time
+([Configuring the deploy workflow](#configuring-the-deploy-workflow-once)), and a publication by
+hand reads it with `az` (see [Starting](#starting)).
 
 With a domain of your own, once the record of `app.` resolves, give the web application its
 address; Static Web Apps checks the record and issues the certificate by itself, which can take some
@@ -589,12 +584,13 @@ git fetch --tags && git checkout --detach refs/tags/v1.0.0
 the backend is healthy. The first start runs every migration and can take a couple of minutes.
 Each Caddy gets its certificates the first time each name is asked for.
 
-Last, the web application. Run **Deploy** (Actions, Deploy, Run workflow) with the same tag: it
-repeats the step above, which changes nothing the second time, and then builds the web with
-`VITE_API_BASE_URL` and publishes it. Its first job signs in to the backend machine over SSH from
-GitHub's runners, so it cannot while SSH is open only to your own address (see
-[Firewall](#firewall)). Then publish the web by hand, from your own computer; the token goes from
-`az` to the tool without being printed. This is how it was published on 2026-10-27:
+Last, the web application. Once
+[the deploy workflow is configured](#configuring-the-deploy-workflow-once), **Deploy** does it: it
+starts by itself when **Release** has published the image of a tag, and by hand from Actions
+(Deploy, Run workflow) with any tag. It repeats the step above through Azure,
+which changes nothing the second time, and then builds the web with `VITE_API_BASE_URL` and
+publishes it. Before it is configured, publish the web by hand, from your own computer; the token
+goes from `az` to the tool without being printed. This is how it was published on 2026-10-27:
 
 ```bash
 git switch --detach v1.0.0 && cd web
@@ -880,11 +876,14 @@ Practise a restore into a spare database before you need one.
 
 ## 9. Updating
 
-1. Take a [backup](#8-backup-and-restore).
-2. A maintainer pushes the new tag; wait for the **Release** workflow to publish its image.
+1. Take a [backup](#8-backup-and-restore), **before the tag**: once configured, **Deploy** starts
+   by itself as soon as the image is published.
+2. A maintainer pushes the new tag; the **Release** workflow publishes its image.
 3. Deploy it, either way:
-   - **From GitHub:** Actions, **Deploy**, Run workflow, with the tag. This needs the `production`
-     environment configured once (below).
+   - **From GitHub:** **Deploy** runs by itself after **Release** (Actions shows it), or by hand
+     from Actions, Deploy, Run workflow, with the tag. This needs the `production` environment
+     configured once (below). If it fails because the backend machine is deallocated, start it
+     (`az vm start`) and run it by hand.
    - **By hand, on the backend machine:**
 
      ```bash
@@ -910,23 +909,68 @@ A call in progress is cut; do it when there is none.
 
 ### Configuring the deploy workflow, once
 
-In the repository: Settings, Environments, New environment, named exactly `production` (add required
-reviewers if more than one person can run workflows). In it:
+**Deploy** never opens SSH. It signs in to Azure with the OpenID Connect token GitHub gives each
+run, as a *managed identity*: an identity of the subscription with no password, which accepts only
+the runs of this repository's `production` environment and may act only on the resource group
+`ayni`. Through it, Azure runs the update on the backend machine (`az vm run-command`, as root,
+which changes to the user `ayni`) and hands over the deployment token of the static web app. It
+needs no app registration in the directory, which a university's tenant often forbids. From your
+own computer, with `az` signed in as an owner of the subscription and `gh` signed in:
+
+```bash
+az provider register --namespace Microsoft.ManagedIdentity --wait
+az identity create --resource-group ayni --name ayni-deploy --location chilecentral --output none
+az role assignment create --role Contributor \
+  --assignee-object-id "$(az identity show -g ayni -n ayni-deploy --query principalId -o tsv)" \
+  --assignee-principal-type ServicePrincipal \
+  --scope "$(az group show --name ayni --query id -o tsv)" --output none
+az identity federated-credential create --resource-group ayni --identity-name ayni-deploy \
+  --name github-production --issuer https://token.actions.githubusercontent.com \
+  --subject repo:ayni-team/ayni:environment:production \
+  --audiences api://AzureADTokenExchange --output none
+```
+
+`Contributor` on the group lets it run commands on the machines and read the token of the static
+web app, and touches nothing outside `ayni`. The subject ties it to the `production` environment of
+`ayni-team/ayni`: no other repository, branch or environment can use it.
+
+Then the environment and its variables. None is a secret: an identifier alone signs nobody in.
+
+```bash
+gh api -X PUT repos/ayni-team/ayni/environments/production --silent
+gh variable set AZURE_CLIENT_ID --env production \
+  --body "$(az identity show -g ayni -n ayni-deploy --query clientId -o tsv)"
+gh variable set AZURE_TENANT_ID --env production --body "$(az account show --query tenantId -o tsv)"
+gh variable set AZURE_SUBSCRIPTION_ID --env production --body "$(az account show --query id -o tsv)"
+gh variable set AYNI_API_BASE_URL --env production --body https://api.example.org
+```
 
 | Name | Kind | Value |
 |---|---|---|
-| `DEPLOY_HOST` | secret | The backend machine's address |
-| `DEPLOY_USER` | secret | The user that owns `/opt/ayni` and may run docker |
-| `DEPLOY_SSH_KEY` | secret | A private key whose public half is in that user's `~/.ssh/authorized_keys`. Make a key for this and nothing else: `ssh-keygen -t ed25519 -f deploy_key -C ayni-deploy` |
-| `DEPLOY_KNOWN_HOSTS` | secret, optional | The output of `ssh-keyscan -t ed25519 <host>`. Without it the workflow trusts the key the machine shows at that moment |
-| `DEPLOY_PATH` | variable, optional | The checkout on the machine, `/opt/ayni` by default |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | secret | The deployment token of the static web app (see [Creating the resources](#creating-the-resources)) |
+| `AZURE_CLIENT_ID` | variable | The client id of the managed identity `ayni-deploy` |
+| `AZURE_TENANT_ID` | variable | The tenant of the subscription |
+| `AZURE_SUBSCRIPTION_ID` | variable | The subscription |
 | `AYNI_API_BASE_URL` | variable | The origin of the API the web calls: `https://api.example.org`, no trailing slash |
+| `AZURE_RESOURCE_GROUP` | variable, optional | `ayni` by default |
+| `AYNI_BACKEND_VM` | variable, optional | `ayni-backend` by default |
+| `AYNI_STATIC_WEB_APP` | variable, optional | `ayni-web` by default |
+| `DEPLOY_USER` | variable, optional | The user that owns `/opt/ayni` and may run docker, `ayni` by default |
+| `DEPLOY_PATH` | variable, optional | The checkout on the machine, `/opt/ayni` by default |
 
-None of these is written in the repository. The runners connect from GitHub's addresses, which
-change: with SSH allowed only from your own address, the first job cannot reach the machine.
-Until the workflow updates the machine another way, update it by hand (above) and publish the web
-by hand (see [Starting](#starting)).
+Check that Azure can run commands as that user on the machine before the first release, from your
+own computer (it prints the containers of the stack):
+
+```bash
+az vm run-command invoke --resource-group ayni --name ayni-backend --command-id RunShellScript \
+  --scripts "sudo -u ayni -H bash -c 'cd /opt/ayni/deploy/backend && docker compose ps'" \
+  --query 'value[0].message' -o tsv
+```
+
+Azure reports success whatever the command returns, so the workflow looks for the last line of
+its output, which only a finished update prints, and fails without it. Add required reviewers to
+the environment (Settings, Environments, production) if a release should wait for someone before
+it reaches the machine. A release deployed while the backend machine is deallocated fails at its
+first step; start the machine and run **Deploy** by hand with the tag.
 
 ## 10. Rolling back
 
@@ -1147,6 +1191,10 @@ machines, a real domain and a real browser, and should be run by hand the first 
   certificate, the routes and headers of `staticwebapp.config.json` (that a route such as
   `/access/confirm` answers the page, that `assets/` keeps its long cache over the global
   `no-cache`), and the publishing job of the **Deploy** workflow.
+- The **Deploy** workflow through Azure: the managed identity and its federated credential, the
+  sign in of `azure/login` with them, `az vm run-command` running `update.sh` as `ayni`, the
+  token of the static web app read at the time of use, and the start after **Release**. Checked
+  with `actionlint` and by running the command it builds through `bash -n`; not run on GitHub.
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
