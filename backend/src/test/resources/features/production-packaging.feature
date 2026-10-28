@@ -68,6 +68,11 @@ Feature: Packaging Ayni for production
     Then the answer carries no CORS header and is refused
     And an allowed origin is answered with its CORS header
 
+  Scenario: An allowed origin reads the name of a downloaded file
+    Given the allowed origins are configured
+    When the web application, served from an allowed origin, downloads an attachment
+    Then the answer lets the browser read its Content-Disposition
+
   Scenario: Another origin cannot open the live channel of a whiteboard
     Given the allowed origins are configured and a session in progress
     When a participant opens the live channel from another origin

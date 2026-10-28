@@ -32,6 +32,13 @@ Open http://localhost:5173. Vite proxies `/api` to the backend (http://localhost
 `AYNI_API_URL` if it runs elsewhere), so the browser only talks to its own origin and there is no
 CORS to configure.
 
+A deployment serves the web from another host than the API (`app.` and `api.`), so it builds the
+web with the origin of the API: `VITE_API_BASE_URL=https://api.example.org npm run build`. Every
+call goes through `apiUrl` in `src/shared/api/client.ts`, which puts that origin in front of the
+path; empty, as in development, the paths stay relative. It is read at build time.
+`public/staticwebapp.config.json` gives Azure Static Web Apps the routes of the single page
+application and the headers. `deploy/README.md` has the rest.
+
 `docker compose up` without naming services also starts the web in a container on the same port. If
 you add a dependency, rebuild it once: `docker compose up -d --build web`.
 
