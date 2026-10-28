@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
-import { CARLOS, serveFrame, signIn } from '@/test/fixtures';
+import { ANA, CARLOS, UPC, WALLET, serveFrame, signIn } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/render';
 import { currentSession } from '../session/session';
 import { AppLayout } from './AppLayout';
@@ -34,6 +34,49 @@ describe('navigationFor', () => {
       ['Como tutor', ['Agenda']],
     ]);
     expect(navigationFor('PLATFORM_ADMIN', NAVIGATION)).toEqual([]);
+  });
+});
+
+describe('AppLayout and the university', () => {
+  it('paints no content until the university has loaded', async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    serveFrame(fakeServer());
+    const original = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/v1/university')) await gate;
+      return original(input, init);
+    });
+    signIn('STUDENT');
+    renderFrame();
+
+    expect(await screen.findAllByRole('status')).not.toHaveLength(0);
+    expect(screen.queryByText('Contenido')).not.toBeInTheDocument();
+    release?.();
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
+  });
+
+  it('offers to retry, and never shows the content, when the university fails to load', async () => {
+    const server = fakeServer()
+      .on('GET', '/api/v1/me', { body: ANA })
+      .on('GET', '/api/v1/wallet', { body: WALLET })
+      .on('GET', '/api/v1/university', { status: 500, body: { status: 500, message: 'boom' } });
+    signIn('STUDENT');
+    const { user } = renderFrame();
+
+    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+    expect(screen.queryByText('Contenido')).not.toBeInTheDocument();
+
+    server.on('GET', '/api/v1/university', { body: UPC });
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
+  });
+
+  it('does not wait for a university a platform administrator does not have', async () => {
+    fakeServer();
+    signIn('PLATFORM_ADMIN');
+    renderFrame('/admin');
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
   });
 });
 

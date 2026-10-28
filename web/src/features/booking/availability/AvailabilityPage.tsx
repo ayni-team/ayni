@@ -20,6 +20,10 @@ import {
   TextField,
   useToast,
 } from '@/shared/ui';
+import {
+  addDays,
+  useUniversityToday,
+} from '@/shared/time';
 
 type WeeklyRange =
     Schema<'TutorAvailabilityWeeklyRange'>;
@@ -112,47 +116,6 @@ function apiTime(
           : value;
 
   return normalized as unknown as ApiLocalTime;
-}
-
-function inputDate(
-    offsetDays = 0,
-): string {
-  const date =
-      new Date();
-
-  date.setHours(
-      12,
-      0,
-      0,
-      0,
-  );
-
-  date.setDate(
-      date.getDate() +
-      offsetDays,
-  );
-
-  const year =
-      date.getFullYear();
-
-  const month =
-      String(
-          date.getMonth() +
-          1,
-      ).padStart(
-          2,
-          '0',
-      );
-
-  const day =
-      String(
-          date.getDate(),
-      ).padStart(
-          2,
-          '0',
-      );
-
-  return `${year}-${month}-${day}`;
 }
 
 function weekdayFor(
@@ -457,6 +420,10 @@ function HelpfulInformation() {
 }
 
 export default function AvailabilityPage() {
+  // The university's day, not the browser's: the defaults of the forms start from it.
+  const today =
+      useUniversityToday();
+
   const toaster =
       useToast();
 
@@ -473,7 +440,10 @@ export default function AvailabilityPage() {
       );
 
   const initialValidFrom =
-      inputDate(1);
+      addDays(
+          today,
+          1,
+      );
 
   const [
     range,
@@ -522,7 +492,7 @@ export default function AvailabilityPage() {
     endsAtTime: string;
   }>(() => ({
     exceptionDate:
-        inputDate(5),
+        addDays(today, 5),
     kind: 'REMOVE',
     startsAtTime:
         '16:00',
@@ -550,9 +520,9 @@ export default function AvailabilityPage() {
   ] = useState(
       () => ({
         startsOn:
-            inputDate(1),
+            addDays(today, 1),
         endsOn:
-            inputDate(8),
+            addDays(today, 8),
       }),
   );
 

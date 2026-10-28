@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Schema } from '@/shared/api';
 import { useApiQuery } from '@/shared/api';
 import { useUniversity } from '@/shared/brand';
-import { addDays, dayInZone, formatInZone, todayInZone, useZone } from '@/shared/time';
+import { addDays, dayInZone, formatInZone, useUniversityToday, useZone } from '@/shared/time';
 import { Button, EmptyState, ErrorState, IconClock, PageHeader, Skeleton } from '@/shared/ui';
 import { formatWeekRange, getMondayOfWeek, startOfDayInZone } from './dateUtils';
 import { SearchDayList } from './SearchDayList';
@@ -71,6 +71,7 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const zone = useZone();
+  const today = useUniversityToday();
   // The window is in the university's days: search only once its zone is known.
   const zoneKnown = Boolean(useUniversity()?.timezone);
 
@@ -85,10 +86,10 @@ export default function SearchPage() {
     }
   }, [paramCatalogItemId, selectedCatalogItemId]);
 
-  // Current week (Monday), counted from the university's today: the zone may arrive after the
-  // first render, so the week is derived from it instead of being frozen in the initial state.
+  // Current week (Monday), counted from the university's today, derived on every render so that
+  // it follows the zone instead of being frozen in the initial state.
   const [weekOffset, setWeekOffset] = useState(0);
-  const mondayStr = addDays(getMondayOfWeek(todayInZone(zone)), 7 * weekOffset);
+  const mondayStr = addDays(getMondayOfWeek(today), 7 * weekOffset);
   const [page, setPage] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 

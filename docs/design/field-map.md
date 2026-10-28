@@ -136,12 +136,12 @@ que FE-10. Quitado: el filtro de franja y su texto.
 
 [desktop](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=35-403) ·
 [mobile](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=35-459) · estados:
-inicial, buscando, no afiliada (404), enlace enviado (202).
+inicial, buscando, no afiliada (404: una pista, el botón sigue habilitado), enlace enviado (202).
 
 | Dato | Origen |
 |---|---|
 | Correo | entrada: `RequestAccessRequest.email` |
-| Logo, nombre y código de la universidad; barra y botón de marca | `GET /api/v1/access/university?email= → UniversityIdentityView.logoUrl`, `.name`, `.code`, `.primaryColor`, `.secondaryColor` |
+| Logo, nombre y código de la universidad; barra y botón de marca | `GET /api/v1/access/university?domain= → UniversityIdentityView.logoUrl`, `.name`, `.code`, `.primaryColor`, `.secondaryColor` |
 | "No encontramos una universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace." | 404 de esa llamada; es una pista, el botón sigue activo |
 | "Tu universidad todavía no está afiliada a Ayni" | `POST /api/v1/access/request` → 400 después de ese 404 (un correo que no es del administrador) |
 | "Te enviamos un enlace a {correo}. Vence en 10 minutos." | `POST /api/v1/access/request` → 202; el correo es el escrito; "10 minutos" es **regla** del contrato |
@@ -152,6 +152,9 @@ inicial, buscando, no afiliada (404), enlace enviado (202).
 [desktop (paso 3)](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=36-636) ·
 [mobile](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=36-1028) · estados:
 paso 1, paso 2 sin importar, paso 2 importado, curso no habilitado, cargando, error.
+
+> **Pendiente de actualizar en Figma (FE-03):** si el curso elegido no está habilitado para enseñar,
+> el último paso muestra un aviso fijo y un botón "Continuar" que lleva a `/buscar`.
 
 | Dato | Origen |
 |---|---|
@@ -349,6 +352,9 @@ rango agregado, rango quitado, en pausa, rango inválido, sin lista.
 [desktop](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=48-4373) ·
 [mobile](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=48-5020) · estados:
 cancelación tardía, historial, cargando, vacío, error.
+
+> **Pendiente de actualizar en Figma (FE-41):** toda cancelación pide confirmación en un Dialog (no
+> solo la tardía).
 
 | Dato | Origen |
 |---|---|
