@@ -2781,8 +2781,18 @@ export interface components {
              * @enum {string}
              */
             dayOfWeek: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-            startsAtTime: components["schemas"]["LocalTime"];
-            endsAtTime: components["schemas"]["LocalTime"];
+            /**
+             * Format: time
+             * @description Local time when the tutor becomes available. The range uses one-hour blocks.
+             * @example 17:00:00
+             */
+            startsAtTime: string;
+            /**
+             * Format: time
+             * @description Local time when the tutor stops being available. It must be after startsAtTime.
+             * @example 19:00:00
+             */
+            endsAtTime: string;
             /**
              * Format: date
              * @description First calendar date on which this weekly pattern is valid.
@@ -2795,16 +2805,6 @@ export interface components {
              * @example 2026-12-18
              */
             validUntil?: string | null;
-        };
-        LocalTime: {
-            /** Format: int32 */
-            hour?: number;
-            /** Format: int32 */
-            minute?: number;
-            /** Format: int32 */
-            second?: number;
-            /** Format: int32 */
-            nano?: number;
         };
         /** @description What went wrong */
         BookingApiError: {
@@ -2844,8 +2844,18 @@ export interface components {
              * @enum {string}
              */
             dayOfWeek?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-            startsAtTime?: components["schemas"]["LocalTime"];
-            endsAtTime?: components["schemas"]["LocalTime"];
+            /**
+             * Format: time
+             * @description Local time when the tutor becomes available.
+             * @example 17:00:00
+             */
+            startsAtTime?: string;
+            /**
+             * Format: time
+             * @description Local time when the tutor stops being available.
+             * @example 19:00:00
+             */
+            endsAtTime?: string;
             /**
              * Format: date
              * @description First date on which the pattern is valid.
@@ -2946,8 +2956,18 @@ export interface components {
              * @example 2026-10-05
              */
             exceptionDate: string;
-            startsAtTime?: components["schemas"]["LocalTime"];
-            endsAtTime?: components["schemas"]["LocalTime"];
+            /**
+             * Format: time
+             * @description Start of the exception window. Required for ADD and timed REMOVE; null together with endsAtTime means a whole-day REMOVE.
+             * @example 17:00:00
+             */
+            startsAtTime?: string | null;
+            /**
+             * Format: time
+             * @description End of the exception window. Required for ADD and timed REMOVE; null together with startsAtTime means a whole-day REMOVE.
+             * @example 18:00:00
+             */
+            endsAtTime?: string | null;
             /**
              * @description Type of exception: ADD creates extraordinary availability and REMOVE removes availability.
              * @example REMOVE
@@ -2974,8 +2994,18 @@ export interface components {
              * @example 2026-10-05
              */
             exceptionDate?: string;
-            startsAtTime?: components["schemas"]["LocalTime"];
-            endsAtTime?: components["schemas"]["LocalTime"];
+            /**
+             * Format: time
+             * @description Start of the affected time window, or null for a whole-day REMOVE.
+             * @example 17:00:00
+             */
+            startsAtTime?: string | null;
+            /**
+             * Format: time
+             * @description End of the affected time window, or null for a whole-day REMOVE.
+             * @example 18:00:00
+             */
+            endsAtTime?: string | null;
             /**
              * @description Whether the exception adds or removes availability.
              * @example REMOVE
@@ -4227,11 +4257,13 @@ export interface components {
              */
             exceptionDate?: string;
             /**
+             * Format: time
              * @description Null together with endsAtTime for a REMOVE of the whole day.
              * @example 10:00:00
              */
             startsAtTime?: string | null;
             /**
+             * Format: time
              * @description Null together with startsAtTime for a REMOVE of the whole day.
              * @example 11:00:00
              */
@@ -4275,9 +4307,15 @@ export interface components {
              * @enum {string}
              */
             dayOfWeek?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-            /** @example 17:00:00 */
+            /**
+             * Format: time
+             * @example 17:00:00
+             */
             startsAtTime?: string;
-            /** @example 19:00:00 */
+            /**
+             * Format: time
+             * @example 19:00:00
+             */
             endsAtTime?: string;
             /**
              * Format: date
@@ -4369,11 +4407,13 @@ export interface components {
              */
             date?: string;
             /**
+             * Format: time
              * @description Start, in the university's zone.
              * @example 09:00:00
              */
             startTime?: string;
             /**
+             * Format: time
              * @description End, in the university's zone.
              * @example 10:00:00
              */
@@ -5926,8 +5966,10 @@ export interface components {
             patternId?: string;
             /** @enum {string} */
             dayOfWeek?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-            startsAtTime?: components["schemas"]["LocalTime"];
-            endsAtTime?: components["schemas"]["LocalTime"];
+            /** Format: time */
+            startsAtTime?: string;
+            /** Format: time */
+            endsAtTime?: string;
             /** Format: date */
             validFrom?: string;
             /** Format: date */

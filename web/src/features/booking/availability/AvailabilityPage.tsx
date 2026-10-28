@@ -36,9 +36,6 @@ type DayOfWeek =
 type ExceptionKind =
     Schema<'AvailabilityExceptionRequest'>['kind'];
 
-type ApiLocalTime =
-    Schema<'LocalTime'>;
-
 const AVAILABILITY_KEY =
     [
       'booking',
@@ -109,13 +106,10 @@ const EXCEPTION_OPTIONS = [
 
 function apiTime(
     value: string,
-): ApiLocalTime {
-  const normalized =
-      value.length === 5
-          ? `${value}:00`
-          : value;
-
-  return normalized as unknown as ApiLocalTime;
+): string {
+  return value.length === 5
+      ? `${value}:00`
+      : value;
 }
 
 function weekdayFor(
