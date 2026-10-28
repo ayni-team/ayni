@@ -145,6 +145,9 @@ services:
       # no certificate is asked for and nothing outside the container can reach. The hash is that
       # of a random password nobody knows, so a forgotten value locks the page instead of opening it.
       MAILPIT_SITE: ${MAILPIT_SITE:-http://mailpit.internal:8081}
+      # true serves the page at /mailpit/ of AYNI_API_HOST instead, behind the same user and
+      # password, for a deployment with no name for MAILPIT_SITE.
+      MAILPIT_ON_API_HOST: ${MAILPIT_ON_API_HOST:-false}
       MAILPIT_BASIC_AUTH_USER: ${MAILPIT_BASIC_AUTH_USER:-ayni}
       MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH:-$$2a$$14$$JxrZe/D8eza7Y5aznxiU5.qzDJI0V4WsrZy8EOVgeB1sMlfH319yO}
     volumes:
@@ -159,8 +162,9 @@ services:
 
   # ---------------------------------------------------------------------------
   # Optional: catches every email instead of delivering it, and shows them at
-  # https://<MAILPIT_SITE> behind a user and a password the proxy asks for. For a demonstration
-  # only: the emails hold the links that sign people in. Read "Mail" in deploy/README.md first.
+  # https://<MAILPIT_SITE>/mailpit/, or https://<AYNI_API_HOST>/mailpit/ with MAILPIT_ON_API_HOST,
+  # behind a user and a password the proxy asks for. For a demonstration only: the emails hold the
+  # links that sign people in. Read "Mail" in deploy/README.md first.
   #
   #     docker compose --profile mailpit up -d
   # ---------------------------------------------------------------------------
@@ -169,6 +173,9 @@ services:
     profiles: [mailpit]
     restart: unless-stopped
     logging: *logging
+    environment:
+      # The page and its API answer under /mailpit/, so the proxy can serve them on a path.
+      MP_WEBROOT: mailpit
     networks: [edge]
 
 networks:

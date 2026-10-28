@@ -291,8 +291,8 @@ size. The public address stays the same, because it is static.
 
    They make `ayni-api.chilecentral.cloudapp.azure.com` and
    `ayni-meet.centralus.cloudapp.azure.com`. A label is unique within its region: if one is taken,
-   choose another. An IP carries one name only, so the protected Mailpit, which needs a name of its
-   own, waits for a domain.
+   choose another. An IP carries one name only, so the protected Mailpit is served at `/mailpit/`
+   of the backend's name instead (see [Option B](#option-b-mailpit-behind-a-password)).
 
 3. Wait until they resolve, from your own computer: `dig +short <api name>` and
    `dig +short <meet name>` must print their addresses, and with a domain
@@ -455,6 +455,19 @@ row level security bind the application, so build it exactly:
    GRANT CONNECT ON DATABASE ayni TO ayni_app;
    ```
 
+   **On Azure, give the owner the `public` schema as well.** A database made there from its
+   template keeps `public` under one of Azure's roles, and the first start then stops at once with
+   `permission denied for schema public`: Flyway's history and the event publication registry live
+   in it. Connected to the new database (`dbname=ayni` in the command of step 2):
+
+   ```sql
+   ALTER SCHEMA public OWNER TO ayni;
+   SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'public';   -- ayni
+   ```
+
+   On a server where `public` already belongs to the owner of the database (PostgreSQL 15 and
+   later, from a template of its own), the statement changes nothing.
+
    Creating `ayni_app` yourself is what keeps the owner free of `CREATEROLE`. If you skip it, the
    first migration creates the role with `AYNI_DB_APP_PASSWORD`, which then needs `CREATEROLE` on
    `ayni` for that first start. A role that already exists keeps its own password, so
@@ -578,13 +591,18 @@ Each Caddy gets its certificates the first time each name is asked for.
 
 Last, the web application. Run **Deploy** (Actions, Deploy, Run workflow) with the same tag: it
 repeats the step above, which changes nothing the second time, and then builds the web with
-`VITE_API_BASE_URL` and publishes it. To publish it by hand instead, from your own computer, with
-the token of the static web app in `SWA_CLI_DEPLOYMENT_TOKEN` (untested here):
+`VITE_API_BASE_URL` and publishes it. Its first job signs in to the backend machine over SSH from
+GitHub's runners, so it cannot while SSH is open only to your own address (see
+[Firewall](#firewall)). Then publish the web by hand, from your own computer; the token goes from
+`az` to the tool without being printed. This is how it was published on 2026-10-27:
 
 ```bash
-git checkout --detach refs/tags/v1.0.0 && cd web
+git switch --detach v1.0.0 && cd web
 npm ci && VITE_API_BASE_URL=https://api.example.org npm run build
-npx --yes @azure/static-web-apps-cli deploy ./dist --env production
+SWA_CLI_DEPLOYMENT_TOKEN="$(az staticwebapp secrets list --resource-group ayni --name ayni-web \
+  --query properties.apiKey -o tsv)" \
+  npx --yes @azure/static-web-apps-cli deploy ./dist --env production
+cd .. && git switch develop
 ```
 
 A web built without `VITE_API_BASE_URL` calls `app.` itself, where there is no API, and every
@@ -684,19 +702,40 @@ An empty installation has no platform administrator, and nothing but one can reg
      -d '{"email": "admin@example.org"}'          # 202
    ```
 
-2. Open the email. The link looks like `https://app.example.org/access/confirm?token=...`. Open it,
-   or send its `token` yourself, and keep the `sessionToken` of the answer:
+2. Read the email (with Mailpit, on its page, see [Option B](#option-b-mailpit-behind-a-password)).
+   The link looks like `https://app.example.org/access/confirm?token=...`, and works **once**:
+   opened in a browser, it signs that browser in, and the web application has no screen of the
+   administrator yet. For what follows, send its `token` yourself instead, without opening it, and
+   keep the `sessionToken` of the answer in a variable of your shell:
 
    ```bash
-   curl -sS -X POST https://api.example.org/api/v1/access/confirm \
-     -H 'Content-Type: application/json' -d '{"token": "<token from the link>"}'
+   S=$(curl -sS -X POST https://api.example.org/api/v1/access/confirm \
+     -H 'Content-Type: application/json' -d '{"token": "<token from the link>"}' \
+     | python3 -c "import json,sys;print(json.load(sys.stdin)['sessionToken'])")
    ```
 
-3. Register the first university:
+   A `KeyError` there means the answer was an error: run the `curl` alone to read it. *This access
+   link has expired or was already used* asks for a new link.
+
+3. Register the universities. When the academic system already has the university's document
+   (step 4 below), register it from there, which takes its name, domains, timezone and minimum
+   grade from the document; the credits are Ayni's, so you give them:
+
+   ```bash
+   for U in UPC USIL; do
+     curl -sS -w ' -> %{http_code}\n' -X POST \
+       https://api.example.org/api/v1/admin/universities/from-academic-system \
+       -H "Authorization: Bearer $S" -H 'Content-Type: application/json' \
+       -d "{\"code\": \"$U\", \"initialCredits\": 5, \"creditValidityDays\": 90}"
+   done                                              # 201 each
+   curl -sS 'https://api.example.org/api/v1/access/university?email=someone@upc.edu.pe'
+   ```
+
+   Or by hand, with every field given:
 
    ```bash
    curl -sS -X POST https://api.example.org/api/v1/admin/universities \
-     -H "Authorization: Bearer <sessionToken>" -H 'Content-Type: application/json' \
+     -H "Authorization: Bearer $S" -H 'Content-Type: application/json' \
      -d '{
            "code": "UPC",
            "name": "Universidad Peruana de Ciencias Aplicadas",
@@ -818,8 +857,10 @@ REVOKE ALL ON DATABASE ayni FROM PUBLIC;
 GRANT CONNECT ON DATABASE ayni TO ayni_app;
 ```
 
-Then load the dump as the owner. Keep the privileges in it (do not pass `--no-acl`): they are what
-gives `ayni_app` its access. The roles themselves are not in a dump, so they must exist already:
+and, on Azure, connected to the new `ayni`, `ALTER SCHEMA public OWNER TO ayni;` as in
+[The database](#3-the-database). Then load the dump as the owner. Keep the privileges in it (do
+not pass `--no-acl`): they are what gives `ayni_app` its access. The roles themselves are not in
+a dump, so they must exist already:
 
 ```bash
 docker run --rm -e PGPASSWORD='<owner password>' -v "$HOME/ayni-backups:/backups" postgres:16-alpine \
@@ -882,7 +923,10 @@ reviewers if more than one person can run workflows). In it:
 | `AZURE_STATIC_WEB_APPS_API_TOKEN` | secret | The deployment token of the static web app (see [Creating the resources](#creating-the-resources)) |
 | `AYNI_API_BASE_URL` | variable | The origin of the API the web calls: `https://api.example.org`, no trailing slash |
 
-None of these is written in the repository.
+None of these is written in the repository. The runners connect from GitHub's addresses, which
+change: with SSH allowed only from your own address, the first job cannot reach the machine.
+Until the workflow updates the machine another way, update it by hand (above) and publish the web
+by hand (see [Starting](#starting)).
 
 ## 10. Rolling back
 
@@ -998,8 +1042,21 @@ link on that page and opens it.
    MAILPIT_PASSWORD_HASH='$2a$14$...'
    ```
 
-3. `docker compose up -d`. The page is at `https://mail.example.org`, and the proxy asks for the user
-   and the password before showing anything.
+   Without a name of its own for the page (on the names Azure gives the addresses, which carry
+   one name each), leave `MAILPIT_SITE` out and set instead:
+
+   ```
+   MAILPIT_ON_API_HOST=true
+   ```
+
+3. `docker compose up -d`. The page is at `https://mail.example.org/mailpit/` (the root redirects
+   there), or at `https://<AYNI_API_HOST>/mailpit/` with `MAILPIT_ON_API_HOST`, and the proxy asks
+   for the user and the password before showing anything. Its search box filters by recipient
+   (`to:u202500025@upc.edu.pe`). Mailpit's own API is under the same path, behind the same password:
+
+   ```bash
+   curl -sS -u ayni 'https://api.example.org/mailpit/api/v1/message/latest' | head -c 200
+   ```
 
 Compromises, which are real:
 
@@ -1011,6 +1068,16 @@ Compromises, which are real:
   container empties it.
 - With the profile off, the page is not exposed at all: `MAILPIT_SITE` falls back to an address that
   nothing outside the container can reach, and no certificate is requested for it.
+  `MAILPIT_ON_API_HOST` off leaves `/mailpit/` to the backend, which answers 404.
+- Without the page, read it through SSH instead, from your own computer: the first command finds
+  the container's address on the machine, the second keeps a tunnel open, and the page is then at
+  <http://localhost:58025/mailpit/>:
+
+  ```bash
+  IP=$(ssh ayni@api.example.org \
+    "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ayni-mailpit-1")
+  ssh -N -L 58025:$IP:8025 ayni@api.example.org
+  ```
 
 To go from B to A, remove `COMPOSE_PROFILES`, `MAILPIT_*`, set the SMTP variables of A and run
 `docker compose up -d --remove-orphans`.
@@ -1083,7 +1150,9 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
-- The connection to the managed database with `sslmode=require`, and the role checks of step 6.
+- Mailpit at `/mailpit/` of the backend's name, and at the root of `MAILPIT_SITE` redirecting to
+  it: run on a laptop through the same `Caddyfile` (the password asked, the page and its API
+  served, the path left to the backend while it is off), not yet on the machine.
 - The `Release` and `Deploy` workflows on GitHub, with the `production` environment.
 - `backend/update.sh` on the backend machine, including the web build with Node in Docker.
 - The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
