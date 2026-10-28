@@ -23,9 +23,10 @@ older interfaces) and create one rule for `main` and another for `develop`, both
 `Require review from Code Owners` is what makes `.github/CODEOWNERS` binding. Without it, that file
 only suggests a reviewer.
 
-Also, in **Settings → General → Pull Requests**, leave only **Allow squash merging** enabled. Every
-branch then lands as a single commit on `develop`, whose message is the title of the pull request.
-That keeps the history readable and is why the title follows Conventional Commits.
+Also, in **Settings → General → Pull Requests**, enable **Allow squash merging** and **Allow merge
+commits**, and nothing else. Every branch lands on `develop` squashed, as a single commit whose
+message is the title of the pull request. That keeps the history readable and is why the title
+follows Conventional Commits. Merge commits are for releases only (below).
 
 ## How the team works
 
@@ -39,6 +40,25 @@ That keeps the history readable and is why the title follows Conventional Commit
 
 Nobody merges their own pull request, including the lead: if the lead is the author, another member
 approves it. That rule exists so that no change reaches `develop` without a second pair of eyes.
+
+## Releases
+
+A release takes `develop` to `main` and is cut there as a tag:
+
+1. Open a pull request from `develop` into `main`, titled `chore(release): v1.2.0`.
+2. When CI passes, merge it **with a merge commit**, never squashed:
+   `gh pr merge <number> --merge`.
+3. Tag the merge commit and push the tag:
+   `git fetch origin && git tag -a v1.2.0 origin/main -m "v1.2.0" && git push origin v1.2.0`.
+   The **Release** workflow publishes the image of the backend, and **Deploy** then moves the
+   backend machine and the web application to it by itself (`deploy/README.md`, "Updating").
+
+A squashed release would leave on `main` a commit that `develop` never has, so `main` and
+`develop` would share nothing but the first commit, and every following release would conflict
+in every file changed since. A merge commit keeps `develop` inside `main`: the next release
+carries only what is new. `main` then always holds one commit more than `develop`, its merge
+commit, so the rule "up to date before merging" counts a release as behind; the lead merges it
+anyway, as the administrator of the rule, and nothing needs to go back into `develop`.
 
 ## What the reviewer checks
 
