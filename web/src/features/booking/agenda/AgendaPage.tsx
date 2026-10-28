@@ -17,6 +17,7 @@ import {
   formatDay,
   formatInZone,
   todayInZone,
+  useZone,
 } from '@/shared/time';
 import {
   Avatar,
@@ -754,6 +755,10 @@ export default function AgendaPage() {
   const navigate =
       useNavigate();
 
+  // The university's zone, for whatever the answers do not carry their own.
+  const universityZone =
+      useZone();
+
   const toaster =
       useToast();
 
@@ -919,6 +924,11 @@ export default function AgendaPage() {
                   return;
                 }
 
+                // Also after confirmLate=true: the warning no longer applies, so it closes.
+                setLateWarning(
+                    null,
+                );
+
                 toaster.error(
                     'Esta tutoría ya empezó o ya no puede cancelarse.',
                 );
@@ -927,6 +937,10 @@ export default function AgendaPage() {
 
                 return;
               }
+
+              setLateWarning(
+                  null,
+              );
 
               toaster.error(
                   'No pudimos cancelar la tutoría. Inténtalo de nuevo.',
@@ -948,7 +962,7 @@ export default function AgendaPage() {
           ?.timezone ??
       history.data
           ?.timezone ??
-      'UTC';
+      universityZone;
 
   function moveWeek(
       weeks: number,
@@ -1222,7 +1236,7 @@ export default function AgendaPage() {
                               timezone={
                                   agenda.data
                                       ?.timezone ??
-                                  'UTC'
+                                  universityZone
                               }
                               joiningId={
                                 joiningId

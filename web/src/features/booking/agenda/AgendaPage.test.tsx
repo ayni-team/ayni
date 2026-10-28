@@ -1201,5 +1201,35 @@ describe(
                 );
             },
         );
+
+        it('closes the late warning when the confirmed cancellation is refused too', async () => {
+            signIn('STUDENT');
+            const state = serveAgenda();
+            state.server.on('DELETE', `/api/v1/bookings/${BOOKING_LATER}`, (request) =>
+                request.query.get('confirmLate') !== 'true'
+                    ? {
+                        status: 409,
+                        body: {
+                            bookingId: BOOKING_LATER,
+                            late: true,
+                            refundWillBeIssued: true,
+                            incidentWillBeRecorded: true,
+                            confirmationRequired: true,
+                        },
+                    }
+                    : { status: 409, body: { status: 409, message: 'The session already started' } },
+            );
+
+            const { user } = renderWithProviders(<AgendaPage />, { route: '/tutor/agenda' });
+            const row = await screen.findByRole('article', { name: 'Tutoría con Ana Torres a las 16:00' });
+            await user.click(within(row).getByRole('button', { name: 'Cancelar' }));
+            const dialog = await screen.findByRole('dialog', { name: 'Faltan menos de 12 horas' });
+            await user.click(within(dialog).getByRole('button', { name: 'Cancelar igual' }));
+
+            expect(await screen.findByText('Esta tutoría ya empezó o ya no puede cancelarse.')).toBeInTheDocument();
+            await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+            expect(screen.queryByText(/already started/)).not.toBeInTheDocument();
+            expect(state.server.requests('DELETE', `/api/v1/bookings/${BOOKING_LATER}`)).toHaveLength(2);
+        });
     },
 );
