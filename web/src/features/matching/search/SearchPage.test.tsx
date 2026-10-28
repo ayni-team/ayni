@@ -181,4 +181,37 @@ describe('FE-10 SearchPage', () => {
     await user.click(retryButton);
     expect(await screen.findByText('Horas libres · Algoritmos')).toBeInTheDocument();
   });
+
+  it("asks for the week between the university's midnights, not UTC's", async () => {
+    const server = setupServer();
+    server.on('GET', '/api/v1/search/offers', {
+      body: { offers: [], exactMatch: true, timezone: 'America/Lima', page: 0, size: 100, totalElements: 0, totalPages: 0 },
+    });
+
+    renderWithProviders(<SearchPage />, { route: `/buscar?catalogItemId=${COURSE_ID}` });
+
+    await waitFor(() => expect(server.requests('GET', '/api/v1/search/offers').length).toBeGreaterThan(0));
+    const { query } = server.requests('GET', '/api/v1/search/offers').at(-1)!;
+    // Lima is UTC-5 all year: its midnight is 05:00 UTC.
+    expect(query.get('from')).toMatch(/T05:00:00\.000Z$/);
+    expect(query.get('to')).toMatch(/T05:00:00\.000Z$/);
+  });
+
+  it('says the courses could not be loaded and lets the person retry', async () => {
+    const server = fakeServer();
+    serveFrame(server, ANA);
+    signIn('STUDENT');
+    server
+      .on('GET', '/api/v1/catalog', { status: 503, body: { message: 'Service unavailable' } })
+      .on('GET', '/api/v1/bookings/mine', { body: { items: [], total: 0 } });
+
+    const { user } = renderWithProviders(<SearchPage />, { route: '/buscar' });
+
+    expect(await screen.findByRole('heading', { name: 'No pudimos cargar los cursos' })).toBeInTheDocument();
+    expect(screen.queryByText(/Service unavailable/)).not.toBeInTheDocument();
+
+    server.on('GET', '/api/v1/catalog', { body: CATALOG });
+    await user.click(screen.getByRole('button', { name: /Reintentar/ }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'No pudimos cargar los cursos' })).not.toBeInTheDocument());
+  });
 });
