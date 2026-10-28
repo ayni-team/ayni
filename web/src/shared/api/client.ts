@@ -7,7 +7,9 @@ import type { HttpMethod, OptionsArgument, PathsWith, RequestOptions, ResponseOf
  *
  * Paths are the ones of the OpenAPI document, written as it writes them (`/api/v1/bookings/{id}`),
  * and the types come from it: the parameters a path takes and the body it answers are checked by
- * the compiler. Vite proxies `/api` to the backend, so the browser only talks to its own origin.
+ * the compiler. In development Vite proxies `/api` to the backend, so the browser only talks to its
+ * own origin. A deployment that serves the web from another host than the API builds it with
+ * `VITE_API_BASE_URL` (see `apiUrl`).
  *
  * Who is asking travels as the session token (TS03). A 401 to a request that carried one means the
  * session ended: it is forgotten, and the route guards take the person to `/ingresar`.
@@ -21,6 +23,17 @@ interface RawOptions {
   body?: unknown;
   idempotencyKey?: string;
   signal?: AbortSignal;
+}
+
+/**
+ * The address of a path of the API. Relative while `VITE_API_BASE_URL` is empty, as in development
+ * and when the web and the API share an origin; otherwise that origin (`https://api.example.org`)
+ * in front of the path. The live channel of a whiteboard takes the same address with `ws` for
+ * `http`. It is read at build time: changing it means building the web again.
+ */
+export function apiUrl(path: string): string {
+  const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+  return base + path;
 }
 
 /** Fills `{id}` with its value and appends the query, skipping what is empty. */
@@ -66,7 +79,7 @@ function messageOf(body: unknown, fallback: string): string {
 }
 
 async function send(method: string, template: string, options: RawOptions, accept = 'application/json'): Promise<Response> {
-  const url = buildUrl(template, options.path, options.query);
+  const url = apiUrl(buildUrl(template, options.path, options.query));
   const headers = new Headers({ Accept: accept });
   const token = authorization();
   if (token) headers.set('Authorization', token);

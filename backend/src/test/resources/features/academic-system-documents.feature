@@ -3,11 +3,14 @@
 # (name, logo, colours, email domains, time zone, minimum teaching grade, current term), what it
 # teaches (its curriculum, by career and cycle) and who its students are. This is the first of two
 # phases: the document is read from a folder; the second phase serves the same document over HTTP
-# behind the same port, without touching the use cases. It is not a story of the backlog: it serves
+# behind the same port, without touching the use cases. That second phase is here too: with
+# ayni.identity.academic-directory-url set, each document is a static file under that address of
+# another service (a GitHub Pages site in a deployment). It is not a story of the backlog: it serves
 # TS10, US38, US40 and US51.
 #
 # Every scenario names the test that runs it, with the same display name:
 # - reading a document, without Spring, in MockAcademicSystemAdapterTest;
+# - reading it from an address, against a real HTTP server of the JDK, in HttpAcademicSystemTest;
 # - the documents the repository delivers, in AcademicDocumentsCoherenceTest;
 # - registering, activating and importing over HTTP with real session tokens, in
 #   AcademicSystemDocumentsAcceptanceTest (identity);
@@ -47,6 +50,39 @@ Feature: The academic system serves the university, its curriculum and its stude
     When the students are looked up
     Then the new one is found, the repeated one is the local one, and the rest are the document's
     And a local student of another domain makes the document incoherent
+
+  Scenario: A document published at an address is read as from the folder
+    Given an address of another service that publishes the document of a university
+    When a student or the university is looked up
+    Then the answer is the one the same document gives from the folder
+
+  Scenario: Without its document at the address a university has no academic system
+    Given an address that answers 404 for the document of a university
+    When the university is looked up
+    Then the answer is that the academic system is not configured for that university
+
+  Scenario: A document edited at the address is used once its copy is a minute old
+    Given the document of a university was read from its address
+    And it is edited there
+    When a student is looked up within the minute, and again after it
+    Then the first answer is the copy, without asking the address, and the second the edited document
+
+  Scenario: While the address does not answer, the last copy read is used
+    Given the document of a university was read from its address
+    And the address stops answering
+    When a student is looked up hours later
+    Then the answer is the last copy read
+
+  Scenario: With no copy, an address that does not answer is a mistake of the platform
+    Given an address that takes longer than the timeout, or answers an error
+    And no copy of the document was read before
+    When a student or the university is looked up
+    Then the request fails as unexpected, naming the university and no student
+
+  Scenario: The local students are read from the folder, also with an address
+    Given the document of a university at an address and a local file in the folder
+    When the students are looked up
+    Then the local student is found from the folder, and the local file is never asked of the address
 
   Scenario: The documents delivered with the repository are coherent
     Given the documents of UPC and USIL in backend/academic-directory

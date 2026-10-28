@@ -142,7 +142,8 @@ inicial, buscando, no afiliada (404), enlace enviado (202).
 |---|---|
 | Correo | entrada: `RequestAccessRequest.email` |
 | Logo, nombre y código de la universidad; barra y botón de marca | `GET /api/v1/access/university?email= → UniversityIdentityView.logoUrl`, `.name`, `.code`, `.primaryColor`, `.secondaryColor` |
-| "Tu universidad todavía no está afiliada a Ayni" | 404 de esa llamada |
+| "No encontramos una universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace." | 404 de esa llamada; es una pista, el botón sigue activo |
+| "Tu universidad todavía no está afiliada a Ayni" | `POST /api/v1/access/request` → 400 después de ese 404 (un correo que no es del administrador) |
 | "Te enviamos un enlace a {correo}. Vence en 10 minutos." | `POST /api/v1/access/request` → 202; el correo es el escrito; "10 minutos" es **regla** del contrato |
 | "Reenviar en 0:27" | **derivado**: espera de 30 s del contrato |
 
