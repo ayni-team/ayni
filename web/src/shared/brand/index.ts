@@ -1,5 +1,5 @@
-export { BrandProvider, UNIVERSITY_KEY, useBrand, useUniversity } from './BrandProvider';
-export type { University } from './BrandProvider';
+export { BrandProvider, UNIVERSITY_KEY, useBrand, useUniversity, useUniversityStatus } from './BrandProvider';
+export type { University, UniversityStatus } from './BrandProvider';
 export {
   applyPalette,
   AYNI_COLORS,
