@@ -1,30 +1,41 @@
 name: Deploy
 
 # Moves the backend machine and the web application to a release; the video machine is updated by
-# hand (deploy/README.md). Started from the Actions tab, with the tag of a release whose image
-# release.yml already published:
+# hand (deploy/README.md). release.yml calls it once it has published the image of a new tag, and
+# it runs by hand from the Actions tab for any tag already released, which is also how to roll
+# back:
 #
 #   Actions > Deploy > Run workflow > tag: v1.2.0
 #
-# The first job signs in to the backend machine over SSH and runs deploy/backend/update.sh there,
-# which writes the tag into deploy/backend/.env, pulls the image and restarts what changed. Once the
+# It never connects over SSH, which stays open only to whoever administers the machines. Both jobs
+# sign in to Azure with the OpenID Connect token of the run, as a managed identity that may act on
+# the resource group of the deployment only. The first job asks Azure to run a command on the
+# backend machine (az vm run-command): check out the tag and run deploy/backend/update.sh, which
+# writes the tag into deploy/backend/.env, pulls the image and restarts what changed. Once the
 # backend is healthy, the second builds the web application of the same tag, pointed at the API,
-# and publishes it to Azure Static Web Apps.
+# reads the deployment token of the static web app from Azure, and publishes it.
 #
-# The connection data lives in the GitHub environment named production (Settings > Environments),
-# never in the repository:
+# The variables live in the GitHub environment named production (Settings > Environments); none
+# is a secret, and deploy/README.md ("Configuring the deploy workflow, once") creates them:
 #
-#   secret    DEPLOY_HOST         address of the virtual machine
-#   secret    DEPLOY_USER         the user that owns the checkout and may run docker
-#   secret    DEPLOY_SSH_KEY      private key of that user, OpenSSH format
-#   secret    DEPLOY_KNOWN_HOSTS  optional: the line of the machine in known_hosts
-#                                 (ssh-keyscan -t ed25519 <host>), checked when it is set
-#   variable  DEPLOY_PATH         optional: the checkout on the machine, /opt/ayni by default
-#   secret    AZURE_STATIC_WEB_APPS_API_TOKEN   deployment token of the static web app
-#   variable  AYNI_API_BASE_URL   origin of the API the web calls, https://api.<domain>
+#   variable  AZURE_CLIENT_ID        client id of the managed identity
+#   variable  AZURE_TENANT_ID        tenant of the subscription
+#   variable  AZURE_SUBSCRIPTION_ID  the subscription
+#   variable  AYNI_API_BASE_URL      origin of the API the web calls, https://api.<domain>
+#   variable  AZURE_RESOURCE_GROUP   optional: the resource group, ayni by default
+#   variable  AYNI_BACKEND_VM        optional: the backend machine, ayni-backend by default
+#   variable  AYNI_STATIC_WEB_APP    optional: the static web app, ayni-web by default
+#   variable  DEPLOY_USER            optional: the user that owns the checkout, ayni by default
+#   variable  DEPLOY_PATH            optional: the checkout on the machine, /opt/ayni by default
 #
 # Protect the environment with required reviewers if more than one person can run workflows.
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag to deploy, for example v1.2.0'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -34,65 +45,77 @@ on:
 
 permissions:
   contents: read
+  # The OpenID Connect token the managed identity accepts instead of a password.
+  id-token: write
 
-# Two deployments at once would fight over the same machine.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+env:
+  # The tag typed by hand, or the one release.yml just published.
+  TAG: ${{ inputs.tag }}
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'ayni' }}
 
 jobs:
 
   deploy:
-    name: Deploy ${{ inputs.tag }}
+    name: Backend ${{ inputs.tag }}
     runs-on: ubuntu-latest
     environment: production
+    # Two deployments at once would fight over the same machine. On the job, not the workflow, so
+    # it does not collide with the concurrency of release.yml when that one calls it.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       # The tag ends up inside a command run on the machine, so only a plain release tag passes.
       - name: Check the tag
-        env:
-          TAG: ${{ inputs.tag }}
         run: |
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::'$TAG' is not a release tag such as v1.2.0"
             exit 1
           fi
 
-      - name: Update the machine
-        env:
-          TAG: ${{ inputs.tag }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ayni' }}
-        run: |
-          set -euo pipefail
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-          if [[ -z "$DEPLOY_HOST" || -z "$DEPLOY_USER" || -z "$DEPLOY_SSH_KEY" ]]; then
-            echo "::error::DEPLOY_HOST, DEPLOY_USER and DEPLOY_SSH_KEY must be secrets of the production environment"
+      # A deallocated machine cannot run anything; say so instead of waiting for Azure to fail.
+      - name: Check the machine is running
+        env:
+          VM: ${{ vars.AYNI_BACKEND_VM || 'ayni-backend' }}
+        run: |
+          state="$(az vm get-instance-view --resource-group "$RESOURCE_GROUP" --name "$VM" \
+            --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code | [0]" -o tsv)"
+          if [[ "$state" != "PowerState/running" ]]; then
+            echo "::error::$VM is ${state#PowerState/}: start it (az vm start) and run Deploy again"
             exit 1
           fi
 
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+      # The checkout on the machine must be at the version being deployed: deploy/ comes from it,
+      # the backend from the image of the same tag. The command runs as root, so it changes to
+      # the user that owns the checkout and runs docker. Azure reports success whatever the
+      # command returns, and keeps the last 4 KB of its output: the last line says whether it
+      # finished.
+      - name: Update the machine
+        env:
+          VM: ${{ vars.AYNI_BACKEND_VM || 'ayni-backend' }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ayni' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ayni' }}
+        run: |
+          set -euo pipefail
+          script="set -eu
+          sudo -u '$DEPLOY_USER' -H bash -c \"cd '$DEPLOY_PATH' && git fetch --tags --force origin && git checkout --detach 'refs/tags/$TAG' && ./deploy/backend/update.sh '$TAG'\"
+          echo AYNI_DEPLOY_FINISHED"
 
-          if [[ -n "$DEPLOY_KNOWN_HOSTS" ]]; then
-            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            echo "::warning::DEPLOY_KNOWN_HOSTS is not set: trusting the key the machine shows now"
-            ssh-keyscan -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          output="$(az vm run-command invoke --resource-group "$RESOURCE_GROUP" --name "$VM" \
+            --command-id RunShellScript --scripts "$script" --query 'value[0].message' -o tsv)"
+          printf '%s\n' "$output"
+
+          if ! grep -q '^AYNI_DEPLOY_FINISHED$' <<< "$output"; then
+            echo "::error::The update did not finish on $VM: read its output above"
+            exit 1
           fi
-
-          # The checkout on the machine must be at the version being deployed: deploy/ and the
-          # web application come from it, the backend from the image of the same tag.
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && git fetch --tags --force origin && git checkout --detach 'refs/tags/$TAG' && ./deploy/backend/update.sh '$TAG'"
-
-      - name: Remove the key
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
 
   web:
     name: Web ${{ inputs.tag }}
@@ -104,7 +127,7 @@ jobs:
       # backend answered healthy.
       - uses: actions/checkout@v4
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ env.TAG }}
 
       # A web built without the origin of the API would call itself and find no API there.
       - name: Check the address of the API
@@ -129,11 +152,30 @@ jobs:
           VITE_API_BASE_URL: ${{ vars.AYNI_API_BASE_URL }}
         run: npm ci && npm run build
 
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The deployment token is read at the time of use and masked in the log, so no copy of it
+      # is kept in GitHub.
+      - name: Read the deployment token
+        id: token
+        env:
+          STATIC_WEB_APP: ${{ vars.AYNI_STATIC_WEB_APP || 'ayni-web' }}
+        run: |
+          token="$(az staticwebapp secrets list --resource-group "$RESOURCE_GROUP" \
+            --name "$STATIC_WEB_APP" --query properties.apiKey -o tsv)"
+          echo "::add-mask::$token"
+          echo "value=$token" >> "$GITHUB_OUTPUT"
+
       # Uploads web/dist as it is, with the routing and headers of web/public/staticwebapp.config.json.
       - name: Publish
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ steps.token.outputs.value }}
           action: upload
           app_location: web/dist
           skip_app_build: true

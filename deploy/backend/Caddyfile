@@ -12,6 +12,15 @@
 # refuse plain HTTP to it for a year; it names no subdomain, so other names of the domain are not
 # bound by it. The referrer policy keeps the access link, which carries its token in the address,
 # from reaching another site in a Referer header: only the origin crosses.
+# Mailpit behind a user and a password, wherever it is served. Mailpit answers under /mailpit/
+# (MP_WEBROOT in docker-compose.yml).
+(mailpit) {
+	basic_auth {
+		{$MAILPIT_BASIC_AUTH_USER} {$MAILPIT_PASSWORD_HASH}
+	}
+	reverse_proxy mailpit:8025
+}
+
 (security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
@@ -33,19 +42,30 @@
 		max_size 20MB
 	}
 
-	reverse_proxy backend:{$AYNI_PORT} {
-		# Takes the backend out of rotation while its readiness is not UP, for instance during a
-		# graceful stop.
-		health_uri /actuator/health/readiness
-		health_interval 10s
+	# The optional Mailpit at /mailpit/ of this name, for a deployment with no name of its own for
+	# it, such as one on the names Azure gives the addresses. Only with MAILPIT_ON_API_HOST=true;
+	# otherwise the path is the backend's, which answers 404.
+	@mailpit {
+		expression {$MAILPIT_ON_API_HOST} == true
+		path /mailpit /mailpit/*
+	}
+	handle @mailpit {
+		import mailpit
+	}
+
+	handle {
+		reverse_proxy backend:{$AYNI_PORT} {
+			# Takes the backend out of rotation while its readiness is not UP, for instance during
+			# a graceful stop.
+			health_uri /actuator/health/readiness
+			health_interval 10s
+		}
 	}
 }
 
-# The page of the optional Mailpit, behind a user and a password. With the mailpit profile off the
-# address is an http one that nothing outside the container reaches (docker-compose.yml).
+# The page of the optional Mailpit at MAILPIT_SITE, a name of its own. With the mailpit profile off
+# the address is an http one that nothing outside the container reaches (docker-compose.yml).
 {$MAILPIT_SITE} {
-	basic_auth {
-		{$MAILPIT_BASIC_AUTH_USER} {$MAILPIT_PASSWORD_HASH}
-	}
-	reverse_proxy mailpit:8025
+	redir / /mailpit/
+	import mailpit
 }

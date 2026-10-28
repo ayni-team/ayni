@@ -2357,9 +2357,11 @@ hostname, TLS by itself) and an optional Mailpit behind a password, with a comme
 machine, the two only share the secret of the video passes. `deploy/README.md` is the step by step
 guide from empty machines to a healthy system, with the choices that keep an Azure for Students
 subscription inside its free services, the database roles, backup and restore, updating, rolling
-back and the ways to send email. The `Release` workflow publishes
-`ghcr.io/<owner>/ayni-backend:<tag>` when a `v*` tag is pushed, and the manual `Deploy` workflow
-runs `deploy/backend/update.sh` on the backend machine over SSH.
+back and the ways to send email. Merging a release pull request into `main` runs the `Release`
+workflow, which tags it, publishes `ghcr.io/<owner>/ayni-backend:<tag>` and calls the `Deploy`
+workflow. `Deploy`, also run by hand for any tag, runs `deploy/backend/update.sh` on the backend
+machine through Azure (`az vm run-command`, signed in with OpenID Connect as a managed identity, no
+SSH) and publishes the web application.
 
 ---
 

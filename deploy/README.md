@@ -46,8 +46,8 @@ Internet ── 443 ──────▶ app.<domain>  web/dist: the page, whic
 | `jitsi/docker-compose.yml` | The video machine |
 | `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
 | `jitsi/Caddyfile` | `meet.` |
-| `../.github/workflows/release.yml` | A `v*` tag publishes `ghcr.io/<owner>/ayni-backend:<tag>` |
-| `../.github/workflows/deploy.yml` | Manual: runs `backend/update.sh` on the backend machine over SSH, then builds and publishes the web application |
+| `../.github/workflows/release.yml` | A release pull request merged into `main` (or a `v*` tag pushed by hand): tags it, publishes `ghcr.io/<owner>/ayni-backend:<tag>` and calls `deploy.yml` |
+| `../.github/workflows/deploy.yml` | Called by each release, and by hand for any tag: runs `backend/update.sh` on the backend machine through Azure (`az vm run-command`, no SSH), then builds and publishes the web application |
 | `../web/public/staticwebapp.config.json` | The routes and headers of the web application on Static Web Apps |
 
 Nothing here states what the machines or the database will cost: prices change, so read them from
@@ -70,7 +70,7 @@ You need:
   administrator login for it, and the ability to allow the backend machine's address through its
   firewall.
 - A way to send email (see [Mail](#mail)).
-- A release tag. The image the backend runs is published by pushing a tag (see
+- A release tag. The image the backend runs is published by each release (see
   [Publishing a version](#publishing-a-version)).
 
 Use `example.org` below for your domain.
@@ -224,15 +224,10 @@ az staticwebapp show --resource-group ayni --name ayni-web --query defaultHostna
 
 Give it no `--source`: that would have Azure write a workflow of its own into the repository. The
 second command prints a name like `<words>.azurestaticapps.net`: the address of the web
-application, or the value of the DNS record of `app.` (below). Its deployment token is a secret of
-the **Deploy** workflow; this hands it to GitHub without printing it (it needs the `gh` CLI, signed
-in, and the `production` environment of
-[Configuring the deploy workflow](#configuring-the-deploy-workflow-once)):
-
-```bash
-gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --env production --body \
-  "$(az staticwebapp secrets list --resource-group ayni --name ayni-web --query properties.apiKey -o tsv)"
-```
+application, or the value of the DNS record of `app.` (below). Its deployment token is not
+copied anywhere: the **Deploy** workflow reads it from Azure each time
+([Configuring the deploy workflow](#configuring-the-deploy-workflow-once)), and a publication by
+hand reads it with `az` (see [Starting](#starting)).
 
 With a domain of your own, once the record of `app.` resolves, give the web application its
 address; Static Web Apps checks the record and issues the certificate by itself, which can take some
@@ -291,8 +286,8 @@ size. The public address stays the same, because it is static.
 
    They make `ayni-api.chilecentral.cloudapp.azure.com` and
    `ayni-meet.centralus.cloudapp.azure.com`. A label is unique within its region: if one is taken,
-   choose another. An IP carries one name only, so the protected Mailpit, which needs a name of its
-   own, waits for a domain.
+   choose another. An IP carries one name only, so the protected Mailpit is served at `/mailpit/`
+   of the backend's name instead (see [Option B](#option-b-mailpit-behind-a-password)).
 
 3. Wait until they resolve, from your own computer: `dig +short <api name>` and
    `dig +short <meet name>` must print their addresses, and with a domain
@@ -455,6 +450,19 @@ row level security bind the application, so build it exactly:
    GRANT CONNECT ON DATABASE ayni TO ayni_app;
    ```
 
+   **On Azure, give the owner the `public` schema as well.** A database made there from its
+   template keeps `public` under one of Azure's roles, and the first start then stops at once with
+   `permission denied for schema public`: Flyway's history and the event publication registry live
+   in it. Connected to the new database (`dbname=ayni` in the command of step 2):
+
+   ```sql
+   ALTER SCHEMA public OWNER TO ayni;
+   SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'public';   -- ayni
+   ```
+
+   On a server where `public` already belongs to the owner of the database (PostgreSQL 15 and
+   later, from a template of its own), the statement changes nothing.
+
    Creating `ayni_app` yourself is what keeps the owner free of `CREATEROLE`. If you skip it, the
    first migration creates the role with `AYNI_DB_APP_PASSWORD`, which then needs `CREATEROLE` on
    `ayni` for that first start. A role that already exists keeps its own password, so
@@ -540,15 +548,19 @@ development `docker-compose.yml` instead.
 
 ### Publishing a version
 
-The backend machine runs an image built by GitHub, never one built on the machine. A maintainer
-cuts a release from `main`:
+The backend machine runs an image built by GitHub, never one built on the machine. A release is a
+pull request from `develop` into `main`, titled `chore(release): v1.0.0` and merged with a merge
+commit (`docs/pull-requests.md`, "Releases"). The first time, before the machines exist, a tag of
+a commit of `main` pushed by hand does the same:
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0
+git tag -a v1.0.0 origin/main -m v1.0.0 && git push origin v1.0.0
 ```
 
-The **Release** workflow builds `backend/Dockerfile.prod` and publishes
-`ghcr.io/<owner>/ayni-backend:v1.0.0`. Wait for it to finish (Actions tab). The first publication
+The **Release** workflow tags the merge commit, builds `backend/Dockerfile.prod` and publishes
+`ghcr.io/<owner>/ayni-backend:v1.0.0`; its last job, **Deploy**, fails until the machines and
+[its configuration](#configuring-the-deploy-workflow-once) exist, which is expected on the first
+release. Wait for the image (Actions tab). The first publication
 makes a private package, so the backend machine needs to be able to pull it, in one of two ways:
 
 - Make the package public (the package's settings on GitHub), or
@@ -576,15 +588,21 @@ git fetch --tags && git checkout --detach refs/tags/v1.0.0
 the backend is healthy. The first start runs every migration and can take a couple of minutes.
 Each Caddy gets its certificates the first time each name is asked for.
 
-Last, the web application. Run **Deploy** (Actions, Deploy, Run workflow) with the same tag: it
-repeats the step above, which changes nothing the second time, and then builds the web with
-`VITE_API_BASE_URL` and publishes it. To publish it by hand instead, from your own computer, with
-the token of the static web app in `SWA_CLI_DEPLOYMENT_TOKEN` (untested here):
+Last, the web application. Once
+[the deploy workflow is configured](#configuring-the-deploy-workflow-once), **Deploy** does it: it
+runs as the last job of each release, and by hand from Actions (Deploy, Run workflow) with any
+tag. It repeats the step above through Azure,
+which changes nothing the second time, and then builds the web with `VITE_API_BASE_URL` and
+publishes it. Before it is configured, publish the web by hand, from your own computer; the token
+goes from `az` to the tool without being printed. This is how it was published on 2026-10-27:
 
 ```bash
-git checkout --detach refs/tags/v1.0.0 && cd web
+git switch --detach v1.0.0 && cd web
 npm ci && VITE_API_BASE_URL=https://api.example.org npm run build
-npx --yes @azure/static-web-apps-cli deploy ./dist --env production
+SWA_CLI_DEPLOYMENT_TOKEN="$(az staticwebapp secrets list --resource-group ayni --name ayni-web \
+  --query properties.apiKey -o tsv)" \
+  npx --yes @azure/static-web-apps-cli deploy ./dist --env production
+cd .. && git switch develop
 ```
 
 A web built without `VITE_API_BASE_URL` calls `app.` itself, where there is no API, and every
@@ -684,19 +702,40 @@ An empty installation has no platform administrator, and nothing but one can reg
      -d '{"email": "admin@example.org"}'          # 202
    ```
 
-2. Open the email. The link looks like `https://app.example.org/access/confirm?token=...`. Open it,
-   or send its `token` yourself, and keep the `sessionToken` of the answer:
+2. Read the email (with Mailpit, on its page, see [Option B](#option-b-mailpit-behind-a-password)).
+   The link looks like `https://app.example.org/access/confirm?token=...`, and works **once**:
+   opened in a browser, it signs that browser in, and the web application has no screen of the
+   administrator yet. For what follows, send its `token` yourself instead, without opening it, and
+   keep the `sessionToken` of the answer in a variable of your shell:
 
    ```bash
-   curl -sS -X POST https://api.example.org/api/v1/access/confirm \
-     -H 'Content-Type: application/json' -d '{"token": "<token from the link>"}'
+   S=$(curl -sS -X POST https://api.example.org/api/v1/access/confirm \
+     -H 'Content-Type: application/json' -d '{"token": "<token from the link>"}' \
+     | python3 -c "import json,sys;print(json.load(sys.stdin)['sessionToken'])")
    ```
 
-3. Register the first university:
+   A `KeyError` there means the answer was an error: run the `curl` alone to read it. *This access
+   link has expired or was already used* asks for a new link.
+
+3. Register the universities. When the academic system already has the university's document
+   (step 4 below), register it from there, which takes its name, domains, timezone and minimum
+   grade from the document; the credits are Ayni's, so you give them:
+
+   ```bash
+   for U in UPC USIL; do
+     curl -sS -w ' -> %{http_code}\n' -X POST \
+       https://api.example.org/api/v1/admin/universities/from-academic-system \
+       -H "Authorization: Bearer $S" -H 'Content-Type: application/json' \
+       -d "{\"code\": \"$U\", \"initialCredits\": 5, \"creditValidityDays\": 90}"
+   done                                              # 201 each
+   curl -sS 'https://api.example.org/api/v1/access/university?email=someone@upc.edu.pe'
+   ```
+
+   Or by hand, with every field given:
 
    ```bash
    curl -sS -X POST https://api.example.org/api/v1/admin/universities \
-     -H "Authorization: Bearer <sessionToken>" -H 'Content-Type: application/json' \
+     -H "Authorization: Bearer $S" -H 'Content-Type: application/json' \
      -d '{
            "code": "UPC",
            "name": "Universidad Peruana de Ciencias Aplicadas",
@@ -818,8 +857,10 @@ REVOKE ALL ON DATABASE ayni FROM PUBLIC;
 GRANT CONNECT ON DATABASE ayni TO ayni_app;
 ```
 
-Then load the dump as the owner. Keep the privileges in it (do not pass `--no-acl`): they are what
-gives `ayni_app` its access. The roles themselves are not in a dump, so they must exist already:
+and, on Azure, connected to the new `ayni`, `ALTER SCHEMA public OWNER TO ayni;` as in
+[The database](#3-the-database). Then load the dump as the owner. Keep the privileges in it (do
+not pass `--no-acl`): they are what gives `ayni_app` its access. The roles themselves are not in
+a dump, so they must exist already:
 
 ```bash
 docker run --rm -e PGPASSWORD='<owner password>' -v "$HOME/ayni-backups:/backups" postgres:16-alpine \
@@ -839,11 +880,15 @@ Practise a restore into a spare database before you need one.
 
 ## 9. Updating
 
-1. Take a [backup](#8-backup-and-restore).
-2. A maintainer pushes the new tag; wait for the **Release** workflow to publish its image.
+1. Take a [backup](#8-backup-and-restore), **before the merge**: the release deploys itself as
+   soon as its image is published.
+2. The lead merges the release pull request into `main` with a merge commit
+   (`docs/pull-requests.md`, "Releases"). The **Release** workflow tags it and publishes its image.
 3. Deploy it, either way:
-   - **From GitHub:** Actions, **Deploy**, Run workflow, with the tag. This needs the `production`
-     environment configured once (below).
+   - **From GitHub:** the last job of **Release**, **Deploy**, does it (Actions shows it), or
+     Deploy by hand from Actions, Run workflow, with the tag. This needs the `production`
+     environment configured once (below). If it fails because the backend machine is deallocated,
+     start it (`az vm start`) and run Deploy by hand.
    - **By hand, on the backend machine:**
 
      ```bash
@@ -869,20 +914,69 @@ A call in progress is cut; do it when there is none.
 
 ### Configuring the deploy workflow, once
 
-In the repository: Settings, Environments, New environment, named exactly `production` (add required
-reviewers if more than one person can run workflows). In it:
+**Deploy** never opens SSH. It signs in to Azure with the OpenID Connect token GitHub gives each
+run, as a *managed identity*: an identity of the subscription with no password, which accepts only
+the runs of this repository's `production` environment and may act only on the resource group
+`ayni`. Through it, Azure runs the update on the backend machine (`az vm run-command`, as root,
+which changes to the user `ayni`) and hands over the deployment token of the static web app. It
+needs no app registration in the directory, which a university's tenant often forbids. From your
+own computer, with `az` signed in as an owner of the subscription and `gh` signed in:
+
+```bash
+az provider register --namespace Microsoft.ManagedIdentity --wait
+az identity create --resource-group ayni --name ayni-deploy --location chilecentral --output none
+az role assignment create --role Contributor \
+  --assignee-object-id "$(az identity show -g ayni -n ayni-deploy --query principalId -o tsv)" \
+  --assignee-principal-type ServicePrincipal \
+  --scope "$(az group show --name ayni --query id -o tsv)" --output none
+az identity federated-credential create --resource-group ayni --identity-name ayni-deploy \
+  --name github-production --issuer https://token.actions.githubusercontent.com \
+  --subject repo:ayni-team/ayni:environment:production \
+  --audiences api://AzureADTokenExchange --output none
+```
+
+`Contributor` on the group lets it run commands on the machines and read the token of the static
+web app, and touches nothing outside `ayni`. The subject ties it to the `production` environment of
+`ayni-team/ayni`: no other repository, branch or environment can use it.
+
+Then the environment and its variables. None is a secret: an identifier alone signs nobody in.
+
+```bash
+gh api -X PUT repos/ayni-team/ayni/environments/production --silent
+gh variable set AZURE_CLIENT_ID --env production \
+  --body "$(az identity show -g ayni -n ayni-deploy --query clientId -o tsv)"
+gh variable set AZURE_TENANT_ID --env production --body "$(az account show --query tenantId -o tsv)"
+gh variable set AZURE_SUBSCRIPTION_ID --env production --body "$(az account show --query id -o tsv)"
+gh variable set AYNI_API_BASE_URL --env production --body https://api.example.org
+```
 
 | Name | Kind | Value |
 |---|---|---|
-| `DEPLOY_HOST` | secret | The backend machine's address |
-| `DEPLOY_USER` | secret | The user that owns `/opt/ayni` and may run docker |
-| `DEPLOY_SSH_KEY` | secret | A private key whose public half is in that user's `~/.ssh/authorized_keys`. Make a key for this and nothing else: `ssh-keygen -t ed25519 -f deploy_key -C ayni-deploy` |
-| `DEPLOY_KNOWN_HOSTS` | secret, optional | The output of `ssh-keyscan -t ed25519 <host>`. Without it the workflow trusts the key the machine shows at that moment |
-| `DEPLOY_PATH` | variable, optional | The checkout on the machine, `/opt/ayni` by default |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | secret | The deployment token of the static web app (see [Creating the resources](#creating-the-resources)) |
+| `AZURE_CLIENT_ID` | variable | The client id of the managed identity `ayni-deploy` |
+| `AZURE_TENANT_ID` | variable | The tenant of the subscription |
+| `AZURE_SUBSCRIPTION_ID` | variable | The subscription |
 | `AYNI_API_BASE_URL` | variable | The origin of the API the web calls: `https://api.example.org`, no trailing slash |
+| `AZURE_RESOURCE_GROUP` | variable, optional | `ayni` by default |
+| `AYNI_BACKEND_VM` | variable, optional | `ayni-backend` by default |
+| `AYNI_STATIC_WEB_APP` | variable, optional | `ayni-web` by default |
+| `DEPLOY_USER` | variable, optional | The user that owns `/opt/ayni` and may run docker, `ayni` by default |
+| `DEPLOY_PATH` | variable, optional | The checkout on the machine, `/opt/ayni` by default |
 
-None of these is written in the repository.
+Check that Azure can run commands as that user on the machine before the first release, from your
+own computer (it prints the containers of the stack):
+
+```bash
+az vm run-command invoke --resource-group ayni --name ayni-backend --command-id RunShellScript \
+  --scripts "sudo -u ayni -H bash -c 'cd /opt/ayni/deploy/backend && docker compose ps'" \
+  --query 'value[0].message' -o tsv
+```
+
+Azure reports success whatever the command returns, so the workflow looks for the last line of
+its output, which only a finished update prints, and fails without it. Add required reviewers to
+the environment (Settings, Environments, production) if a release should wait for someone before
+it reaches the machine. A release merged while the backend machine is deallocated publishes its
+image and then fails at the first step of Deploy; start the machine and run **Deploy** by hand
+with the tag.
 
 ## 10. Rolling back
 
@@ -998,8 +1092,21 @@ link on that page and opens it.
    MAILPIT_PASSWORD_HASH='$2a$14$...'
    ```
 
-3. `docker compose up -d`. The page is at `https://mail.example.org`, and the proxy asks for the user
-   and the password before showing anything.
+   Without a name of its own for the page (on the names Azure gives the addresses, which carry
+   one name each), leave `MAILPIT_SITE` out and set instead:
+
+   ```
+   MAILPIT_ON_API_HOST=true
+   ```
+
+3. `docker compose up -d`. The page is at `https://mail.example.org/mailpit/` (the root redirects
+   there), or at `https://<AYNI_API_HOST>/mailpit/` with `MAILPIT_ON_API_HOST`, and the proxy asks
+   for the user and the password before showing anything. Its search box filters by recipient
+   (`to:u202500025@upc.edu.pe`). Mailpit's own API is under the same path, behind the same password:
+
+   ```bash
+   curl -sS -u ayni 'https://api.example.org/mailpit/api/v1/message/latest' | head -c 200
+   ```
 
 Compromises, which are real:
 
@@ -1011,6 +1118,16 @@ Compromises, which are real:
   container empties it.
 - With the profile off, the page is not exposed at all: `MAILPIT_SITE` falls back to an address that
   nothing outside the container can reach, and no certificate is requested for it.
+  `MAILPIT_ON_API_HOST` off leaves `/mailpit/` to the backend, which answers 404.
+- Without the page, read it through SSH instead, from your own computer: the first command finds
+  the container's address on the machine, the second keeps a tunnel open, and the page is then at
+  <http://localhost:58025/mailpit/>:
+
+  ```bash
+  IP=$(ssh ayni@api.example.org \
+    "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ayni-mailpit-1")
+  ssh -N -L 58025:$IP:8025 ayni@api.example.org
+  ```
 
 To go from B to A, remove `COMPOSE_PROFILES`, `MAILPIT_*`, set the SMTP variables of A and run
 `docker compose up -d --remove-orphans`.
@@ -1080,10 +1197,17 @@ machines, a real domain and a real browser, and should be run by hand the first 
   certificate, the routes and headers of `staticwebapp.config.json` (that a route such as
   `/access/confirm` answers the page, that `assets/` keeps its long cache over the global
   `no-cache`), and the publishing job of the **Deploy** workflow.
+- The **Deploy** workflow through Azure: the managed identity and its federated credential, the
+  sign in of `azure/login` with them, `az vm run-command` running `update.sh` as `ayni`, the
+  token of the static web app read at the time of use, and the call from **Release** after a
+  release pull request is merged (the tag taken from its title or counted from the latest one).
+  Checked with `actionlint`, the choice of the tag run against sample titles; not run on GitHub.
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
   both ways (the manual test of US08), including that `AYNI_JITSI_PUBLIC_IP` is the right address.
 - Sending real email, and the STARTTLS and TLS switches against a provider.
-- The connection to the managed database with `sslmode=require`, and the role checks of step 6.
+- Mailpit at `/mailpit/` of the backend's name, and at the root of `MAILPIT_SITE` redirecting to
+  it: run on a laptop through the same `Caddyfile` (the password asked, the page and its API
+  served, the path left to the backend while it is off), not yet on the machine.
 - The `Release` and `Deploy` workflows on GitHub, with the `production` environment.
 - `backend/update.sh` on the backend machine, including the web build with Node in Docker.
 - The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
