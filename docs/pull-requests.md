@@ -43,15 +43,19 @@ approves it. That rule exists so that no change reaches `develop` without a seco
 
 ## Releases
 
-A release takes `develop` to `main` and is cut there as a tag:
+A release takes `develop` to `main`, and merging it is all there is to do:
 
-1. Open a pull request from `develop` into `main`, titled `chore(release): v1.2.0`.
-2. When CI passes, merge it **with a merge commit**, never squashed:
+1. Take a database backup (`deploy/README.md`, "Backup and restore"): migrations only go forward.
+2. Open a pull request from `develop` into `main`, titled `chore(release): v1.2.0`. Without a
+   version in the title, the release takes the next patch after the latest tag (`v1.2.0` →
+   `v1.2.1`).
+3. When CI passes, merge it **with a merge commit**, never squashed:
    `gh pr merge <number> --merge`.
-3. Tag the merge commit and push the tag:
-   `git fetch origin && git tag -a v1.2.0 origin/main -m "v1.2.0" && git push origin v1.2.0`.
-   The **Release** workflow publishes the image of the backend, and **Deploy** then moves the
-   backend machine and the web application to it by itself (`deploy/README.md`, "Updating").
+
+The **Release** workflow then tags the merge commit, publishes the image of the backend, and moves
+the backend machine and the web application to it (`deploy/README.md`, "Updating"). Follow it in
+the Actions tab; a release that failed half way is finished by running **Deploy** by hand with
+its tag.
 
 A squashed release would leave on `main` a commit that `develop` never has, so `main` and
 `develop` would share nothing but the first commit, and every following release would conflict

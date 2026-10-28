@@ -1,8 +1,8 @@
 name: Deploy
 
 # Moves the backend machine and the web application to a release; the video machine is updated by
-# hand (deploy/README.md). It starts by itself once release.yml has published the image of a new
-# tag, and by hand from the Actions tab for any tag already released, which is also how to roll
+# hand (deploy/README.md). release.yml calls it once it has published the image of a new tag, and
+# it runs by hand from the Actions tab for any tag already released, which is also how to roll
 # back:
 #
 #   Actions > Deploy > Run workflow > tag: v1.2.0
@@ -30,9 +30,12 @@ name: Deploy
 #
 # Protect the environment with required reviewers if more than one person can run workflows.
 on:
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag to deploy, for example v1.2.0'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -45,26 +48,22 @@ permissions:
   # The OpenID Connect token the managed identity accepts instead of a password.
   id-token: write
 
-# Two deployments at once would fight over the same machine.
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-
 env:
-  # By hand, the tag typed; after a release, the tag whose push started it.
-  TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+  # The tag typed by hand, or the one release.yml just published.
+  TAG: ${{ inputs.tag }}
   RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'ayni' }}
 
 jobs:
 
   deploy:
-    name: Deploy ${{ inputs.tag || github.event.workflow_run.head_branch }}
-    # After a release, only when it published its image.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    name: Backend ${{ inputs.tag }}
     runs-on: ubuntu-latest
     environment: production
+    # Two deployments at once would fight over the same machine. On the job, not the workflow, so
+    # it does not collide with the concurrency of release.yml when that one calls it.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
       # The tag ends up inside a command run on the machine, so only a plain release tag passes.
       - name: Check the tag
@@ -119,7 +118,7 @@ jobs:
           fi
 
   web:
-    name: Web ${{ inputs.tag || github.event.workflow_run.head_branch }}
+    name: Web ${{ inputs.tag }}
     needs: deploy
     runs-on: ubuntu-latest
     environment: production
