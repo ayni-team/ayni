@@ -4,7 +4,7 @@
 #
 #     git fetch --tags origin && git checkout --detach refs/tags/v1.2.0 && ./deploy/backend/update.sh v1.2.0
 #
-# (the deploy workflow does exactly that over SSH). It
+# (the deploy workflow does exactly that, through az vm run-command). It
 #
 #   1. writes the version into deploy/backend/.env (AYNI_IMAGE_TAG),
 #   2. pulls the images and restarts what changed, and waits until it is healthy.
