@@ -186,7 +186,7 @@ export function SearchGrid({
                             className={cx(
                               'w-full rounded-lg p-1.5 text-left transition-all focus:outline-none focus:ring-2',
                               isSelected
-                                ? 'bg-brand-primary text-white shadow-sm ring-2 ring-brand-primary ring-offset-1'
+                                ? 'bg-brand-primary text-brand-secondary shadow-sm ring-2 ring-brand-primary ring-offset-1'
                                 : slotOffers.length === 1
                                   ? 'border border-blue-100 bg-blue-50/80 hover:bg-blue-100 text-gray-900 focus:ring-blue-400'
                                   : 'border border-cyan-300 bg-cyan-50/80 hover:bg-cyan-100 text-cyan-950 focus:ring-cyan-400',
@@ -204,7 +204,7 @@ export function SearchGrid({
                                     />
                                   ))}
                                 </div>
-                                <span className="truncate text-xs font-bold text-white">
+                                <span className="truncate text-xs font-bold text-brand-secondary">
                                   {slotOffers.length} {slotOffers.length === 1 ? 'tutor' : 'tutores'}
                                 </span>
                               </div>

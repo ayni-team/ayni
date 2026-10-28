@@ -14,6 +14,35 @@ export function getMondayOfWeek(dateStr: string): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** The UTC offset of `zone` at `instant`, in milliseconds (-5 h in Lima). */
+function zoneOffsetMs(zone: string, instant: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(instant));
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+  return asUtc - instant;
+}
+
+/**
+ * The instant at which a day (YYYY-MM-DD) of the university starts: 2026-10-26 in Lima is
+ * 2026-10-26T05:00:00Z. The search window is in instants, so its ends must be the university's
+ * midnights, not UTC's.
+ */
+export function startOfDayInZone(day: string, zone: string): string {
+  const [year, month, date] = day.split('-').map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, date);
+  const guess = utcMidnight - zoneOffsetMs(zone, utcMidnight);
+  return new Date(utcMidnight - zoneOffsetMs(zone, guess)).toISOString();
+}
+
 /** Returns the 7 days of the week [Mon..Sun] starting from a Monday */
 export function getDaysOfWeek(mondayStr: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addDays(mondayStr, i));

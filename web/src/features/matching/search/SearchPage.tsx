@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Schema } from '@/shared/api';
 import { useApiQuery } from '@/shared/api';
+import { useUniversity } from '@/shared/brand';
 import { addDays, dayInZone, formatInZone, todayInZone, useZone } from '@/shared/time';
-import { Button, EmptyState, IconClock, PageHeader, Skeleton } from '@/shared/ui';
-import { formatWeekRange, getMondayOfWeek } from './dateUtils';
+import { Button, EmptyState, ErrorState, IconClock, PageHeader, Skeleton } from '@/shared/ui';
+import { formatWeekRange, getMondayOfWeek, startOfDayInZone } from './dateUtils';
 import { SearchDayList } from './SearchDayList';
 import { SearchFilters } from './SearchFilters';
 import { SearchGrid, type SelectedSlot } from './SearchGrid';
@@ -70,6 +71,8 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const zone = useZone();
+  // The window is in the university's days: search only once its zone is known.
+  const zoneKnown = Boolean(useUniversity()?.timezone);
 
   // Selected course
   const paramCatalogItemId = searchParams.get('catalogItemId') ?? '';
@@ -82,8 +85,10 @@ export default function SearchPage() {
     }
   }, [paramCatalogItemId, selectedCatalogItemId]);
 
-  // Current week (Monday)
-  const [mondayStr, setMondayStr] = useState<string>(() => getMondayOfWeek(todayInZone(zone)));
+  // Current week (Monday), counted from the university's today: the zone may arrive after the
+  // first render, so the week is derived from it instead of being frozen in the initial state.
+  const [weekOffset, setWeekOffset] = useState(0);
+  const mondayStr = addDays(getMondayOfWeek(todayInZone(zone)), 7 * weekOffset);
   const [page, setPage] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
 
@@ -110,8 +115,8 @@ export default function SearchPage() {
   const myBookings = useMemo(() => bookingsQuery.data?.items ?? [], [bookingsQuery.data?.items]);
 
   // 3. Search offers for the selected course and week
-  const fromInstant = `${mondayStr}T00:00:00Z`;
-  const toInstant = `${addDays(mondayStr, 7)}T00:00:00Z`;
+  const fromInstant = startOfDayInZone(mondayStr, zone);
+  const toInstant = startOfDayInZone(addDays(mondayStr, 7), zone);
 
   const search = useApiQuery(
     ['search', 'offers', { catalogItemId: selectedCatalogItemId, from: fromInstant, to: toInstant, page }],
@@ -124,7 +129,7 @@ export default function SearchPage() {
         page,
         size: 100,
       },
-      enabled: Boolean(selectedCatalogItemId),
+      enabled: Boolean(selectedCatalogItemId) && zoneKnown,
     },
   );
 
@@ -172,12 +177,12 @@ export default function SearchPage() {
   };
 
   const handlePrevWeek = () => {
-    setMondayStr((prev) => addDays(prev, -7));
+    setWeekOffset((prev) => prev - 1);
     setPage(0);
   };
 
   const handleNextWeek = () => {
-    setMondayStr((prev) => addDays(prev, 7));
+    setWeekOffset((prev) => prev + 1);
     setPage(0);
   };
 
@@ -203,16 +208,19 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6">
-      {/* Test identifier for route suite without modifying App.test.tsx */}
-      <div className="sr-only">
-        <span>FE-10</span>
-        <h2>En construcción</h2>
-      </div>
-
       <PageHeader
         title="Buscar tutoría"
         description="Elige un curso y una semana. Verás cada hora libre de los tutores habilitados para ese curso."
       />
+
+      {catalog.isError && (
+        <ErrorState
+          title="No pudimos cargar los cursos"
+          error={catalog.error}
+          onRetry={() => void catalog.refetch()}
+          retrying={catalog.isFetching}
+        />
+      )}
 
       {/* Filters: Course dropdown & Week picker */}
       <SearchFilters
@@ -241,7 +249,7 @@ export default function SearchPage() {
       )}
 
       {/* State 2: Loading */}
-      {selectedCatalogItemId && search.isLoading && (
+      {selectedCatalogItemId && (search.isLoading || !zoneKnown) && (
         <div className="mt-6 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-72" />
