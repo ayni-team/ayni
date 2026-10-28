@@ -1,30 +1,103 @@
 name: Release
 
-# Pushing a tag that starts with v (v1.0.0) builds the production image and publishes it to the
-# GitHub Container Registry as ghcr.io/<owner>/ayni-backend:<tag>. Nothing is deployed from here:
-# deploy.yml does that, on request, once the image exists.
+# Merging a release pull request into main is the whole release: this workflow tags the merge
+# commit, builds the production image and publishes it to the GitHub Container Registry as
+# ghcr.io/<owner>/ayni-backend:<tag>, and then deploys that tag (deploy.yml) to the backend machine
+# and the web application.
 #
-# The tag is cut from a commit that already went through CI on main; this workflow does not run the
-# tests again. It signs in with the GITHUB_TOKEN of the run and needs no secret of its own.
+# The tag comes from the title of the pull request, chore(release): v1.2.0. A title without one
+# takes the next patch version after the latest tag (v1.2.0 -> v1.2.1). Pushing a v* tag by hand
+# does the same from the image on, for a commit of main that was not merged through a pull request.
+#
+# The merge commit already went through CI as the pull request; this workflow does not run the
+# tests again. It signs in with the GITHUB_TOKEN of the run and needs no secret of its own; the tag
+# it pushes with that token starts no other workflow, so nothing runs twice.
 on:
+  pull_request:
+    types: [closed]
+    branches: [main]
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
 
-  image:
-    name: Production image
+  version:
+    name: Version
+    # A pull request closed without merging releases nothing.
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Choose the tag
+        id: tag
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            tag="$GITHUB_REF_NAME"
+          elif [[ "$TITLE" =~ (v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?) ]]; then
+            tag="${BASH_REMATCH[1]}"
+          elif [[ "$TITLE" =~ v[0-9] ]]; then
+            echo "::error::'$TITLE' names a version that is not vX.Y.Z, such as v1.2.0"
+            exit 1
+          else
+            latest="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n 1)"
+            if [[ ! "$latest" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "::error::No tag in the title and no plain vX.Y.Z tag to count from: title the pull request chore(release): v1.2.0"
+              exit 1
+            fi
+            tag="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$tag' is not a release tag such as v1.2.0"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+
+      # A tag is never moved: releasing the same version twice is a mistake in the title.
+      - name: Tag the merge commit
+        if: github.event_name == 'pull_request'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::$TAG already exists: title the pull request with a new version"
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "refs/tags/$TAG"
+
+  image:
+    name: Production image
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -37,7 +110,9 @@ jobs:
       # Registry names are lower case, GitHub owners may not be.
       - name: Name the image
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ayni-backend" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ayni-backend" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Build and publish
         uses: docker/build-push-action@v6
@@ -45,11 +120,22 @@ jobs:
           context: backend
           file: backend/Dockerfile.prod
           push: true
-          tags: ${{ steps.image.outputs.name }}:${{ github.ref_name }}
+          tags: ${{ steps.image.outputs.name }}:${{ env.TAG }}
           # Links the package to this repository, so it shows up there and inherits its access.
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ steps.image.outputs.revision }}
+            org.opencontainers.image.version=${{ env.TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy
+    needs: [version, image]
+    permissions:
+      contents: read
+      # The OpenID Connect token deploy.yml signs in to Azure with.
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}

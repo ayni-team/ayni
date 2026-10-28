@@ -19,6 +19,9 @@ const RESEND_SECONDS = 30;
  * The student enters an institutional email. Once the domain identifies an
  * affiliated university, the screen adopts that university's identity and
  * allows the student to request a one-use access link.
+ *
+ * A domain of no university only hints, it does not block: the platform administrator's address
+ * belongs to none and still gets a link. The backend decides, and refuses anybody else with a 400.
  */
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -37,6 +40,12 @@ export default function SignInPage() {
           : null;
 
   const universityFound = university !== null;
+
+  // Once the lookup has answered, whatever it said, the backend is the one to decide.
+  const canSubmit =
+      preview.status === 'found' ||
+      preview.status === 'notAffiliated' ||
+      preview.status === 'error';
 
   const request = useApiMutation(
       'post',
@@ -89,7 +98,7 @@ export default function SignInPage() {
   ) {
     event.preventDefault();
 
-    if (!universityFound) {
+    if (!canSubmit) {
       return;
     }
 
@@ -103,17 +112,22 @@ export default function SignInPage() {
     request.reset();
   }
 
-  const fieldError =
+  const fieldHint =
       preview.status === 'notAffiliated'
-          ? 'Tu universidad todavía no está afiliada a Ayni'
+          ? 'No encontramos una universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace.'
+          : undefined;
+
+  const fieldError =
+      request.isError && sentTo === null
+          ? errorText(request.error, {
+            badRequest:
+                preview.status === 'notAffiliated'
+                    ? 'Tu universidad todavía no está afiliada a Ayni'
+                    : 'No pudimos enviar el enlace a ese correo. Revisa que sea el institucional',
+          })
           : preview.status === 'error'
               ? errorText(undefined)
-              : request.isError && sentTo === null
-                  ? errorText(request.error, {
-                    badRequest:
-                        'No pudimos enviar el enlace a ese correo. Revisa que sea el institucional',
-                  })
-                  : undefined;
+              : undefined;
 
   const resendError =
       request.isError && sentTo !== null
@@ -233,6 +247,7 @@ export default function SignInPage() {
 
                 <Field
                     label="Correo institucional"
+                    hint={fieldHint}
                     error={fieldError}
                 >
                   <TextField
@@ -293,9 +308,9 @@ export default function SignInPage() {
                     type="submit"
                     fullWidth
                     loading={request.isPending}
-                    disabled={!universityFound}
+                    disabled={!canSubmit}
                     className={
-                      universityFound
+                      canSubmit
                           ? undefined
                           : 'disabled:!bg-gray-100 disabled:!text-gray-400 disabled:opacity-100'
                     }
