@@ -336,5 +336,59 @@ describe('FE-12 MyTutoringsPage', () => {
     expect(await screen.findByText('Página 2 de 2')).toBeInTheDocument();
     expect(requestedPage).toBe(1);
   });
-});
 
+  it('does not offer a late cancellation for a 409 that is not the late warning', async () => {
+    const server = setupServer();
+    const bookingId = UPCOMING_BOOKING_STANDARD.bookingId;
+    server
+      .on('GET', '/api/v1/bookings/mine', { body: UPCOMING_RESPONSE })
+      .on('DELETE', `/api/v1/bookings/${bookingId}`, {
+        status: 409,
+        body: { status: 409, message: 'The session already started: the booking can no longer be cancelled' },
+      });
+
+    const { user } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }));
+
+    expect(await screen.findByText('Esta tutoría ya no se puede cancelar.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/already started/)).not.toBeInTheDocument();
+    expect(server.requests('DELETE')).toHaveLength(1);
+  });
+
+  it('closes the late cancellation dialog with Escape, cancelling nothing', async () => {
+    const server = setupServer();
+    const bookingId = UPCOMING_BOOKING_STANDARD.bookingId;
+    server
+      .on('GET', '/api/v1/bookings/mine', { body: UPCOMING_RESPONSE })
+      .on('DELETE', `/api/v1/bookings/${bookingId}`, {
+        status: 409,
+        body: { bookingId, late: true, refundWillBeIssued: false, confirmationRequired: true },
+      });
+
+    const { user } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(server.requests('DELETE')).toHaveLength(1);
+  });
+
+  it('stays on the page when the session of a past tutoring is not found', async () => {
+    const server = setupServer();
+    server
+      .on('GET', '/api/v1/bookings/mine', (req) =>
+        req.query.get('view') === 'HISTORY' ? { body: HISTORY_RESPONSE } : { body: UPCOMING_RESPONSE },
+      )
+      .on('GET', '/api/v1/sessions', { status: 404, body: { status: 404, message: 'No session' } });
+
+    const { user, location } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('tab', { name: 'Historial' }));
+    await user.click(await screen.findByRole('button', { name: 'Repasar' }));
+
+    expect(await screen.findByText('No encontramos lo que buscas')).toBeInTheDocument();
+    expect(location()).toBe('/mis-tutorias');
+  });
+});
