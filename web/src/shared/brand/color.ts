@@ -54,7 +54,11 @@ function rgb(hex: string): Rgb {
 
 function toHex([r, g, b]: Rgb): string {
   return `#${[r, g, b]
-    .map((c) => Math.round(Math.min(255, Math.max(0, c))).toString(16).padStart(2, '0'))
+    .map((c) =>
+      Math.round(Math.min(255, Math.max(0, c)))
+        .toString(16)
+        .padStart(2, '0'),
+    )
     .join('')
     .toUpperCase()}`;
 }
@@ -111,7 +115,9 @@ export function onPrimary(primary: string, declared?: string | null): string {
   return contrastRatio(primary, WHITE) >= contrastRatio(primary, BLACK) ? WHITE : BLACK;
 }
 
-export function derivePalette(colors?: { primaryColor?: string | null; secondaryColor?: string | null } | null): BrandPalette {
+export function derivePalette(
+  colors?: { primaryColor?: string | null; secondaryColor?: string | null } | null,
+): BrandPalette {
   const declared = normalizeHex(colors?.primaryColor);
   const primary = declared ?? AYNI_COLORS.primaryColor;
   const secondary = declared ? onPrimary(primary, colors?.secondaryColor) : AYNI_COLORS.secondaryColor;

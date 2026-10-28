@@ -10,7 +10,9 @@ function wrapper() {
   const client = testQueryClient();
   return {
     client,
-    Wrapper: ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    Wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
   };
 }
 
@@ -22,7 +24,10 @@ describe('useApiQuery', () => {
     const { Wrapper, client } = wrapper();
 
     const { result } = renderHook(
-      () => useApiQuery(['booking', 'mine', { view: 'HISTORY' }], '/api/v1/bookings/mine', { query: { view: 'HISTORY', page: 1 } }),
+      () =>
+        useApiQuery(['booking', 'mine', { view: 'HISTORY' }], '/api/v1/bookings/mine', {
+          query: { view: 'HISTORY', page: 1 },
+        }),
       { wrapper: Wrapper },
     );
 
@@ -56,7 +61,10 @@ describe('useApiMutation', () => {
 
   it('keeps the key while the same attempt is retried and takes a new one after an answer', async () => {
     let status = 503;
-    const server = fakeServer().on('POST', '/api/v1/payments/purchases', () => ({ status, body: { status: 'FAILED' } }));
+    const server = fakeServer().on('POST', '/api/v1/payments/purchases', () => ({
+      status,
+      body: { status: 'FAILED' },
+    }));
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useApiMutation('post', '/api/v1/payments/purchases', { idempotent: true }), {
       wrapper: Wrapper,
@@ -77,7 +85,10 @@ describe('useApiMutation', () => {
   });
 
   it('takes a new key after a refusal', async () => {
-    const server = fakeServer().on('POST', '/api/v1/payments/purchases', { status: 409, body: { message: 'Monthly limit' } });
+    const server = fakeServer().on('POST', '/api/v1/payments/purchases', {
+      status: 409,
+      body: { message: 'Monthly limit' },
+    });
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useApiMutation('post', '/api/v1/payments/purchases', { idempotent: true }), {
       wrapper: Wrapper,
@@ -96,9 +107,12 @@ describe('useApiMutation', () => {
       .on('GET', '/api/v1/wallet', { body: { available: 5 } });
     const { Wrapper, client } = wrapper();
     client.setQueryData(['wallet', 'balance'], { available: 4 });
-    const { result } = renderHook(() => useApiMutation('delete', '/api/v1/bookings/{id}', { invalidates: [['wallet']] }), {
-      wrapper: Wrapper,
-    });
+    const { result } = renderHook(
+      () => useApiMutation('delete', '/api/v1/bookings/{id}', { invalidates: [['wallet']] }),
+      {
+        wrapper: Wrapper,
+      },
+    );
 
     await act(() => result.current.mutateAsync({ path: { id: 'b1' } }));
 

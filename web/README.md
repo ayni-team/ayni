@@ -49,15 +49,15 @@ for Lucía at USIL): the page takes the university's colours before you submit. 
 Mailpit (http://localhost:8025); open it and you land where your role belongs. `docs/demo.md` lists
 every person and role, and how the administrator opens a session as any of them without email.
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | The development server on port 5173 |
-| `npm run lint` | ESLint: the rules of hooks, exhaustive effect dependencies and accessibility. CI runs it |
-| `npm run build` | Type checks (strict) and builds. CI runs it |
-| `npm test` | Vitest and Testing Library, once. CI runs it |
-| `npm run test:watch` | The same, again on every save |
-| `npm run api:types` | Regenerates `src/shared/api/schema.d.ts` from `docs/api/openapi.json` |
-| `npm run api:snapshot` | Downloads `docs/api/openapi.json` from a running backend, then regenerates the types |
+| Script                 | What it does                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run dev`          | The development server on port 5173                                                      |
+| `npm run lint`         | ESLint: the rules of hooks, exhaustive effect dependencies and accessibility. CI runs it |
+| `npm run build`        | Type checks (strict) and builds. CI runs it                                              |
+| `npm test`             | Vitest and Testing Library, once. CI runs it                                             |
+| `npm run test:watch`   | The same, again on every save                                                            |
+| `npm run api:types`    | Regenerates `src/shared/api/schema.d.ts` from `docs/api/openapi.json`                    |
+| `npm run api:snapshot` | Downloads `docs/api/openapi.json` from a running backend, then regenerates the types     |
 
 ## Structure
 
@@ -187,6 +187,7 @@ fixed: a missing variant is a request to the lead.
    ```
 
    `src/features/identity/sign-in/SignInPage.test.tsx` is a whole example.
+
 5. Run it against the real backend, take a screenshot of each state, and keep the pull request to
    one screen (about 400 changed lines).
 

@@ -32,11 +32,19 @@ export function Tabs<V extends string>({ label, items, value, onChange, children
   function move(event: KeyboardEvent, index: number) {
     const last = items.length - 1;
     const next =
-      event.key === 'ArrowRight' ? (index === last ? 0 : index + 1)
-      : event.key === 'ArrowLeft' ? (index === 0 ? last : index - 1)
-      : event.key === 'Home' ? 0
-      : event.key === 'End' ? last
-      : null;
+      event.key === 'ArrowRight'
+        ? index === last
+          ? 0
+          : index + 1
+        : event.key === 'ArrowLeft'
+          ? index === 0
+            ? last
+            : index - 1
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? last
+              : null;
     if (next === null) return;
     event.preventDefault();
     const target = items[next].value;
@@ -88,7 +96,13 @@ export function Tabs<V extends string>({ label, items, value, onChange, children
         })}
       </div>
       {children !== undefined && (
-        <div role="tabpanel" id={panelId} aria-labelledby={tabId(value)} tabIndex={0} className="pt-4 focus:outline-none">
+        <div
+          role="tabpanel"
+          id={panelId}
+          aria-labelledby={tabId(value)}
+          tabIndex={0}
+          className="pt-4 focus:outline-none"
+        >
           {children}
         </div>
       )}

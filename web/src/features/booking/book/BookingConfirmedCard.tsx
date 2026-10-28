@@ -27,15 +27,10 @@ export function BookingConfirmedCard({
   creditsCharged = 1,
   zone,
 }: BookingConfirmedCardProps) {
-  const dayText = startsAt
-    ? capitalize(formatInZone(startsAt, zone, 'longDate')).replace(',', '')
-    : '';
+  const dayText = startsAt ? capitalize(formatInZone(startsAt, zone, 'longDate')).replace(',', '') : '';
   const startTime = startsAt ? formatInZone(startsAt, zone, 'time') : '';
   const effectiveEnd =
-    endsAt ??
-    (startsAt
-      ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString()
-      : '');
+    endsAt ?? (startsAt ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString() : '');
   const endTime = effectiveEnd ? formatInZone(effectiveEnd, zone, 'time') : '';
   const timeRange = startTime && endTime ? `${startTime} – ${endTime}` : '';
 
@@ -64,8 +59,8 @@ export function BookingConfirmedCard({
             {timeRange ? ` · ${timeRange}` : ''} · {courseName}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            Se descontó {creditsCharged} {creditsCharged === 1 ? 'crédito' : 'créditos'}. La sala se
-            abre 15 minutos antes.
+            Se descontó {creditsCharged} {creditsCharged === 1 ? 'crédito' : 'créditos'}. La sala se abre 15 minutos
+            antes.
           </p>
         </div>
 

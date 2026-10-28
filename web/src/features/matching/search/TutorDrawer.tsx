@@ -15,15 +15,7 @@ export interface TutorDrawerProps {
   onSelectOffer: (offer: Offer) => void;
 }
 
-export function TutorDrawer({
-  day,
-  hour,
-  offers,
-  allOffers,
-  zone,
-  onClose,
-  onSelectOffer,
-}: TutorDrawerProps) {
+export function TutorDrawer({ day, hour, offers, allOffers, zone, onClose, onSelectOffer }: TutorDrawerProps) {
   const startHourStr = formatHourLabel(hour);
   const endHourStr = formatHourLabel(hour + 1);
 
@@ -59,8 +51,8 @@ export function TutorDrawer({
       <div className="my-3 flex items-start gap-2 rounded-lg bg-gray-50 p-2.5 text-xs text-gray-700">
         <IconInfo className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
         <p>
-          {offers.length} {offers.length === 1 ? 'tutor libre' : 'tutores libres'}. Ordenados por su
-          calificación en este curso; los tutores nuevos van al final.
+          {offers.length} {offers.length === 1 ? 'tutor libre' : 'tutores libres'}. Ordenados por su calificación en
+          este curso; los tutores nuevos van al final.
         </p>
       </div>
 

@@ -88,7 +88,9 @@ describe('AppHeader', () => {
     signIn('STUDENT');
     renderFrame();
 
-    expect(await screen.findByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
+    ).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Tu saldo: 12 créditos' })).toHaveAttribute('href', '/creditos');
     expect(screen.getByRole('link', { name: 'Avisos' })).toBeInTheDocument();
     expect(await screen.findAllByText('Ana Torres')).not.toHaveLength(0);
@@ -137,7 +139,9 @@ describe('AppHeader', () => {
     await user.click(signOut);
 
     await waitFor(() => expect(currentSession()).toBeNull());
-    expect(server.requests('POST', '/api/v1/access/logout')[0].headers.get('Authorization')).toBe('Bearer token-student');
+    expect(server.requests('POST', '/api/v1/access/logout')[0].headers.get('Authorization')).toBe(
+      'Bearer token-student',
+    );
   });
 
   it('opens and closes the menu of a phone', async () => {

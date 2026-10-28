@@ -51,7 +51,10 @@ export function fakeServer() {
   const recorded: Recorded[] = [];
 
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
-    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, 'http://localhost');
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
+      'http://localhost',
+    );
     const request: Recorded = {
       method: (init.method ?? 'GET').toUpperCase(),
       path: url.pathname,
@@ -62,10 +65,13 @@ export function fakeServer() {
     recorded.push(request);
     const route = [...routes].reverse().find((r) => r.method === request.method && matches(r.path, request.path));
     if (!route) {
-      return new Response(JSON.stringify({ status: 501, message: `No fake answer for ${request.method} ${request.path}` }), {
-        status: 501,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ status: 501, message: `No fake answer for ${request.method} ${request.path}` }),
+        {
+          status: 501,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
     }
     const reply = typeof route.answer === 'function' ? await route.answer(request) : route.answer;
     const status = reply.status ?? 200;
@@ -85,9 +91,7 @@ export function fakeServer() {
     },
     /** What was sent, optionally only of a method and a path. */
     requests(method?: string, path?: string | RegExp): Recorded[] {
-      return recorded.filter(
-        (r) => (!method || r.method === method.toUpperCase()) && (!path || matches(path, r.path)),
-      );
+      return recorded.filter((r) => (!method || r.method === method.toUpperCase()) && (!path || matches(path, r.path)));
     },
     fetch: fetchMock,
   };
