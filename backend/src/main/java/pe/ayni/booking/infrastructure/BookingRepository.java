@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
+import pe.ayni.booking.BookingStatus;
 import pe.ayni.booking.domain.model.Booking;
 
 /**
@@ -92,4 +93,14 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
       @Param("tutorId") UUID tutorId,
       @Param("now") Instant now,
       Pageable page);
+
+  /** Whether the university has a booking that starts before that instant (the demo history). */
+  boolean existsByTenantIdAndStartsAtBefore(String tenantId, Instant instant);
+
+  /** Whether the university has a booking in that state starting after that instant (demo data). */
+  boolean existsByTenantIdAndStatusAndStartsAtAfter(
+      String tenantId, BookingStatus status, Instant instant);
+
+  /** Whether the university has any booking in that state (demo data). */
+  boolean existsByTenantIdAndStatus(String tenantId, BookingStatus status);
 }

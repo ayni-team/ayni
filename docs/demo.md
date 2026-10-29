@@ -9,6 +9,8 @@ a deployment.
 - [What the profile changes](#what-the-profile-changes)
 - [Starting it](#starting-it)
 - [The universities and their people](#the-universities-and-their-people)
+- [The history](#the-history)
+- [Starting over](#starting-over)
 - [Signing in with each role](#signing-in-with-each-role)
 - [The clock](#the-clock)
 - [Switching persona](#switching-persona)
@@ -24,7 +26,7 @@ a deployment.
 | The `Clock` every rule reads | `Clock.systemUTC()` (`config.TimeConfig`) | `config.demo.AdjustableClock`: the real time plus an offset the administrator moves |
 | `/api/v1/admin/demo/clock` | does not exist (404) | read, move, set and reset the clock; platform administrator only |
 | `/api/v1/admin/demo/personas` and `/login-as` | do not exist (404) | list the active students and coordinators and open a session as any of them; platform administrator only |
-| Demonstration data | the six `Demo*Data` of `dev` | the same, through `spring.profiles.group.demo: dev`, plus an active coordinator of UPC and one of USIL (`DemoCoordinatorData`) |
+| Demonstration data | the six `Demo*Data` of `dev` | the same, through `spring.profiles.group.demo: dev`, plus an active coordinator of UPC and one of USIL (`DemoCoordinatorData`) and the last four weeks of each university (`DemoHistoryData`, see [The history](#the-history)) |
 | Expiry of credits, generation of hours (`cron`) | 03:00 and 02:00 UTC of the real night | every minute |
 | Jobs at an interval | every minute (audit: every hour) | every 5 seconds (audit: every 10) |
 | Session token | 7 days | 365 days |
@@ -36,7 +38,8 @@ Everything is in `backend/src/main/resources/application-demo.yml`.
 **Why the demo includes `dev` through a group** and not by annotating the six `Demo*Data` classes
 with `@Profile({"dev", "demo"})`: one line in `application.yml` instead of six classes in six
 modules, and whatever `dev` seeds tomorrow is in the demo too, without anybody remembering to
-annotate it. The only class that is `demo` and not `dev` is `DemoCoordinatorData`.
+annotate it. The classes that are `demo` and not `dev` are `DemoCoordinatorData`, `DemoHistoryData`
+and the `DemoHistory*` adapters it plays the history through.
 
 ## Starting it
 
@@ -72,28 +75,173 @@ Both universities come from the documents of their academic systems, in `backend
 start `DemoIdentityData` registers **UPC** and **USIL** with what their documents say (name, logo,
 colours, domains, time zone and minimum teaching grade: 15 at UPC, 16 at USIL) and five initial
 credits for thirty days; `DemoSkillsData` loads the curriculum of each from its document (57 courses
-at UPC, 64 at USIL, with their Spanish names). Each document has 28 students; **only the four people
-below are activated at the start**. Every other student of the documents activates their account
-live: ask for a link with their address and open it from Mailpit, and the academic system answers
-who they are. One student of each career is no longer enrolled (a graduate, somebody who left) and
-is refused with `400`, the link left unused.
+at UPC, 64 at USIL, with their Spanish names). Each document has 28 students; **only the thirteen
+people of each university below are activated at the start**, all of them named, with their fixed
+identifiers, in `pe.ayni.shared.demo.DemoCast`. Every other student of the documents activates their
+account live: ask for a link with their address and open it from Mailpit, and the academic system
+answers who they are. One student of each career is no longer enrolled (a graduate, somebody who
+left) and is refused with `400`, the link left unused.
 
-| University | Person | Address | At the start |
-|---|---|---|---|
-| UPC | Ana Torres, Software, cycle 4 | `u202400001@upc.edu.pe` | active, at the first step of the onboarding (`PROFILE`), with the credits of every origin of `DemoWalletData` |
-| UPC | Bruno Salas, Software, cycle 8 | `u202300002@upc.edu.pe` | active, onboarding `COMPLETED`, tutor of the 25 courses where his grade reaches 15, free every day 15:00 to 18:00 Lima time |
-| UPC | Carla Mendoza, Sistemas de Información, cycle 3 | `u202500003@upc.edu.pe` | not activated: she activates her account live |
-| USIL | Lucía Paredes, Software, cycle 4 | `lucia.paredes@usil.edu.pe` | active, at the first step of the onboarding, no credits |
-| USIL | Mateo Ríos, Sistemas de Información, cycle 8 | `mateo.rios@usil.edu.pe` | active, onboarding `COMPLETED`, tutor of the 30 courses where his grade reaches 16, free every day 15:00 to 18:00 Lima time |
+Every module seeds its own part through its own use cases, never with SQL: identity activates the
+people and takes them as far into the onboarding as the table says, skills ends the onboarding of
+the rest, wallet grants the credits and runs the real expiry and expiry warning once, booking
+declares the tutors' weeks and books the tutorings ahead, and recognition sets a rule of **three
+hours** in each university. The two universities have the same shape, so whatever is shown in one
+can be shown in the other.
 
-The demo people are activated without publishing `StudentActivated`, as they always were: Ana's and
-Bruno's wallets are the ones `DemoWalletData` writes, and Lucía and Mateo start with none. A student
-activated live gets the university's five initial credits.
+The balances are the ones under `demo`, right after the first start; under `dev` there is no
+history, and the people who book have the credits of their history still in their wallet.
+
+### UPC
+
+| Address | Person | Role | Onboarding | Credits | What they show |
+|---|---|---|---|---|---|
+| `u202400001@upc.edu.pe` | Ana Torres, Software, cycle 4 | student | `PROFILE` | 10 (every origin, an expired grant and two refunds) | FE-03 from the first step (the web keeps her there, so the rest of hers is seen through the API or once she ends the onboarding): a tutoring ahead and a history with a whiteboard, read and unread notices, a tutor who did not come among them |
+| `u202300002@upc.edu.pe` | Bruno Salas, Software, cycle 8 | tutor of 25 courses, every day 15:00-18:00 | `COMPLETED` | 3 (earned) | FE-41 with tutorings ahead, FE-43 (5 and 4 stars), FE-34 with a request **approved**, FE-60 |
+| `u202100026@upc.edu.pe` | Mateo Cárdenas, Sistemas de Información, cycle 10 | tutor of 5 courses, weekdays 08:00-11:00, a weekday off in a week | `COMPLETED` | 3 (earned) | FE-41, FE-43, FE-34 with a request **pending** |
+| `u202200018@upc.edu.pe` | Daniela Salas, Software, cycle 7 | tutor of 5 courses, weekends 09:00-13:00, a week of pause in two weeks; also books | `COMPLETED` | 5 | FE-43 with a three star rating, FE-34 with a request **pending** |
+| `u202300027@upc.edu.pe` | Isabella Tapia, Sistemas de Información, cycle 6 | tutor of 5 courses, two hours a week (Tue and Thu 17:00-18:00); also books | `COMPLETED` | 3 | the tutor who did not come (a `NO_SHOW` incident), FE-12 as a student |
+| `u202200019@upc.edu.pe` | Andrés Zegarra, Software, cycle 7 | student | `COMPLETED` | **0** (his grant expired) | FE-30 empty with a history, FE-11 refused for credits |
+| `u202300012@upc.edu.pe` | Ana Flores, Software, cycle 5 | student | `COMPLETED` | **1** | FE-11 with the last credit |
+| `u202300024@upc.edu.pe` | Julián Arce, Sistemas de Información, cycle 6 | student | `COMPLETED` | **5** | a student as the university leaves them |
+| `u202300014@upc.edu.pe` | Valeria Medina, Software, cycle 6 | student | `COMPLETED` | **15** | FE-10 and FE-11 with room to book |
+| `u202300033@upc.edu.pe` | Milagros Castillo, Sistemas de Información, cycle 6 | student | `COMPLETED` | 8 (seed, allocated, purchased) | FE-30 with three origins; FE-12 with two ahead, a history with a session she missed, and a cancelled one; FE-24 with a whiteboard |
+| `u202400031@upc.edu.pe` | Alejandra Chávez, Sistemas de Información, cycle 4 | student | `COMPLETED` | 6, of which **2 expire in two days** | the expiry warning in FE-30 and FE-60 |
+| `u202400028@upc.edu.pe` | Daniela Cornejo, Sistemas de Información, cycle 4 | student | `ACADEMIC_RECORD` | none | FE-03 at the academic record |
+| `u202300016@upc.edu.pe` | Paula Palomino, Software, cycle 6 | student | `LEARNING_INTERESTS` | none | FE-03 at the interests |
+| `coordinator@upc.edu.pe` | Carlos Rivera | coordinator | | | FE-50 with two requests pending and one approved, FE-51, FE-53 with sessions, ratings and demand nobody covers |
+
+### USIL
+
+| Address | Person | Role | Onboarding | Credits | What they show |
+|---|---|---|---|---|---|
+| `lucia.paredes@usil.edu.pe` | Lucía Paredes, Software, cycle 4 | student | `PROFILE` | none | FE-03 from the first step |
+| `mateo.rios@usil.edu.pe` | Mateo Ríos, Sistemas de Información, cycle 8 | tutor of 30 courses, every day 15:00-18:00 | `COMPLETED` | 3 (earned) | FE-41, FE-43, FE-34 with a request **approved** |
+| `joaquin.medina@usil.edu.pe` | Joaquín Medina, Software, cycle 6 | tutor of 5 courses, weekdays 08:00-11:00, a weekday off in a week | `COMPLETED` | 3 (earned) | FE-41, FE-34 with a request **pending** |
+| `daniela.tapia@usil.edu.pe` | Daniela Tapia, Sistemas de Información, cycle 6 | tutor of 5 courses, weekends 09:00-13:00, a week of pause in two weeks; also books | `COMPLETED` | 5 | FE-43 with a three star rating, FE-34 with a request **pending** |
+| `piero.delgado@usil.edu.pe` | Piero Delgado, Software, cycle 5 | tutor of 5 courses, Tue and Thu 17:00-18:00; also books | `COMPLETED` | 3 | the tutor who did not come |
+| `bruno.castillo@usil.edu.pe` | Bruno Castillo, Software, cycle 7 | student | `COMPLETED` | **0** | FE-30 empty with a history |
+| `sebastian.gutierrez@usil.edu.pe` | Sebastián Gutiérrez, Software, cycle 4 | student | `COMPLETED` | **1** | FE-11 with the last credit |
+| `lucia.salazar@usil.edu.pe` | Lucía Salazar, Sistemas de Información, cycle 6 | student | `COMPLETED` | **5** | a student as the university leaves them |
+| `diego.espinoza@usil.edu.pe` | Diego Espinoza, Software, cycle 6 | student | `COMPLETED` | **15** | FE-10 and FE-11 with room to book |
+| `rocio.palomino@usil.edu.pe` | Rocío Palomino, Sistemas de Información, cycle 7 | student | `COMPLETED` | 3 (seed, allocated, purchased) | FE-12 with three ahead, history and a cancelled one; FE-24 with a whiteboard |
+| `gabriel.navarro@usil.edu.pe` | Gabriel Navarro, Sistemas de Información, cycle 4 | student | `COMPLETED` | 6, of which **2 expire in two days** | the expiry warning |
+| `bruno.vargas@usil.edu.pe` | Bruno Vargas, Software, cycle 4 | student | `ACADEMIC_RECORD` | none | FE-03 at the academic record |
+| `alejandra.gutierrez@usil.edu.pe` | Alejandra Gutiérrez, Sistemas de Información, cycle 6 | student | `LEARNING_INTERESTS` | none | FE-03 at the interests |
+| `coordinator@usil.edu.pe` | Rosa Huamán | coordinator | | | FE-50, FE-51, FE-53 |
+
+**The courses.** Bruno and Mateo Ríos offer every course they approved, and teach those where their
+grade reaches the threshold. The other three tutors of each university offer five courses each
+(`DemoSkillsData.TEACHES`), so FE-10 finds 36 courses taught at UPC and 40 at USIL, by four tutors,
+and leaves the rest with nobody: Arquitectura de Computadoras y Sistemas Operativos (SI643),
+Arquitectura de Aplicaciones Web (SI705) and Gerencia de Proyectos de SI/TI (SI427) at UPC, Ingeniería
+de Software II (USIL026), Sistemas Operativos (USIL034) and Análisis y Diseño de Algoritmos (USIL033)
+at USIL, among others. A search of those answers no offer, which is the demand FE-53 counts; the
+students who do not teach have them among their learning interests.
+
+**The tutorings ahead.** Four in each university, confirmed, between two and seven days ahead, so
+FE-12 and FE-41 are not empty: Ana with Bruno, Milagros with Mateo Cárdenas and with Isabella,
+Isabella with Daniela Salas; at USIL Rocío with Mateo Ríos, with Joaquín and with Piero, and Piero
+with Daniela Tapia. They are booked as a student books them: held, confirmed, charged. When a
+university has no confirmed tutoring ahead at startup (a database seeded weeks ago), four more are
+booked from that day, so the past never fills the whole screen; each time, the students pay the
+credit of the hour again. One more of each university, four or five days ahead, is cancelled by its
+student (Milagros, Rocío) with the credit back in FE-30.
+
+**Free for a live onboarding.** These students have no account and a good record, so they make a
+convincing tutor or student when they activate their account in front of the audience (ask for a
+link, open it in Mailpit, walk FE-03):
+
+| University | Address | Person |
+|---|---|---|
+| UPC | `u202500003@upc.edu.pe` | Carla Mendoza, Sistemas de Información, cycle 3 |
+| UPC | `u202300015@upc.edu.pe` | Sofía Cornejo, Software, cycle 6, 22 courses to teach |
+| UPC | `u202300011@upc.edu.pe` | Renzo Salas, Software, cycle 6, 21 courses to teach |
+| UPC | `u202100021@upc.edu.pe` | Joaquín Palomino, Software, cycle 9, 33 courses to teach |
+| UPC | `u202300030@upc.edu.pe` | Sebastián Cárdenas, Sistemas de Información, cycle 6 |
+| USIL | `paula.vargas@usil.edu.pe` | Paula Vargas, Sistemas de Información, cycle 6, 25 courses to teach |
+| USIL | `santiago.arce@usil.edu.pe` | Santiago Arce, Sistemas de Información, cycle 5 |
+| USIL | `rodrigo.palomino@usil.edu.pe` | Rodrigo Palomino, Software, cycle 5 |
+
+Who is refused on purpose: `u202300035@upc.edu.pe` and `piero.ortiz@usil.edu.pe` (no longer enrolled),
+`u202300022@upc.edu.pe` and `piero.valdivia@usil.edu.pe` (graduated).
+
+A student activated live gets the university's five initial credits.
 
 **To sign in with your own address** without committing it, create
 `backend/academic-directory/UPC.local.json` (ignored by git) with the students to add, in the schema
 of the document; only its `students` are read, and an address in both files is the local one. See
 `backend/academic-directory/README.md`.
+
+## The history
+
+Nobody enters the sessions the demonstration books, so without help the database would have no
+past: nothing to review in FE-24, no rating for FE-43, no hours for FE-34, no requests for FE-50, no
+indicators for FE-53. Under `demo` only, `config.demo.DemoHistoryData` plays the last four weeks of
+each university when the application is ready, after the tutors have their hours and the
+coordinators exist.
+
+**The trick: the clock goes back and the real use cases do the rest.** For each tutoring it takes
+the `AdjustableClock` to two days before it, and the student books the first free hours of the
+tutor from that day (hold, confirm, charge). Then the clock goes to five minutes before the start
+and both enter; to six minutes in, where the presence codes are issued and both confirm theirs; to
+three minutes before the end, where both end it, which completes it and pays the tutor; and to half
+an hour later, where each one rates the other. A tutor who does not come is abandoned at the ten
+minute mark, and the student is refunded and told; a student who does not come pays the hour. Each
+step is the use case of the endpoint a person calls, or of the job that would have run then, so the
+chained ledger, the audit log, the event registry, the notices and the indicators record it as they
+would record a real week, dated with the moved clock.
+
+**Every module plays its own part.** `config` cannot call another module's use cases, so each module
+implements a small port of `pe.ayni.shared.demo` (`DemoBookings`, `DemoSessions`, `DemoRatings`,
+`DemoRecognition`, `DemoNotices`, `DemoSearches`, `DemoCourses`) with a `DemoHistory*` class of its
+own `infrastructure`, under `demo` only; the history only says in what order and at what time.
+
+**The presence code** travels only by email, and the history does not read Mailpit. The sessions
+module reads it where the acceptance tests read it, from `PresenceCodeIssued` as it is published,
+and only for the session the history is confirming at that moment; the code is then confirmed with
+the real use case, which compares it with its hash. Nothing new is exposed over HTTP, and the class
+that listens exists only under `demo`. The emails with the codes do reach Mailpit, with the rest.
+
+What each university ends with (the same in both, with the people of its table):
+
+- six sessions **completed** by three tutors, three hours each (one of two hours and one of one),
+  with ratings of five, four and three stars, tags and comments, and the tutor's three answers about
+  the student; two of them with drawings on the whiteboard;
+- one session **abandoned** because the tutor did not come (Ana and Rocío are refunded and get the
+  notice) and one because the student did not (Milagros and Rocío pay the hour);
+- twelve searches of the courses nobody teaches, spread over the weeks;
+- the three tutors ask for the recognition of their three hours four days ago; two days ago the
+  coordinator approved the request of Bruno (Mateo Ríos at USIL) and left the other two pending;
+- Ana and Bruno have opened their four oldest notices and left the rest unread.
+
+**The clock ends exactly where it was**, the same offset from the real time, whatever happened, and
+the log says so: `Demo history done in 9877 ms; the clock is back at PT0S`. A tutoring that cannot be
+played is logged and the others are still played; a failure never keeps the application from
+starting. While the history plays, the jobs of the profile keep running against the moved clock,
+which is what they would have done at that time.
+
+**It runs once.** A university that already has a tutoring that started before today has a past, and
+is left alone; so is a database where people already have their own. The integrity checks of
+`/api/v1/coordinator/ledger/integrity` and `/api/v1/coordinator/audit-log/integrity` answer `intact`
+afterwards, which `DemoSeedAcceptanceTest` checks along with the rest of this section.
+
+**What it costs.** The history plays in about ten seconds on a laptop, both universities together;
+the rest of the seeding adds about five more to the first start. A second start plays nothing.
+
+## Starting over
+
+The data is dated by the day of the first start: the history is "the last four weeks" of that day.
+To start over, from the root of the repository:
+
+```bash
+docker compose down -v
+SPRING_PROFILES_ACTIVE=demo AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S docker compose up
+```
+
+`down -v` removes the volume of PostgreSQL, and with it every account, credit and tutoring; the next
+start seeds everything again. Without it the people keep what they had, and only the tutorings ahead
+are booked again when none are left.
 
 ## Signing in with each role
 
@@ -117,6 +265,7 @@ curl -s -X POST localhost:8080/api/v1/access/confirm \
 | Student | `u202400001@upc.edu.pe` | Ana Torres, with credits of every origin |
 | Student and tutor | `u202300002@upc.edu.pe` | Bruno Salas, teaches Diseño de Base de Datos among others, free every day 15:00 to 18:00 Lima time |
 | Students of USIL | `lucia.paredes@usil.edu.pe`, `mateo.rios@usil.edu.pe` | Lucía Paredes and Mateo Ríos, the student and the tutor of the second university |
+| Everybody else | the tables of [The universities and their people](#the-universities-and-their-people) | `login-as` (below) is quicker than a link for them |
 
 **Sign the four of them in before moving the clock**, and keep the four tokens:
 
@@ -334,8 +483,10 @@ curl -s localhost:8080/api/v1/recognition/progress -H "Authorization: Bearer $BR
 curl -s localhost:8080/api/v1/coordinator/recognition/rule -H "Authorization: Bearer $COORD"
 ```
 
-**What to see:** Bruno has `earnedHours: 1` of the `requiredHours: 20` of the rule `dev` seeds, so
-`canRequest` is false. For the presentation the coordinator lowers it to one hour, and Bruno asks:
+**What to see:** under `demo` Bruno's three hours of the history are already in an approved request,
+so only the session of step 4 counts: `earnedHours: 1` of the `requiredHours: 3` of the rule `dev`
+seeds, and `canRequest` is false (under `dev`, without history, the same). For the presentation the
+coordinator lowers it to one hour, and Bruno asks:
 
 ```bash
 curl -s -X PUT localhost:8080/api/v1/coordinator/recognition/rule -H "Authorization: Bearer $COORD" \
@@ -378,7 +529,10 @@ approved request. To start over, start from an empty database.
   Move the clock in small steps around a session.
 - **Going backwards does not undo anything.** Rows written with a moved clock keep their dates.
   Moving back is for showing a window again, not for repairing a run.
-- **The data of `dev` is dated by its first start.** See step 6: read the dates before jumping.
+- **The data of `dev` is dated by its first start.** See step 6: read the dates before jumping, and
+  [Starting over](#starting-over).
+- **Ana already has tutorings.** One with Bruno two or more days ahead and a cancelled one; the
+  hour of tomorrow in step 1 is free. FE-03 still shows her at the first step of the onboarding.
 - **Video calls** check the pass against the real time, so the pass is signed with the real time
   under `demo` (`ayni.sessions.video.sign-with-real-time`), keeping its five minutes and never
   passing the end of the session by the application's clock. The `expiresAt` of the answer stays in
