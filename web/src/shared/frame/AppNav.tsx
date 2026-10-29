@@ -1,6 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { cx } from '../ui/cx';
-import type { NavGroup, NavEntry } from './navigation';
+import type { NavEntry, NavGroup } from './navigation';
 
 export interface NavSection {
   group: NavGroup;
@@ -8,41 +8,47 @@ export interface NavSection {
   entries: NavEntry[];
 }
 
-/** The tabs of the role, under the header on a wide screen. The active one wears the brand. */
+/**
+ * The tabs of the role under the header on a wide screen, as the Marco frame draws them: a rounded
+ * bar where the active tab is a pill in the university's colour. The first group goes without a
+ * label; the next ones ("Como tutor") name themselves in small type before their tabs.
+ */
 export function AppNav({ sections }: { sections: NavSection[] }) {
+  const { pathname } = useLocation();
   if (sections.length === 0) return null;
+  const alsoActive = (entry: NavEntry) => entry.also?.some((path) => pathname.startsWith(path)) ?? false;
   return (
-    <nav aria-label="Principal" className="hidden border-t border-gray-100 md:block">
-      <div className="mx-auto flex max-w-6xl items-stretch gap-6 overflow-x-auto px-4">
-        {sections.map((section, index) => (
-          <div key={section.group} className={cx('flex items-stretch gap-1', index > 0 && 'border-l border-line pl-6')}>
-            {sections.length > 1 && (
-              <span className="self-center pr-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-                {section.label}
-              </span>
-            )}
-            <ul className="flex items-stretch gap-1">
-              {section.entries.map((entry) => (
-                <li key={entry.to} className="flex">
-                  <NavLink
-                    to={entry.to}
-                    className={({ isActive }) =>
-                      cx(
-                        '-mb-px flex items-center whitespace-nowrap border-b-2 px-3 py-3 text-sm',
-                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand',
-                        isActive
-                          ? 'border-brand font-semibold text-brand-text'
-                          : 'border-transparent text-ink-2 hover:border-gray-300 hover:text-ink',
-                      )
-                    }
-                  >
-                    {entry.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+    <nav aria-label="Principal" className="hidden border-t border-line md:block">
+      <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-3">
+        <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-surface p-1.5">
+          {sections.map((section, index) => (
+            <div key={section.group} className="flex items-center gap-1">
+              {index > 0 && (
+                <span className="whitespace-nowrap px-2 text-xs font-medium text-gray-500">{section.label}</span>
+              )}
+              <ul className="flex items-center gap-1">
+                {section.entries.map((entry) => (
+                  <li key={entry.to}>
+                    <NavLink
+                      to={entry.to}
+                      className={({ isActive }) =>
+                        cx(
+                          'flex items-center whitespace-nowrap rounded-full px-4 py-2 text-[15px] transition-colors xl:px-5',
+                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+                          isActive || alsoActive(entry)
+                            ? 'bg-brand font-semibold text-brand-secondary'
+                            : 'text-ink-2 hover:bg-white hover:text-ink',
+                        )
+                      }
+                    >
+                      {entry.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     </nav>
   );

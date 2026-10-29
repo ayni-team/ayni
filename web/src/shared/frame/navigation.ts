@@ -25,6 +25,11 @@ export interface NavEntry {
   group: NavGroup;
   /** Position inside its group, lowest first. */
   order: number;
+  /**
+   * Other routes under this tab that are not nested in its path, so the tab stays active on them
+   * (`/reservar` under `/buscar`).
+   */
+  also?: readonly string[];
 }
 
 export interface FeatureRoutes {
