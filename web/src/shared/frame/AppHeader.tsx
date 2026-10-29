@@ -82,6 +82,23 @@ function SignOut() {
   );
 }
 
+/** The way out at the end of the phone menu: a row in red, like the frame. */
+function SignOutRow() {
+  const { signOut, signingOut } = useSignOut();
+  return (
+    <button
+      type="button"
+      onClick={() => void signOut()}
+      disabled={signingOut}
+      aria-busy={signingOut || undefined}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-text hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60"
+    >
+      {signingOut ? <Spinner size="sm" decorative /> : <IconLogOut className="h-5 w-5" />}
+      Cerrar sesión
+    </button>
+  );
+}
+
 /** The university as the design draws it: its logo and its name on two short lines. */
 function University({ university }: { university: NonNullable<ReturnType<typeof useUniversity>> }) {
   return (
@@ -134,12 +151,12 @@ export function AppHeader({ sections, bell }: AppHeaderProps) {
           </div>
           <MobileMenu
             sections={sections}
-            footer={
-              <div className="flex items-center justify-between gap-3">
-                <Person compact />
-                <SignOut />
-              </div>
-            }
+            person={<Person compact />}
+            extra={[
+              ...(bell ? [{ to: '/avisos', label: 'Avisos' }] : []),
+              ...(student ? [{ to: '/perfil', label: 'Mi perfil' }] : []),
+            ]}
+            signOut={<SignOutRow />}
           />
         </div>
       </div>
