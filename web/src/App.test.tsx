@@ -75,7 +75,9 @@ const PUBLIC: [route: string, screen: string][] = [
 
 const ROLES: Role[] = ['STUDENT', 'COORDINATOR', 'PLATFORM_ADMIN'];
 
-const CASES = TABLE.flatMap(([route, roles, id]) => ROLES.map((role) => [route, role, roles.includes(role), id] as const));
+const CASES = TABLE.flatMap(([route, roles, id]) =>
+  ROLES.map((role) => [route, role, roles.includes(role), id] as const),
+);
 
 function serve(role: Role) {
   const server = fakeServer();
@@ -93,7 +95,11 @@ describe('routes', () => {
 
   it('declares exactly the routes, roles and screens of the table', () => {
     const declared = FEATURES.flatMap((feature) => feature.routes)
-      .map((route) => [route.path, route.access === 'public' ? 'public' : [...route.access].sort().join(','), route.screen])
+      .map((route) => [
+        route.path,
+        route.access === 'public' ? 'public' : [...route.access].sort().join(','),
+        route.screen,
+      ])
       .sort();
     const expected = [
       ...TABLE.map(([route, roles, id]) => [pattern(route), [...roles].sort().join(','), id]),

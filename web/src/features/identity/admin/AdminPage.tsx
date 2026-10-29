@@ -9,7 +9,13 @@ export default function AdminPage() {
       <PageHeader title="Administración de la plataforma" />
       <Card>
         <p className="text-sm text-gray-700">En este sprint la administración solo puede cerrar sesión.</p>
-        <Button className="mt-4" variant="secondary" loading={signingOut} icon={<IconLogOut className="h-4 w-4" />} onClick={() => void signOut()}>
+        <Button
+          className="mt-4"
+          variant="secondary"
+          loading={signingOut}
+          icon={<IconLogOut className="h-4 w-4" />}
+          onClick={() => void signOut()}
+        >
           Cerrar sesión
         </Button>
       </Card>

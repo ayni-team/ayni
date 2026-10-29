@@ -106,13 +106,9 @@ export default function SearchPage() {
   );
 
   // 2. Fetch User's upcoming bookings to highlight in the grid
-  const bookingsQuery = useApiQuery(
-    ['booking', 'mine', { view: 'UPCOMING' }],
-    '/api/v1/bookings/mine',
-    {
-      query: { view: 'UPCOMING' },
-    },
-  );
+  const bookingsQuery = useApiQuery(['booking', 'mine', { view: 'UPCOMING' }], '/api/v1/bookings/mine', {
+    query: { view: 'UPCOMING' },
+  });
   const myBookings = useMemo(() => bookingsQuery.data?.items ?? [], [bookingsQuery.data?.items]);
 
   // 3. Search offers for the selected course and week
@@ -273,15 +269,9 @@ export default function SearchPage() {
               <IconWifiOff className="h-6 w-6" />
             </div>
             <h2 className="text-base font-semibold text-gray-900">No pudimos cargar esto</h2>
-            <p className="max-w-md text-sm text-gray-600">
-              La plataforma no respondió. Lo que escribiste sigue aquí.
-            </p>
+            <p className="max-w-md text-sm text-gray-600">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
             <div className="mt-2">
-              <Button
-                variant="secondary"
-                onClick={() => search.refetch()}
-                loading={search.isFetching}
-              >
+              <Button variant="secondary" onClick={() => search.refetch()} loading={search.isFetching}>
                 Reintentar
               </Button>
             </div>

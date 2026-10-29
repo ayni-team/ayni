@@ -24,7 +24,11 @@ const SIZES = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-16 w-16 t
 /** The person's photo or, without one (or if it fails to load), their initials. */
 export function Avatar({ name, photoUrl, size = 'md', decorative = false, className }: AvatarProps) {
   const [failed, setFailed] = useState(false);
-  const classes = cx('inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full', SIZES[size], className);
+  const classes = cx(
+    'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full',
+    SIZES[size],
+    className,
+  );
   if (photoUrl && !failed) {
     return (
       <img

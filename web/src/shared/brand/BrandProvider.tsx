@@ -51,22 +51,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const university: University | null = signedIn ? (mine.data ?? null) : preview;
   const primaryColor = university?.primaryColor;
   const secondaryColor = university?.secondaryColor;
-  const palette = useMemo(
-    () => derivePalette({ primaryColor, secondaryColor }),
-    [primaryColor, secondaryColor],
-  );
+  const palette = useMemo(() => derivePalette({ primaryColor, secondaryColor }), [primaryColor, secondaryColor]);
 
   useLayoutEffect(() => {
     applyPalette(palette);
   }, [palette]);
 
-  const status: UniversityStatus = !signedIn
-    ? 'none'
-    : mine.data
-      ? 'ready'
-      : mine.isError
-        ? 'error'
-        : 'loading';
+  const status: UniversityStatus = !signedIn ? 'none' : mine.data ? 'ready' : mine.isError ? 'error' : 'loading';
   const refetch = mine.refetch;
   const retry = useCallback(() => void refetch(), [refetch]);
 

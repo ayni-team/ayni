@@ -77,11 +77,7 @@ export function formatWeekRange(mondayStr: string): string {
 }
 
 /** "También libre 16:00 y 18:00" or "Solo esta hora" */
-export function getOtherFreeHoursText(
-  allOffers: readonly Offer[],
-  currentOffer: Offer,
-  zone: string,
-): string {
+export function getOtherFreeHoursText(allOffers: readonly Offer[], currentOffer: Offer, zone: string): string {
   if (!currentOffer.startsAt || !currentOffer.tutorId) {
     return 'Solo esta hora';
   }

@@ -117,7 +117,9 @@ function DialogPanel({ onClose, title, description, children, footer, dismissibl
           </p>
         )}
         {children && <div className="mt-4">{children}</div>}
-        {footer && <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row-reverse sm:justify-start">{footer}</div>}
+        {footer && (
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row-reverse sm:justify-start">{footer}</div>
+        )}
       </div>
     </div>
   );

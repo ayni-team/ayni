@@ -121,9 +121,7 @@ describe('FE-10 SearchPage', () => {
       route: `/buscar?catalogItemId=${COURSE_ID}`,
     });
 
-    expect(
-      await screen.findByText('No hay horas en esa franja. Estas son las más cercanas'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No hay horas en esa franja. Estas son las más cercanas')).toBeInTheDocument();
     expect(screen.getByText('Bruno Salas')).toBeInTheDocument();
   });
 
@@ -185,7 +183,15 @@ describe('FE-10 SearchPage', () => {
   it("asks for the week between the university's midnights, not UTC's", async () => {
     const server = setupServer();
     server.on('GET', '/api/v1/search/offers', {
-      body: { offers: [], exactMatch: true, timezone: 'America/Lima', page: 0, size: 100, totalElements: 0, totalPages: 0 },
+      body: {
+        offers: [],
+        exactMatch: true,
+        timezone: 'America/Lima',
+        page: 0,
+        size: 100,
+        totalElements: 0,
+        totalPages: 0,
+      },
     });
 
     renderWithProviders(<SearchPage />, { route: `/buscar?catalogItemId=${COURSE_ID}` });
@@ -212,6 +218,8 @@ describe('FE-10 SearchPage', () => {
 
     server.on('GET', '/api/v1/catalog', { body: CATALOG });
     await user.click(screen.getByRole('button', { name: /Reintentar/ }));
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'No pudimos cargar los cursos' })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'No pudimos cargar los cursos' })).not.toBeInTheDocument(),
+    );
   });
 });

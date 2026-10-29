@@ -120,6 +120,46 @@ class OnboardingInterestsAcceptanceTest extends OnboardingScenario {
   }
 
   @Test
+  @DisplayName("Already approved courses are not asked for help")
+  void alreadyApprovedCoursesAreNotAskedForHelp() throws Exception {
+    // Given my university has the record of my courses
+    Person student = aNewStudent();
+    completeProfile(student);
+    importRecord(student);
+
+    // The whole catalogue, with nothing left out, still has what I already approved. Scoped to
+    // this scenario's own category: the catalogue is shared with every other test's fixtures.
+    assertThat(
+            JsonPath.<List<String>>read(
+                read(student, "/api/v1/catalog?category=" + category), "$.items[*].id"))
+        .containsExactlyInAnyOrder(
+            databases.getId().toString(),
+            calculus.getId().toString(),
+            physics.getId().toString(),
+            python.getId().toString());
+
+    // When I ask it for what I could need help with, leaving out what I approved
+    String excluded = read(student, "/api/v1/catalog?category=" + category + "&excludeApproved=true");
+
+    // Then every course I approved is left out, even the one below the teaching threshold
+    // (Calculus, 11.00, cannot be taught but was still approved), and the rest stays
+    assertThat(JsonPath.<List<String>>read(excluded, "$.items[*].id"))
+        .containsExactlyInAnyOrder(physics.getId().toString(), python.getId().toString());
+
+    // Another student, who approved nothing, keeps seeing the whole catalogue
+    Person other = people.aStudent(tenant);
+    assertThat(
+            JsonPath.<List<String>>read(
+                read(other, "/api/v1/catalog?category=" + category + "&excludeApproved=true"),
+                "$.items[*].id"))
+        .containsExactlyInAnyOrder(
+            databases.getId().toString(),
+            calculus.getId().toString(),
+            physics.getId().toString(),
+            python.getId().toString());
+  }
+
+  @Test
   @DisplayName("Later sign-ins")
   void laterSignIns() throws Exception {
     // Given I already completed my initial configuration

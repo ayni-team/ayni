@@ -1,10 +1,6 @@
 import { Button, IconAlert } from '@/shared/ui';
 
-export type ConflictKind =
-  | 'HOUR_TAKEN'
-  | 'TUTOR_NOT_ENABLED'
-  | 'INSUFFICIENT_CREDITS'
-  | 'UNEXPECTED';
+export type ConflictKind = 'HOUR_TAKEN' | 'TUTOR_NOT_ENABLED' | 'INSUFFICIENT_CREDITS' | 'UNEXPECTED';
 
 export interface BookingConflictBannerProps {
   kind: ConflictKind;
@@ -71,15 +67,10 @@ export function BookingConflictBanner({
 }: BookingConflictBannerProps) {
   if (kind === 'HOUR_TAKEN') {
     return (
-      <div
-        className="flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/70 p-4"
-        role="alert"
-      >
+      <div className="flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/70 p-4" role="alert">
         <IconAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">
-            Alguien tomó esa hora. Elige otra
-          </h2>
+          <h2 className="text-sm font-semibold text-gray-900">Alguien tomó esa hora. Elige otra</h2>
           <p className="mt-0.5 text-xs text-gray-500">No se te cobró nada.</p>
         </div>
       </div>
@@ -88,18 +79,11 @@ export function BookingConflictBanner({
 
   if (kind === 'TUTOR_NOT_ENABLED') {
     return (
-      <div
-        className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4"
-        role="alert"
-      >
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4" role="alert">
         <IconAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">
-            {tutorName} ya no enseña este curso
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Elige otra hora u otro tutor. No se te cobró nada.
-          </p>
+          <h2 className="text-sm font-semibold text-gray-900">{tutorName} ya no enseña este curso</h2>
+          <p className="mt-0.5 text-xs text-gray-500">Elige otra hora u otro tutor. No se te cobró nada.</p>
         </div>
       </div>
     );
@@ -107,25 +91,18 @@ export function BookingConflictBanner({
 
   if (kind === 'INSUFFICIENT_CREDITS') {
     const missing =
-      missingCredits !== undefined && missingCredits > 0
-        ? missingCredits
-        : Math.max(1, hours - availableBalance);
+      missingCredits !== undefined && missingCredits > 0 ? missingCredits : Math.max(1, hours - availableBalance);
 
     const costLabel = `${hours} ${hours === 1 ? 'crédito' : 'créditos'}`;
-    const missingTitle =
-      missing === 1 ? 'Te falta 1 crédito' : `Te faltan ${missing} créditos`;
+    const missingTitle = missing === 1 ? 'Te falta 1 crédito' : `Te faltan ${missing} créditos`;
 
     return (
-      <div
-        className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4"
-        role="alert"
-      >
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4" role="alert">
         <IconWallet className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" />
         <div>
           <h2 className="text-sm font-semibold text-gray-900">{missingTitle}</h2>
           <p className="mt-0.5 text-xs text-gray-600">
-            La reserva cuesta {costLabel} y tu saldo es {availableBalance}. Compra créditos y
-            vuelve a confirmar.
+            La reserva cuesta {costLabel} y tu saldo es {availableBalance}. Compra créditos y vuelve a confirmar.
           </p>
         </div>
       </div>
@@ -142,9 +119,7 @@ export function BookingConflictBanner({
         <IconWifiOff className="h-6 w-6" />
       </div>
       <div>
-        <h2 className="text-base font-bold text-gray-900">
-          No pudimos confirmar la reserva
-        </h2>
+        <h2 className="text-base font-bold text-gray-900">No pudimos confirmar la reserva</h2>
         <p className="mt-1 max-w-sm text-xs text-gray-500">
           No se te cobró nada. Lo que escribiste sigue aquí: vuelve a intentarlo.
         </p>

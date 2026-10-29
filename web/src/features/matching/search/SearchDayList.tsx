@@ -96,28 +96,20 @@ export function SearchDayList({
                         <Avatar name={offer.tutorName ?? ''} size="md" className="shrink-0" />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="truncate text-sm font-semibold text-gray-900">
-                              {offer.tutorName}
-                            </p>
+                            <p className="truncate text-sm font-semibold text-gray-900">{offer.tutorName}</p>
                             {offer.newTutor && <Badge tone="info">Tutor nuevo</Badge>}
                           </div>
                           <p className="truncate text-xs text-gray-600 mt-0.5">{starsText}</p>
                           {offer.sessionsTaught !== undefined && (
                             <p className="hidden text-xs text-gray-500 sm:block mt-0.5">
-                              {offer.sessionsTaught}{' '}
-                              {offer.sessionsTaught === 1 ? 'sesión' : 'sesiones'} de este curso
+                              {offer.sessionsTaught} {offer.sessionsTaught === 1 ? 'sesión' : 'sesiones'} de este curso
                             </p>
                           )}
                         </div>
                       </div>
 
                       {/* Right: Elegir button */}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onSelectOffer(offer)}
-                        className="shrink-0"
-                      >
+                      <Button variant="secondary" size="sm" onClick={() => onSelectOffer(offer)} className="shrink-0">
                         Elegir
                       </Button>
                     </div>

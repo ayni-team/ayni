@@ -28,12 +28,14 @@ public interface CatalogItemRepository extends JpaRepository<CatalogItem, UUID> 
         and (item.scope = pe.ayni.skills.CatalogScope.GLOBAL or item.tenantId = :tenantId)
         and (cast(:categoryId as uuid) is null or item.categoryId = :categoryId)
         and (cast(:namePattern as string) is null or lower(item.name) like :namePattern)
+        and (item.courseCode is null or item.courseCode not in :excludedCourseCodes)
       """)
   Page<CatalogItem> searchVisible(
       @Param("tenantId") String tenantId,
       @Param("status") CatalogItemStatus status,
       @Param("categoryId") UUID categoryId,
       @Param("namePattern") String namePattern,
+      @Param("excludedCourseCodes") Collection<String> excludedCourseCodes,
       Pageable pageable);
 
   /**

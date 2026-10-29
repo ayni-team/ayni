@@ -47,21 +47,12 @@ export function TutoringsErrorState({ onRetry, retrying = false }: TutoringsErro
         <IconWifiOff className="h-6 w-6" />
       </div>
 
-      <h2 className="text-base font-semibold text-gray-900">
-        No pudimos cargar esto
-      </h2>
+      <h2 className="text-base font-semibold text-gray-900">No pudimos cargar esto</h2>
 
-      <p className="mt-1 max-w-md text-sm text-gray-600">
-        La plataforma no respondió. Lo que escribiste sigue aquí.
-      </p>
+      <p className="mt-1 max-w-md text-sm text-gray-600">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
 
       <div className="mt-4">
-        <Button
-          variant="secondary"
-          size="md"
-          onClick={onRetry}
-          loading={retrying}
-        >
+        <Button variant="secondary" size="md" onClick={onRetry} loading={retrying}>
           Reintentar
         </Button>
       </div>

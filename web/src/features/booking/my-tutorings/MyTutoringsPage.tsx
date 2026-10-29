@@ -1,24 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  api,
-  errorBody,
-  errorText,
-  isApiError,
-  useApiQuery,
-  type Schema,
-} from '@/shared/api';
+import { api, errorBody, errorText, isApiError, useApiQuery, type Schema } from '@/shared/api';
 import { useZone } from '@/shared/time';
-import {
-  ButtonLink,
-  EmptyState,
-  PageHeader,
-  Tabs,
-  pageCount,
-  useToast,
-  type TabItem,
-} from '@/shared/ui';
+import { ButtonLink, EmptyState, PageHeader, Tabs, pageCount, useToast, type TabItem } from '@/shared/ui';
 import { CancellationBanner } from './CancellationBanner';
 import { LateCancellationDialog } from './LateCancellationDialog';
 import { TutoringCard } from './TutoringCard';
@@ -218,29 +203,15 @@ export default function MyTutoringsPage() {
 
   return (
     <div className="mx-auto max-w-5xl py-4 sm:py-6">
-      <PageHeader
-        title="Mis tutorías"
-        description={`Las que recibes. Horas en hora de ${zoneCity}.`}
-      />
+      <PageHeader title="Mis tutorías" description={`Las que recibes. Horas en hora de ${zoneCity}.`} />
 
-      <Tabs
-        label="Vistas de tutorías"
-        items={TABS}
-        value={view}
-        onChange={handleTabChange}
-        className="mb-6"
-      />
+      <Tabs label="Vistas de tutorías" items={TABS} value={view} onChange={handleTabChange} className="mb-6" />
 
       {bannerMessage && <CancellationBanner message={bannerMessage} />}
 
       {isLoading && <TutoringsSkeleton />}
 
-      {!isLoading && error && (
-        <TutoringsErrorState
-          onRetry={() => void refetch()}
-          retrying={isFetching}
-        />
-      )}
+      {!isLoading && error && <TutoringsErrorState onRetry={() => void refetch()} retrying={isFetching} />}
 
       {!isLoading && !error && items.length === 0 && (
         <EmptyState
@@ -251,9 +222,7 @@ export default function MyTutoringsPage() {
           }
           title={view === 'UPCOMING' ? 'Todavía no tienes tutorías' : 'No tienes tutorías en tu historial'}
           description={
-            view === 'UPCOMING'
-              ? 'Busca una en Buscar.'
-              : 'Las tutorías que recibas o canceles aparecerán aquí.'
+            view === 'UPCOMING' ? 'Busca una en Buscar.' : 'Las tutorías que recibas o canceles aparecerán aquí.'
           }
           action={
             view === 'UPCOMING' ? (

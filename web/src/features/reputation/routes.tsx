@@ -8,10 +8,6 @@ const ReputationPage = lazy(() => import('./reputation/ReputationPage'));
  * here and a line below; App.tsx is not touched.
  */
 export const reputationRoutes: FeatureRoutes = {
-  routes: [
-    { path: '/tutor/reputacion', access: ['STUDENT'], screen: 'FE-43', element: <ReputationPage /> },
-  ],
-  navigation: [
-    { to: '/tutor/reputacion', label: 'Reputación', role: 'STUDENT', group: 'teach', order: 40 },
-  ],
+  routes: [{ path: '/tutor/reputacion', access: ['STUDENT'], screen: 'FE-43', element: <ReputationPage /> }],
+  navigation: [{ to: '/tutor/reputacion', label: 'Reputación', role: 'STUDENT', group: 'teach', order: 40 }],
 };

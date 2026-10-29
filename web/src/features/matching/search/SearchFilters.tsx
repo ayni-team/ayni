@@ -51,7 +51,9 @@ export function SearchFilters({
 
         {/* Week selection */}
         <div className="w-full lg:w-64 shrink-0">
-          <span id="semana-label" className="block text-xs font-medium text-gray-700 mb-1.5">Semana</span>
+          <span id="semana-label" className="block text-xs font-medium text-gray-700 mb-1.5">
+            Semana
+          </span>
           <div
             role="group"
             aria-labelledby="semana-label"

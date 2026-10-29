@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { applyPalette, AYNI_COLORS, contrastRatio, derivePalette, MINIMUM_CONTRAST, normalizeHex, SURFACE } from './color';
+import {
+  applyPalette,
+  AYNI_COLORS,
+  contrastRatio,
+  derivePalette,
+  MINIMUM_CONTRAST,
+  normalizeHex,
+  SURFACE,
+} from './color';
 
 describe('derivePalette', () => {
   it('derives UPC: its red does not read on grey, so its text is the pressed tone', () => {

@@ -103,6 +103,10 @@ class SkillsController {
           Every active item a student of this university may see: the global tools that ship with \
           Ayni, plus the courses that belong to their own university. Sorted by name, and \
           narrowed by category or by part of the name when asked.
+
+          FE-03: the step of the onboarding that asks what the student needs help with offers this \
+          catalogue, and a course the student's own academic record already backs is not something \
+          to ask for help with. excludeApproved leaves those out for the student making the request.
           """)
   @Parameter(
       in = ParameterIn.HEADER,
@@ -126,8 +130,14 @@ class SkillsController {
           int page,
       @Parameter(description = "Items per page") @RequestParam(defaultValue = "20") @Min(1)
           @Max(100)
-          int size) {
-    return CatalogPage.of(catalog.visibleItems(category, q, page, size));
+          int size,
+      @Parameter(
+              description =
+                  "Leave out the courses the current student already has an approving grade for")
+          @RequestParam(defaultValue = "false")
+          boolean excludeApproved) {
+    UUID studentId = excludeApproved ? CurrentUser.require() : null;
+    return CatalogPage.of(catalog.visibleItems(category, q, page, size, studentId, excludeApproved));
   }
 
   @GetMapping("/catalog/{id}")

@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "api:types": "openapi-typescript ../docs/api/openapi.json -o src/shared/api/schema.d.ts",
-    "api:snapshot": "node scripts/fetch-openapi.mjs && npm run api:types"
+    "api:snapshot": "node scripts/fetch-openapi.mjs && npm run api:types",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@tanstack/react-query": "5.59.20",
@@ -35,6 +37,7 @@
     "jsdom": "25.0.1",
     "openapi-typescript": "7.4.3",
     "postcss": "8.4.49",
+    "prettier": "3.9.10",
     "tailwindcss": "3.4.14",
     "typescript": "5.7.2",
     "typescript-eslint": "8.72.0",

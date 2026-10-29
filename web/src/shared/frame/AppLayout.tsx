@@ -48,7 +48,11 @@ export function AppLayout({ navigation, bell }: AppLayoutProps) {
     <div className="flex min-h-screen flex-col bg-surface">
       <SkipLink />
       <AppHeader sections={sections} bell={showBell ? bell : undefined} />
-      <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none sm:py-8">
+      <main
+        id="contenido"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none sm:py-8"
+      >
         {university.status === 'loading' ? (
           <PageLoading />
         ) : university.status === 'error' ? (

@@ -8,7 +8,5 @@ const NoticesPage = lazy(() => import('./notices/NoticesPage'));
  * here and a line below; App.tsx is not touched.
  */
 export const notificationsRoutes: FeatureRoutes = {
-  routes: [
-    { path: '/avisos', access: ['STUDENT', 'COORDINATOR'], screen: 'FE-60', element: <NoticesPage /> },
-  ],
+  routes: [{ path: '/avisos', access: ['STUDENT', 'COORDINATOR'], screen: 'FE-60', element: <NoticesPage /> }],
 };

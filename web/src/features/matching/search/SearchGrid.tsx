@@ -80,9 +80,7 @@ export function SearchGrid({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">Horas libres · {courseName}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            🌐 Hora de Lima · cada bloque es 1 hora = 1 crédito
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">🌐 Hora de Lima · cada bloque es 1 hora = 1 crédito</p>
         </div>
 
         {/* Legend */}
@@ -111,11 +109,7 @@ export function SearchGrid({
                 const isSelectedDay = selectedSlot?.day === day;
 
                 return (
-                  <th
-                    key={day}
-                    scope="col"
-                    className="pb-3 text-center min-w-[100px] px-1"
-                  >
+                  <th key={day} scope="col" className="pb-3 text-center min-w-[100px] px-1">
                     <div
                       className={cx(
                         'text-xs font-semibold uppercase',
@@ -124,12 +118,7 @@ export function SearchGrid({
                     >
                       {dayName}
                     </div>
-                    <div
-                      className={cx(
-                        'text-base font-bold',
-                        isSelectedDay ? 'text-brand-text' : 'text-gray-900',
-                      )}
-                    >
+                    <div className={cx('text-base font-bold', isSelectedDay ? 'text-brand-text' : 'text-gray-900')}>
                       {dayNum}
                     </div>
                   </th>

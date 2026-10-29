@@ -50,7 +50,11 @@ export function useApiQuery<P extends PathsWith<'get'>>(
   path: P,
   ...[options]: OptionsArgument<QueryOptions<P>>
 ): UseQueryResult<ResponseOf<P, 'get'>, ApiError> {
-  const { path: pathParams, query, ...behaviour } = (options ?? {}) as {
+  const {
+    path: pathParams,
+    query,
+    ...behaviour
+  } = (options ?? {}) as {
     path?: Record<string, unknown>;
     query?: Record<string, unknown>;
   } & QueryBehaviour<ResponseOf<P, 'get'>>;
@@ -104,7 +108,12 @@ export function useApiMutation<M extends MutationMethod, P extends PathsWith<M>>
   ...[options]: OptionsArgument<MutationOptions<P, M>>
 ): ApiMutation<P, M> {
   const queryClient = useQueryClient();
-  const { idempotent = false, invalidates = [], onSuccess, onError } = (options ?? {}) as {
+  const {
+    idempotent = false,
+    invalidates = [],
+    onSuccess,
+    onError,
+  } = (options ?? {}) as {
     idempotent?: boolean;
   } & Omit<MutationOptions<P, M>, 'idempotent'>;
   const attemptKey = useRef<string | null>(null);
@@ -112,7 +121,12 @@ export function useApiMutation<M extends MutationMethod, P extends PathsWith<M>>
 
   const mutation = useMutation<ResponseOf<P, M>, ApiError, MutationVariables<P, M>>({
     mutationFn: (variables) => {
-      const { path: pathParams, query, body, idempotencyKey } = variables as {
+      const {
+        path: pathParams,
+        query,
+        body,
+        idempotencyKey,
+      } = variables as {
         path?: Record<string, unknown>;
         query?: Record<string, unknown>;
         body?: unknown;
