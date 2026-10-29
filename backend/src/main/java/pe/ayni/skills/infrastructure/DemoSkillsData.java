@@ -3,7 +3,9 @@ package pe.ayni.skills.infrastructure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +18,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import pe.ayni.identity.AcademicCourseView;
 import pe.ayni.identity.ApprovedCourseView;
 import pe.ayni.identity.IdentityApi;
+import pe.ayni.shared.demo.DemoCast;
+import pe.ayni.shared.demo.DemoCast.Person;
+import pe.ayni.shared.demo.DemoCast.Step;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.application.CompleteOnboardingUseCase;
@@ -35,10 +40,14 @@ import pe.ayni.skills.domain.model.CatalogItemStatus;
  *   <li>The curriculum of UPC and of USIL, synchronised from their academic documents with the
  *       use case of {@code POST /api/v1/coordinator/academic-catalog/sync} (ADR 0006). Nothing about
  *       courses is written in this class.
- *   <li>The last step of the onboarding of the two tutors {@code DemoIdentityData} leaves at the
- *       interests, Bruno of UPC and Mateo of USIL, with the use case of {@code POST
- *       /api/v1/me/onboarding/interests}: they offer every course they approved, and the ones
- *       whose grade reaches the university's threshold are enabled, the rest skipped.
+ *   <li>The last step of the onboarding of every person of {@link DemoCast} that ends it, with the
+ *       use case of {@code POST /api/v1/me/onboarding/interests}. Bruno of UPC and Mateo of USIL
+ *       offer every course they approved, and the ones whose grade reaches the university's
+ *       threshold are enabled, the rest skipped. The other three tutors of each university offer
+ *       five courses each, chosen among those, so that a tutor is not one more copy of Bruno and
+ *       some courses are left with nobody to teach them: a search for those finds nobody, which is
+ *       the demand the coordinator's indicators count. The students who do not teach declare what
+ *       they want to learn, a few courses of {@link #WANTED} they have not approved.
  * </ul>
  *
  * <p>It lives here and not in a migration on purpose. A migration runs in every environment and
@@ -60,13 +69,35 @@ class DemoSkillsData implements ApplicationRunner {
 
   private static final List<String> UNIVERSITIES = List.of("UPC", "USIL");
 
-  /** Bruno of UPC and Mateo of USIL, the tutors of {@code DemoIdentityData}. */
-  private record Tutor(String tenant, UUID id) {}
+  /**
+   * The courses each tutor offers, by code; every approved one for the two the demonstration
+   * started with. Every tutor is enabled only where their grade reaches the threshold.
+   */
+  private static final Map<UUID, List<String>> TEACHES =
+      Map.of(
+          DemoCast.BRUNO.id(), List.of(),
+          DemoCast.MATEO_CARDENAS.id(), List.of("CC200", "AD99", "CC201", "MA262", "CA59"),
+          DemoCast.DANIELA_SALAS.id(), List.of("CC182", "MA462", "SI385", "MA642", "SI729"),
+          DemoCast.ISABELLA_TAPIA.id(), List.of("SI704", "CC200", "HU612", "HU625", "MA420"),
+          DemoCast.MATEO.id(), List.of(),
+          DemoCast.JOAQUIN_MEDINA.id(),
+              List.of("USIL001", "USIL007", "USIL013", "USIL014", "USIL015"),
+          DemoCast.DANIELA_TAPIA.id(),
+              List.of("USIL020", "USIL021", "USIL001", "USIL002", "USIL003"),
+          DemoCast.PIERO_DELGADO.id(),
+              List.of("USIL016", "USIL019", "USIL022", "USIL001", "USIL002"));
 
-  private static final List<Tutor> TUTORS =
-      List.of(
-          new Tutor("UPC", UUID.fromString("22222222-2222-4222-8222-222222222222")),
-          new Tutor("USIL", UUID.fromString("77777777-7777-4777-8777-777777777777")));
+  /** The tutors who teach every course they approved well enough. */
+  private static final Set<UUID> TEACH_EVERYTHING = Set.of(DemoCast.BRUNO.id(), DemoCast.MATEO.id());
+
+  /**
+   * What the students want to learn: the first three courses of each list they have not approved.
+   * The first ones of each university have no tutor among the demonstration's.
+   */
+  private static final Map<String, List<String>> WANTED =
+      Map.of(
+          DemoCast.UPC, List.of("SI643", "SI705", "SI427", "SI400", "CC182", "MA262"),
+          DemoCast.USIL, List.of("USIL026", "USIL034", "USIL033", "USIL001", "USIL013", "USIL020"));
 
   private static final UUID TECHNOLOGY = UUID.fromString("a0000000-0000-4000-8000-000000000001");
   private static final UUID LANGUAGES = UUID.fromString("a0000000-0000-4000-8000-000000000002");
@@ -80,6 +111,7 @@ class DemoSkillsData implements ApplicationRunner {
   private final CategoryRepository categories;
   private final CatalogItemRepository catalogItems;
   private final OfferedSkillRepository offeredSkills;
+  private final LearningInterestRepository learningInterests;
   private final SyncAcademicCatalogUseCase syncAcademicCatalog;
   private final CompleteOnboardingUseCase completeOnboarding;
   private final IdentityApi identity;
@@ -90,6 +122,7 @@ class DemoSkillsData implements ApplicationRunner {
       CategoryRepository categories,
       CatalogItemRepository catalogItems,
       OfferedSkillRepository offeredSkills,
+      LearningInterestRepository learningInterests,
       SyncAcademicCatalogUseCase syncAcademicCatalog,
       CompleteOnboardingUseCase completeOnboarding,
       IdentityApi identity,
@@ -98,6 +131,7 @@ class DemoSkillsData implements ApplicationRunner {
     this.categories = categories;
     this.catalogItems = catalogItems;
     this.offeredSkills = offeredSkills;
+    this.learningInterests = learningInterests;
     this.syncAcademicCatalog = syncAcademicCatalog;
     this.completeOnboarding = completeOnboarding;
     this.identity = identity;
@@ -113,8 +147,16 @@ class DemoSkillsData implements ApplicationRunner {
     for (String university : UNIVERSITIES) {
       TenantContext.runAs(university, () -> curriculumOf(university));
     }
-    for (Tutor tutor : TUTORS) {
-      TenantContext.runAs(tutor.tenant(), () -> onboard(tutor));
+    for (Person person : DemoCast.STUDENTS) {
+      if (person.step() != Step.COMPLETED) {
+        continue;
+      }
+      try {
+        TenantContext.runAs(person.university(), () -> onboard(person));
+      } catch (RuntimeException failure) {
+        // Demonstration data must not keep the application from starting.
+        log.error("Could not onboard the demo person {}", person.id(), failure);
+      }
     }
   }
 
@@ -161,31 +203,53 @@ class DemoSkillsData implements ApplicationRunner {
     log.info("Demo curriculum of {} synchronised: {} courses", university, loaded);
   }
 
-  private void onboard(Tutor tutor) {
-    if (!offeredSkills.findByTenantIdAndTutorId(tutor.tenant(), tutor.id()).isEmpty()) {
+  private void onboard(Person person) {
+    String tenant = person.university();
+    if (!offeredSkills.findByTenantIdAndTutorId(tenant, person.id()).isEmpty()
+        || !learningInterests.findByTenantIdAndStudentId(tenant, person.id()).isEmpty()) {
       return;
     }
     List<String> approved;
     try {
-      identity.requireUser(tutor.id());
-      approved = identity.approvedCourses(tutor.id()).stream().map(ApprovedCourseView::courseCode).toList();
+      identity.requireUser(person.id());
+      approved =
+          identity.approvedCourses(person.id()).stream().map(ApprovedCourseView::courseCode).toList();
     } catch (NoSuchElementException absent) {
-      log.warn("No demo tutor {} in {}: the person does not exist", tutor.id(), tutor.tenant());
+      log.warn("No demo person {} in {}: the person does not exist", person.id(), tenant);
       return;
     }
-    List<UUID> teaching =
-        catalogItems
-            .findByTenantIdAndCourseCodeInAndStatus(tutor.tenant(), approved, CatalogItemStatus.ACTIVE)
-            .stream()
-            .map(CatalogItem::getId)
-            .toList();
-    int enabled = completeOnboarding.execute(tutor.id(), List.of(), teaching).teaching().size();
+
+    List<String> offers =
+        TEACH_EVERYTHING.contains(person.id())
+            ? approved
+            : TEACHES.getOrDefault(person.id(), List.of());
+    List<UUID> teaching = activeCourses(tenant, offers);
+    List<UUID> learning =
+        TEACHES.containsKey(person.id())
+            ? List.of()
+            : activeCourses(
+                tenant,
+                WANTED.get(tenant).stream().filter(code -> !approved.contains(code)).limit(3).toList());
+
+    int enabled = completeOnboarding.execute(person.id(), learning, teaching).teaching().size();
     log.info(
-        "Demo tutor {} of {} onboarded: {} of {} approved courses enabled",
-        tutor.id(),
-        tutor.tenant(),
+        "Demo person {} of {} onboarded: {} courses enabled of {} offered, {} wanted",
+        person.id(),
+        tenant,
         enabled,
-        teaching.size());
+        teaching.size(),
+        learning.size());
+  }
+
+  private List<UUID> activeCourses(String tenant, List<String> codes) {
+    if (codes.isEmpty()) {
+      return List.of();
+    }
+    return catalogItems
+        .findByTenantIdAndCourseCodeInAndStatus(tenant, codes, CatalogItemStatus.ACTIVE)
+        .stream()
+        .map(CatalogItem::getId)
+        .toList();
   }
 
   private void tool(String id, UUID category, String name, String description, Instant now) {
