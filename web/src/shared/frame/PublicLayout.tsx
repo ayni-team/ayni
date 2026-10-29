@@ -11,7 +11,7 @@ export function PublicLayout() {
           <Outlet />
         </Suspense>
       </main>
-      <footer className="px-4 py-4 text-center text-xs text-gray-600">Ayni · Banco de tiempo académico</footer>
+      <footer className="px-4 py-4 text-center text-xs text-ink-2">Ayni · Banco de tiempo académico</footer>
     </div>
   );
 }

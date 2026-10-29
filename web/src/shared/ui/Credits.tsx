@@ -18,3 +18,13 @@ export interface CreditsProps {
 export function Credits({ amount, signed, className }: CreditsProps) {
   return <span className={cx('tabular-nums', className)}>{formatCredits(amount, { signed })}</span>;
 }
+
+/** The coin of the design: credits are always yellow, whatever the university. Decorative. */
+export function CreditCoin({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={cx('h-5 w-5 shrink-0', className)} aria-hidden="true" focusable="false">
+      <circle cx="10" cy="10" r="10" fill="#FFC800" />
+      <circle cx="10" cy="10" r="5.5" fill="none" stroke="#7A5E00" strokeWidth="1.5" />
+    </svg>
+  );
+}

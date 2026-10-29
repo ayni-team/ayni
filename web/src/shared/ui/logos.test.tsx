@@ -25,8 +25,12 @@ describe('UniversityLogo', () => {
 describe('AyniLogo', () => {
   it('reads as Ayni once', () => {
     render(<AyniLogo />);
-    expect(screen.getByText('Ayni')).toBeInTheDocument();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: 'Ayni' })).toHaveLength(1);
+  });
+
+  it('draws the white word on a dark background', () => {
+    const { container } = render(<AyniLogo tone="light" />);
+    expect(container.querySelectorAll('path')[1]).toHaveAttribute('fill', '#FFFFFF');
   });
 
   it('names the mark alone', () => {

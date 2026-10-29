@@ -27,11 +27,9 @@ const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' };
  */
 export function Table<T>({ caption, showCaption = false, columns, rows, rowKey, className }: TableProps<T>) {
   return (
-    <div className={cx('overflow-x-auto rounded-xl border border-gray-200 bg-white', className)}>
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <caption className={showCaption ? 'px-4 py-3 text-left font-semibold text-gray-900' : 'sr-only'}>
-          {caption}
-        </caption>
+    <div className={cx('overflow-x-auto rounded-xl border border-line bg-white', className)}>
+      <table className="min-w-full divide-y divide-line text-sm">
+        <caption className={showCaption ? 'px-4 py-3 text-left font-semibold text-ink' : 'sr-only'}>{caption}</caption>
         <thead className="bg-gray-50">
           <tr>
             {columns.map((column) => (
@@ -55,7 +53,7 @@ export function Table<T>({ caption, showCaption = false, columns, rows, rowKey, 
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={cx('px-4 py-3 text-gray-900', ALIGN[column.align ?? 'left'], column.className)}
+                  className={cx('px-4 py-3 text-ink', ALIGN[column.align ?? 'left'], column.className)}
                 >
                   {column.cell(row)}
                 </td>

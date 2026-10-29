@@ -27,7 +27,7 @@ const ToastContext = createContext<Toaster | null>(null);
 const TONES: Record<ToastTone, { className: string; icon: ReactNode }> = {
   success: { className: 'border-green-200', icon: <IconCheck className="h-5 w-5 text-green-700" /> },
   error: { className: 'border-red-200', icon: <IconAlert className="h-5 w-5 text-red-700" /> },
-  info: { className: 'border-gray-200', icon: <IconInfo className="h-5 w-5 text-brand-text" /> },
+  info: { className: 'border-line', icon: <IconInfo className="h-5 w-5 text-brand-text" /> },
 };
 
 /**
@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             role={toast.tone === 'error' ? 'alert' : 'status'}
             className={cx(
-              'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-white p-3 text-sm text-gray-900 shadow-lg',
+              'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border bg-white p-3 text-sm text-ink shadow-lg',
               TONES[toast.tone].className,
             )}
           >
@@ -84,7 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               type="button"
               onClick={() => dismiss(toast.id)}
               aria-label="Cerrar aviso"
-              className="rounded p-0.5 text-gray-500 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+              className="rounded p-0.5 text-gray-500 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
             >
               <IconClose className="h-4 w-4" />
             </button>

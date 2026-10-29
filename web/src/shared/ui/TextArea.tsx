@@ -17,7 +17,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
     <>
       <textarea ref={ref} rows={rows} className={cx(CONTROL_CLASSES, 'resize-y', className)} {...control} />
       {showCount && props.maxLength !== undefined && length !== undefined && (
-        <p className="self-end text-xs text-gray-600" aria-live="polite">
+        <p className="self-end text-xs text-ink-2" aria-live="polite">
           {length} de {props.maxLength}
         </p>
       )}

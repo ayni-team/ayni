@@ -35,7 +35,7 @@ export function Field({ label, hint, error, required, children, className }: Fie
   return (
     <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error), required }}>
       <div className={cx('flex flex-col gap-1.5', className)}>
-        <label htmlFor={id} className="text-sm font-medium text-gray-900">
+        <label htmlFor={id} className="text-[13px] font-semibold text-ink">
           {label}
           {required && (
             <span className="text-red-700" aria-hidden="true">
@@ -46,7 +46,7 @@ export function Field({ label, hint, error, required, children, className }: Fie
         </label>
         {children}
         {hint && (
-          <p id={hintId} className="text-xs text-gray-600">
+          <p id={hintId} className="text-xs text-ink-2">
             {hint}
           </p>
         )}
@@ -81,9 +81,12 @@ export function useFieldControl<P extends ControlProps>(props: P): P {
   };
 }
 
-/** The look every text input shares, with the university's colour on focus. */
+/**
+ * The look every text input shares, as the design draws it: 44 px tall, 12 px corners, the line
+ * colour as border and the university's colour, two pixels wide, on focus.
+ */
 export const CONTROL_CLASSES =
-  'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 ' +
+  'block min-h-11 w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink ' +
   'placeholder:text-gray-500 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand ' +
   'aria-[invalid=true]:border-red-700 aria-[invalid=true]:focus:ring-red-700 ' +
   'disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500';
