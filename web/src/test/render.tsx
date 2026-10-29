@@ -27,7 +27,10 @@ export interface Rendered extends RenderResult {
  * Renders inside everything a screen runs in: the cache, the brand, the toasts and a router at
  * `route`. With `path`, the element is mounted at that route pattern (`/sesion/:id`).
  */
-export function renderWithProviders(ui: ReactElement, { route = '/', path }: { route?: string; path?: string } = {}): Rendered {
+export function renderWithProviders(
+  ui: ReactElement,
+  { route = '/', path }: { route?: string; path?: string } = {},
+): Rendered {
   const client = testQueryClient();
   const user = userEvent.setup();
   const result = render(

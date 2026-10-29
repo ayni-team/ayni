@@ -13,8 +13,18 @@ const RecognitionRulePage = lazy(() => import('./rule/RecognitionRulePage'));
 export const recognitionRoutes: FeatureRoutes = {
   routes: [
     { path: '/reconocimiento', access: ['STUDENT'], screen: 'FE-34', element: <RecognitionProgressPage /> },
-    { path: '/coordinador/reconocimiento', access: ['COORDINATOR'], screen: 'FE-50', element: <RecognitionRequestsPage /> },
-    { path: '/coordinador/reconocimiento/:id', access: ['COORDINATOR'], screen: 'FE-51', element: <RecognitionCasePage /> },
+    {
+      path: '/coordinador/reconocimiento',
+      access: ['COORDINATOR'],
+      screen: 'FE-50',
+      element: <RecognitionRequestsPage />,
+    },
+    {
+      path: '/coordinador/reconocimiento/:id',
+      access: ['COORDINATOR'],
+      screen: 'FE-51',
+      element: <RecognitionCasePage />,
+    },
     { path: '/coordinador/regla', access: ['COORDINATOR'], screen: 'FE-52', element: <RecognitionRulePage /> },
   ],
   navigation: [

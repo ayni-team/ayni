@@ -122,14 +122,12 @@ describe('FE-12 MyTutoringsPage', () => {
 
   it('navigates to the session when entering a joinable tutoring', async () => {
     const server = setupServer();
-    server
-      .on('GET', '/api/v1/bookings/mine', { body: UPCOMING_RESPONSE })
-      .on('GET', '/api/v1/sessions', {
-        body: {
-          sessionId: '55555555-5555-4555-8555-555555555555',
-          bookingId: UPCOMING_BOOKING_JOINABLE.bookingId,
-        },
-      });
+    server.on('GET', '/api/v1/bookings/mine', { body: UPCOMING_RESPONSE }).on('GET', '/api/v1/sessions', {
+      body: {
+        sessionId: '55555555-5555-4555-8555-555555555555',
+        bookingId: UPCOMING_BOOKING_JOINABLE.bookingId,
+      },
+    });
 
     const { user, location } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
 
@@ -152,9 +150,7 @@ describe('FE-12 MyTutoringsPage', () => {
     const cancelBtn = await screen.findByRole('button', { name: 'Cancelar' });
     await user.click(cancelBtn);
 
-    expect(
-      await screen.findByText('Cancelaste la tutoría y te devolvimos 1 crédito'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Cancelaste la tutoría y te devolvimos 1 crédito')).toBeInTheDocument();
   });
 
   it('handles late cancellation (409) with two-step confirmation dialog', async () => {

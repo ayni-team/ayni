@@ -19,7 +19,11 @@ describe('Table', () => {
       />,
     );
     const table = screen.getByRole('table', { name: 'Mis compras' });
-    expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Créditos', 'Estado']);
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent),
+    ).toEqual(['Créditos', 'Estado']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(2);
     expect(within(rows[1]).getByText('Pendiente')).toBeInTheDocument();

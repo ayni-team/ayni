@@ -8,9 +8,7 @@ const IndicatorsPage = lazy(() => import('./indicators/IndicatorsPage'));
  * here and a line below; App.tsx is not touched.
  */
 export const analyticsRoutes: FeatureRoutes = {
-  routes: [
-    { path: '/coordinador/indicadores', access: ['COORDINATOR'], screen: 'FE-53', element: <IndicatorsPage /> },
-  ],
+  routes: [{ path: '/coordinador/indicadores', access: ['COORDINATOR'], screen: 'FE-53', element: <IndicatorsPage /> }],
   navigation: [
     { to: '/coordinador/indicadores', label: 'Indicadores', role: 'COORDINATOR', group: 'coordinate', order: 30 },
   ],

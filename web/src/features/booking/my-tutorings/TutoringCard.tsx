@@ -20,28 +20,18 @@ export interface TutoringCardProps {
  * E.g.: VIE 23 OCT, LUN 02 NOV.
  */
 function DateTile({ date, timezone }: { date: string; timezone: string }) {
-  const weekday = formatInZone(date, timezone, { weekday: 'short' })
-    .replace('.', '')
-    .toUpperCase();
+  const weekday = formatInZone(date, timezone, { weekday: 'short' }).replace('.', '').toUpperCase();
   const day = formatInZone(date, timezone, { day: '2-digit' });
-  const month = formatInZone(date, timezone, { month: 'short' })
-    .replace('.', '')
-    .toUpperCase();
+  const month = formatInZone(date, timezone, { month: 'short' }).replace('.', '').toUpperCase();
 
   return (
     <div
       className="flex h-16 w-14 sm:h-16 sm:w-16 flex-col items-center justify-center rounded-xl bg-slate-100/70 border border-slate-200/60 flex-shrink-0 text-center select-none"
       aria-hidden="true"
     >
-      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">
-        {weekday}
-      </span>
-      <span className="text-xl sm:text-2xl font-bold text-slate-800 leading-none my-0.5">
-        {day}
-      </span>
-      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">
-        {month}
-      </span>
+      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">{weekday}</span>
+      <span className="text-xl sm:text-2xl font-bold text-slate-800 leading-none my-0.5">{day}</span>
+      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">{month}</span>
     </div>
   );
 }
@@ -126,23 +116,13 @@ export function TutoringCard({
     if (view === 'UPCOMING') {
       if (isJoinable) {
         return (
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => onJoin(booking)}
-            loading={isJoining}
-          >
+          <Button variant="primary" size="md" onClick={() => onJoin(booking)} loading={isJoining}>
             Entrar
           </Button>
         );
       }
       return (
-        <Button
-          variant="danger"
-          size="md"
-          onClick={() => onCancel(booking)}
-          loading={isCancelling}
-        >
+        <Button variant="danger" size="md" onClick={() => onCancel(booking)} loading={isCancelling}>
           Cancelar
         </Button>
       );
@@ -170,9 +150,7 @@ export function TutoringCard({
       aria-label={`${courseName} ${tutorName}`}
       className={cx(
         'rounded-2xl bg-white p-4 sm:p-5 transition-shadow shadow-sm',
-        isJoinable
-          ? 'border-2 border-brand'
-          : 'border border-gray-200 hover:border-gray-300',
+        isJoinable ? 'border-2 border-brand' : 'border border-gray-200 hover:border-gray-300',
       )}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -181,17 +159,9 @@ export function TutoringCard({
           {booking.startsAt && <DateTile date={booking.startsAt} timezone={timezone} />}
 
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-gray-900 truncate">
-              {courseName}
-            </h2>
-            <p className="mt-0.5 text-sm text-gray-600">
-              {timeAndDuration}
-            </p>
-            {tutorName && (
-              <p className="mt-0.5 text-sm text-gray-500">
-                {tutorName}
-              </p>
-            )}
+            <h2 className="text-base font-bold text-gray-900 truncate">{courseName}</h2>
+            <p className="mt-0.5 text-sm text-gray-600">{timeAndDuration}</p>
+            {tutorName && <p className="mt-0.5 text-sm text-gray-500">{tutorName}</p>}
           </div>
         </div>
 
@@ -199,11 +169,7 @@ export function TutoringCard({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3 flex-shrink-0 pl-16 sm:pl-0">
           <div className="flex flex-wrap items-center gap-2">
             {renderStatusBadges()}
-            {startsInText && (
-              <span className="text-xs sm:text-sm text-gray-500">
-                {startsInText}
-              </span>
-            )}
+            {startsInText && <span className="text-xs sm:text-sm text-gray-500">{startsInText}</span>}
           </div>
           <div>{renderActionButton()}</div>
         </div>

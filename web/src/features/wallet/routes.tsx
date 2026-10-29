@@ -13,7 +13,5 @@ export const walletRoutes: FeatureRoutes = {
     { path: '/creditos', access: ['STUDENT'], screen: 'FE-30', element: <WalletPage /> },
     { path: '/creditos/beneficios', access: ['STUDENT'], screen: 'FE-33', element: <BenefitsPage /> },
   ],
-  navigation: [
-    { to: '/creditos', label: 'Créditos', role: 'STUDENT', group: 'learn', order: 30 },
-  ],
+  navigation: [{ to: '/creditos', label: 'Créditos', role: 'STUDENT', group: 'learn', order: 30 }],
 };

@@ -8,10 +8,6 @@ const MySkillsPage = lazy(() => import('./my-skills/MySkillsPage'));
  * here and a line below; App.tsx is not touched.
  */
 export const skillsRoutes: FeatureRoutes = {
-  routes: [
-    { path: '/tutor/habilidades', access: ['STUDENT'], screen: 'FE-42', element: <MySkillsPage /> },
-  ],
-  navigation: [
-    { to: '/tutor/habilidades', label: 'Habilidades', role: 'STUDENT', group: 'teach', order: 30 },
-  ],
+  routes: [{ path: '/tutor/habilidades', access: ['STUDENT'], screen: 'FE-42', element: <MySkillsPage /> }],
+  navigation: [{ to: '/tutor/habilidades', label: 'Habilidades', role: 'STUDENT', group: 'teach', order: 30 }],
 };

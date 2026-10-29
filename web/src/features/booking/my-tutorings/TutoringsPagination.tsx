@@ -22,10 +22,7 @@ export function TutoringsPagination({
   const isLast = page >= totalPages - 1;
 
   return (
-    <nav
-      aria-label={label}
-      className="flex items-center justify-between sm:justify-start sm:gap-8 pt-6 px-1"
-    >
+    <nav aria-label={label} className="flex items-center justify-between sm:justify-start sm:gap-8 pt-6 px-1">
       <button
         type="button"
         disabled={isFirst}

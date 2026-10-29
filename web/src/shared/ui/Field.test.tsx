@@ -10,7 +10,12 @@ import { TextField } from './TextField';
 describe('Field', () => {
   it('ties its label, hint and error to the input inside', () => {
     render(
-      <Field label="Correo institucional" hint="El de tu universidad" error="Tu universidad todavía no está afiliada a Ayni" required>
+      <Field
+        label="Correo institucional"
+        hint="El de tu universidad"
+        error="Tu universidad todavía no está afiliada a Ayni"
+        required
+      >
         <TextField type="email" />
       </Field>,
     );

@@ -116,9 +116,10 @@ export default function BookPage() {
     if (canBook) {
       setIsHolding(true);
       setHoldError(null);
-      api.post('/api/v1/bookings/holds', {
-        body: { tutorId, start, hours },
-      })
+      api
+        .post('/api/v1/bookings/holds', {
+          body: { tutorId, start, hours },
+        })
         .then((data) => {
           if (!cancelled) {
             setHeldHours(data);
@@ -141,9 +142,11 @@ export default function BookPage() {
     return () => {
       cancelled = true;
       if (heldRef.current && !confirmedRef.current && canBook) {
-        api.delete('/api/v1/bookings/holds', {
-          query: { tutorId, start, hours },
-        }).catch(() => {});
+        api
+          .delete('/api/v1/bookings/holds', {
+            query: { tutorId, start, hours },
+          })
+          .catch(() => {});
         heldRef.current = false;
       }
     };
@@ -157,9 +160,7 @@ export default function BookPage() {
   const startsAt = heldHours?.startsAt ?? start;
   const endsAt =
     heldHours?.endsAt ??
-    (startsAt && canBook
-      ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString()
-      : undefined);
+    (startsAt && canBook ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString() : undefined);
 
   // Release hold and navigate back to /buscar
   const handleReleaseAndBack = async () => {
@@ -216,14 +217,14 @@ export default function BookPage() {
   // Check if hold is expired either via countdown, timing or backend refusal
   const isHoldExpired =
     holdReleased ||
-    Boolean(heldHours) &&
-    (countdown.expired ||
-      countdown.remainingMs === 0 ||
-      (heldHours?.heldUntil ? new Date(heldHours.heldUntil).getTime() <= Date.now() + offsetMs : false)) ||
+    (Boolean(heldHours) &&
+      (countdown.expired ||
+        countdown.remainingMs === 0 ||
+        (heldHours?.heldUntil ? new Date(heldHours.heldUntil).getTime() <= Date.now() + offsetMs : false))) ||
     Boolean(
       currentError?.status === 409 &&
-        (currentError.message.toLowerCase().includes('holding') ||
-          currentError.message.toLowerCase().includes('hold lasts')),
+      (currentError.message.toLowerCase().includes('holding') ||
+        currentError.message.toLowerCase().includes('hold lasts')),
     );
 
   const handleConfirm = useCallback(
@@ -271,9 +272,7 @@ export default function BookPage() {
           }
           setBookingError(err);
         } else {
-          setBookingError(
-            new ApiError(500, 'Error al confirmar la reserva', '/api/v1/bookings'),
-          );
+          setBookingError(new ApiError(500, 'Error al confirmar la reserva', '/api/v1/bookings'));
         }
       } finally {
         confirmingRef.current = false;
@@ -319,8 +318,7 @@ export default function BookPage() {
     );
   }
 
-  const isTerminalRefusal =
-    conflictKind === 'HOUR_TAKEN' || conflictKind === 'TUTOR_NOT_ENABLED';
+  const isTerminalRefusal = conflictKind === 'HOUR_TAKEN' || conflictKind === 'TUTOR_NOT_ENABLED';
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 pb-12">
@@ -393,11 +391,7 @@ export default function BookPage() {
       {/* When hour taken or tutor not enabled: show single 'Volver a Buscar' button */}
       {isTerminalRefusal ? (
         <div className="flex justify-end pt-2">
-          <Button
-            variant="primary"
-            onClick={handleReleaseAndBack}
-            className="rounded-xl px-6 py-2.5 font-medium"
-          >
+          <Button variant="primary" onClick={handleReleaseAndBack} className="rounded-xl px-6 py-2.5 font-medium">
             Volver a Buscar
           </Button>
         </div>
@@ -415,11 +409,7 @@ export default function BookPage() {
             onSubmit={handleConfirm}
             isConfirming={isConfirming}
             disabled={isHolding || isHoldExpired}
-            onBuyCredits={
-              conflictKind === 'INSUFFICIENT_CREDITS'
-                ? () => navigate('/creditos/comprar')
-                : undefined
-            }
+            onBuyCredits={conflictKind === 'INSUFFICIENT_CREDITS' ? () => navigate('/creditos/comprar') : undefined}
           />
 
           {/* If hold expired: offer 'Apartar de nuevo' button on the right */}

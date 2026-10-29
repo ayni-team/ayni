@@ -37,28 +37,20 @@ export function BookingSummaryCard({
   zone,
   availableBalance,
 }: BookingSummaryCardProps) {
-  const dayText = startsAt
-    ? capitalize(formatInZone(startsAt, zone, 'longDate')).replace(',', '')
-    : '';
+  const dayText = startsAt ? capitalize(formatInZone(startsAt, zone, 'longDate')).replace(',', '') : '';
   const startTime = startsAt ? formatInZone(startsAt, zone, 'time') : '';
   const effectiveEnd =
-    endsAt ??
-    (startsAt
-      ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString()
-      : '');
+    endsAt ?? (startsAt ? new Date(new Date(startsAt).getTime() + hours * 3600000).toISOString() : '');
   const endTime = effectiveEnd ? formatInZone(effectiveEnd, zone, 'time') : '';
   const hourLabel = `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
-  const dayTimeText = startsAt
-    ? `${dayText} · ${startTime} – ${endTime} · ${hourLabel} (hora de Lima)`
-    : '';
+  const dayTimeText = startsAt ? `${dayText} · ${startTime} – ${endTime} · ${hourLabel} (hora de Lima)` : '';
 
   // Tutor ratings display matching Figma
   const stars =
-    averageStars !== undefined && averageStars !== null && averageStars > 0
-      ? averageStars.toFixed(1)
-      : null;
+    averageStars !== undefined && averageStars !== null && averageStars > 0 ? averageStars.toFixed(1) : null;
   const ratings = ratingsCount ?? 0;
-  const sessionsText = sessionsTaught !== undefined && sessionsTaught !== null ? `${sessionsTaught} sesiones de este curso` : null;
+  const sessionsText =
+    sessionsTaught !== undefined && sessionsTaught !== null ? `${sessionsTaught} sesiones de este curso` : null;
 
   const codeSubtitle = [courseCode, universityCode ? `curso ${universityCode}` : null].filter(Boolean).join(' · ');
 

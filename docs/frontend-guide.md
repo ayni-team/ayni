@@ -630,6 +630,7 @@ A screen is finished when all of this is true:
 - [ ] It handles loading, empty, error and ready, and every refusal its section lists
 - [ ] It uses only `shared/ui` and `shared/api`, and no new dependency
 - [ ] It has its test of the logic
+- [ ] `npm run format` was run before opening the pull request; the CI checks it
 - [ ] `npm run build` passes (type check included) and the CI is green
 - [ ] It was run against the real backend with `docker compose up` (not only mocked)
 - [ ] The pull request has a screenshot of each state it draws

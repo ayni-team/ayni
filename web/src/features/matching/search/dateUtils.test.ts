@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { startOfDayInZone } from './dateUtils';
 
 describe('startOfDayInZone', () => {
-  it("gives the instant a day of the university starts", () => {
+  it('gives the instant a day of the university starts', () => {
     expect(startOfDayInZone('2026-10-26', 'America/Lima')).toBe('2026-10-26T05:00:00.000Z');
     expect(startOfDayInZone('2026-10-26', 'UTC')).toBe('2026-10-26T00:00:00.000Z');
   });

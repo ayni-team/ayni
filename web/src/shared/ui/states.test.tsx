@@ -34,7 +34,13 @@ describe('Skeleton', () => {
 
 describe('EmptyState', () => {
   it('says what there is none of and what to do next', () => {
-    render(<EmptyState title="Todavía no tienes tutorías" description="Busca una en Buscar" action={<a href="/buscar">Buscar</a>} />);
+    render(
+      <EmptyState
+        title="Todavía no tienes tutorías"
+        description="Busca una en Buscar"
+        action={<a href="/buscar">Buscar</a>}
+      />,
+    );
     expect(screen.getByRole('heading', { name: 'Todavía no tienes tutorías' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Buscar' })).toBeInTheDocument();
   });

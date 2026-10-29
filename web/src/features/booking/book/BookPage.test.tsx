@@ -125,9 +125,7 @@ describe('FE-11 BookPage', () => {
 
     // Submit empty shows validation error
     await user.click(confirmButton);
-    expect(
-      await screen.findByText('Por favor cuéntale al tutor en qué necesitas ayuda.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Por favor cuéntale al tutor en qué necesitas ayuda.')).toBeInTheDocument();
 
     // Fill in textarea
     const textarea = screen.getByLabelText(/¿En qué necesitas ayuda\?/);

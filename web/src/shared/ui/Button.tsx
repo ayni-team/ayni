@@ -39,7 +39,18 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading = false, fullWidth = false, icon, disabled, type = 'button', className, children, ...props },
+  {
+    variant = 'primary',
+    size = 'md',
+    loading = false,
+    fullWidth = false,
+    icon,
+    disabled,
+    type = 'button',
+    className,
+    children,
+    ...props
+  },
   ref,
 ) {
   return (
@@ -64,6 +75,12 @@ export interface ButtonLinkProps extends LinkProps {
 }
 
 /** A link that looks like a button: it goes somewhere, so it is a link. */
-export function ButtonLink({ variant = 'primary', size = 'md', fullWidth = false, className, ...props }: ButtonLinkProps) {
+export function ButtonLink({
+  variant = 'primary',
+  size = 'md',
+  fullWidth = false,
+  className,
+  ...props
+}: ButtonLinkProps) {
   return <Link className={cx(buttonClasses(variant, size, fullWidth), className)} {...props} />;
 }
