@@ -329,6 +329,107 @@ describe('FE-03 onboarding', () => {
     });
   });
 
+  it('asks the catalogue to leave out what I already approved', async () => {
+    signIn('STUDENT');
+
+    const state = baseServer(student('LEARNING_INTERESTS'));
+
+    state.server
+      .on('GET', '/api/v1/tutor/skills/suggestions', {
+        body: SUGGESTIONS,
+      })
+      .on('GET', '/api/v1/catalog', {
+        body: {
+          items: [ALGORITHMS],
+          page: 0,
+          size: 20,
+          totalElements: 1,
+          totalPages: 1,
+        },
+      });
+
+    renderWithProviders(<OnboardingPage />, {
+      route: '/onboarding',
+    });
+
+    await screen.findByRole('heading', {
+      name: 'Lo que necesitas y lo que puedes enseñar',
+    });
+
+    expect(state.server.requests('GET', '/api/v1/catalog')[0].query.get('excludeApproved')).toBe('true');
+  });
+
+  it('shows a message of its own when every course was already approved', async () => {
+    signIn('STUDENT');
+
+    const state = baseServer(student('LEARNING_INTERESTS'));
+
+    state.server
+      .on('GET', '/api/v1/tutor/skills/suggestions', {
+        body: SUGGESTIONS,
+      })
+      .on('GET', '/api/v1/catalog', {
+        body: {
+          items: [],
+          page: 0,
+          size: 20,
+          totalElements: 0,
+          totalPages: 0,
+        },
+      });
+
+    renderWithProviders(<OnboardingPage />, {
+      route: '/onboarding',
+    });
+
+    await screen.findByRole('heading', {
+      name: 'Lo que necesitas y lo que puedes enseñar',
+    });
+
+    expect(
+      await screen.findByText(
+        'Ya aprobaste todos los cursos del catálogo: no tienes nada pendiente en qué pedir ayuda.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the search-miss message when a search finds nothing, instead of the approved-everything one', async () => {
+    signIn('STUDENT');
+
+    const state = baseServer(student('LEARNING_INTERESTS'));
+
+    state.server
+      .on('GET', '/api/v1/tutor/skills/suggestions', {
+        body: SUGGESTIONS,
+      })
+      .on('GET', '/api/v1/catalog', {
+        body: {
+          items: [],
+          page: 0,
+          size: 20,
+          totalElements: 0,
+          totalPages: 0,
+        },
+      });
+
+    const { user } = renderWithProviders(<OnboardingPage />, {
+      route: '/onboarding',
+    });
+
+    await screen.findByRole('heading', {
+      name: 'Lo que necesitas y lo que puedes enseñar',
+    });
+
+    await user.type(
+      screen.getByRole('searchbox', {
+        name: 'Buscar en el catálogo',
+      }),
+      'zzz',
+    );
+
+    expect(await screen.findByText('No encontramos cursos con esa búsqueda.')).toBeInTheDocument();
+  });
+
   it('sends empty learning and teaching lists when nothing is selected', async () => {
     signIn('STUDENT');
 

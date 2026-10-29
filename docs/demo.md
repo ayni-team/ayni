@@ -379,6 +379,13 @@ approved request. To start over, start from an empty database.
 - **Going backwards does not undo anything.** Rows written with a moved clock keep their dates.
   Moving back is for showing a window again, not for repairing a run.
 - **The data of `dev` is dated by its first start.** See step 6: read the dates before jumping.
+- **The demonstration data is written once, not kept in sync with the code.** A volume seeded
+  before a change to the curriculum, the academic documents or the catalogue (ADR 0006) keeps what
+  it already wrote: `DemoIdentityData` and `DemoSkillsData` skip a university, a person or a
+  curriculum that is already there, so a course the current code would seed differently, or a
+  record that looks inconsistent with what the screens expect, is usually old data rather than a
+  bug. If what you see looks wrong, `docker compose down -v` and start from an empty database before
+  reporting it.
 - **Video calls** check the pass against the real time, so the pass is signed with the real time
   under `demo` (`ayni.sessions.video.sign-with-real-time`), keeping its five minutes and never
   passing the end of the session by the application's clock. The `expiresAt` of the answer stays in
