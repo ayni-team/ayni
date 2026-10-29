@@ -7,7 +7,7 @@ export { Button, ButtonLink, buttonClasses } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Card } from './Card';
 export { Checkbox } from './Checkbox';
-export { Credits, formatCredits } from './Credits';
+export { CreditCoin, Credits, formatCredits } from './Credits';
 export { cx } from './cx';
 export { DateTime } from './DateTime';
 export { Dialog } from './Dialog';

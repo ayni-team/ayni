@@ -88,9 +88,11 @@ describe('AppHeader', () => {
     signIn('STUDENT');
     renderFrame();
 
+    // Ayni's logo leads; the university's is beside it on a phone and on the right on a wide screen.
+    expect(screen.getByRole('link', { name: 'Ayni, ir a mi inicio' })).toBeInTheDocument();
     expect(
-      await screen.findByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
-    ).toBeInTheDocument();
+      await screen.findAllByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
+    ).not.toHaveLength(0);
     expect(await screen.findByRole('link', { name: 'Tu saldo: 12 créditos' })).toHaveAttribute('href', '/creditos');
     expect(screen.getByRole('link', { name: 'Avisos' })).toBeInTheDocument();
     expect(await screen.findAllByText('Ana Torres')).not.toHaveLength(0);
@@ -135,7 +137,7 @@ describe('AppHeader', () => {
     signIn('STUDENT');
     const { user } = renderFrame();
 
-    const [signOut] = await screen.findAllByRole('button', { name: 'Salir', hidden: true });
+    const [signOut] = await screen.findAllByRole('button', { name: 'Cerrar sesión', hidden: true });
     await user.click(signOut);
 
     await waitFor(() => expect(currentSession()).toBeNull());

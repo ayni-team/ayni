@@ -16,6 +16,8 @@ export interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   /** Beside the name already written: hidden from screen readers so it is not read twice. */
   decorative?: boolean;
+  /** The person's own avatar, which the design always draws in the informative tint. */
+  own?: boolean;
   className?: string;
 }
 
@@ -34,7 +36,7 @@ export function toneOf(name: string): string {
 }
 
 /** The person's photo or, without one (or if it fails to load), their initials. */
-export function Avatar({ name, photoUrl, size = 'md', decorative = false, className }: AvatarProps) {
+export function Avatar({ name, photoUrl, size = 'md', decorative = false, own = false, className }: AvatarProps) {
   const [failed, setFailed] = useState(false);
   const classes = cx(
     'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full',
@@ -56,7 +58,7 @@ export function Avatar({ name, photoUrl, size = 'md', decorative = false, classN
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative || undefined}
-      className={cx(classes, 'font-semibold', toneOf(name))}
+      className={cx(classes, 'font-semibold', own ? TONES[0] : toneOf(name))}
     >
       {initialsOf(name)}
     </span>
