@@ -147,9 +147,10 @@ The only components for the things below. Their props are fixed; a variant that 
 request to the lead.
 
 `Button` (`variant`: primary, secondary, danger, ghost; `loading`), `TextField`, `TextArea`,
-`Select`, `Checkbox`, `Field` (label, hint and error around any input), `Card`, `Table`, `Tabs`,
-`Badge`, `Dialog`, `useToast()`, `Spinner`, `EmptyState`, `ErrorState` (with a retry), `Pagination`,
-`PageHeader`, and the two formatters `<DateTime value zone />` and `<Credits amount />`.
+`Select`, `Combobox` (type to narrow a long list, such as the courses), `Checkbox`, `Field` (label,
+hint and error around any input), `Card`, `Table`, `Tabs`, `Badge`, `Dialog`, `useToast()`,
+`Spinner`, `EmptyState`, `ErrorState` (with a retry), `Pagination`, `PageHeader`, `WeekStepper` (the
+week before and after), and the two formatters `<DateTime value zone />` and `<Credits amount />`.
 
 ### Branding
 
@@ -348,8 +349,8 @@ frame; the link is added by the lead.
   (`catalogItemId`, `from`, `to`, `page`, `size` → `OfferSearch`), `GET
   /api/v1/tutors/{id}/standing` is not needed: each `Offer` already carries `averageStars`,
   `ratingsCount`, `sessionsTaught` and `newTutor`.
-- **Does:** pick a course and a date range. The course selector is a list with a simple search, up
-  to 100 courses (UPC has 57, USIL 64); a combobox is pending. The default range is the week
+- **Does:** pick a course and a date range. The course selector is the `Combobox` of `shared/ui` over
+  up to 100 courses (UPC has 57, USIL 64), searched by name or code. The default range is the week
   (Monday to Sunday) that contains today in the university's zone, with navigation to the previous
   and the next week; list the offers grouped by day, each with the hour, the tutor's name and their
   standing (stars and count, or the "Tutor nuevo" badge when `newTutor`). Choosing one goes to
