@@ -3,6 +3,61 @@
 @tailwind utilities;
 
 /*
+ * The two typefaces of the design: Outfit for titles, DM Sans for everything else. They are served
+ * from public/fonts (Latin subset, SIL Open Font License, see the OFL files there), so the web needs
+ * nothing from outside to look as in Figma.
+ */
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/DMSans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/DMSans-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/DMSans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/DMSans-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Outfit-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Outfit-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Outfit-700.woff2') format('woff2');
+}
+
+/*
  * Ayni's colours until the university is known; shared/brand overwrites them on the root with the
  * university's (and derives the soft, pressed and text tones from its primary).
  */
@@ -16,5 +71,5 @@
 }
 
 body {
-  @apply bg-surface font-sans text-gray-900 antialiased;
+  @apply bg-surface font-sans text-ink antialiased;
 }

@@ -54,8 +54,8 @@ function Person({ compact = false }: { compact?: boolean }) {
     <div className="flex min-w-0 items-center gap-2">
       <Avatar name={name} photoUrl={me.data?.photoUrl} size="sm" decorative />
       <div className={compact ? 'min-w-0' : 'hidden min-w-0 lg:block'}>
-        <p className="truncate text-sm font-medium text-gray-900">{name}</p>
-        {caption && <p className="truncate text-xs text-gray-600">{caption}</p>}
+        <p className="truncate text-sm font-medium text-ink">{name}</p>
+        {caption && <p className="truncate text-xs text-ink-2">{caption}</p>}
       </div>
     </div>
   );
@@ -87,7 +87,7 @@ export function AppHeader({ sections, bell }: AppHeaderProps) {
   const student = session?.role === 'STUDENT';
 
   return (
-    <header className="relative border-b border-gray-200 bg-white">
+    <header className="relative border-b border-line bg-white">
       <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
         <MobileMenu
           sections={sections}
@@ -105,7 +105,7 @@ export function AppHeader({ sections, bell }: AppHeaderProps) {
         >
           {university ? <UniversityLogo university={university} size="sm" /> : <AyniLogo className="text-brand-text" />}
           {university?.name && (
-            <span className="hidden truncate text-sm font-semibold text-gray-900 sm:block">{university.name}</span>
+            <span className="hidden truncate text-sm font-semibold text-ink sm:block">{university.name}</span>
           )}
         </Link>
         <div className="ml-auto flex items-center gap-2 sm:gap-3">

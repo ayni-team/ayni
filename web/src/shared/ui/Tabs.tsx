@@ -54,7 +54,7 @@ export function Tabs<V extends string>({ label, items, value, onChange, children
 
   return (
     <div className={className}>
-      <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-gray-200">
+      <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line">
         {items.map((item, index) => {
           const selected = item.value === value;
           return (
@@ -77,7 +77,7 @@ export function Tabs<V extends string>({ label, items, value, onChange, children
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand',
                 selected
                   ? 'border-brand font-semibold text-brand-text'
-                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                  : 'border-transparent text-ink-2 hover:border-gray-300 hover:text-ink',
               )}
             >
               {item.label}

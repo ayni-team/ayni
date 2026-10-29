@@ -17,17 +17,17 @@ export function Card({ title, description, actions, children, as: Tag = 'section
   return (
     <Tag
       aria-labelledby={title ? titleId : undefined}
-      className={cx('rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6', className)}
+      className={cx('rounded-[20px] border border-line bg-white p-4 sm:p-6', className)}
     >
       {(title || actions) && (
         <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {title && (
-              <h2 id={titleId} className="text-base font-semibold text-gray-900">
+              <h2 id={titleId} className="font-display text-lg font-semibold text-ink">
                 {title}
               </h2>
             )}
-            {description && <p className="mt-1 text-sm text-gray-600">{description}</p>}
+            {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
         </header>

@@ -15,10 +15,7 @@ export function AppNav({ sections }: { sections: NavSection[] }) {
     <nav aria-label="Principal" className="hidden border-t border-gray-100 md:block">
       <div className="mx-auto flex max-w-6xl items-stretch gap-6 overflow-x-auto px-4">
         {sections.map((section, index) => (
-          <div
-            key={section.group}
-            className={cx('flex items-stretch gap-1', index > 0 && 'border-l border-gray-200 pl-6')}
-          >
+          <div key={section.group} className={cx('flex items-stretch gap-1', index > 0 && 'border-l border-line pl-6')}>
             {sections.length > 1 && (
               <span className="self-center pr-2 text-xs font-medium uppercase tracking-wide text-gray-500">
                 {section.label}
@@ -35,7 +32,7 @@ export function AppNav({ sections }: { sections: NavSection[] }) {
                         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand',
                         isActive
                           ? 'border-brand font-semibold text-brand-text'
-                          : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                          : 'border-transparent text-ink-2 hover:border-gray-300 hover:text-ink',
                       )
                     }
                   >

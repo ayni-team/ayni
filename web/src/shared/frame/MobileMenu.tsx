@@ -46,7 +46,7 @@ export function MobileMenu({ sections, footer }: { sections: NavSection[]; foote
       <div
         id={panelId}
         hidden={!open}
-        className="absolute inset-x-0 top-full z-40 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-gray-200 bg-white shadow-lg"
+        className="absolute inset-x-0 top-full z-40 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-line bg-white shadow-lg"
       >
         <nav aria-label="Principal" className="px-4 py-3">
           {sections.map((section) => (

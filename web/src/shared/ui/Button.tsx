@@ -7,14 +7,14 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export type ButtonSize = 'sm' | 'md';
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors ' +
+  'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors ' +
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ' +
   'disabled:pointer-events-none disabled:opacity-50';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   // The university's colour.
   primary: 'bg-brand text-brand-secondary hover:bg-brand-pressed active:bg-brand-pressed',
-  secondary: 'border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100',
+  secondary: 'border border-line bg-white text-ink hover:bg-surface active:bg-gray-100',
   // Outlined, so that it is never mistaken for UPC's red primary.
   danger: 'border border-red-700 bg-white text-red-700 hover:bg-red-50 active:bg-red-100',
   ghost: 'text-brand-text hover:bg-brand-soft active:bg-brand-soft',
@@ -22,7 +22,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
 
 const SIZES: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2.5 text-sm',
+  md: 'min-h-11 px-[18px] py-2.5 text-sm',
 };
 
 export function buttonClasses(variant: ButtonVariant = 'primary', size: ButtonSize = 'md', fullWidth = false): string {
