@@ -10,7 +10,7 @@ import type { NavEntry } from './navigation';
 import { navigationFor } from './navigation';
 
 const NAVIGATION: NavEntry[] = [
-  { to: '/buscar', label: 'Buscar', role: 'STUDENT', group: 'learn', order: 10 },
+  { to: '/buscar', label: 'Buscar', role: 'STUDENT', group: 'learn', order: 10, also: ['/reservar'] },
   { to: '/tutor/agenda', label: 'Agenda', role: 'STUDENT', group: 'teach', order: 10 },
   { to: '/mis-tutorias', label: 'Mis tutorías', role: 'STUDENT', group: 'learn', order: 20 },
   { to: '/coordinador/regla', label: 'Regla', role: 'COORDINATOR', group: 'coordinate', order: 20 },
@@ -88,9 +88,11 @@ describe('AppHeader', () => {
     signIn('STUDENT');
     renderFrame();
 
+    // Ayni's logo leads; the university's is beside it on a phone and on the right on a wide screen.
+    expect(screen.getByRole('link', { name: 'Ayni, ir a mi inicio' })).toBeInTheDocument();
     expect(
-      await screen.findByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
-    ).toBeInTheDocument();
+      await screen.findAllByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
+    ).not.toHaveLength(0);
     expect(await screen.findByRole('link', { name: 'Tu saldo: 12 créditos' })).toHaveAttribute('href', '/creditos');
     expect(screen.getByRole('link', { name: 'Avisos' })).toBeInTheDocument();
     expect(await screen.findAllByText('Ana Torres')).not.toHaveLength(0);
@@ -130,12 +132,24 @@ describe('AppHeader', () => {
     expect(screen.queryByRole('link', { name: 'Buscar', hidden: true })).not.toBeInTheDocument();
   });
 
+  it('keeps a tab active on the routes it declares as its own', async () => {
+    serveFrame(fakeServer());
+    signIn('STUDENT');
+    renderFrame('/reservar');
+    const nav = await screen.findByRole('navigation', { name: 'Principal' });
+    expect(within(nav).getByRole('link', { name: 'Buscar' })).toHaveClass('bg-brand');
+    expect(within(nav).getByRole('link', { name: 'Mis tutorías' })).not.toHaveClass('bg-brand');
+    // The first group goes without its label, as in the frame; the others keep theirs.
+    expect(within(nav).queryByText('Aprender')).not.toBeInTheDocument();
+    expect(within(nav).getByText('Como tutor')).toBeInTheDocument();
+  });
+
   it('signs out on the server and forgets the session', async () => {
     const server = serveFrame(fakeServer()).on('POST', '/api/v1/access/logout', { status: 204 });
     signIn('STUDENT');
     const { user } = renderFrame();
 
-    const [signOut] = await screen.findAllByRole('button', { name: 'Salir', hidden: true });
+    const [signOut] = await screen.findAllByRole('button', { name: 'Cerrar sesión', hidden: true });
     await user.click(signOut);
 
     await waitFor(() => expect(currentSession()).toBeNull());

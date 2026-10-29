@@ -6,9 +6,9 @@ import { useSession } from '../session/useSession';
 import { useSignOut } from '../session/useSignOut';
 import { Avatar } from '../ui/Avatar';
 import { AyniLogo } from '../ui/AyniLogo';
-import { Button } from '../ui/Button';
-import { formatCredits } from '../ui/Credits';
-import { IconCoins, IconLogOut } from '../ui/icons';
+import { CreditCoin } from '../ui/Credits';
+import { IconLogOut } from '../ui/icons';
+import { Spinner } from '../ui/Spinner';
 import { Skeleton } from '../ui/Skeleton';
 import { UniversityLogo } from '../ui/UniversityLogo';
 import { AppNav, type NavSection } from './AppNav';
@@ -29,17 +29,20 @@ export function profileCaption(me: { career?: string; currentCycle?: number } | 
 
 function Balance() {
   const balance = useBalance();
-  if (balance.isPending) return <Skeleton className="h-8 w-24" label="Cargando tu saldo" />;
+  if (balance.isPending) return <Skeleton className="h-9 w-28 rounded-full" label="Cargando tu saldo" />;
   if (balance.isError || balance.data?.available === undefined) return null;
-  const text = formatCredits(balance.data.available);
+  const amount = balance.data.available;
+  const unit = amount === 1 ? 'crédito' : 'créditos';
+  const number = new Intl.NumberFormat('es-PE').format(amount);
   return (
     <Link
       to="/creditos"
-      aria-label={`Tu saldo: ${text}`}
-      className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-sm font-medium text-brand-text hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+      aria-label={`Tu saldo: ${number} ${unit}`}
+      className="inline-flex h-9 items-center gap-2 rounded-full bg-credit-soft pl-1.5 pr-3.5 text-sm hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
     >
-      <IconCoins className="h-4 w-4" />
-      <span className="tabular-nums">{text}</span>
+      <CreditCoin className="h-6 w-6" />
+      <span className="font-semibold tabular-nums text-ink">{number}</span>
+      <span className="hidden font-medium text-credit-text sm:inline">{unit}</span>
     </Link>
   );
 }
@@ -51,29 +54,62 @@ function Person({ compact = false }: { compact?: boolean }) {
   const caption = session?.role === 'PLATFORM_ADMIN' ? null : profileCaption(me.data);
   if (!name) return null;
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <Avatar name={name} photoUrl={me.data?.photoUrl} size="sm" decorative />
+    <div className="flex min-w-0 items-center gap-2.5">
+      <Avatar name={name} photoUrl={me.data?.photoUrl} decorative own />
       <div className={compact ? 'min-w-0' : 'hidden min-w-0 lg:block'}>
-        <p className="truncate text-sm font-medium text-ink">{name}</p>
+        <p className="truncate text-sm font-semibold text-ink">{name}</p>
         {caption && <p className="truncate text-xs text-ink-2">{caption}</p>}
       </div>
     </div>
   );
 }
 
-function SignOut({ fullWidth = false }: { fullWidth?: boolean }) {
+/** The red square of the design: the way out, named for those who cannot see the icon. */
+function SignOut() {
   const { signOut, signingOut } = useSignOut();
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      fullWidth={fullWidth}
-      loading={signingOut}
-      icon={<IconLogOut className="h-4 w-4" />}
+    <button
+      type="button"
       onClick={() => void signOut()}
+      disabled={signingOut}
+      aria-busy={signingOut || undefined}
+      aria-label="Cerrar sesión"
+      title="Cerrar sesión"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-secondary hover:bg-brand-pressed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
     >
-      Salir
-    </Button>
+      {signingOut ? <Spinner size="sm" decorative /> : <IconLogOut className="h-5 w-5" />}
+    </button>
+  );
+}
+
+/** The way out at the end of the phone menu: a row in red, like the frame. */
+function SignOutRow() {
+  const { signOut, signingOut } = useSignOut();
+  return (
+    <button
+      type="button"
+      onClick={() => void signOut()}
+      disabled={signingOut}
+      aria-busy={signingOut || undefined}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-text hover:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-60"
+    >
+      {signingOut ? <Spinner size="sm" decorative /> : <IconLogOut className="h-5 w-5" />}
+      Cerrar sesión
+    </button>
+  );
+}
+
+/** The university as the design draws it: its logo and its name on two short lines. */
+function University({ university }: { university: NonNullable<ReturnType<typeof useUniversity>> }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <UniversityLogo university={university} size="md" />
+      {university.name && (
+        <span className="hidden max-w-[10.5rem] text-xs font-medium leading-snug text-ink lg:block">
+          {university.name}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -88,33 +124,40 @@ export function AppHeader({ sections, bell }: AppHeaderProps) {
 
   return (
     <header className="relative border-b border-line bg-white">
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-        <MobileMenu
-          sections={sections}
-          footer={
-            <div className="flex items-center justify-between gap-3">
-              <Person compact />
-              <SignOut />
-            </div>
-          }
-        />
+      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 md:py-4">
         <Link
           to="/"
-          className="flex min-w-0 items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-          aria-label={university?.name ? `${university.name}, ir a mi inicio` : 'Ayni, ir a mi inicio'}
+          aria-label="Ayni, ir a mi inicio"
+          className="shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
-          {university ? <UniversityLogo university={university} size="sm" /> : <AyniLogo className="text-brand-text" />}
-          {university?.name && (
-            <span className="hidden truncate text-sm font-semibold text-ink sm:block">{university.name}</span>
-          )}
+          <AyniLogo className="h-7 md:h-10" />
         </Link>
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        {university && (
+          <div className="md:hidden">
+            <UniversityLogo university={university} size="sm" />
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-2 md:gap-3">
+          {university && (
+            <div className="hidden items-center gap-4 border-r border-line pr-4 md:flex">
+              <University university={university} />
+            </div>
+          )}
           {student && <Balance />}
-          {bell}
+          {bell && <div className="rounded-xl border border-line bg-white">{bell}</div>}
           <div className="hidden items-center gap-3 md:flex">
             <Person />
             <SignOut />
           </div>
+          <MobileMenu
+            sections={sections}
+            person={<Person compact />}
+            extra={[
+              ...(bell ? [{ to: '/avisos', label: 'Avisos' }] : []),
+              ...(student ? [{ to: '/perfil', label: 'Mi perfil' }] : []),
+            ]}
+            signOut={<SignOutRow />}
+          />
         </div>
       </div>
       <AppNav sections={sections} />
