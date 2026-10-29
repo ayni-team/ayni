@@ -1978,6 +1978,8 @@ export interface paths {
          * The catalogue visible to the current university
          * @description Every active item a student of this university may see: the global tools that ship with Ayni, plus the courses that belong to their own university. Sorted by name, and narrowed by category or by part of the name when asked.
          *
+         *     FE-03: the step of the onboarding that asks what the student needs help with offers this catalogue, and a course the student's own academic record already backs is not something to ask for help with. excludeApproved leaves those out for the student making the request.
+         *
          */
         get: operations["catalog"];
         put?: never;
@@ -2806,25 +2808,6 @@ export interface components {
              */
             validUntil?: string | null;
         };
-        /** @description What went wrong */
-        BookingApiError: {
-            /**
-             * Format: date-time
-             * @example 2026-09-23T21:00:00Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 400
-             */
-            status?: number;
-            /** @example Bad Request */
-            error?: string;
-            /** @example The pause overlaps an existing availability pause */
-            message?: string;
-            /** @example /api/v1/tutor/availability/pauses */
-            path?: string;
-        };
         AvailabilityPattern: {
             /**
              * Format: uuid
@@ -2885,6 +2868,25 @@ export interface components {
              * @example You have no enabled skill yet, so these hours will not appear in searches.
              */
             notice?: string | null;
+        };
+        /** @description What went wrong */
+        BookingApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-09-23T21:00:00Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 400
+             */
+            status?: number;
+            /** @example Bad Request */
+            error?: string;
+            /** @example The pause overlaps an existing availability pause */
+            message?: string;
+            /** @example /api/v1/tutor/availability/pauses */
+            path?: string;
         };
         AvailabilityPauseRequest: {
             /**
@@ -3078,14 +3080,6 @@ export interface components {
              */
             comment?: string;
         };
-        RatingResponse: {
-            /**
-             * Format: uuid
-             * @description Created rating id
-             * @example 11111111-1111-4111-8111-111111111111
-             */
-            id?: string;
-        };
         /** @description What went wrong */
         ReputationApiError: {
             /**
@@ -3104,6 +3098,14 @@ export interface components {
             message?: string;
             /** @example /api/v1/tutors/22222222-2222-4222-8222-222222222222/standing */
             path?: string;
+        };
+        RatingResponse: {
+            /**
+             * Format: uuid
+             * @description Created rating id
+             * @example 11111111-1111-4111-8111-111111111111
+             */
+            id?: string;
         };
         ConfirmPresenceRequest: {
             /**
@@ -3257,6 +3259,30 @@ export interface components {
              */
             closesAt?: string;
         };
+        /** @description The student has not taught the hours asked for */
+        InsufficientHoursError: {
+            /**
+             * Format: date-time
+             * @example 2026-10-05T19:08:39Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 409
+             */
+            status?: number;
+            /** @example Conflict */
+            error?: string;
+            /** @example 4 more hours are needed before the recognition can be requested */
+            message?: string;
+            /** @example /api/v1/recognition/requests */
+            path?: string;
+            /**
+             * Format: int32
+             * @example 4
+             */
+            missingHours?: number;
+        };
         /** @description A request for the university to recognise the hours taught */
         RecognitionRequest: {
             /**
@@ -3326,30 +3352,6 @@ export interface components {
              * @example 5
              */
             stars?: number | null;
-        };
-        /** @description The student has not taught the hours asked for */
-        InsufficientHoursError: {
-            /**
-             * Format: date-time
-             * @example 2026-10-05T19:08:39Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 409
-             */
-            status?: number;
-            /** @example Conflict */
-            error?: string;
-            /** @example 4 more hours are needed before the recognition can be requested */
-            message?: string;
-            /** @example /api/v1/recognition/requests */
-            path?: string;
-            /**
-             * Format: int32
-             * @example 4
-             */
-            missingHours?: number;
         };
         PurchaseRequest: {
             /** Format: int32 */
@@ -4805,6 +4807,25 @@ export interface components {
              */
             createdAt?: string;
         };
+        /** @description What went wrong */
+        MatchingApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-09-29T21:00:00Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 400
+             */
+            status?: number;
+            /** @example Bad Request */
+            error?: string;
+            /** @example from must be before to */
+            message?: string;
+            /** @example /api/v1/search/offers */
+            path?: string;
+        };
         Offer: {
             /**
              * Format: uuid
@@ -4892,25 +4913,6 @@ export interface components {
              * @example 1
              */
             totalPages?: number;
-        };
-        /** @description What went wrong */
-        MatchingApiError: {
-            /**
-             * Format: date-time
-             * @example 2026-09-29T21:00:00Z
-             */
-            timestamp?: string;
-            /**
-             * Format: int32
-             * @example 400
-             */
-            status?: number;
-            /** @example Bad Request */
-            error?: string;
-            /** @example from must be before to */
-            message?: string;
-            /** @example /api/v1/search/offers */
-            path?: string;
         };
         /** @description Hours taught against the hours the university asks for */
         RecognitionProgress: {
@@ -10096,6 +10098,8 @@ export interface operations {
                 page?: number;
                 /** @description Items per page */
                 size?: number;
+                /** @description Leave out the courses the current student already has an approving grade for */
+                excludeApproved?: boolean;
             };
             header?: never;
             path?: never;

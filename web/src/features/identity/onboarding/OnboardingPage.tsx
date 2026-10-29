@@ -385,13 +385,21 @@ function SelectableCatalog({
   items,
   selected,
   onToggle,
+  searching,
 }: {
   items: CatalogItem[];
   selected: string[];
   onToggle: (id: string) => void;
+  searching: boolean;
 }) {
   if (items.length === 0) {
-    return <p className="text-sm text-gray-600">No encontramos cursos con esa búsqueda.</p>;
+    return (
+      <p className="text-sm text-gray-600">
+        {searching
+          ? 'No encontramos cursos con esa búsqueda.'
+          : 'Ya aprobaste todos los cursos del catálogo: no tienes nada pendiente en qué pedir ayuda.'}
+      </p>
+    );
   }
 
   return (
@@ -494,6 +502,7 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
         q: debouncedSearch || undefined,
         page: 0,
         size: 20,
+        excludeApproved: true,
       },
     },
   );
@@ -632,6 +641,7 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
                 items={catalogItems}
                 selected={learning}
                 onToggle={(id) => setLearning((current) => toggleId(current, id))}
+                searching={debouncedSearch.length > 0}
               />
             )}
           </Card>
