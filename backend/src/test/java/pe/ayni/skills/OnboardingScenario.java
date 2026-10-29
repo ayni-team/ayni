@@ -96,6 +96,9 @@ abstract class OnboardingScenario {
   /** A course of another university, which this one cannot see. */
   protected CatalogItem foreignCourse;
 
+  /** The category of every course above, so a catalogue read can be scoped to this scenario's own. */
+  protected UUID category;
+
   /** The approved courses of each student, by email, as the university's directory file says. */
   private final Map<String, List<String>> records = new LinkedHashMap<>();
 
@@ -109,8 +112,7 @@ abstract class OnboardingScenario {
   void aUniversityWithItsCatalogue() {
     people = new SignedInPeople(tenants, users, userSessions, tokens);
     tenant = people.aUniversity("O");
-    UUID category =
-        categories.save(new Category(UUID.randomUUID(), "Category " + suffix(), (short) 0)).getId();
+    category = categories.save(new Category(UUID.randomUUID(), "Category " + suffix(), (short) 0)).getId();
     databases = catalogItems.save(course(tenant, category, "Databases I", "DB"));
     calculus = catalogItems.save(course(tenant, category, "Calculus II", "MA"));
     physics = catalogItems.save(course(tenant, category, "Physics I", "FI"));

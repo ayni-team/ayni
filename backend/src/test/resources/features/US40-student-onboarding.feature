@@ -42,6 +42,12 @@ Feature: Declaring what I need and what I can help with
     Then the courses I approved with a grade that clears the threshold are suggested
     And once I offer them they are no longer suggested
 
+  Scenario: Already approved courses are not asked for help
+    Given my university has the record of my courses
+    When I ask the catalogue for what I could need help with, leaving out what I approved
+    Then every course I approved is left out, even the one below the teaching threshold
+    And the rest of the catalogue, and another student's catalogue, are unaffected
+
   Scenario: Later sign-ins
     Given I already completed my initial configuration
     When I sign in again
