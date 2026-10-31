@@ -38,7 +38,7 @@ export default function NoticesPage() {
   const totalPages = pageCount(notices.data?.total ?? 0, notices.data?.size ?? PAGE_SIZE);
   const tabs: readonly TabItem<Filter>[] = [
     { value: 'ALL', label: 'Todos' },
-    { value: 'UNREAD', label: 'Sin leer', count: unread || undefined },
+    { value: 'UNREAD', label: 'Sin leer' },
   ];
 
   function choose(next: Filter) {
