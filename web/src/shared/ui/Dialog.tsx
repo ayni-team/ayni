@@ -96,19 +96,19 @@ function DialogPanel({ onClose, title, description, children, footer, dismissibl
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl focus:outline-none"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[20px] bg-white p-6 shadow-xl focus:outline-none"
       >
         {dismissible && (
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="absolute right-3 top-3 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+            className="absolute right-3 top-3 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
           >
             <IconClose />
           </button>
         )}
-        <h2 id={titleId} className="pr-8 text-lg font-semibold text-gray-900">
+        <h2 id={titleId} className="pr-8 font-display text-xl font-semibold text-ink">
           {title}
         </h2>
         {description && (
@@ -117,7 +117,9 @@ function DialogPanel({ onClose, title, description, children, footer, dismissibl
           </p>
         )}
         {children && <div className="mt-4">{children}</div>}
-        {footer && <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row-reverse sm:justify-start">{footer}</div>}
+        {footer && (
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row-reverse sm:justify-start">{footer}</div>
+        )}
       </div>
     </div>
   );

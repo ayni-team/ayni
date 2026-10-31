@@ -702,12 +702,22 @@ the domains themselves are not in it.
 **The demonstration data (`dev`).** `DemoIdentityData` runs first among the demonstration data
 (`@Order(1)`): it registers UPC and USIL from their documents through
 `RegisterUniversityFromAcademicSystemUseCase` (five initial credits for thirty days) and activates
-only the four people of the demonstration, with fixed identifiers, through `StudentActivation`
-without a link: Ana Torres (`11111111-…`) and Lucía Paredes (`66666666-…`) at `PROFILE`, Bruno Salas
-(`22222222-…`) and Mateo Ríos (`77777777-…`) with their profile and record done, whose last step
-`DemoSkillsData` takes. Every other student of the documents activates live with their link. No
-`StudentActivated` is published for them, as before, so the wallets are the ones of
-`DemoWalletData`. A university already registered and a person already there are left alone.
+only the people of the demonstration, thirteen of each university, with the fixed identifiers of
+`pe.ayni.shared.demo.DemoCast`, through `StudentActivation` without a link: Ana Torres
+(`11111111-…`) and Lucía Paredes (`66666666-…`) at `PROFILE`, one student of each university at
+`ACADEMIC_RECORD` (profile done) and one at `LEARNING_INTERESTS` (record imported too), and the rest,
+Bruno Salas (`22222222-…`) and Mateo Ríos (`77777777-…`) among them, with their profile and record
+done, whose last step `DemoSkillsData` takes. Every other student of the documents activates live
+with their link. No `StudentActivated` is published for them, as before, so the wallets are the ones
+of `DemoWalletData`. A university already registered and a person already there are left alone.
+Who each one is, and what the other modules seed for them, is in `docs/demo.md`.
+
+**The demo history (`demo`).** `pe.ayni.shared.demo` is a named interface of the shared library
+with `DemoCast` and one port per module the history of the `demo` profile needs (`DemoBookings`,
+`DemoSessions`, `DemoRatings`, `DemoRecognition`, `DemoNotices`, `DemoSearches`, `DemoCourses`).
+Each module implements its own with a `DemoHistory*` class of its `infrastructure` that only calls
+its own use cases, under `@Profile("demo")`; `config.demo.DemoHistoryData` only moves the
+`AdjustableClock` and calls the ports in order. No module depends on another for it.
 
 **The demo coordinators.** Under the `demo` profile only (`docs/demo.md`), `DemoCoordinatorData`
 creates an active coordinator of each university, so a presentation needs no invitation first:

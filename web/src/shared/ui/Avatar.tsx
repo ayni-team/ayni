@@ -16,15 +16,33 @@ export interface AvatarProps {
   size?: 'sm' | 'md' | 'lg';
   /** Beside the name already written: hidden from screen readers so it is not read twice. */
   decorative?: boolean;
+  /** The person's own avatar, which the design always draws in the informative tint. */
+  own?: boolean;
   className?: string;
 }
 
 const SIZES = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-16 w-16 text-lg' };
 
+/**
+ * The tints of the design for initials. Always the same one for the same name, so a tutor keeps
+ * their colour from the grid to the panel; none is the university's, which is kept for actions.
+ */
+const TONES = ['bg-info-soft text-info-text', 'bg-pink-50 text-pink-700', 'bg-credit-soft text-credit-text'];
+
+export function toneOf(name: string): string {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return TONES[hash % TONES.length];
+}
+
 /** The person's photo or, without one (or if it fails to load), their initials. */
-export function Avatar({ name, photoUrl, size = 'md', decorative = false, className }: AvatarProps) {
+export function Avatar({ name, photoUrl, size = 'md', decorative = false, own = false, className }: AvatarProps) {
   const [failed, setFailed] = useState(false);
-  const classes = cx('inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full', SIZES[size], className);
+  const classes = cx(
+    'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full',
+    SIZES[size],
+    className,
+  );
   if (photoUrl && !failed) {
     return (
       <img
@@ -40,7 +58,7 @@ export function Avatar({ name, photoUrl, size = 'md', decorative = false, classN
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : name}
       aria-hidden={decorative || undefined}
-      className={cx(classes, 'bg-brand-soft font-semibold text-brand-text')}
+      className={cx(classes, 'font-semibold', own ? TONES[0] : toneOf(name))}
     >
       {initialsOf(name)}
     </span>

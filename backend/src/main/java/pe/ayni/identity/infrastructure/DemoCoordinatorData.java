@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
@@ -18,6 +19,7 @@ import pe.ayni.identity.domain.model.CreditPolicy;
 import pe.ayni.identity.domain.model.Tenant;
 import pe.ayni.identity.domain.model.User;
 import pe.ayni.identity.domain.model.UserStatus;
+import pe.ayni.shared.demo.DemoCast;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -42,9 +44,9 @@ class DemoCoordinatorData {
 
     private static final Logger log = LoggerFactory.getLogger(DemoCoordinatorData.class);
 
-    static final UUID COORDINATOR = UUID.fromString("44444444-4444-4444-8444-444444444444");
+    static final UUID COORDINATOR = DemoCast.UPC_COORDINATOR;
 
-    static final UUID USIL_COORDINATOR = UUID.fromString("88888888-8888-4888-8888-888888888888");
+    static final UUID USIL_COORDINATOR = DemoCast.USIL_COORDINATOR;
 
     /** A coordinator of one university, and the baseline policy it keeps if it has none. */
     private record Coordinator(String tenant, UUID id, String fullName, String email, UUID policy) {}
@@ -84,7 +86,9 @@ class DemoCoordinatorData {
                                 UUID.fromString("55555555-5555-4555-8555-555555555556")));
     }
 
+    // Before the history of the demo profile, where a coordinator decides a request.
     @EventListener
+    @Order(10)
     void anActiveCoordinator(ApplicationReadyEvent ready) {
         for (Coordinator coordinator : coordinators) {
             try {

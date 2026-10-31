@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
-import { CARLOS, serveFrame, signIn } from '@/test/fixtures';
+import { ANA, CARLOS, UPC, WALLET, serveFrame, signIn } from '@/test/fixtures';
 import { renderWithProviders } from '@/test/render';
 import { currentSession } from '../session/session';
 import { AppLayout } from './AppLayout';
@@ -10,7 +10,7 @@ import type { NavEntry } from './navigation';
 import { navigationFor } from './navigation';
 
 const NAVIGATION: NavEntry[] = [
-  { to: '/buscar', label: 'Buscar', role: 'STUDENT', group: 'learn', order: 10 },
+  { to: '/buscar', label: 'Buscar', role: 'STUDENT', group: 'learn', order: 10, also: ['/reservar'] },
   { to: '/tutor/agenda', label: 'Agenda', role: 'STUDENT', group: 'teach', order: 10 },
   { to: '/mis-tutorias', label: 'Mis tutorías', role: 'STUDENT', group: 'learn', order: 20 },
   { to: '/coordinador/regla', label: 'Regla', role: 'COORDINATOR', group: 'coordinate', order: 20 },
@@ -37,6 +37,49 @@ describe('navigationFor', () => {
   });
 });
 
+describe('AppLayout and the university', () => {
+  it('paints no content until the university has loaded', async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    serveFrame(fakeServer());
+    const original = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/v1/university')) await gate;
+      return original(input, init);
+    });
+    signIn('STUDENT');
+    renderFrame();
+
+    expect(await screen.findAllByRole('status')).not.toHaveLength(0);
+    expect(screen.queryByText('Contenido')).not.toBeInTheDocument();
+    release?.();
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
+  });
+
+  it('offers to retry, and never shows the content, when the university fails to load', async () => {
+    const server = fakeServer()
+      .on('GET', '/api/v1/me', { body: ANA })
+      .on('GET', '/api/v1/wallet', { body: WALLET })
+      .on('GET', '/api/v1/university', { status: 500, body: { status: 500, message: 'boom' } });
+    signIn('STUDENT');
+    const { user } = renderFrame();
+
+    expect(await screen.findByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+    expect(screen.queryByText('Contenido')).not.toBeInTheDocument();
+
+    server.on('GET', '/api/v1/university', { body: UPC });
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
+  });
+
+  it('does not wait for a university a platform administrator does not have', async () => {
+    fakeServer();
+    signIn('PLATFORM_ADMIN');
+    renderFrame('/admin');
+    expect(await screen.findByText('Contenido')).toBeInTheDocument();
+  });
+});
+
 describe('AppHeader', () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -45,7 +88,11 @@ describe('AppHeader', () => {
     signIn('STUDENT');
     renderFrame();
 
-    expect(await screen.findByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' })).toBeInTheDocument();
+    // Ayni's logo leads; the university's is beside it on a phone and on the right on a wide screen.
+    expect(screen.getByRole('link', { name: 'Ayni, ir a mi inicio' })).toBeInTheDocument();
+    expect(
+      await screen.findAllByRole('img', { name: 'Logo de Universidad Peruana de Ciencias Aplicadas' }),
+    ).not.toHaveLength(0);
     expect(await screen.findByRole('link', { name: 'Tu saldo: 12 créditos' })).toHaveAttribute('href', '/creditos');
     expect(screen.getByRole('link', { name: 'Avisos' })).toBeInTheDocument();
     expect(await screen.findAllByText('Ana Torres')).not.toHaveLength(0);
@@ -85,16 +132,30 @@ describe('AppHeader', () => {
     expect(screen.queryByRole('link', { name: 'Buscar', hidden: true })).not.toBeInTheDocument();
   });
 
+  it('keeps a tab active on the routes it declares as its own', async () => {
+    serveFrame(fakeServer());
+    signIn('STUDENT');
+    renderFrame('/reservar');
+    const nav = await screen.findByRole('navigation', { name: 'Principal' });
+    expect(within(nav).getByRole('link', { name: 'Buscar' })).toHaveClass('bg-brand');
+    expect(within(nav).getByRole('link', { name: 'Mis tutorías' })).not.toHaveClass('bg-brand');
+    // The first group goes without its label, as in the frame; the others keep theirs.
+    expect(within(nav).queryByText('Aprender')).not.toBeInTheDocument();
+    expect(within(nav).getByText('Como tutor')).toBeInTheDocument();
+  });
+
   it('signs out on the server and forgets the session', async () => {
     const server = serveFrame(fakeServer()).on('POST', '/api/v1/access/logout', { status: 204 });
     signIn('STUDENT');
     const { user } = renderFrame();
 
-    const [signOut] = await screen.findAllByRole('button', { name: 'Salir', hidden: true });
+    const [signOut] = await screen.findAllByRole('button', { name: 'Cerrar sesión', hidden: true });
     await user.click(signOut);
 
     await waitFor(() => expect(currentSession()).toBeNull());
-    expect(server.requests('POST', '/api/v1/access/logout')[0].headers.get('Authorization')).toBe('Bearer token-student');
+    expect(server.requests('POST', '/api/v1/access/logout')[0].headers.get('Authorization')).toBe(
+      'Bearer token-student',
+    );
   });
 
   it('opens and closes the menu of a phone', async () => {

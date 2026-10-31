@@ -58,9 +58,7 @@ export function formatInZone(
 
 /** The university's day (`YYYY-MM-DD`) an instant falls on. */
 export function dayInZone(value: string | Date, zone: string): string {
-  const parts = formatter(zone, { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(
-    toDate(value),
-  );
+  const parts = formatter(zone, { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(toDate(value));
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 }

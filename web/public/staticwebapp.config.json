@@ -1,11 +1,17 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/logos/*", "/favicon.ico"]
+    "exclude": ["/assets/*", "/fonts/*", "/logos/*", "/favicon.ico"]
   },
   "routes": [
     {
       "route": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/fonts/*",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       }

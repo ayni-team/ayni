@@ -1,3 +1,4 @@
+import { todayInZone } from './format';
 import { useUniversity } from '../brand/BrandProvider';
 
 /**
@@ -9,4 +10,13 @@ export const FALLBACK_ZONE = 'UTC';
 
 export function useZone(): string {
   return useUniversity()?.timezone ?? FALLBACK_ZONE;
+}
+
+/**
+ * The university's today as `YYYY-MM-DD`. Screens never read `Date` or the browser's day: "today"
+ * is always this, so a student at 23:30 in Lima (04:30 UTC the next day) sees Lima's day. It is
+ * right from the first render because the protected layout waits for the university.
+ */
+export function useUniversityToday(): string {
+  return todayInZone(useZone());
 }

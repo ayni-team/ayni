@@ -147,9 +147,10 @@ The only components for the things below. Their props are fixed; a variant that 
 request to the lead.
 
 `Button` (`variant`: primary, secondary, danger, ghost; `loading`), `TextField`, `TextArea`,
-`Select`, `Checkbox`, `Field` (label, hint and error around any input), `Card`, `Table`, `Tabs`,
-`Badge`, `Dialog`, `useToast()`, `Spinner`, `EmptyState`, `ErrorState` (with a retry), `Pagination`,
-`PageHeader`, and the two formatters `<DateTime value zone />` and `<Credits amount />`.
+`Select`, `Combobox` (type to narrow a long list, such as the courses), `Checkbox`, `Field` (label,
+hint and error around any input), `Card`, `Table`, `Tabs`, `Badge`, `Dialog`, `useToast()`,
+`Spinner`, `EmptyState`, `ErrorState` (with a retry), `Pagination`, `PageHeader`, `WeekStepper` (the
+week before and after), and the two formatters `<DateTime value zone />` and `<Credits amount />`.
 
 ### Branding
 
@@ -200,7 +201,13 @@ The server's `message` is English and technical. People see this:
   rest read it from `GET /api/v1/university`. `<DateTime value zone />` does it, never the
   browser's zone.
 - Dates without time (`from`, `to` of the agenda and the indicators) are days of the university.
-- "Today" is the university's today.
+- "Today" is the university's today, and it is **always** `useUniversityToday()` (`shared/time`,
+  `YYYY-MM-DD`). Screens never call `new Date()` or `Date.now()` to find the day, nor read the
+  browser's "today": a student at 23:30 in Lima is already on the next day in UTC. The signed-in
+  layout does not draw a screen until `GET /api/v1/university` has loaded (a spinner meanwhile, an
+  `ErrorState` with "Reintentar" if it fails), so the zone is never the UTC fallback in a screen.
+  The public screens (FE-01, FE-02) do not wait for it. `Date.now()` stays valid for **instants**
+  (a countdown, the time left to a start), never for days.
 
 ### Money
 
@@ -279,7 +286,8 @@ frame; the link is added by the lead.
   with a "Reenviar" button that waits 30 seconds.
 - **Handles:** `404` on the preview → a hint under the field, not an error ("No encontramos una
   universidad afiliada a Ayni con ese dominio. Si administras Ayni, igual puedes pedir tu enlace."),
-  and the page keeps Ayni's colours. The submit stays enabled: the platform administrator's address
+  and the page keeps Ayni's colours. An email of a university that is not affiliated (the `404` of
+  the preview) is a hint, not an error, and the button stays enabled. The submit stays enabled: the platform administrator's address
   belongs to no university and still gets a link, so the backend decides. `400` on the request → a
   text of the screen's own, in Spanish, under the field, never the server's `message`: "Tu
   universidad todavía no está afiliada a Ayni" when the preview found no university, "No pudimos
@@ -316,7 +324,9 @@ frame; the link is added by the lead.
 - **Handles:** the academic fields (name, career, term, student code) are shown and not editable.
   `409` on the last step (a step is missing) → go back to the step in `onboardingStep`. A course
   the person asked to teach that is not in `response.teaching` was not enabled: say so and why ("su
-  nota no alcanza el mínimo de la universidad").
+  nota no alcanza el mínimo de la universidad"). If the course chosen on the last step is not
+  enabled for teaching, a fixed notice stays on that step with a "Continuar" button that goes to
+  `/buscar`.
 - **Done when:** a fresh student reaches `COMPLETED` using only the screen, and closing the browser
   halfway resumes at the same step.
 
@@ -339,8 +349,10 @@ frame; the link is added by the lead.
   (`catalogItemId`, `from`, `to`, `page`, `size` → `OfferSearch`), `GET
   /api/v1/tutors/{id}/standing` is not needed: each `Offer` already carries `averageStars`,
   `ratingsCount`, `sessionsTaught` and `newTutor`.
-- **Does:** pick a course (search as you type) and a date range (default: the next 7 days of the
-  university); list the offers grouped by day, each with the hour, the tutor's name and their
+- **Does:** pick a course and a date range. The course selector is the `Combobox` of `shared/ui` over
+  up to 100 courses (UPC has 57, USIL 64), searched by name or code. The default range is the week
+  (Monday to Sunday) that contains today in the university's zone, with navigation to the previous
+  and the next week; list the offers grouped by day, each with the hour, the tutor's name and their
   standing (stars and count, or the "Tutor nuevo" badge when `newTutor`). Choosing one goes to
   `/reservar` carrying `tutorId`, `catalogItemId`, `start` and `hours: 1`. The person's own hours are
   never offered (the server leaves them out).
@@ -377,7 +389,8 @@ frame; the link is added by the lead.
 - **Does:** two tabs, upcoming and history, a page at a time. Each item: date and hour, tutor,
   course, status badge (`CONFIRMED`, `CANCELLED`, `COMPLETED`, `NO_SHOW`). When `joinable` is true,
   an "Entrar" button asks for the session of that booking and goes to `/sesion/:sessionId`. A
-  "Cancelar" button on upcoming ones.
+  "Cancelar" button on upcoming ones. In the history, a "Repasar" button goes to FE-24
+  (`/sesion/:id/repaso`) with the id of the **session** (not of the booking).
 - **Cancelling:** the first `DELETE` for a booking **less than 12 hours from its start answers `409`
   with a warning body** (`late`, `refundWillBeIssued`, `confirmationRequired`) and cancels nothing.
   Show it in a dialog ("Faltan menos de 12 horas: no se te devolverán los créditos") and, if the
@@ -494,8 +507,8 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
 - **Does:** a week by default (up to 31 days), in days of the university. Lines of kind `BOOKED` show
   the student, the course, the need description and the student's `absenceCount` when it is above
   zero; lines of kind `FREE` are the open hours. "Entrar" when `joinable`. A history tab. The tutor can
-  cancel: **less than 12 hours before the start the first call warns that it will be recorded**;
-  confirm with `?confirmLate=true`.
+  cancel, and cancelling always asks for confirmation in a `Dialog`: **less than 12 hours before the
+  start the first call warns that it will be recorded**; confirm with `?confirmLate=true`.
 - **Done when:** booked and free hours are told apart, a late cancellation shows its warning, and
   the history pages.
 
@@ -618,6 +631,7 @@ A screen is finished when all of this is true:
 - [ ] It handles loading, empty, error and ready, and every refusal its section lists
 - [ ] It uses only `shared/ui` and `shared/api`, and no new dependency
 - [ ] It has its test of the logic
+- [ ] `npm run format` was run before opening the pull request; the CI checks it
 - [ ] `npm run build` passes (type check included) and the CI is green
 - [ ] It was run against the real backend with `docker compose up` (not only mocked)
 - [ ] The pull request has a screenshot of each state it draws

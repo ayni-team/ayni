@@ -27,6 +27,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import pe.ayni.sessions.application.VideoRoomPasses;
+import pe.ayni.shared.demo.DemoCast;
 import pe.ayni.sessions.application.VideoRoomPasses.VideoPass;
 import pe.ayni.sessions.domain.model.ParticipantRole;
 
@@ -163,14 +164,16 @@ class DemoProfileStartupTest {
     assertThat(courseCount("UPC")).isEqualTo(57L);
     assertThat(courseCount("USIL")).isEqualTo(64L);
 
-    // The four people of the demonstration, and no other student: the rest activate live.
+    // The people of the demonstration, the first four among them, and no other student: the rest
+    // activate live (demo-seed.feature has the rest of them).
     assertThat(
             jdbc.queryForList(
                 "select tenant_id || ' ' || full_name || ' ' || onboarding_step || ' ' || current_cycle"
                     + " from identity.users where role = 'STUDENT' and tenant_id in ('UPC', 'USIL')"
                     + " order by tenant_id, full_name",
                 String.class))
-        .containsExactly(
+        .hasSize(DemoCast.STUDENTS.size())
+        .contains(
             "UPC Ana Torres PROFILE 4",
             "UPC Bruno Salas COMPLETED 8",
             "USIL Lucía Paredes PROFILE 4",

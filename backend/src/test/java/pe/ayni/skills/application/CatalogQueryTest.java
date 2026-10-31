@@ -8,8 +8,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import pe.ayni.identity.ApprovedCourseView;
+import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.tenancy.TenantContext;
 import pe.ayni.skills.CatalogScope;
 import pe.ayni.skills.domain.model.CatalogItem;
@@ -29,7 +33,8 @@ class CatalogQueryTest {
   private static final Instant NOW = Instant.parse("2026-09-20T12:00:00Z");
 
   private final CatalogItemRepository catalogItems = mock(CatalogItemRepository.class);
-  private final CatalogQuery query = new CatalogQuery(catalogItems);
+  private final IdentityApi identity = mock(IdentityApi.class);
+  private final CatalogQuery query = new CatalogQuery(catalogItems, identity);
 
   @Test
   @DisplayName("returns the active items visible to the current tenant, sorted by name")
@@ -39,7 +44,7 @@ class CatalogQueryTest {
             UUID.randomUUID(), CatalogScope.GLOBAL, null, UUID.randomUUID(), "Python", null, null,
             NOW);
     when(catalogItems.searchVisible(
-            eq(UPC), eq(CatalogItemStatus.ACTIVE), isNull(), isNull(), any(Pageable.class)))
+            eq(UPC), eq(CatalogItemStatus.ACTIVE), isNull(), isNull(), eq(Set.of()), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(python)));
 
     Page<CatalogItem> visible = runAsAndGet(UPC, () -> query.visibleItems(null, " ", 0, 20));
@@ -47,7 +52,8 @@ class CatalogQueryTest {
     assertThat(visible.getContent()).containsExactly(python);
     ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
     verify(catalogItems)
-        .searchVisible(eq(UPC), eq(CatalogItemStatus.ACTIVE), isNull(), isNull(), pageable.capture());
+        .searchVisible(
+            eq(UPC), eq(CatalogItemStatus.ACTIVE), isNull(), isNull(), eq(Set.of()), pageable.capture());
     assertThat(pageable.getValue().getSort().getOrderFor("name")).isNotNull();
   }
 
@@ -55,7 +61,7 @@ class CatalogQueryTest {
   @DisplayName("the text is matched literally, ignoring case, with its wildcards escaped")
   void theTextIsMatchedLiterally() {
     UUID category = UUID.randomUUID();
-    when(catalogItems.searchVisible(any(), any(), any(), any(), any(Pageable.class)))
+    when(catalogItems.searchVisible(any(), any(), any(), any(), any(), any(Pageable.class)))
         .thenReturn(Page.empty());
 
     runAsAndGet(UPC, () -> query.visibleItems(category, " C_100% ", 1, 10));
@@ -66,7 +72,37 @@ class CatalogQueryTest {
             eq(CatalogItemStatus.ACTIVE),
             eq(category),
             eq("%c\\_100\\%%"),
+            eq(Set.of()),
             any(Pageable.class));
+  }
+
+  @Test
+  @DisplayName("excludeApproved leaves out the courses the student's record already approved")
+  void excludeApprovedLeavesOutTheStudentsApprovedCourses() {
+    UUID studentId = UUID.randomUUID();
+    when(identity.approvedCourses(studentId))
+        .thenReturn(
+            List.of(
+                new ApprovedCourseView("CC126", "Databases I", new BigDecimal("17.00"), "2025-1")));
+    when(catalogItems.searchVisible(any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenReturn(Page.empty());
+
+    runAsAndGet(UPC, () -> query.visibleItems(null, null, 0, 20, studentId, true));
+
+    verify(catalogItems)
+        .searchVisible(
+            eq(UPC), eq(CatalogItemStatus.ACTIVE), isNull(), isNull(), eq(Set.of("CC126")), any(Pageable.class));
+  }
+
+  @Test
+  @DisplayName("excludeApproved false never reads the student's approved courses")
+  void excludeApprovedFalseNeverReadsApprovedCourses() {
+    when(catalogItems.searchVisible(any(), any(), any(), any(), any(), any(Pageable.class)))
+        .thenReturn(Page.empty());
+
+    runAsAndGet(UPC, () -> query.visibleItems(null, null, 0, 20, null, false));
+
+    verify(identity, org.mockito.Mockito.never()).approvedCourses(any());
   }
 
   private static <T> T runAsAndGet(String tenantId, java.util.function.Supplier<T> work) {

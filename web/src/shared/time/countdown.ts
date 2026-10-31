@@ -18,7 +18,10 @@ import { useEffect, useState } from 'react';
  * includes the trip the answer took, a fraction of a second. A missing or unreadable `serverNow`
  * gives 0, which counts against the browser's clock.
  */
-export function clockOffset(serverNow: string | Date | number | null | undefined, received: number = Date.now()): number {
+export function clockOffset(
+  serverNow: string | Date | number | null | undefined,
+  received: number = Date.now(),
+): number {
   if (serverNow === null || serverNow === undefined) return 0;
   const server = typeof serverNow === 'number' ? serverNow : new Date(serverNow).getTime();
   return Number.isFinite(server) ? server - received : 0;

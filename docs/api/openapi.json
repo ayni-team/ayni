@@ -3062,7 +3062,7 @@
                       "course": {
                         "id": "5b2e7c1a-3f4d-4e8a-9c0b-1d2e3f4a5b6c",
                         "code": "SI400",
-                        "name": "Diseño de Base de Datos",
+                        "name": "Dise\u00f1o de Base de Datos",
                         "description": null,
                         "status": "ACTIVE"
                       },
@@ -5299,13 +5299,13 @@
             "required": false,
             "schema": {
               "type": "string",
-              "default": "PROPOSED",
               "enum": [
                 "PROPOSED",
                 "APPROVED",
                 "MERGED",
                 "REJECTED"
-              ]
+              ],
+              "default": "PROPOSED"
             }
           },
           {
@@ -6214,7 +6214,7 @@
           "Skills"
         ],
         "summary": "The catalogue visible to the current university",
-        "description": "Every active item a student of this university may see: the global tools that ship with Ayni, plus the courses that belong to their own university. Sorted by name, and narrowed by category or by part of the name when asked.\n",
+        "description": "Every active item a student of this university may see: the global tools that ship with Ayni, plus the courses that belong to their own university. Sorted by name, and narrowed by category or by part of the name when asked.\n\nFE-03: the step of the onboarding that asks what the student needs help with offers this catalogue, and a course the student's own academic record already backs is not something to ask for help with. excludeApproved leaves those out for the student making the request.\n",
         "operationId": "catalog",
         "parameters": [
           {
@@ -6262,6 +6262,16 @@
               "type": "integer",
               "format": "int32",
               "default": 20
+            }
+          },
+          {
+            "name": "excludeApproved",
+            "in": "query",
+            "description": "Leave out the courses the current student already has an approving grade for",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -7915,10 +7925,16 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor becomes available. The range uses one-hour blocks.",
+            "format": "time",
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor stops being available. It must be after startsAtTime.",
+            "format": "time",
+            "example": "19:00:00"
           },
           "validFrom": {
             "type": "string",
@@ -7934,55 +7950,6 @@
             "example": "2026-12-18"
           }
         }
-      },
-      "LocalTime": {
-        "type": "object",
-        "properties": {
-          "hour": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "minute": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "second": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "nano": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "BookingApiError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-23T21:00:00Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 400
-          },
-          "error": {
-            "type": "string",
-            "example": "Bad Request"
-          },
-          "message": {
-            "type": "string",
-            "example": "The pause overlaps an existing availability pause"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/tutor/availability/pauses"
-          }
-        },
-        "description": "What went wrong"
       },
       "AvailabilityPattern": {
         "type": "object",
@@ -8014,10 +7981,16 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor becomes available.",
+            "format": "time",
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Local time when the tutor stops being available.",
+            "format": "time",
+            "example": "19:00:00"
           },
           "validFrom": {
             "type": "string",
@@ -8051,6 +8024,34 @@
             "example": "You have no enabled skill yet, so these hours will not appear in searches."
           }
         }
+      },
+      "BookingApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-23T21:00:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "example": "The pause overlaps an existing availability pause"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/tutor/availability/pauses"
+          }
+        },
+        "description": "What went wrong"
       },
       "AvailabilityPauseRequest": {
         "required": [
@@ -8140,10 +8141,18 @@
             "example": "2026-10-05"
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Start of the exception window. Required for ADD and timed REMOVE; null together with endsAtTime means a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "End of the exception window. Required for ADD and timed REMOVE; null together with startsAtTime means a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "18:00:00"
           },
           "kind": {
             "type": "string",
@@ -8178,10 +8187,18 @@
             "example": "2026-10-05"
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "Start of the affected time window, or null for a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "17:00:00"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "description": "End of the affected time window, or null for a whole-day REMOVE.",
+            "format": "time",
+            "nullable": true,
+            "example": "18:00:00"
           },
           "kind": {
             "type": "string",
@@ -8275,17 +8292,6 @@
           }
         }
       },
-      "RatingResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Created rating id",
-            "format": "uuid",
-            "example": "11111111-1111-4111-8111-111111111111"
-          }
-        }
-      },
       "ReputationApiError": {
         "type": "object",
         "properties": {
@@ -8313,6 +8319,17 @@
           }
         },
         "description": "What went wrong"
+      },
+      "RatingResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Created rating id",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111"
+          }
+        }
       },
       "ConfirmPresenceRequest": {
         "required": [
@@ -8455,7 +8472,7 @@
             "type": "string",
             "description": "Null when the person is no longer known",
             "nullable": true,
-            "example": "Julián Arce"
+            "example": "Juli\u00e1n Arce"
           }
         },
         "description": "The other person of the session: the tutor when the reader is the student, the student when the reader is the tutor"
@@ -8523,6 +8540,39 @@
             "example": "2026-09-30T21:15:00Z"
           }
         }
+      },
+      "InsufficientHoursError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-05T19:08:39Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 409
+          },
+          "error": {
+            "type": "string",
+            "example": "Conflict"
+          },
+          "message": {
+            "type": "string",
+            "example": "4 more hours are needed before the recognition can be requested"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/recognition/requests"
+          },
+          "missingHours": {
+            "type": "integer",
+            "format": "int32",
+            "example": 4
+          }
+        },
+        "description": "The student has not taught the hours asked for"
       },
       "RecognitionRequest": {
         "type": "object",
@@ -8617,39 +8667,6 @@
             "example": 5
           }
         }
-      },
-      "InsufficientHoursError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-10-05T19:08:39Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 409
-          },
-          "error": {
-            "type": "string",
-            "example": "Conflict"
-          },
-          "message": {
-            "type": "string",
-            "example": "4 more hours are needed before the recognition can be requested"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/recognition/requests"
-          },
-          "missingHours": {
-            "type": "integer",
-            "format": "int32",
-            "example": 4
-          }
-        },
-        "description": "The student has not taught the hours asked for"
       },
       "PurchaseRequest": {
         "type": "object",
@@ -9422,7 +9439,7 @@
             "type": "string",
             "description": "Full name of the tutor, so a reload of the booking screen can show who the hours are with; null when identity no longer knows the tutor",
             "nullable": true,
-            "example": "Julián Arce"
+            "example": "Juli\u00e1n Arce"
           },
           "startsAt": {
             "type": "string",
@@ -10165,12 +10182,14 @@
           "startsAtTime": {
             "type": "string",
             "description": "Null together with endsAtTime for a REMOVE of the whole day.",
+            "format": "time",
             "nullable": true,
             "example": "10:00:00"
           },
           "endsAtTime": {
             "type": "string",
             "description": "Null together with startsAtTime for a REMOVE of the whole day.",
+            "format": "time",
             "nullable": true,
             "example": "11:00:00"
           },
@@ -10232,10 +10251,12 @@
           },
           "startsAtTime": {
             "type": "string",
+            "format": "time",
             "example": "17:00:00"
           },
           "endsAtTime": {
             "type": "string",
+            "format": "time",
             "example": "19:00:00"
           },
           "validFrom": {
@@ -10356,11 +10377,13 @@
           "startTime": {
             "type": "string",
             "description": "Start, in the university's zone.",
+            "format": "time",
             "example": "09:00:00"
           },
           "endTime": {
             "type": "string",
             "description": "End, in the university's zone.",
+            "format": "time",
             "example": "10:00:00"
           },
           "booking": {
@@ -10715,12 +10738,12 @@
             "type": "array",
             "description": "What the tutor could prepare",
             "example": [
-              "Prepara un ejemplo resuelto sobre normalización"
+              "Prepara un ejemplo resuelto sobre normalizaci\u00f3n"
             ],
             "items": {
               "type": "string",
               "description": "What the tutor could prepare",
-              "example": "[\"Prepara un ejemplo resuelto sobre normalización\"]"
+              "example": "[\"Prepara un ejemplo resuelto sobre normalizaci\u00f3n\"]"
             }
           },
           "generatedAt": {
@@ -10875,6 +10898,34 @@
         },
         "description": "What the caller registered about the session"
       },
+      "MatchingApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-29T21:00:00Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "example": "from must be before to"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/search/offers"
+          }
+        },
+        "description": "What went wrong"
+      },
       "Offer": {
         "type": "object",
         "properties": {
@@ -10976,34 +11027,6 @@
           }
         },
         "description": "Hours with a tutor free for the course, by time and then by rating"
-      },
-      "MatchingApiError": {
-        "type": "object",
-        "properties": {
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-09-29T21:00:00Z"
-          },
-          "status": {
-            "type": "integer",
-            "format": "int32",
-            "example": 400
-          },
-          "error": {
-            "type": "string",
-            "example": "Bad Request"
-          },
-          "message": {
-            "type": "string",
-            "example": "from must be before to"
-          },
-          "path": {
-            "type": "string",
-            "example": "/api/v1/search/offers"
-          }
-        },
-        "description": "What went wrong"
       },
       "RecognitionProgress": {
         "type": "object",
@@ -11423,7 +11446,7 @@
           },
           "fullName": {
             "type": "string",
-            "example": "Carla Ríos"
+            "example": "Carla R\u00edos"
           }
         }
       },
@@ -12622,10 +12645,12 @@
             ]
           },
           "startsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "format": "time"
           },
           "endsAtTime": {
-            "$ref": "#/components/schemas/LocalTime"
+            "type": "string",
+            "format": "time"
           },
           "validFrom": {
             "type": "string",

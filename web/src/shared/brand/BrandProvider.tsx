@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useLayoutEffect,
   useMemo,
@@ -25,8 +26,13 @@ export type University = Schema<'MyUniversityView'>;
 
 export const UNIVERSITY_KEY = ['identity', 'university'] as const;
 
+/** Where `GET /api/v1/university` stands: `none` when the session has no university to load. */
+export type UniversityStatus = 'none' | 'loading' | 'error' | 'ready';
+
 interface BrandContextValue {
   university: University | null;
+  status: UniversityStatus;
+  retry: () => void;
   palette: BrandPalette;
   setPreview: Dispatch<SetStateAction<Schema<'UniversityIdentityView'> | null>>;
 }
@@ -45,16 +51,20 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const university: University | null = signedIn ? (mine.data ?? null) : preview;
   const primaryColor = university?.primaryColor;
   const secondaryColor = university?.secondaryColor;
-  const palette = useMemo(
-    () => derivePalette({ primaryColor, secondaryColor }),
-    [primaryColor, secondaryColor],
-  );
+  const palette = useMemo(() => derivePalette({ primaryColor, secondaryColor }), [primaryColor, secondaryColor]);
 
   useLayoutEffect(() => {
     applyPalette(palette);
   }, [palette]);
 
-  const value = useMemo(() => ({ university, palette, setPreview }), [university, palette]);
+  const status: UniversityStatus = !signedIn ? 'none' : mine.data ? 'ready' : mine.isError ? 'error' : 'loading';
+  const refetch = mine.refetch;
+  const retry = useCallback(() => void refetch(), [refetch]);
+
+  const value = useMemo(
+    () => ({ university, status, retry, palette, setPreview }),
+    [university, status, retry, palette],
+  );
   return <BrandContext.Provider value={value}>{children}</BrandContext.Provider>;
 }
 
@@ -69,4 +79,10 @@ export function useBrand(): BrandContextValue {
 /** The university of the screen, or null while it is not known. */
 export function useUniversity(): University | null {
   return useContext(BrandContext)?.university ?? null;
+}
+
+/** Whether the signed-in university is still loading, failed, or is not needed (`none`). */
+export function useUniversityStatus(): { status: UniversityStatus; retry: () => void } {
+  const value = useContext(BrandContext);
+  return { status: value?.status ?? 'none', retry: value?.retry ?? (() => undefined) };
 }

@@ -3,7 +3,6 @@ package pe.ayni.identity.infrastructure;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -16,6 +15,9 @@ import pe.ayni.identity.application.ImportAcademicRecordUseCase;
 import pe.ayni.identity.application.RegisterUniversityFromAcademicSystemUseCase;
 import pe.ayni.identity.application.StudentActivation;
 import pe.ayni.identity.application.UpdateMyProfileUseCase;
+import pe.ayni.shared.demo.DemoCast;
+import pe.ayni.shared.demo.DemoCast.Person;
+import pe.ayni.shared.demo.DemoCast.Step;
 import pe.ayni.shared.tenancy.TenantContext;
 
 /**
@@ -25,15 +27,18 @@ import pe.ayni.shared.tenancy.TenantContext;
  * <p>Everything comes from the documents of {@code backend/academic-directory} (ADR 0006): UPC and
  * USIL are registered with what their documents say, through the same use case as {@code POST
  * /api/v1/admin/universities/from-academic-system}, with five initial credits for thirty days. Of
- * their students only the four people of the demonstration are activated here; every other one,
- * Carla Mendoza of UPC among them, activates their account live with the link of their email.
+ * their students only the people of {@link DemoCast} are activated here, thirteen of each
+ * university; every other one, Carla Mendoza of UPC among them, activates their account live with
+ * the link of their email.
  *
  * <ul>
  *   <li>Ana Torres (UPC) and Lucía Paredes (USIL) are active at the first step of the onboarding, so
  *       a presentation can walk through it.
- *   <li>Bruno Salas (UPC) and Mateo Ríos (USIL) are the tutors: their profile and record are done
- *       here, through the real use cases, and {@code DemoSkillsData} takes the last step for them,
- *       which enables the courses their grades justify.
+ *   <li>One student of each university waits at the academic record and another at the learning
+ *       interests, so each step of the onboarding can be shown without walking the ones before it.
+ *   <li>Everybody else ends the onboarding: their profile and record are done here, through the
+ *       real use cases, and {@code DemoSkillsData} takes the last step for them, which enables the
+ *       courses the tutors teach.
  * </ul>
  *
  * <p>The activation is the one of an access link, {@link StudentActivation}, without the link:
@@ -56,29 +61,7 @@ public class DemoIdentityData implements ApplicationRunner {
     static final int INITIAL_CREDITS = 5;
     static final int CREDIT_VALIDITY_DAYS = 30;
 
-    /** The same student as in {@code DemoWalletData}. */
-    static final UUID ANA = UUID.fromString("11111111-1111-4111-8111-111111111111");
-
-    /** The other student of {@code DemoWalletData}, and the tutor of {@code DemoBookingData}. */
-    static final UUID BRUNO = UUID.fromString("22222222-2222-4222-8222-222222222222");
-
-    /** The student of the second university. */
-    static final UUID LUCIA = UUID.fromString("66666666-6666-4666-8666-666666666666");
-
-    /** The tutor of the second university. */
-    static final UUID MATEO = UUID.fromString("77777777-7777-4777-8777-777777777777");
-
-    /** One person of the demonstration and how far into the onboarding they start. */
-    private record Persona(String tenant, UUID id, String email, boolean tutor) {}
-
-    private static final List<String> UNIVERSITIES = List.of("UPC", "USIL");
-
-    private static final List<Persona> PEOPLE =
-            List.of(
-                    new Persona("UPC", ANA, "u202400001@upc.edu.pe", false),
-                    new Persona("UPC", BRUNO, "u202300002@upc.edu.pe", true),
-                    new Persona("USIL", LUCIA, "lucia.paredes@usil.edu.pe", false),
-                    new Persona("USIL", MATEO, "mateo.rios@usil.edu.pe", true));
+    private static final List<String> UNIVERSITIES = List.of(DemoCast.UPC, DemoCast.USIL);
 
     private final TenantRepository tenants;
     private final UserRepository users;
@@ -121,27 +104,30 @@ public class DemoIdentityData implements ApplicationRunner {
         }
 
         // Row level security (TS01): each person is written, and looked for, as their university's.
-        for (Persona persona : PEOPLE) {
-            TenantContext.runAs(persona.tenant(), () -> activate(persona));
+        for (Person person : DemoCast.STUDENTS) {
+            TenantContext.runAs(person.university(), () -> activate(person));
         }
     }
 
-    private void activate(Persona persona) {
-        if (users.findByTenantIdAndId(persona.tenant(), persona.id()).isPresent()
-                || users.existsByTenantIdAndEmailIgnoreCase(persona.tenant(), persona.email())) {
+    private void activate(Person person) {
+        String tenant = person.university();
+        if (users.findByTenantIdAndId(tenant, person.id()).isPresent()
+                || users.existsByTenantIdAndEmailIgnoreCase(tenant, person.email())) {
             return;
         }
 
         Instant now = clock.instant();
-        AcademicProfile profile = activation.admit(persona.tenant(), persona.email());
-        activation.create(persona.tenant(), persona.id(), persona.email(), profile, now);
+        AcademicProfile profile = activation.admit(tenant, person.email());
+        activation.create(tenant, person.id(), person.email(), profile, now);
 
-        if (persona.tutor()) {
-            // The two steps of the onboarding the student takes, through the use cases of their
-            // endpoints: the profile, then the record, which leaves them at the interests.
-            updateProfile.execute(persona.id(), null, null);
-            importAcademicRecord.execute(persona.id());
+        // The steps of the onboarding the student takes, through the use cases of their endpoints:
+        // the profile, then the record, which leaves them at the interests.
+        if (person.step() != Step.PROFILE) {
+            updateProfile.execute(person.id(), null, null);
         }
-        log.info("Demo person {} of {} activated", persona.id(), persona.tenant());
+        if (person.step() == Step.LEARNING_INTERESTS || person.step() == Step.COMPLETED) {
+            importAcademicRecord.execute(person.id());
+        }
+        log.info("Demo person {} of {} activated at {}", person.id(), tenant, person.step());
     }
 }

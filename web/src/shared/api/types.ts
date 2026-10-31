@@ -39,13 +39,10 @@ type BodyPart<Op> = Op extends { requestBody?: never }
 export type RequiresIdempotencyKey<Op> =
   ParametersOf<Op> extends { header: { 'Idempotency-Key': string } } ? true : false;
 
-type KeyPart<Op> =
-  RequiresIdempotencyKey<Op> extends true ? { idempotencyKey: string } : { idempotencyKey?: string };
+type KeyPart<Op> = RequiresIdempotencyKey<Op> extends true ? { idempotencyKey: string } : { idempotencyKey?: string };
 
 /** What a call to the path takes: path and query parameters, body and idempotency key. */
-export type RequestOptions<P extends keyof paths, M extends HttpMethod> = PathPart<
-  ParametersOf<Operation<P, M>>
-> &
+export type RequestOptions<P extends keyof paths, M extends HttpMethod> = PathPart<ParametersOf<Operation<P, M>>> &
   QueryPart<ParametersOf<Operation<P, M>>> &
   BodyPart<Operation<P, M>> &
   KeyPart<Operation<P, M>> & { signal?: AbortSignal };

@@ -63,7 +63,10 @@ describe('api', () => {
   });
 
   it('sends the body as JSON and the idempotency key as a header', async () => {
-    const server = fakeServer().on('POST', '/api/v1/payments/purchases', { status: 201, body: { status: 'CONFIRMED' } });
+    const server = fakeServer().on('POST', '/api/v1/payments/purchases', {
+      status: 201,
+      body: { status: 'CONFIRMED' },
+    });
 
     await api.post('/api/v1/payments/purchases', { body: { credits: 2 }, idempotencyKey: 'key-1' });
 
@@ -109,7 +112,12 @@ describe('files', () => {
     const server = fakeServer().on('POST', '/api/v1/tutor/skills/s1/validation', { status: 201, body: { id: 'e1' } });
     const file = new File(['%PDF'], 'certificado.pdf', { type: 'application/pdf' });
 
-    await uploadFiles('/api/v1/tutor/skills/{id}/validation', [file], { note: 'Curso de Coursera' }, { path: { id: 's1' } });
+    await uploadFiles(
+      '/api/v1/tutor/skills/{id}/validation',
+      [file],
+      { note: 'Curso de Coursera' },
+      { path: { id: 's1' } },
+    );
 
     const form = server.requests()[0].body as FormData;
     expect(form).toBeInstanceOf(FormData);
@@ -128,7 +136,9 @@ describe('files', () => {
       expect(this.download).toBe('indicadores.csv');
     });
 
-    await downloadFile('/api/v1/coordinator/indicators/export', 'export.csv', { query: { from: '2026-10-01', to: '2026-10-31' } });
+    await downloadFile('/api/v1/coordinator/indicators/export', 'export.csv', {
+      query: { from: '2026-10-01', to: '2026-10-31' },
+    });
 
     expect(click).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();

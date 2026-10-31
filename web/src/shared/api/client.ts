@@ -78,7 +78,12 @@ function messageOf(body: unknown, fallback: string): string {
   return fallback;
 }
 
-async function send(method: string, template: string, options: RawOptions, accept = 'application/json'): Promise<Response> {
+async function send(
+  method: string,
+  template: string,
+  options: RawOptions,
+  accept = 'application/json',
+): Promise<Response> {
   const url = apiUrl(buildUrl(template, options.path, options.query));
   const headers = new Headers({ Accept: accept });
   const token = authorization();
