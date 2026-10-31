@@ -104,7 +104,7 @@ export default function RecognitionRulePage() {
         title="Regla de reconocimiento"
         description={`Las horas de tutoría que ${who} pide a un estudiante para considerar su reconocimiento.`}
       />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         <RuleInForce who={who} />
         <Card
           title="Nueva regla"
