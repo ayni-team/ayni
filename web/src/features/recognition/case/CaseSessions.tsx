@@ -1,5 +1,5 @@
 import { Badge, IconAlert, cx } from '@/shared/ui';
-import { alertTitle, sessionFigures, shortDay, timeRange, type CaseSession } from './recognitionCase';
+import { alertText, alertTitle, sessionFigures, shortDay, timeRange, type CaseSession } from './recognitionCase';
 
 export interface CaseSessionsProps {
   sessions: CaseSession[];
@@ -60,7 +60,7 @@ export function CaseSessions({ sessions, selected, onSelect, zone }: CaseSession
                       <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold">{alertTitle(alert)}</span>
-                        {alert.description && <span className="block text-xs">{alert.description}</span>}
+                        <span className="block text-xs">{alertText(alert)}</span>
                       </span>
                     </span>
                   ))}

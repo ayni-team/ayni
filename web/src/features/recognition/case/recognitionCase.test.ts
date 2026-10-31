@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alertText,
   alertTitle,
   decidedAt,
   firstToReview,
@@ -85,10 +86,16 @@ describe('the evidence', () => {
 });
 
 describe('an alert of the audit', () => {
-  it('is named in Spanish with its severity', () => {
-    expect(alertTitle({ kind: 'SHORT_SESSIONS', severity: 'MEDIUM' })).toBe('Duración corta · gravedad media');
+  it('is named and explained in Spanish, with its severity, whatever the server says', () => {
+    expect(alertTitle({ kind: 'SHORT_DURATION', severity: 'MEDIUM' })).toBe('Duración corta · gravedad media');
     expect(alertTitle({ kind: 'REPEATED_PAIR', severity: 'LOW' })).toBe('Pareja repetida · gravedad baja');
+    expect(alertTitle({ kind: 'NO_BOARD_ACTIVITY', severity: 'LOW' })).toBe('Pizarra sin uso · gravedad baja');
+    expect(alertTitle({ kind: 'FAILED_PRESENCE', severity: 'HIGH' })).toBe('Presencia sin confirmar · gravedad alta');
+    expect(alertTitle({ kind: 'UNUSUAL_FREQUENCY' })).toBe('Frecuencia inusual');
     expect(alertTitle({ kind: 'SOMETHING_NEW', severity: 'HIGH' })).toBe('Alerta de auditoría · gravedad alta');
-    expect(alertTitle({ kind: 'SHORT_SESSIONS' })).toBe('Duración corta');
+    expect(alertText({ kind: 'NO_BOARD_ACTIVITY', description: 'A completed session ended with nothing drawn' })).toBe(
+      'La sesión terminó sin nada dibujado en la pizarra.',
+    );
+    expect(alertText({ kind: 'SOMETHING_NEW' })).toBe('Revisa esta sesión con atención.');
   });
 });

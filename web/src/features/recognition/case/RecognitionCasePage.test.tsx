@@ -12,9 +12,9 @@ const FLAGGED = 'e0000000-0000-4000-8000-000000000002';
 
 const SHORT: Schema<'RecognitionCaseAlert'> = {
   sessionId: FLAGGED,
-  kind: 'SHORT_SESSIONS',
+  kind: 'SHORT_DURATION',
   severity: 'MEDIUM',
-  description: 'Duró 22 minutos de 60 reservados.',
+  description: 'A completed session lasted a small fraction of what was booked',
 };
 
 const CASE: Schema<'RecognitionCase'> = {
@@ -121,7 +121,8 @@ describe('FE-51 RecognitionCasePage', () => {
 
     const flagged = await screen.findByRole('button', { name: /Ver la evidencia de la sesión del Mar 20 oct/ });
     expect(within(flagged).getByText('Duración corta · gravedad media')).toBeInTheDocument();
-    expect(within(flagged).getByText('Duró 22 minutos de 60 reservados.')).toBeInTheDocument();
+    expect(within(flagged).getByText('La sesión duró una pequeña parte de lo reservado.')).toBeInTheDocument();
+    expect(within(flagged).queryByText(/fraction/)).not.toBeInTheDocument();
     const quiet = screen.getByRole('button', { name: /Ver la evidencia de la sesión del Mié 21 oct/ });
     expect(within(quiet).queryByText(/gravedad/)).not.toBeInTheDocument();
   });

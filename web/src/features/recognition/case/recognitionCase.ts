@@ -114,21 +114,39 @@ export function studentRating(evidence: SessionEvidence): string {
   return stars(evidence.tutorStars, 'Sin calificación');
 }
 
-/** The kinds of alert the frame names; one the web does not know keeps a neutral name. */
-const ALERT_KINDS: Record<string, string> = {
-  SHORT_SESSION: 'Duración corta',
-  SHORT_SESSIONS: 'Duración corta',
-  REPEATED_PAIR: 'Pareja repetida',
-  REPEATED_PAIRS: 'Pareja repetida',
+/**
+ * The kinds of alert the audit publishes (`AnomalyKind`), each with the name and the explanation the
+ * web writes: the server's `description` is English and, as every text of the server, never shown.
+ */
+const ALERT_KINDS: Record<string, { title: string; text: string }> = {
+  REPEATED_PAIR: {
+    title: 'Pareja repetida',
+    text: 'El mismo tutor y el mismo estudiante completaron más sesiones de lo habitual.',
+  },
+  UNUSUAL_FREQUENCY: { title: 'Frecuencia inusual', text: 'Hubo más sesiones de lo habitual en poco tiempo.' },
+  SHORT_DURATION: { title: 'Duración corta', text: 'La sesión duró una pequeña parte de lo reservado.' },
+  FAILED_PRESENCE: { title: 'Presencia sin confirmar', text: 'Alguien no confirmó que estaba en la sesión.' },
+  NO_BOARD_ACTIVITY: { title: 'Pizarra sin uso', text: 'La sesión terminó sin nada dibujado en la pizarra.' },
 };
+
+const UNKNOWN_ALERT = { title: 'Alerta de auditoría', text: 'Revisa esta sesión con atención.' };
+
+function alertKind(alert: CaseAlert): { title: string; text: string } {
+  return (alert.kind ? ALERT_KINDS[alert.kind] : undefined) ?? UNKNOWN_ALERT;
+}
 
 const SEVERITIES: Record<string, string> = { LOW: 'baja', MEDIUM: 'media', HIGH: 'alta' };
 
 /** "Duración corta · gravedad media". */
 export function alertTitle(alert: CaseAlert): string {
-  const kind = (alert.kind && ALERT_KINDS[alert.kind]) ?? 'Alerta de auditoría';
+  const kind = alertKind(alert).title;
   const severity = alert.severity && SEVERITIES[alert.severity];
   return severity ? `${kind} · gravedad ${severity}` : kind;
+}
+
+/** What the alert means, in Spanish. */
+export function alertText(alert: CaseAlert): string {
+  return alertKind(alert).text;
 }
 
 /** The session the evidence opens on: the first one with an alert, since that is what to look at. */
