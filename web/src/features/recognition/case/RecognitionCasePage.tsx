@@ -4,6 +4,7 @@ import { useZone } from '@/shared/time';
 import { Avatar, Badge, ErrorState, PageHeader, Skeleton } from '@/shared/ui';
 import { ratingText, statusBadge } from '../requests/queue';
 import { CaseSessions } from './CaseSessions';
+import { DecisionPanel } from './DecisionPanel';
 import { EvidencePanel } from './EvidencePanel';
 import { firstToReview, longDay, type RecognitionCase } from './recognitionCase';
 import { useRecognitionCase } from './useRecognitionCase';
@@ -43,7 +44,8 @@ function CaseFigures({ request }: { request: RecognitionCase }) {
  * FE-51 · `/coordinador/reconocimiento/:id` · coordinator.
  *
  * A recognition request as it was submitted: the student, the figures, the sessions that back it
- * with the alerts of the audit next to them, and the evidence of the session chosen.
+ * with the alerts of the audit next to them, the evidence of the session chosen, and the decision:
+ * approving or rejecting with a reason, final, once.
  */
 export default function RecognitionCasePage() {
   const { id = '' } = useParams();
@@ -104,6 +106,7 @@ export default function RecognitionCasePage() {
         <CaseSessions sessions={sessions} selected={selected} onSelect={setChosen} zone={zone} />
         <div className="flex flex-col gap-6">
           <EvidencePanel requestId={id} sessionId={selected} zone={zone} />
+          <DecisionPanel request={request} zone={zone} />
         </div>
       </div>
     </>

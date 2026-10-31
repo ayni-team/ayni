@@ -163,3 +163,115 @@ describe('FE-51 RecognitionCasePage', () => {
     await waitFor(() => expect(screen.queryByText('not found')).not.toBeInTheDocument());
   });
 });
+
+describe('FE-51 deciding a recognition case', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const DECIDED: Schema<'RecognitionCase'> = {
+    ...CASE,
+    status: 'APPROVED',
+    reviewedAt: '2026-10-22T16:40:00Z',
+    decisionReason: 'Cumple las horas con presencia verificada.',
+  };
+
+  function decisions(server: ReturnType<typeof serveCase>) {
+    return server.requests('POST').filter((request) => request.path.endsWith('/decision'));
+  }
+
+  it('asks for the reason before anything is sent', async () => {
+    const server = serveCase();
+    const { user } = renderCase();
+
+    await user.click(await screen.findByRole('button', { name: 'Aprobar' }));
+
+    expect(screen.getByText('Escribe el motivo de tu decisión')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(decisions(server)).toHaveLength(0);
+  });
+
+  it('approves in two steps and then shows the decision that stands, final', async () => {
+    const server = serveCase();
+    let current = CASE;
+    server
+      .on('GET', `/api/v1/coordinator/recognition/requests/${ID}`, () => ({ body: current }))
+      .on('POST', `/api/v1/coordinator/recognition/requests/${ID}/decision`, () => {
+        current = DECIDED;
+        return { body: { requestId: ID, status: 'APPROVED', reason: DECIDED.decisionReason } };
+      });
+    const { user } = renderCase();
+
+    await user.type(await screen.findByRole('textbox'), '  Cumple las horas con presencia verificada.  ');
+    await user.click(screen.getByRole('button', { name: 'Aprobar' }));
+
+    const dialog = screen.getByRole('dialog', { name: '¿Aprobar la solicitud de Bruno Salas?' });
+    expect(decisions(server)).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: 'Aprobar' }));
+
+    expect(await screen.findByText('Es definitiva: no se puede volver a decidir.')).toBeInTheDocument();
+    expect(screen.getByText('“Cumple las horas con presencia verificada.”')).toBeInTheDocument();
+    expect(screen.getByText('22 oct 2026, 11:40')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Rechazar' })).not.toBeInTheDocument();
+    expect(decisions(server)[0].body).toEqual({
+      decision: 'APPROVE',
+      reason: 'Cumple las horas con presencia verificada.',
+    });
+  });
+
+  it('rejects with the reason written', async () => {
+    const server = serveCase();
+    server.on('POST', `/api/v1/coordinator/recognition/requests/${ID}/decision`, {
+      body: { requestId: ID, status: 'REJECTED' },
+    });
+    const { user } = renderCase();
+
+    await user.type(await screen.findByRole('textbox'), 'Las sesiones no son del programa.');
+    await user.click(screen.getByRole('button', { name: 'Rechazar' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Rechazar' }));
+
+    await waitFor(() => expect(decisions(server)).toHaveLength(1));
+    expect(decisions(server)[0].body).toEqual({ decision: 'REJECT', reason: 'Las sesiones no son del programa.' });
+  });
+
+  it('sends nothing when the coordinator cancels the confirmation', async () => {
+    const server = serveCase();
+    const { user } = renderCase();
+
+    await user.type(await screen.findByRole('textbox'), 'Cumple.');
+    await user.click(screen.getByRole('button', { name: 'Aprobar' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(decisions(server)).toHaveLength(0);
+  });
+
+  it('shows the decision that stands when someone else decided first', async () => {
+    const server = serveCase();
+    let current = CASE;
+    server
+      .on('GET', `/api/v1/coordinator/recognition/requests/${ID}`, () => ({ body: current }))
+      .on('POST', `/api/v1/coordinator/recognition/requests/${ID}/decision`, () => {
+        current = DECIDED;
+        return { status: 409, body: { status: 409, message: 'this request was already approved' } };
+      });
+    const { user } = renderCase();
+
+    await user.type(await screen.findByRole('textbox'), 'No cumple.');
+    await user.click(screen.getByRole('button', { name: 'Rechazar' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Rechazar' }));
+
+    expect(await screen.findByText('Otra persona ya decidió esta solicitud')).toBeInTheDocument();
+    expect(await screen.findByText('“Cumple las horas con presencia verificada.”')).toBeInTheDocument();
+    expect(screen.queryByText('this request was already approved')).not.toBeInTheDocument();
+  });
+
+  it('opens a decided case with its decision and no way to decide again', async () => {
+    serveCase(DECIDED);
+    renderCase();
+
+    expect(await screen.findByText('Es definitiva: no se puede volver a decidir.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aprobar' })).not.toBeInTheDocument();
+  });
+});
