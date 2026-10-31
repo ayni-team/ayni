@@ -99,7 +99,7 @@ function RequestCard({ item, zone }: { item: QueueItem; zone: string }) {
           <Avatar name={name} decorative />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-ink">{name}</p>
-            <p className="truncate text-sm text-ink-2">
+            <p className="text-sm text-ink-2">
               {[item.student?.studentCode, `enviada ${sentDay(item.submittedAt, zone)}`].filter(Boolean).join(' · ')}
             </p>
           </div>
