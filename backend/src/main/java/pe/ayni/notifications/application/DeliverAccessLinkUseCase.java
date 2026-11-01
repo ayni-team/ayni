@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import pe.ayni.notifications.domain.model.Notification;
 import pe.ayni.notifications.domain.model.NotificationKind;
+import pe.ayni.identity.IdentityApi;
 import pe.ayni.shared.events.AccessRequested;
 
 /**
@@ -32,11 +33,14 @@ public class DeliverAccessLinkUseCase {
 
   private final NotificationLog notifications;
   private final EmailDelivery delivery;
+  private final IdentityApi identity;
   private final Clock clock;
 
-  DeliverAccessLinkUseCase(NotificationLog notifications, EmailDelivery delivery, Clock clock) {
+  DeliverAccessLinkUseCase(
+      NotificationLog notifications, EmailDelivery delivery, IdentityApi identity, Clock clock) {
     this.notifications = notifications;
     this.delivery = delivery;
+    this.identity = identity;
     this.clock = clock;
   }
 
@@ -57,7 +61,7 @@ public class DeliverAccessLinkUseCase {
                 clock.instant()));
 
     try {
-      delivery.send(AccessLinkEmail.of(request));
+      delivery.send(AccessLinkEmail.of(request, universityNameOf(request, notice.getId())));
       notifications.markSent(notice.getId());
     } catch (EmailNotDelivered failure) {
       // The address is personal data and the link a key: neither goes to the log.
@@ -65,5 +69,21 @@ public class DeliverAccessLinkUseCase {
       notifications.markFailed(notice.getId(), failure.getMessage());
     }
     return notice.getId();
+  }
+
+  /**
+   * The name to show, or {@code null}: the platform administrator has no university, and a name that
+   * cannot be read is no reason to lose the only copy of the link.
+   */
+  private String universityNameOf(AccessRequested request, UUID noticeId) {
+    if (request.tenantId() == null) {
+      return null;
+    }
+    try {
+      return identity.requireTenant(request.tenantId()).name();
+    } catch (RuntimeException failure) {
+      log.warn("Access link notice {} goes without its university", noticeId, failure);
+      return null;
+    }
   }
 }
