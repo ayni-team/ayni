@@ -68,6 +68,11 @@ Feature: Packaging Ayni for production
     Then the answer carries no CORS header and is refused
     And an allowed origin is answered with its CORS header
 
+  Scenario: An allowed origin reads the refusal of the access filter
+    Given the allowed origins are configured
+    When the web application, served from an allowed origin, sends a session that is not valid
+    Then the 401 carries its CORS header, so the web application can forget the session
+
   Scenario: An allowed origin reads the name of a downloaded file
     Given the allowed origins are configured
     When the web application, served from an allowed origin, downloads an attachment
