@@ -105,7 +105,7 @@ class AccessLinkEmailAcceptanceTest {
     MimeMessage email = theEmail();
     assertThat(email.getAllRecipients()[0].toString()).isEqualTo(ANAS_EMAIL);
     assertThat(email.getSubject()).isEqualTo("Tu enlace para ingresar a Ayni");
-    String body = (String) email.getContent();
+    String body = EmailParts.plainTextOf(email);
     assertThat(body).contains("funciona una sola vez").contains("vence en 10 minutos");
     Matcher token = TOKEN.matcher(body);
     assertThat(token.find()).as("the email carries the link").isTrue();
@@ -133,6 +133,21 @@ class AccessLinkEmailAcceptanceTest {
   }
 
   @Test
+  @DisplayName("The email shows the university and a button with the same link")
+  void theEmailShowsTheUniversityAndAButton() throws Exception {
+
+    requestAccess(ANAS_EMAIL);
+
+    MimeMessage email = theEmail();
+    Matcher token = TOKEN.matcher(EmailParts.plainTextOf(email));
+    assertThat(token.find()).isTrue();
+    assertThat(EmailParts.htmlOf(email))
+        .contains("Universidad Peruana de Ciencias Aplicadas")
+        .contains(">Ingresar a Ayni</a>")
+        .contains(token.group(1));
+  }
+
+  @Test
   @DisplayName("A new student receives an activation email")
   void aNewStudentReceivesAnActivationEmail() throws Exception {
 
@@ -142,7 +157,7 @@ class AccessLinkEmailAcceptanceTest {
 
     MimeMessage email = theEmail();
     assertThat(email.getSubject()).isEqualTo("Activa tu cuenta de Ayni");
-    assertThat((String) email.getContent()).contains("activar tu cuenta").containsPattern(TOKEN);
+    assertThat(EmailParts.plainTextOf(email)).contains("activar tu cuenta").containsPattern(TOKEN);
 
     Map<String, Object> notice = lastNoticeTo(newcomer);
     assertThat(notice.get("recipient_id")).as("nobody has an account yet").isNull();
