@@ -42,6 +42,7 @@ import pe.ayni.identity.domain.model.PlatformAdminStatus;
 import pe.ayni.identity.domain.model.UserSession;
 import pe.ayni.identity.infrastructure.PlatformAdminRepository;
 import pe.ayni.identity.infrastructure.UserSessionRepository;
+import pe.ayni.notifications.EmailParts;
 
 /**
  * The {@code prod} profile, configured only with the variables the Production section of the
@@ -188,7 +189,7 @@ class ProductionProfileTest {
     MimeMessage[] received = INBOX.getReceivedMessages();
     assertThat(received).hasSize(1);
     assertThat(received[0].getAllRecipients()[0].toString()).isEqualTo(FIRST_ADMINISTRATOR);
-    String body = (String) received[0].getContent();
+    String body = EmailParts.plainTextOf(received[0]);
     assertThat(body).contains(WEB_APPLICATION + "/access/confirm?token=");
     Matcher token = TOKEN.matcher(body);
     assertThat(token.find()).as("the email carries the link").isTrue();

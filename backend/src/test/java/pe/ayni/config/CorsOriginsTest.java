@@ -79,6 +79,26 @@ class CorsOriginsTest {
   }
 
   @Test
+  @DisplayName("An allowed origin reads the refusal of the access filter")
+  void anAllowedOriginReadsTheRefusalOfTheAccessFilter() throws Exception {
+    // A session of a database that was emptied since: the web application must see the 401 to
+    // forget it, which the browser only shows when the answer carries the CORS header.
+    mockMvc
+        .perform(
+            get("/api/v1/me")
+                .header(HttpHeaders.ORIGIN, "https://app.ayni.test")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer a-token-nobody-issued"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://app.ayni.test"));
+
+    // The same without any token.
+    mockMvc
+        .perform(get("/api/v1/me").header(HttpHeaders.ORIGIN, "https://app.ayni.test"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://app.ayni.test"));
+  }
+
+  @Test
   @DisplayName("An allowed origin reads the name of a downloaded file")
   void anAllowedOriginReadsTheNameOfADownloadedFile() throws Exception {
     // Any answer to an allowed origin says so; an attachment is one of them.

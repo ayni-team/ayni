@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +25,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import pe.ayni.identity.IdentityApi;
+import pe.ayni.identity.TenantView;
 import pe.ayni.notifications.domain.model.Notification;
 import pe.ayni.notifications.domain.model.NotificationKind;
 import pe.ayni.shared.events.AccessRequested;
@@ -37,6 +40,7 @@ class DeliverAccessLinkUseCaseTest {
   private final List<Email> sent = new ArrayList<>();
   private NotificationLog log;
   private EmailDelivery delivery;
+  private IdentityApi identity;
   private DeliverAccessLinkUseCase useCase;
 
   @BeforeEach
@@ -45,7 +49,14 @@ class DeliverAccessLinkUseCaseTest {
     when(log.record(any())).thenAnswer(call -> call.getArgument(0));
     delivery = mock(EmailDelivery.class);
     doAnswer(call -> sent.add(call.getArgument(0))).when(delivery).send(any());
-    useCase = new DeliverAccessLinkUseCase(log, delivery, Clock.fixed(NOW, ZoneOffset.UTC));
+    identity = mock(IdentityApi.class);
+    when(identity.requireTenant("UPC")).thenReturn(university("Universidad Peruana"));
+    useCase =
+        new DeliverAccessLinkUseCase(log, delivery, identity, Clock.fixed(NOW, ZoneOffset.UTC));
+  }
+
+  private static TenantView university(String name) {
+    return new TenantView("UPC", name, "America/Lima", BigDecimal.TEN, true);
   }
 
   private static AccessRequested request(String purpose, Duration lasting) {
@@ -119,6 +130,58 @@ class DeliverAccessLinkUseCaseTest {
     assertThat(sent.get(1).subject()).isEqualTo("Tu invitación como coordinador de Ayni");
     // Half a minute is rounded up, and one minute is singular.
     assertThat(sent.get(1).body()).contains("vence en 1 minuto.");
+  }
+
+  @Test
+  @DisplayName("the HTML names the university and carries the link in the button and in the text")
+  void theHtml() {
+
+    useCase.execute(request("ACTIVATION", Duration.ofMinutes(10)));
+
+    assertThat(sent.getFirst().html())
+        .contains("Universidad Peruana")
+        .contains(">Activar mi cuenta</a>")
+        .contains("href=\"" + LINK + "\"")
+        .contains(">" + LINK + "</a>")
+        .contains("funciona una sola vez")
+        .contains("vence en 10 minutos");
+  }
+
+  @Test
+  @DisplayName("a name with HTML in it is shown as text")
+  void theHtmlEscapesTheUniversity() {
+
+    when(identity.requireTenant("UPC")).thenReturn(university("<b>Andes</b> & Sur"));
+
+    useCase.execute(request("LOGIN", Duration.ofMinutes(10)));
+
+    assertThat(sent.getFirst().html())
+        .contains("&lt;b&gt;Andes&lt;/b&gt; &amp; Sur")
+        .doesNotContain("<b>Andes");
+  }
+
+  @Test
+  @DisplayName("the platform administrator's email names no university")
+  void theAdministratorHasNoUniversity() {
+
+    useCase.execute(
+        new AccessRequested(
+            null, "admin@ayni.local", "LOGIN", LINK, NOW.plus(Duration.ofMinutes(10)), NOW));
+
+    verify(identity, never()).requireTenant(any());
+    assertThat(sent.getFirst().html()).contains(LINK).doesNotContain("Universidad");
+  }
+
+  @Test
+  @DisplayName("a university that cannot be read does not stop the link from leaving")
+  void anUnreadableUniversityDoesNotStopTheLink() {
+
+    when(identity.requireTenant("UPC")).thenThrow(new IllegalStateException("database is down"));
+
+    UUID id = useCase.execute(request("LOGIN", Duration.ofMinutes(10)));
+
+    assertThat(sent.getFirst().html()).contains(LINK);
+    verify(log).markSent(id);
   }
 
   @Test
