@@ -195,17 +195,24 @@ export default function RecognitionProgressPage() {
                   <div className="h-full rounded-full bg-brand" style={{ width: `${percent(data)}%` }} />
                 </div>
               )}
-              <p className={data?.requirementMet ? 'text-sm font-semibold text-ink' : 'text-sm text-ink-2'}>
-                {missingText(data)}
-              </p>
+              {pending ? (
+                // The hours of a request in review no longer count here, so "te faltan" would mislead.
+                <p className="text-sm font-semibold text-ink">
+                  Las horas que enseñaste ya están en tu solicitud en revisión. Las nuevas sesiones contarán para la
+                  siguiente.
+                </p>
+              ) : (
+                <p className={data?.requirementMet ? 'text-sm font-semibold text-ink' : 'text-sm text-ink-2'}>
+                  {missingText(data)}
+                </p>
+              )}
               {refusal && (
                 <p role="alert" className="flex gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
                   <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   {refusal}
                 </p>
               )}
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {pending && <p className="text-sm text-ink-2">Ya tienes una solicitud en revisión.</p>}
+              <div className="flex justify-end">
                 <Button
                   onClick={() => void request()}
                   disabled={!data?.canRequest || pending}

@@ -93,7 +93,9 @@ describe('FE-34 RecognitionProgressPage', () => {
     const server = setup();
     let sent = false;
     server
-      .on('GET', PROGRESS, () => ({ body: sent ? { ...MET, canRequest: false } : MET }))
+      .on('GET', PROGRESS, () => ({
+        body: sent ? { ...UNDER, earnedHours: 0, sessionsCount: 0, missingHours: 20 } : MET,
+      }))
       .on('GET', MINE, () => ({
         body: sent
           ? [
@@ -119,7 +121,8 @@ describe('FE-34 RecognitionProgressPage', () => {
     await user.click(button);
 
     expect(await screen.findByText('Enviada')).toBeInTheDocument();
-    expect(screen.getByText('Ya tienes una solicitud en revisión.')).toBeInTheDocument();
+    expect(screen.getByText(/ya están en tu solicitud en revisión/)).toBeInTheDocument();
+    expect(screen.queryByText(/Te faltan/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Solicitar reconocimiento' })).toBeDisabled();
     expect(server.requests('POST', REQUESTS)).toHaveLength(1);
   });
