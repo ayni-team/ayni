@@ -79,6 +79,12 @@ Feature: Requesting access with an institutional email
     And opening the link from the email opens a session for that student
     And the notice is recorded as sent, without the link
 
+  Scenario: The email shows the university and a button with the same link
+    Given a student of "UPC" with the email "u202400001@upc.edu.pe"
+    When access is requested for "u202400001@upc.edu.pe"
+    Then the email shows the name of the university and a button to enter
+    And the button carries the same link as the plain text of the email
+
   Scenario: A new student receives an activation email
     Given nobody with the email of a new student has an account
     When access is requested for that email

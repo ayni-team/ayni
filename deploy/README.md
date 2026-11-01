@@ -43,11 +43,13 @@ Internet ── 443 ──────▶ app.<domain>  web/dist: the page, whic
 | `backend/.env.example` | Every variable of the backend machine, commented. Copy it to `backend/.env` |
 | `backend/Caddyfile` | `api.` (and the optional `mail.`, for Mailpit) |
 | `backend/update.sh` | Sets the version, pulls and restarts |
+| `backend/reset-demo.sh` | Only on a demonstration installation: empties the database and seeds it again with the demo profile ([Demonstration data](#11-demonstration-data)) |
 | `jitsi/docker-compose.yml` | The video machine |
 | `jitsi/.env.example` | Every variable of the video machine. Copy it to `jitsi/.env` |
 | `jitsi/Caddyfile` | `meet.` |
 | `../.github/workflows/release.yml` | A release pull request merged into `main` (or a `v*` tag pushed by hand): tags it, publishes `ghcr.io/<owner>/ayni-backend:<tag>` and calls `deploy.yml` |
 | `../.github/workflows/deploy.yml` | Called by each release, and by hand for any tag: runs `backend/update.sh` on the backend machine through Azure (`az vm run-command`, no SSH), then builds and publishes the web application |
+| `../.github/workflows/reset-demo.yml` | Every three days, and by hand: runs `backend/reset-demo.sh` on the backend machine the same way |
 | `../web/public/staticwebapp.config.json` | The routes and headers of the web application on Static Web Apps |
 
 Nothing here states what the machines or the database will cost: prices change, so read them from
@@ -1013,6 +1015,55 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
   misbehaves, restore the backup you took before the update, which loses what was written since,
   or fix forward with a new version.
 
+## 11. Demonstration data
+
+An installation shown to people who evaluate it, rather than used by real students, can hold the
+data a laptop gets with the `demo` profile (`docs/demo.md`): the two universities with their
+curriculum, the 26 students and the two coordinators of `DemoCast`, their credits, availability
+and upcoming tutorings, and four weeks of history. Every person is invented. The backend itself
+keeps running with `prod`; the data is written by a one-off container of the same image, and
+written again every three days, so the history always ends today and the upcoming tutorings start
+in two to five days.
+
+`backend/reset-demo.sh`, on the backend machine:
+
+1. Refuses unless `backend/.env` has `AYNI_DEMO_DATA_RESET=true` and `AYNI_MAIL_HOST=mailpit`: the
+   people of the documents have addresses of real university domains, and no email may reach them.
+2. Takes a `pg_dump` into `~/ayni-backups/ayni-<stamp>-before-reset.dump`, keeping the last three.
+3. Stops the backend, so its jobs never run twice over the same database.
+4. Drops, as the owner role, every schema and table the migrations created, in one transaction.
+   The roles, the database and the schema `public` stay; the first migration grants everything
+   again. Nothing else is touched: not the volumes, not Mailpit, not the proxy.
+5. Runs `docker compose run --no-deps --name ayni-seed` with `SPRING_PROFILES_ACTIVE=prod,demo`,
+   which migrates, seeds and plays the history. It publishes no port and is reachable only as
+   `ayni-seed`, a name the proxy never sends to, so `/api/v1/admin/demo/*` and the movable clock
+   never face the Internet. Once the log says `Demo history done` and `public.event_publication`
+   is empty (every email, audit entry and indicator delivered), it stops it and keeps its log in
+   `~/ayni-backups/seed-<stamp>.log`.
+6. Starts the backend again with `prod`, also when something before failed, and fails itself when
+   the seeding logged `ERROR` or `Could not`.
+
+The API is down for a few minutes. Everybody's session ends with the old database, and so
+does anything typed into the installation since the last reset; whatever the team wants to keep
+belongs in the seeders (`pe.ayni.shared.demo`), which every reset picks up.
+
+To turn it on, once, on the backend machine:
+
+```bash
+cd /opt/ayni/deploy/backend
+grep -q '^AYNI_DEMO_DATA_RESET=' .env || echo 'AYNI_DEMO_DATA_RESET=true' >> .env
+```
+
+Then **Reset demo data** in the Actions tab, Run workflow, or by hand from a checkout that has the
+script: `./deploy/backend/reset-demo.sh`. The workflow sends the script of `develop` with the
+command, so it works before a release brings it to the machine. It shares the concurrency group of
+**Deploy**, so the two never restart the backend at once, and a scheduled run skips a machine that
+is off.
+
+To undo a reset, restore its dump as in [Backup and restore](#8-backup-and-restore). To stop the
+resets, remove the line from `.env`, or disable the workflow (Actions, Reset demo data, Disable
+workflow).
+
 ## What not to do
 
 - **Never `docker compose down -v`**, `docker volume rm`, `docker volume prune` or
@@ -1023,7 +1074,10 @@ git diff --stat v1.0.0 v1.1.0 -- backend/src/main/resources/db/migration
 - **Never publish a web application built without `VITE_API_BASE_URL`**, and keep
   `https://app.<domain>` in `AYNI_ALLOWED_ORIGINS`: the web on `app.` and the API on `api.` must
   name each other, or every call is refused.
-- **Never run the `dev` profile** (`SPRING_PROFILES_ACTIVE=dev`). It seeds demonstration people.
+- **Never run the backend with the `dev` or `demo` profile** (`SPRING_PROFILES_ACTIVE`). They seed
+  demonstration people, and `demo` adds routes that open a session as anybody and move the clock.
+  Demonstration data reaches a demonstration installation only through
+  [Demonstration data](#11-demonstration-data), and never one for real people.
 - **Never connect the application as the owner role**, nor give `ayni_app` `BYPASSRLS`, superuser
   rights or ownership of a table: the isolation between universities stops applying.
 - **Never edit a migration** that has been released. Write a new one.
