@@ -1,0 +1,98 @@
+name: Reset demo data
+
+# Empties the database of the backend machine and seeds it again with the people of the demo
+# profile, so the installation always shows four weeks of history that end today and tutorings
+# that start in the next days (deploy/README.md, "Demonstration data"). Every three days at 04:00
+# in Lima, and by hand from the Actions tab:
+#
+#   Actions > Reset demo data > Run workflow
+#
+# The machine refuses unless its deploy/backend/.env says AYNI_DEMO_DATA_RESET=true, so this does
+# nothing on an installation for real people.
+#
+# The script is the one of this branch, the default one, sent to the machine with the command:
+# the checkout there stays at the release it runs. Like deploy.yml, it never connects over SSH: it
+# signs in to Azure with the OpenID Connect token of the run and asks Azure to run the command
+# (az vm run-command), with the variables of the GitHub environment named production.
+on:
+  schedule:
+    # 09:00 UTC, 04:00 in Lima: nobody is using it.
+    - cron: '0 9 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The OpenID Connect token the managed identity accepts instead of a password.
+  id-token: write
+
+env:
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'ayni' }}
+
+jobs:
+
+  reset:
+    name: Reset the demonstration data
+    runs-on: ubuntu-latest
+    environment: production
+    # Never while a deployment restarts the same backend.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The machines are turned off when nobody uses them. A scheduled run skips a machine that is
+      # off; one run by hand says so and fails.
+      - name: Check the machine is running
+        id: machine
+        env:
+          VM: ${{ vars.AYNI_BACKEND_VM || 'ayni-backend' }}
+        run: |
+          state="$(az vm get-instance-view --resource-group "$RESOURCE_GROUP" --name "$VM" \
+            --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code | [0]" -o tsv)"
+          if [[ "$state" == "PowerState/running" ]]; then
+            echo "running=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            echo "::notice::$VM is ${state#PowerState/}: no reset this time"
+            echo "running=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::$VM is ${state#PowerState/}: start it (az vm start) and run this again"
+            exit 1
+          fi
+
+      # The script travels encoded, so no quote of it is read by the shell on the way. The command
+      # runs as root and changes to the user that owns the checkout and runs docker. Azure reports
+      # success whatever the command returns, and keeps the last 4 KB of its output: the last line
+      # says whether it finished.
+      - name: Reset
+        if: steps.machine.outputs.running == 'true'
+        env:
+          VM: ${{ vars.AYNI_BACKEND_VM || 'ayni-backend' }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ayni' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ayni' }}
+        run: |
+          set -euo pipefail
+          encoded="$(base64 -w0 deploy/backend/reset-demo.sh)"
+          script="set -eu
+          file=\$(mktemp)
+          trap 'rm -f \"\$file\"' EXIT
+          echo '$encoded' | base64 -d > \"\$file\"
+          chmod 644 \"\$file\"
+          sudo -u '$DEPLOY_USER' -H env AYNI_STACK_DIR='$DEPLOY_PATH/deploy/backend' bash \"\$file\"
+          echo AYNI_RESET_FINISHED"
+
+          output="$(az vm run-command invoke --resource-group "$RESOURCE_GROUP" --name "$VM" \
+            --command-id RunShellScript --scripts "$script" --query 'value[0].message' -o tsv)"
+          printf '%s\n' "$output"
+
+          if ! grep -q '^AYNI_RESET_FINISHED$' <<< "$output"; then
+            echo "::error::The reset did not finish on $VM: read its output above"
+            exit 1
+          fi
