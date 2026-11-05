@@ -32,6 +32,7 @@ export interface LiveRoomProps {
   session: Session;
   joined: JoinedSession | null;
   refresh: () => void;
+  renewPass: () => Promise<unknown>;
   /** What ends the session (FE-23), on the right of the header. */
   actions?: ReactNode;
 }
@@ -41,7 +42,7 @@ export interface LiveRoomProps {
  * and the video need the space, and the session is the one thing to do. The header keeps a way to
  * know where one is.
  */
-export function LiveRoom({ session, joined, refresh, actions }: LiveRoomProps) {
+export function LiveRoom({ session, joined, refresh, renewPass, actions }: LiveRoomProps) {
   const zone = useZone();
   const university = useUniversity();
   const presence = usePresence(session, refresh);
@@ -74,10 +75,10 @@ export function LiveRoom({ session, joined, refresh, actions }: LiveRoomProps) {
 
       <div className="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_minmax(0,1fr)]">
         <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-          <RoomMedia kind="video" session={session} joined={joined} />
+          <RoomMedia kind="video" session={session} joined={joined} renewPass={renewPass} />
         </div>
         <div className="min-h-0 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          <RoomMedia kind="board" session={session} joined={joined} />
+          <RoomMedia kind="board" session={session} joined={joined} renewPass={renewPass} />
         </div>
         <div className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-2 lg:overflow-y-auto">
           <div className={pendingCode ? 'hidden lg:block' : undefined}>

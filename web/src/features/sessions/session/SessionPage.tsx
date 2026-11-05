@@ -26,7 +26,7 @@ function Loading() {
  */
 export default function SessionPage() {
   const { id = '' } = useParams<{ id: string }>();
-  const { query, session, phase, joined, enter, entering } = useSessionRoom(id);
+  const { query, session, phase, joined, enter, renewPass, entering } = useSessionRoom(id);
   const [backInRoom, setBackInRoom] = useState(false);
 
   if (query.isPending) return <Loading />;
@@ -65,6 +65,7 @@ export default function SessionPage() {
         session={session}
         joined={joined}
         refresh={refresh}
+        renewPass={renewPass}
         actions={
           <EndSessionButton
             session={session}
@@ -82,5 +83,14 @@ export default function SessionPage() {
     return <ClosedRoom session={session} />;
   }
 
-  return <RoomSummary session={session} phase={phase} onEnter={() => void enter()} entering={entering} />;
+  return (
+    <RoomSummary
+      session={session}
+      phase={phase}
+      onEnter={() => void enter()}
+      entering={entering}
+      joined={joined}
+      renewPass={renewPass}
+    />
+  );
 }
