@@ -15,10 +15,16 @@ older interfaces) and create one rule for `main` and another for `develop`, both
 | Required approvals | 1 |
 | Require review from Code Owners | on |
 | Dismiss stale approvals when new commits are pushed | on |
-| Require status checks to pass | on, selecting `Backend` and `Web` |
+| Require status checks to pass | on, selecting `Security`, `Backend` and `Web` |
 | Require branches to be up to date before merging | on |
 | Allow force pushes | off |
 | Allow deletions | off |
+
+A skipped job counts as passed, so `Security` has to be required by name: when it fails, `Web` and
+`Backend` are skipped, and they alone would let the pull request through.
+
+**Force pushes are blocked on every branch**, not only these two, by a ruleset of its own. See
+[`security.md`](security.md).
 
 `Require review from Code Owners` is what makes `.github/CODEOWNERS` binding. Without it, that file
 only suggests a reviewer.
