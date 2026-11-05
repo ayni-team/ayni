@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useApiQuery } from '@/shared/api';
 import { useZone } from '@/shared/time';
 import { Avatar, Badge, Button, ButtonLink, Card, IconAlert, IconCheck, IconClock, PageHeader, cx } from '@/shared/ui';
 import { IconShieldCheck, IconVideo } from './icons';
+import { RoomMedia } from './RoomMedia';
 import {
   arrivalText,
   courseName,
@@ -13,6 +14,7 @@ import {
   roomNotice,
   statusBadge,
   whenLine,
+  type JoinedSession,
   type Phase,
   type RoomNotice,
   type Session,
@@ -125,6 +127,8 @@ export interface RoomSummaryProps {
   phase: Phase;
   onEnter: () => void;
   entering: boolean;
+  joined: JoinedSession | null;
+  renewPass: () => Promise<unknown>;
   /** What the closing of the session (FE-23) adds, under the participants. */
   children?: ReactNode;
 }
@@ -133,7 +137,7 @@ export interface RoomSummaryProps {
  * FE-20 · the session before it starts and once it is over: who has arrived, the button to enter
  * and what the student asked for.
  */
-export function RoomSummary({ session, phase, onEnter, entering, children }: RoomSummaryProps) {
+export function RoomSummary({ session, phase, onEnter, entering, joined, renewPass, children }: RoomSummaryProps) {
   const zone = useZone();
   const profile = useApiQuery(['identity', 'me'], '/api/v1/me');
   const badge = statusBadge(session.status);
@@ -141,6 +145,7 @@ export function RoomSummary({ session, phase, onEnter, entering, children }: Roo
   const notice = roomNotice(session, phase, zone);
   const me = profile.data?.fullName ?? 'Tú';
   const canEnter = phase === 'OPEN';
+  const [videoOpen, setVideoOpen] = useState(false);
 
   return (
     <>
@@ -168,6 +173,14 @@ export function RoomSummary({ session, phase, onEnter, entering, children }: Roo
                 <Button fullWidth disabled={!canEnter} loading={entering} onClick={onEnter}>
                   Entrar a la sala
                 </Button>
+              )}
+              {phase === 'WAITING' && !videoOpen && (
+                <Button fullWidth onClick={() => setVideoOpen(true)}>
+                  Abrir el video
+                </Button>
+              )}
+              {phase === 'WAITING' && videoOpen && (
+                <RoomMedia kind="video" session={session} joined={joined} renewPass={renewPass} />
               )}
               {notice?.action && (
                 <ButtonLink to={notice.action.to} fullWidth>

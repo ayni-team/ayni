@@ -34,6 +34,15 @@ export function useSessionRoom(id: string) {
     }
   }
 
+  /** A new pass for the call. It may be refused near the end of the session: the current one stays. */
+  async function renewPass(): Promise<void> {
+    try {
+      setJoined(await join.mutateAsync({ path: { id } }));
+    } catch {
+      // The call goes on with the pass it has; if it is needed again, the call says it failed.
+    }
+  }
+
   // Back on the page of a room already entered: asking again changes nothing and hands over the room.
   const asked = useRef(false);
   const alreadyIn = Boolean(session && myArrival(session) && !isOver(session.status));
@@ -45,5 +54,5 @@ export function useSessionRoom(id: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alreadyIn, joined, id]);
 
-  return { query, session, phase, joined, enter, entering: join.isPending };
+  return { query, session, phase, joined, enter, renewPass, entering: join.isPending };
 }

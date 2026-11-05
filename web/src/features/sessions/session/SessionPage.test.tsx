@@ -126,6 +126,36 @@ describe('FE-20 SessionPage', () => {
   });
 });
 
+describe('FE-22 the video, inside the room', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('says there is no video when the server has none, and the room goes on', async () => {
+    setup(LIVE);
+
+    open();
+
+    expect(await screen.findByText('El video no está disponible')).toBeInTheDocument();
+    expect(screen.getByText('Sigue en la pizarra; tu tutor te ve aquí.')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Tu presencia' })).toBeInTheDocument();
+  });
+
+  it('opens the video only when asked while waiting for the other person', async () => {
+    const { user } = open0();
+
+    await user.click(await screen.findByRole('button', { name: 'Abrir el video' }));
+
+    expect(await screen.findByText('El video no está disponible')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir el video' })).not.toBeInTheDocument();
+  });
+
+  function open0() {
+    setup({ ...SESSION, studentJoinedAt: '2026-10-23T20:52:00Z' });
+    return open();
+  }
+});
+
 describe('FE-21 presence, inside the room', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
