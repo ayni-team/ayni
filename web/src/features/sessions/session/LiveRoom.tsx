@@ -96,7 +96,7 @@ export function LiveRoom({ session, joined, refresh, actions }: LiveRoomProps) {
           <Button onClick={() => setCodeOpen(true)}>Confirmar presencia</Button>
         </div>
       )}
-      <Dialog open={codeOpen && pendingCode} onClose={() => setCodeOpen(false)} title="Tu presencia">
+      <Dialog open={codeOpen && pendingCode} onClose={() => setCodeOpen(false)} title="Confirma tu presencia">
         <PresencePanel session={session} presence={presence} framed={false} />
       </Dialog>
     </div>

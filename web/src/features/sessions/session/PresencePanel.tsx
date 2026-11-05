@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { errorText, isApiError, useApiMutation } from '@/shared/api';
 import { formatInZone, serverNow, useCountdown, useZone } from '@/shared/time';
-import { Button, IconAlert, IconClock, cx, useToast } from '@/shared/ui';
+import { Badge, Button, IconAlert, IconClock, cx, useToast } from '@/shared/ui';
 import { IconShieldCheck } from './icons';
 import {
   CODE_LENGTH,
@@ -234,10 +234,12 @@ export function PresencePanel({
 
   return (
     <section aria-label="Tu presencia" className={cx('flex flex-col gap-3', shellClasses(state, framed))}>
-      <p className="flex items-center gap-2.5 font-display text-lg font-semibold text-ink">
-        <IconShieldCheck className="h-6 w-6 text-brand-text" />
-        Confirma tu presencia
-      </p>
+      {framed && (
+        <p className="flex items-center gap-2.5 font-display text-lg font-semibold text-ink">
+          <IconShieldCheck className="h-6 w-6 text-brand-text" />
+          Confirma tu presencia
+        </p>
+      )}
       <p className="text-sm text-ink-2">
         Te enviamos un código de 6 dígitos a tu correo institucional. Escríbelo aquí.
       </p>
@@ -296,6 +298,9 @@ export function PresencePanel({
       </div>
       {framed && (
         <div className="border-t border-line pt-3">
+          <p className="mb-2 flex items-center justify-between text-sm text-ink">
+            Tú <Badge tone="warning">Pendiente</Badge>
+          </p>
           <p className="text-xs text-ink-2">{ifNobodyConfirms(session)}</p>
         </div>
       )}
