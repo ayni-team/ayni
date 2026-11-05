@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   absentOf,
   arrivalText,
+  durationLine,
+  waitingCloseLine,
   elapsedText,
   otherName,
   phaseOf,
@@ -87,6 +89,19 @@ describe('FE-20 session logic', () => {
     expect(arrivalText('2026-10-23T20:51:00Z', 'OTHER', SESSION, LIMA).text).toBe('Entró 15:51');
     expect(arrivalText(null, 'OTHER', SESSION, LIMA).text).toBe('Todavía no');
     expect(arrivalText(null, 'OTHER', { ...SESSION, status: 'ABANDONED' }, LIMA).text).toBe('No entró');
+  });
+
+  it('derives how long it lasted, from both being in to the close', () => {
+    expect(durationLine({ startedAt: '2026-10-23T21:02:00Z', endedAt: '2026-10-23T22:00:00Z' }, LIMA)).toBe(
+      'Duró 58 minutos (de 16:02 a 17:00).',
+    );
+    expect(durationLine({ startedAt: null, endedAt: null }, LIMA)).toBe('');
+  });
+
+  it('says when an unconfirmed end closes on its own', () => {
+    expect(waitingCloseLine({ ...SESSION, closesAt: '2026-10-23T22:15:00Z' }, LIMA)).toBe(
+      'Esperamos a que Julián Arce también la termine. Si no, se cierra sola a las 17:15.',
+    );
   });
 
   it('counts how long the session has been running', () => {

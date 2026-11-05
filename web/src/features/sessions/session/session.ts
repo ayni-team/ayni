@@ -77,7 +77,7 @@ export type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'inf
 const STATUS: Record<SessionStatus, { label: string; tone: Tone }> = {
   SCHEDULED: { label: 'Programada', tone: 'neutral' },
   IN_PROGRESS: { label: 'En curso', tone: 'brand' },
-  COMPLETED: { label: 'Terminada', tone: 'info' },
+  COMPLETED: { label: 'Completada', tone: 'info' },
   UNVERIFIED: { label: 'Sin verificar', tone: 'warning' },
   ABANDONED: { label: 'Abandonada', tone: 'warning' },
   CANCELLED: { label: 'Cancelada', tone: 'neutral' },
@@ -177,14 +177,6 @@ export function roomNotice(session: Session, phase: Phase, zone: string): RoomNo
         detail: 'Ya no hay sala para esta hora.',
         action: student ? { to: '/mis-tutorias', label: 'Volver a mis tutorías' } : BACK_TO_AGENDA,
       };
-    case 'COMPLETED':
-      return { tone: 'info', title: 'La sesión terminó', detail: 'Los dos confirmaron su presencia.' };
-    case 'UNVERIFIED':
-      return {
-        tone: 'warning',
-        title: 'La sesión quedó sin verificar',
-        detail: 'Alguien no confirmó su presencia.',
-      };
     default:
       return null;
   }
@@ -221,4 +213,32 @@ export function elapsedText(startedAt: string | null | undefined, now: number): 
   const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
   const seconds = String(total % 60).padStart(2, '0');
   return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
+}
+
+function minutes(count: number): string {
+  return count === 1 ? '1 minuto' : `${count} minutos`;
+}
+
+/** "Duró 58 minutos (de 16:02 a 17:00).", from when both were in to the close. */
+export function durationLine(session: Session, zone: string): string {
+  if (!session.startedAt || !session.endedAt) return '';
+  const start = new Date(session.startedAt);
+  const end = new Date(session.endedAt);
+  const lasted = Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000));
+  return `Duró ${minutes(lasted)} (de ${formatInZone(start, zone, 'time')} a ${formatInZone(end, zone, 'time')}).`;
+}
+
+/** What a session left unverified means for the person reading. */
+export function unverifiedDetail(session: Session): string {
+  return session.role === 'TUTOR'
+    ? 'Alguien no confirmó su presencia a tiempo. No ganas esta hora y el estudiante recupera su crédito.'
+    : 'Alguien no confirmó su presencia a tiempo. Tu crédito vuelve a ti y el tutor no gana la hora.';
+}
+
+/** "Esperamos a que Julián Arce también la termine. Si no, se cierra sola a las 17:15." */
+export function waitingCloseLine(session: Session, zone: string): string {
+  const closes = session.closesAt
+    ? ` Si no, se cierra sola a las ${formatInZone(session.closesAt, zone, 'time')}.`
+    : '';
+  return `Esperamos a que ${otherName(session)} también la termine.${closes}`;
 }
