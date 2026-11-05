@@ -20,7 +20,8 @@ export default defineConfig({
     // Calling "/api/..." from the application keeps the browser on a single origin, so there is
     // no CORS to think about while developing.
     proxy: {
-      '/api': { target: api, changeOrigin: true },
+      // `ws` for the live channel of the whiteboards, which goes through here like the rest of /api.
+      '/api': { target: api, changeOrigin: true, ws: true },
       '/actuator': { target: api, changeOrigin: true },
     },
   },
