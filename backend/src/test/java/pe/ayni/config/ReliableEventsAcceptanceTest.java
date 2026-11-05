@@ -42,6 +42,7 @@ import pe.ayni.identity.IdentityApi;
 import pe.ayni.identity.PolicyKind;
 import pe.ayni.identity.UserRole;
 import pe.ayni.identity.UserView;
+import pe.ayni.notifications.EmailParts;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.AccessRequested;
 import pe.ayni.shared.events.PresenceCodeIssued;
@@ -518,7 +519,7 @@ class ReliableEventsAcceptanceTest {
   }
 
   private static String bodyOf(MimeMessage message) throws Exception {
-    return message.getContent().toString();
+    return EmailParts.plainTextOf(message);
   }
 
   /**
