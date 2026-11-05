@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { isApiError } from '@/shared/api';
 import { ButtonLink, Card, ErrorState, Skeleton } from '@/shared/ui';
+import { ClosedRoom, EndSessionButton, WaitingClose } from './Closing';
 import { LiveRoom } from './LiveRoom';
 import { RoomSummary } from './RoomSummary';
 import { useSessionRoom } from './useSessionRoom';
@@ -25,6 +27,7 @@ function Loading() {
 export default function SessionPage() {
   const { id = '' } = useParams<{ id: string }>();
   const { query, session, phase, joined, enter, entering } = useSessionRoom(id);
+  const [backInRoom, setBackInRoom] = useState(false);
 
   if (query.isPending) return <Loading />;
 
@@ -51,8 +54,32 @@ export default function SessionPage() {
     );
   }
 
+  const refresh = () => void query.refetch();
+
   if (phase === 'LIVE') {
-    return <LiveRoom session={session} joined={joined} refresh={() => void query.refetch()} />;
+    if (session.endConfirmedAt && !backInRoom) {
+      return <WaitingClose session={session} onBack={() => setBackInRoom(true)} />;
+    }
+    return (
+      <LiveRoom
+        session={session}
+        joined={joined}
+        refresh={refresh}
+        actions={
+          <EndSessionButton
+            session={session}
+            onEnded={() => {
+              setBackInRoom(false);
+              refresh();
+            }}
+          />
+        }
+      />
+    );
+  }
+
+  if (session.status === 'COMPLETED' || session.status === 'UNVERIFIED') {
+    return <ClosedRoom session={session} />;
   }
 
   return <RoomSummary session={session} phase={phase} onEnter={() => void enter()} entering={entering} />;

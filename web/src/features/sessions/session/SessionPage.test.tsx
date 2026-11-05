@@ -223,3 +223,60 @@ describe('FE-21 presence, inside the room', () => {
     return screen.findByLabelText('Código de 6 dígitos');
   }
 });
+
+describe('FE-23 closing, inside the room', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('asks before ending, and then waits for the other person', async () => {
+    const server = setup(LIVE);
+    server.on('POST', `${URL}/end`, () => {
+      server.on('GET', URL, {
+        body: { ...LIVE, endConfirmedAt: '2026-10-23T22:00:00Z', closesAt: '2026-10-23T22:15:00Z' },
+      });
+      return { body: { sessionId: 'x', status: 'IN_PROGRESS', closesAt: '2026-10-23T22:15:00Z' } };
+    });
+    const { user } = open();
+
+    await user.click(await screen.findByRole('button', { name: /Terminar/ }));
+    expect(screen.getByRole('dialog', { name: '¿Terminar la sesión?' })).toBeInTheDocument();
+    expect(server.requests('POST', `${URL}/end`)).toHaveLength(0);
+
+    const dialog = within(screen.getByRole('dialog'));
+    await user.click(dialog.getByRole('button', { name: 'Terminar sesión' }));
+
+    expect(await screen.findByText('Terminaste la sesión')).toBeInTheDocument();
+    expect(screen.getByText(/Si no, se cierra sola a las 17:15/)).toBeInTheDocument();
+    expect(server.requests('POST', `${URL}/end`)).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Volver a la sala' }));
+    expect(await screen.findByRole('heading', { name: 'Estadística Aplicada I' })).toBeInTheDocument();
+  });
+
+  it('shows how it ended and offers to rate once both confirmed', async () => {
+    const server = setup({
+      ...LIVE,
+      status: 'COMPLETED',
+      startedAt: '2026-10-23T21:02:00Z',
+      endedAt: '2026-10-23T22:00:00Z',
+    });
+    server.on('GET', `${URL}/rating`, { body: { rated: false } });
+
+    open();
+
+    expect(await screen.findByText('Los dos confirmaron su presencia')).toBeInTheDocument();
+    expect(screen.getByText(/Duró 58 minutos \(de 16:02 a 17:00\)/)).toBeInTheDocument();
+    expect(await screen.findByText('¿Cómo te fue con Julián Arce?')).toBeInTheDocument();
+  });
+
+  it('does not offer to rate an unverified session', async () => {
+    const server = setup({ ...LIVE, status: 'UNVERIFIED' });
+
+    open();
+
+    expect(await screen.findByText('La sesión quedó sin verificar')).toBeInTheDocument();
+    expect(screen.getByText('Una sesión sin verificar no se califica.')).toBeInTheDocument();
+    expect(server.requests('GET', `${URL}/rating`)).toHaveLength(0);
+  });
+});
