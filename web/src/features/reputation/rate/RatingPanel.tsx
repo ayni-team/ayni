@@ -33,7 +33,7 @@ const WAIT_FOR_WINDOW_MS = 3000;
 
 export interface RatingPanelProps {
   sessionId: string;
-  role: 'STUDENT' | 'TUTOR';
+  reader: 'STUDENT' | 'TUTOR';
   /** The other person, as the session names them. */
   otherName: string;
 }
@@ -57,12 +57,12 @@ function StarBox({ on, children }: { on: boolean; children?: React.ReactNode }) 
 
 function Registered({
   rating,
-  role,
+  reader,
   sessionId,
   already,
 }: {
   rating: RegisteredRating;
-  role: RatingPanelProps['role'];
+  reader: RatingPanelProps['reader'];
   sessionId: string;
   already: boolean;
 }) {
@@ -75,7 +75,7 @@ function Registered({
         </p>
       )}
       <h2 className="font-display text-lg font-semibold text-ink">Gracias por calificar</h2>
-      {role === 'STUDENT' ? (
+      {reader === 'STUDENT' ? (
         <>
           <div role="img" aria-label={starsLabel(rating.stars ?? 0)} className="mt-3 flex gap-2">
             {STARS.map((star) => (
@@ -128,7 +128,7 @@ function CommentField({
  * tutor answers three facts. The answer of the server is shown as it was registered, and a second
  * attempt shows what is already there.
  */
-export function RatingPanel({ sessionId, role, otherName }: RatingPanelProps) {
+export function RatingPanel({ sessionId, reader, otherName }: RatingPanelProps) {
   const toast = useToast();
   const [stars, setStars] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
@@ -167,7 +167,7 @@ export function RatingPanel({ sessionId, role, otherName }: RatingPanelProps) {
     );
   }
   if (registered.data?.rated) {
-    return <Registered rating={registered.data} role={role} sessionId={sessionId} already={already} />;
+    return <Registered rating={registered.data} reader={reader} sessionId={sessionId} already={already} />;
   }
   if (dismissed) {
     return (
@@ -182,9 +182,9 @@ export function RatingPanel({ sessionId, role, otherName }: RatingPanelProps) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (role === 'STUDENT' && stars === 0) return;
+    if (reader === 'STUDENT' && stars === 0) return;
     const body =
-      role === 'STUDENT' ? { stars, tags, comment: commentOf(comment) } : { ...facts, comment: commentOf(comment) };
+      reader === 'STUDENT' ? { stars, tags, comment: commentOf(comment) } : { ...facts, comment: commentOf(comment) };
     try {
       await rate.mutateAsync({ path: { id: sessionId }, body });
     } catch (failure) {
@@ -200,7 +200,7 @@ export function RatingPanel({ sessionId, role, otherName }: RatingPanelProps) {
   return (
     <Card>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
-        {role === 'STUDENT' ? (
+        {reader === 'STUDENT' ? (
           <>
             <h2 className="font-display text-xl font-semibold text-ink">¿Cómo te fue con {otherName}?</h2>
             <fieldset>
@@ -279,13 +279,13 @@ export function RatingPanel({ sessionId, role, otherName }: RatingPanelProps) {
           </>
         )}
         <div className="flex flex-wrap justify-end gap-2">
-          {role === 'STUDENT' && (
+          {reader === 'STUDENT' && (
             <Button variant="ghost" onClick={() => setDismissed(true)}>
               Ahora no
             </Button>
           )}
-          <Button type="submit" loading={rate.isPending} disabled={role === 'STUDENT' && stars === 0}>
-            {role === 'STUDENT' ? 'Enviar calificación' : 'Enviar'}
+          <Button type="submit" loading={rate.isPending} disabled={reader === 'STUDENT' && stars === 0}>
+            {reader === 'STUDENT' ? 'Enviar calificación' : 'Enviar'}
           </Button>
         </div>
       </form>

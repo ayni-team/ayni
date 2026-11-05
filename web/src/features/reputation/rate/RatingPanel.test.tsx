@@ -15,7 +15,7 @@ function setup() {
 }
 
 function asStudent() {
-  return renderWithProviders(<RatingPanel sessionId="x" role="STUDENT" otherName="Julián Arce" />);
+  return renderWithProviders(<RatingPanel sessionId="x" reader="STUDENT" otherName="Julián Arce" />);
 }
 
 describe('FE-23 RatingPanel', () => {
@@ -77,7 +77,7 @@ describe('FE-23 RatingPanel', () => {
       server.on('GET', URL, { body: { rated: true, wasPunctual: true, connectionOk: false, sessionFlowed: false } });
       return { status: 201, body: { id: 'r1' } };
     });
-    const { user } = renderWithProviders(<RatingPanel sessionId="x" role="TUTOR" otherName="Ana Torres" />);
+    const { user } = renderWithProviders(<RatingPanel sessionId="x" reader="TUTOR" otherName="Ana Torres" />);
 
     await user.click(await screen.findByRole('checkbox', { name: 'Fue puntual' }));
     await user.click(screen.getByRole('button', { name: 'Enviar' }));

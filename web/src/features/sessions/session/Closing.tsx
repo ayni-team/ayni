@@ -159,7 +159,11 @@ export function ClosedRoom({ session }: { session: Session }) {
             {durationLine(session, zone)} Puedes repasar la pizarra cuando quieras.
           </p>
         </Card>
-        <RatingPanel sessionId={session.id ?? ''} role={asTutor ? 'TUTOR' : 'STUDENT'} otherName={otherName(session)} />
+        <RatingPanel
+          sessionId={session.id ?? ''}
+          reader={asTutor ? 'TUTOR' : 'STUDENT'}
+          otherName={otherName(session)}
+        />
       </div>
     </>
   );
