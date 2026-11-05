@@ -1,206 +1,128 @@
-import { useApiQuery, type Schema } from '@/shared/api';
+import { useApiQuery } from '@/shared/api';
 import {
   Badge,
+  ButtonLink,
   Card,
   EmptyState,
   ErrorState,
+  IconAlert,
+  IconAward,
+  IconStar,
   PageHeader,
-  PageLoading,
+  Skeleton,
 } from '@/shared/ui';
 import { ratingTagLabel } from '../ratingTags';
+import {
+  averageView,
+  bySignificance,
+  countText,
+  missingText,
+  riskText,
+  starsText,
+  type SkillReputation,
+} from './reputation';
 
-type TutorSkillReputation = Schema<'TutorSkillReputation'>;
-
-const REPUTATION_KEY = ['reputation', 'tutor'] as const;
-
-function formatAverage(value?: number | null): string {
-  return value == null ? '—' : value.toFixed(1);
+function Average({ skill }: { skill: SkillReputation }) {
+  const average = averageView(skill);
+  if (average.kind === 'none') {
+    return <p className="text-sm text-ink-2">Aún no tienes calificaciones en esta habilidad.</p>;
+  }
+  return (
+    <div>
+      <p className="flex items-center gap-1.5">
+        <IconStar className="h-5 w-5 text-credit-text" />
+        <span className="font-display text-[28px] font-semibold tabular-nums leading-tight text-ink">
+          {starsText(average.value)}
+        </span>
+        {average.kind === 'provisional' && <Badge tone="info">Provisional</Badge>}
+      </p>
+      {average.kind === 'provisional' && <p className="mt-1 text-xs text-ink-2">{missingText(average.missing)}</p>}
+    </div>
+  );
 }
 
-function ReputationCard({
-                          skill,
-                          minimumAverage,
-                        }: {
-  skill: TutorSkillReputation;
-  minimumAverage?: number;
-}) {
-  const ratingsCount = skill.ratingsCount ?? 0;
-  const sessionsTaught = skill.sessionsTaught ?? 0;
-
-  const hasOfficialAverage = skill.averageStars != null;
-  const average = hasOfficialAverage
-    ? skill.averageStars
-    : skill.provisionalAverage;
-
-  const topTags = skill.topTags ?? [];
-
-  const missingRatings =
-    skill.ratingsMissingForAverage ?? Math.max(0, 3 - ratingsCount);
-
+function SkillCard({ skill, minimumAverage }: { skill: SkillReputation; minimumAverage?: number }) {
+  const tags = skill.topTags ?? [];
   return (
-    <Card
-      title={skill.name ?? 'Habilidad'}
-      description="Tu desempeño como tutor en esta habilidad."
-    >
-      <div className="flex flex-col gap-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-gray-50 p-4">
-            <p className="text-xs font-medium text-gray-500">
-              Promedio
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {formatAverage(average)}
-              {average != null && (
-                <span className="ml-1 text-sm font-normal text-gray-500">
-                  / 5
-                </span>
-              )}
-            </p>
-
-            {!hasOfficialAverage && (
-              <p className="mt-1 text-xs text-gray-500">
-                Promedio provisional
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-xl bg-gray-50 p-4">
-            <p className="text-xs font-medium text-gray-500">
-              Sesiones enseñadas
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {sessionsTaught}
-            </p>
-          </div>
-
-          <div className="col-span-2 rounded-xl bg-gray-50 p-4 sm:col-span-1">
-            <p className="text-xs font-medium text-gray-500">
-              Calificaciones
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {ratingsCount}
-            </p>
-          </div>
-        </div>
-
-        {!hasOfficialAverage && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-            <p className="text-sm text-blue-900">
-              {ratingsCount === 0
-                ? 'Aún no tienes calificaciones.'
-                : `Te faltan ${missingRatings} ${
-                  missingRatings === 1
-                    ? 'calificación'
-                    : 'calificaciones'
-                } para el promedio.`}
-            </p>
-          </div>
-        )}
-
+    <Card as="article" title={skill.name ?? 'Habilidad'}>
+      <div className="flex flex-col gap-3">
+        <Average skill={skill} />
+        <p className="text-sm text-ink-2">
+          {countText(skill.sessionsTaught, 'sesión enseñada', 'sesiones enseñadas')} ·{' '}
+          {countText(skill.ratingsCount, 'calificación', 'calificaciones')}
+        </p>
         {skill.atRisk && (
-          <div
-            role="alert"
-            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
-          >
-            <Badge tone="warning">Promedio por debajo del mínimo</Badge>
-
-            <p className="mt-2 text-sm text-amber-900">
-              Tu promedio está por debajo de{' '}
-              {minimumAverage != null
-                ? minimumAverage
-                : 'el mínimo requerido'}
-              .
-            </p>
+          <p className="flex items-start gap-2 rounded-xl bg-credit-soft p-3 text-sm text-ink">
+            <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-credit-text" />
+            {riskText(minimumAverage)}
+          </p>
+        )}
+        {tags.length > 0 && (
+          <div>
+            <h3 className="text-[13px] font-semibold text-ink">Lo que más destacan</h3>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {tags.map((item) => (
+                <li key={item.tag ?? 'tag'}>
+                  <Badge>
+                    {ratingTagLabel(item.tag ?? 'Sin etiqueta')}
+                    {item.count !== undefined && ` · ${item.count}`}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">
-            Lo que más destacan tus estudiantes
-          </h3>
-
-          {topTags.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {topTags.map((item, index) => (
-                <Badge key={`${item.tag ?? 'tag'}-${index}`} tone="neutral">
-                  {ratingTagLabel(item.tag ?? 'Sin etiqueta')}
-                  {item.count != null && (
-                    <span className="ml-1 text-gray-500">
-                      · {item.count}
-                    </span>
-                  )}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-gray-500">
-              Todavía no hay etiquetas registradas.
-            </p>
-          )}
-        </div>
       </div>
     </Card>
   );
 }
 
+/**
+ * FE-43 · `/tutor/reputacion` · student as tutor. Read-only.
+ *
+ * One card per skill: sessions taught, the average (or the provisional one and how many ratings are
+ * missing), the tags given the most and a warning when the skill is at risk.
+ */
 export default function ReputationPage() {
-  const reputation = useApiQuery(
-    REPUTATION_KEY,
-    '/api/v1/tutor/reputation',
-  );
+  const reputation = useApiQuery(['reputation', 'tutor'], '/api/v1/tutor/reputation');
+  const skills = bySignificance(reputation.data?.skills ?? []);
 
-  if (reputation.isPending) {
-    return <PageLoading label="Cargando tu reputación" />;
-  }
-
-  if (reputation.isError) {
-    return (
-      <div className="mx-auto w-full max-w-6xl">
-        <PageHeader
-          title="Reputación"
-          description="Consulta cómo valoran tus estudiantes las tutorías que brindas."
-        />
-
+  return (
+    <>
+      <PageHeader title="Reputación" description="Cómo valoran tus estudiantes las tutorías de cada habilidad." />
+      {reputation.isPending ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {['a', 'b'].map((key) => (
+            <Card key={key}>
+              <Skeleton lines={3} label="Cargando tu reputación" />
+            </Card>
+          ))}
+        </div>
+      ) : reputation.isError ? (
         <ErrorState
           title="No pudimos cargar tu reputación"
-          description="Inténtalo nuevamente dentro de un momento."
           error={reputation.error}
           onRetry={() => void reputation.refetch()}
           retrying={reputation.isFetching}
         />
-      </div>
-    );
-  }
-
-  const skills = reputation.data?.skills ?? [];
-  const minimumAverage = reputation.data?.minimumAverage;
-
-  return (
-    <div className="mx-auto w-full max-w-6xl">
-      <PageHeader
-        title="Reputación"
-        description="Consulta cómo valoran tus estudiantes las tutorías que brindas y revisa tu progreso en cada habilidad."
-      />
-
-      {skills.length === 0 ? (
+      ) : skills.length === 0 ? (
         <EmptyState
-          title="Todavía no tienes reputación registrada"
-          description="Cuando tengas habilidades habilitadas o hayas brindado tutorías, aquí podrás consultar tu desempeño."
+          icon={<IconAward className="h-8 w-8" />}
+          title="Todavía no tienes reputación"
+          description="Ofrece una habilidad y, cuando enseñes, aquí verás cómo te califican."
+          action={<ButtonLink to="/tutor/habilidades">Ver mis habilidades</ButtonLink>}
         />
       ) : (
-        <div className="flex flex-col gap-5">
-          {skills.map((skill, index) => (
-            <ReputationCard
-              key={skill.catalogItemId ?? `${skill.name ?? 'skill'}-${index}`}
+        <div className="grid items-start gap-4 md:grid-cols-2">
+          {skills.map((skill) => (
+            <SkillCard
+              key={skill.catalogItemId ?? skill.name}
               skill={skill}
-              minimumAverage={minimumAverage}
+              minimumAverage={reputation.data?.minimumAverage}
             />
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }
