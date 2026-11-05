@@ -42,6 +42,20 @@ export function BoardDrawing({ drawing }: { drawing: Drawing }) {
       />
     );
   }
+  if (drawing.kind === 'shape') {
+    const common = { fill: 'none', stroke: drawing.color, strokeWidth: 3 };
+    return drawing.shape === 'ellipse' ? (
+      <ellipse
+        cx={drawing.x + drawing.width / 2}
+        cy={drawing.y + drawing.height / 2}
+        rx={drawing.width / 2}
+        ry={drawing.height / 2}
+        {...common}
+      />
+    ) : (
+      <rect x={drawing.x} y={drawing.y} width={drawing.width} height={drawing.height} rx={4} {...common} />
+    );
+  }
   if (drawing.kind === 'text') {
     return (
       <Lines x={drawing.x} y={drawing.y} lines={drawing.lines} height={lineHeightOf('text')} color={drawing.color} />
@@ -64,8 +78,10 @@ export function BoardDrawing({ drawing }: { drawing: Drawing }) {
 
 /** Words a screen reader can read instead of the drawing. */
 export function boardSummary(drawings: readonly Drawing[]): string {
-  const words = drawings.flatMap((drawing) => (drawing.kind === 'stroke' ? [] : drawing.lines));
-  const strokes = drawings.filter((drawing) => drawing.kind === 'stroke').length;
+  const words = drawings.flatMap((drawing) =>
+    drawing.kind === 'text' || drawing.kind === 'note' ? drawing.lines : [],
+  );
+  const strokes = drawings.filter((drawing) => drawing.kind === 'stroke' || drawing.kind === 'shape').length;
   const drawn = strokes === 1 ? '1 trazo' : `${strokes} trazos`;
   return [`Pizarra con ${drawn}`, ...words].join('. ');
 }

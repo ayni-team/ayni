@@ -1,4 +1,5 @@
 import { VideoCall } from '../video/VideoCall';
+import { Whiteboard } from '../whiteboard/Whiteboard';
 import { IconVideo } from './icons';
 import { otherRole, type JoinedSession, type Session } from './session';
 
@@ -9,6 +10,8 @@ export interface RoomMediaProps {
   joined: JoinedSession | null;
   /** Asks for a new pass for the call. */
   renewPass: () => Promise<unknown>;
+  /** The whiteboard says the session is over before the next look at the session does. */
+  onBoardClosed?: () => void;
 }
 
 /**
@@ -16,7 +19,7 @@ export interface RoomMediaProps {
  * box: the video on the right on a desktop and on top on a phone, the whiteboard filling the rest.
  * What goes inside changes here, and the page does not move.
  */
-export function RoomMedia({ kind, session, joined, renewPass }: RoomMediaProps) {
+export function RoomMedia({ kind, session, joined, renewPass, onBoardClosed }: RoomMediaProps) {
   if (kind === 'video') {
     if (joined === null) {
       return (
@@ -37,9 +40,5 @@ export function RoomMedia({ kind, session, joined, renewPass }: RoomMediaProps) 
       </div>
     );
   }
-  return (
-    <div className="flex h-full min-h-[320px] items-center justify-center rounded-[20px] border border-line bg-white p-6 text-center">
-      <p className="text-sm text-ink-2">La pizarra no está disponible por ahora.</p>
-    </div>
-  );
+  return <Whiteboard sessionId={session.id ?? ''} onClosed={onBoardClosed} />;
 }

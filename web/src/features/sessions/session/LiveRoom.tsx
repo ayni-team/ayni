@@ -78,7 +78,7 @@ export function LiveRoom({ session, joined, refresh, renewPass, actions }: LiveR
           <RoomMedia kind="video" session={session} joined={joined} renewPass={renewPass} />
         </div>
         <div className="min-h-0 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          <RoomMedia kind="board" session={session} joined={joined} renewPass={renewPass} />
+          <RoomMedia kind="board" session={session} joined={joined} renewPass={renewPass} onBoardClosed={refresh} />
         </div>
         <div className="flex min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-2 lg:overflow-y-auto">
           <div className={pendingCode ? 'hidden lg:block' : undefined}>
