@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawingOf, drawingsOf, fittedViewBox, linesOf, pathOf } from './board';
+import { drawingOf, drawingsOf, fittedViewBox, fittingPoints, linesOf, pathOf, type Point } from './board';
 
 describe('what the elements of a board hold', () => {
   it('reads a stroke, a text and a note as the demo history and the live board write them', () => {
@@ -87,5 +87,14 @@ describe('what the elements of a board hold', () => {
         [3, 4],
       ]),
     ).toBe('M 1 2 L 3 4');
+  });
+
+  it('thins a stroke until it fits, keeping its ends', () => {
+    const points: Point[] = Array.from({ length: 101 }, (_, index) => [index, index]);
+    const fitted = fittingPoints(points, (candidate) => candidate.length <= 20);
+    expect(fitted.length).toBeLessThanOrEqual(20);
+    expect(fitted[0]).toEqual([0, 0]);
+    expect(fitted[fitted.length - 1]).toEqual([100, 100]);
+    expect(fittingPoints(points, () => true)).toHaveLength(101);
   });
 });

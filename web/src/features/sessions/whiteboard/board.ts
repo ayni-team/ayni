@@ -163,3 +163,17 @@ export function pathOf(points: readonly Point[]): string {
   if (rest.length === 0) return `M ${first[0]} ${first[1]} l 0.01 0`;
   return `M ${first[0]} ${first[1]} ${rest.map(([x, y]) => `L ${x} ${y}`).join(' ')}`;
 }
+
+/**
+ * Thins a stroke until it fits in the limit of the server, keeping its ends. A very long stroke
+ * loses detail, not its shape.
+ */
+export function fittingPoints(points: readonly Point[], fits: (points: readonly Point[]) => boolean): Point[] {
+  let current = [...points];
+  while (!fits(current) && current.length > 2) {
+    const last = current[current.length - 1];
+    current = current.filter((_, index) => index % 2 === 0);
+    if (current[current.length - 1] !== last) current.push(last);
+  }
+  return current;
+}
