@@ -73,3 +73,14 @@
 body {
   @apply bg-surface font-sans text-ink antialiased;
 }
+
+/*
+ * The chevron of Select: Lucide's chevron-down in ink-2. Here and not in a Tailwind arbitrary value,
+ * which cannot hold a URL with spaces in it.
+ */
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A5F73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.875rem center;
+  background-repeat: no-repeat;
+  background-size: 1.125rem;
+}
