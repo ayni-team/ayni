@@ -128,7 +128,8 @@ export function TutoringCard({
       );
     }
 
-    if (booking.status === 'COMPLETED') {
+    // The backend leaves a tutoring that took place as CONFIRMED: only a cancelled one has nothing to review.
+    if (booking.status !== 'CANCELLED') {
       return (
         <Button
           variant="ghost"
