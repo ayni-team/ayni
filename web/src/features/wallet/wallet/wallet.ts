@@ -146,6 +146,11 @@ export const REASON_OPTIONS = (Object.keys(REASONS) as MovementReason[]).map((va
   label: REASONS[value],
 }));
 
+/** The reason a link asks for (`/creditos?motivo=PURCHASE`, from a receipt), if the web knows it. */
+export function reasonFromUrl(value: string | null): MovementReason | null {
+  return REASON_OPTIONS.find((option) => option.value === value)?.value ?? null;
+}
+
 /** Where a movement leads, if anywhere: the guide links a booking and a purchase. */
 export function movementLink(movement: Movement): { to: string; label: string } | null {
   if (!movement.referenceId) return null;

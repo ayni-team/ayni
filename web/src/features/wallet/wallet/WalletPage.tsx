@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useApiQuery } from '@/shared/api';
 import { useUniversity } from '@/shared/brand';
 import { formatInZone, useUniversityToday, useZone } from '@/shared/time';
@@ -33,6 +33,7 @@ import {
   originShort,
   originViews,
   periodFrom,
+  reasonFromUrl,
   reasonText,
   shortDay,
   signedAmount,
@@ -202,8 +203,10 @@ function MovementLink({ movement, className }: { movement: Movement; className?:
 }
 
 function Movements({ today, zone }: { today: string; zone: string }) {
-  const [period, setPeriod] = useState<Period>('LAST_30');
-  const [reason, setReason] = useState<MovementReason | ''>('');
+  const [params] = useSearchParams();
+  const asked = reasonFromUrl(params.get('motivo'));
+  const [period, setPeriod] = useState<Period>(asked ? 'ALL' : 'LAST_30');
+  const [reason, setReason] = useState<MovementReason | ''>(asked ?? '');
   const [page, setPage] = useState(0);
   const from = periodFrom(period, today, zone);
   const movements = useApiQuery(

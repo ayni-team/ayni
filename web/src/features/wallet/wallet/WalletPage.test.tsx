@@ -116,6 +116,18 @@ describe('FE-30 WalletPage', () => {
     await waitFor(() => expect(server.requests('GET', MOVEMENTS).at(-1)?.query.get('from')).toBeNull());
   });
 
+  it('opens on the whole history of a reason when a receipt links to it', async () => {
+    const server = setup();
+
+    renderWithProviders(<WalletPage />, { route: '/creditos?motivo=PURCHASE' });
+
+    await screen.findAllByText('Reserva');
+    const last = server.requests('GET', MOVEMENTS).at(-1);
+    expect(last?.query.get('reason')).toBe('PURCHASE');
+    expect(last?.query.get('from')).toBeNull();
+    expect(screen.getByLabelText('Motivo')).toHaveValue('PURCHASE');
+  });
+
   it('shows each movement with its amount, its time in Lima and its link', async () => {
     setup();
 
