@@ -1,47 +1,10 @@
+import type { ReactNode } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { isApiError, useApiQuery } from '@/shared/api';
+import { Badge, Card, Credits, DateTime, ErrorState, IconInfo, PageHeader, Skeleton } from '@/shared/ui';
+import { amountText, movementLink, statusBadge, statusNote } from './purchases';
 
-import { useParams } from 'react-router-dom';
-import { useApiQuery, type Schema } from '@/shared/api';
-import { Badge, Card, DateTime, ErrorState, PageHeader, PageLoading } from '@/shared/ui';
-
-type PurchaseDetail = Schema<'PurchaseDetailResponse'>;
-type PurchaseStatus = NonNullable<PurchaseDetail['status']>;
-
-const STATUS_LABELS: Record<PurchaseStatus, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  FAILED: 'Fallida',
-  EXPIRED: 'Expirada',
-};
-
-const STATUS_TONES = {
-  PENDING: 'warning',
-  CONFIRMED: 'success',
-  FAILED: 'danger',
-  EXPIRED: 'neutral',
-} as const;
-
-function formatAmount(amount?: number, currency?: string) {
-  if (amount === undefined) return '—';
-
-  try {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: currency || 'PEN',
-    }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency ?? ''}`.trim();
-  }
-}
-
-function PurchaseStatusBadge({ status }: { status?: PurchaseStatus }) {
-  if (!status) {
-    return <Badge tone="neutral">Sin estado</Badge>;
-  }
-
-  return <Badge tone={STATUS_TONES[status]}>{STATUS_LABELS[status]}</Badge>;
-}
-
-function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1 border-b border-line py-3 last:border-0 sm:flex-row sm:items-center sm:justify-between">
       <dt className="text-sm text-ink-2">{label}</dt>
@@ -50,137 +13,84 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
+/**
+ * FE-32 · `/creditos/compras/:id` · student.
+ *
+ * The receipt of a purchase: what was bought, the provider's reference and, once confirmed, a link
+ * to the movement it caused in the wallet.
+ */
 export default function PurchaseDetailPage() {
-  const { id } = useParams<{ id: string }>();
-
-  const purchaseQuery = useApiQuery(
-    ['payments', 'purchase', id],
-    '/api/v1/payments/purchases/{purchaseId}',
-    {
-      path: { purchaseId: id ?? '' },
-      enabled: Boolean(id),
-    },
-  );
-
-  if (!id) {
-    return (
-      <div className="mx-auto w-full max-w-3xl">
-        <PageHeader
-          title="Comprobante de compra"
-          back={{ to: '/creditos/compras', label: 'Mis compras' }}
-        />
-        <ErrorState
-          title="Compra no encontrada"
-          description="No se indicó un identificador de compra válido."
-        />
-      </div>
-    );
-  }
-
-  if (purchaseQuery.isLoading) {
-    return <PageLoading label="Cargando comprobante" />;
-  }
-
-  if (purchaseQuery.error || !purchaseQuery.data) {
-    return (
-      <div className="mx-auto w-full max-w-3xl">
-        <PageHeader
-          title="Comprobante de compra"
-          back={{ to: '/creditos/compras', label: 'Mis compras' }}
-        />
-        <ErrorState
-          title="No pudimos cargar el comprobante"
-          description="Ocurrió un problema al consultar esta compra. Inténtalo nuevamente."
-          error={purchaseQuery.error}
-          onRetry={() => void purchaseQuery.refetch()}
-          retrying={purchaseQuery.isFetching}
-        />
-      </div>
-    );
-  }
-
-  const purchase = purchaseQuery.data;
+  const { id = '' } = useParams<{ id: string }>();
+  const query = useApiQuery(['payments', 'purchase', { id }], '/api/v1/payments/purchases/{purchaseId}', {
+    path: { purchaseId: id },
+  });
+  const purchase = query.data;
+  const badge = statusBadge(purchase?.status);
+  const note = statusNote(purchase?.status);
+  const movement = purchase ? movementLink(purchase) : null;
+  const missing = isApiError(query.error) && query.error.status === 404;
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <PageHeader
-        title="Comprobante de compra"
-        description="Detalle de tu operación de compra de créditos."
-        back={{ to: '/creditos/compras', label: 'Mis compras' }}
-      />
-
-      <Card className="mb-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-ink-2">Total de la compra</p>
-            <p className="mt-1 text-3xl font-semibold text-ink">
-              {formatAmount(purchase.amount, purchase.currency)}
-            </p>
-          </div>
-          <PurchaseStatusBadge status={purchase.status} />
-        </div>
-      </Card>
-
-      <Card title="Información de la compra">
-        <dl>
-          <DetailRow label="Créditos adquiridos">
-            {purchase.credits ?? '—'}
-          </DetailRow>
-
-          <DetailRow label="Importe">
-            {formatAmount(purchase.amount, purchase.currency)}
-          </DetailRow>
-
-          <DetailRow label="Estado">
-            <PurchaseStatusBadge status={purchase.status} />
-          </DetailRow>
-
-          <DetailRow label="Fecha de compra">
-            {purchase.purchasedAt ? (
-              <DateTime value={purchase.purchasedAt} format="dateTime" />
-            ) : (
-              'No disponible'
-            )}
-          </DetailRow>
-
-          <DetailRow label="Fecha de confirmación">
-            {purchase.confirmedAt ? (
-              <DateTime value={purchase.confirmedAt} format="dateTime" />
-            ) : (
-              'Pendiente de confirmación'
-            )}
-          </DetailRow>
-
-          <DetailRow label="Referencia del proveedor">
-            {purchase.providerReference || 'No disponible'}
-          </DetailRow>
-
-          <DetailRow label="Identificador de compra">
-            {purchase.id || id}
-          </DetailRow>
-        </dl>
-      </Card>
-
-      {purchase.status === 'CONFIRMED' && (
-        <Card
-          title="Movimiento de créditos"
-          description="Esta compra fue confirmada y generó un movimiento en tu billetera."
-          className="mt-5"
-        >
-          {purchase.creditMovement?.referenceId ? (
-            <p className="text-sm text-ink-2">
-              Referencia del movimiento:{' '}
-              <span className="font-medium text-ink">
-                {purchase.creditMovement.referenceId}
-              </span>
-            </p>
-          ) : (
-            <p className="text-sm text-ink-2">
-              El movimiento fue confirmado, pero su referencia no está disponible.
-            </p>
-          )}
+    <>
+      <PageHeader title="Comprobante de compra" back={{ to: '/creditos/compras', label: 'Mis compras' }} />
+      {query.isPending ? (
+        <Card>
+          <Skeleton lines={4} label="Cargando el comprobante" />
         </Card>
+      ) : query.isError || !purchase ? (
+        <ErrorState
+          title={missing ? 'No encontramos esa compra' : 'No pudimos cargar el comprobante'}
+          error={query.error}
+          onRetry={missing ? undefined : () => void query.refetch()}
+          retrying={query.isFetching}
+        />
+      ) : (
+        <div className="flex max-w-2xl flex-col gap-4">
+          <Card>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-semibold text-ink-2">Total de la compra</p>
+                <p className="mt-1 font-display text-[32px] font-semibold tabular-nums leading-tight text-ink">
+                  {amountText(purchase.amount, purchase.currency)}
+                </p>
+              </div>
+              <Badge tone={badge.tone}>{badge.label}</Badge>
+            </div>
+            {note && (
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-surface p-3 text-sm text-ink">
+                <IconInfo className="mt-0.5 h-4 w-4 shrink-0 text-ink-2" />
+                {note}
+              </p>
+            )}
+          </Card>
+          <Card title="Detalle">
+            <dl>
+              <Row label="Créditos">
+                <Credits amount={purchase.credits ?? 0} />
+              </Row>
+              <Row label="Fecha de compra">
+                {purchase.purchasedAt ? <DateTime value={purchase.purchasedAt} /> : '—'}
+              </Row>
+              {purchase.confirmedAt && (
+                <Row label="Fecha de confirmación">
+                  <DateTime value={purchase.confirmedAt} />
+                </Row>
+              )}
+              <Row label="Referencia del proveedor">{purchase.providerReference || '—'}</Row>
+            </dl>
+            {movement && (
+              <p className="mt-4 text-sm">
+                <Link
+                  to={movement}
+                  className="font-semibold text-brand-text hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                >
+                  Ver el movimiento en mis créditos
+                </Link>
+              </p>
+            )}
+          </Card>
+        </div>
       )}
-    </div>
+    </>
   );
 }
