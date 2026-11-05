@@ -58,7 +58,7 @@ function RequestItem({ request, zone }: { request: MyRequest; zone: string }) {
   const sessions = request.sessions ?? [];
   const decided = request.reviewedAt ? dayOf(request.reviewedAt, zone) : '';
   return (
-    <li className="rounded-[16px] border border-line bg-white p-4">
+    <li className="rounded-[20px] border border-line bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="min-w-0 text-sm text-ink">{requestLine(request, zone)}</p>
         <Badge tone={status.tone}>{status.label}</Badge>
@@ -68,7 +68,7 @@ function RequestItem({ request, zone }: { request: MyRequest; zone: string }) {
       )}
       {decided && <p className="mt-2 text-xs text-ink-2">Decidida el {decided}</p>}
       {request.decisionReason && (
-        <div className="mt-3 rounded-xl bg-gray-50 px-3 py-2.5">
+        <div className="mt-3 rounded-xl bg-surface px-3 py-2.5">
           <p className="text-xs font-semibold text-ink-2">Motivo de la decisión</p>
           <p className="mt-0.5 whitespace-pre-line text-sm text-ink">{request.decisionReason}</p>
         </div>
@@ -178,9 +178,11 @@ export default function RecognitionProgressPage() {
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <p className="font-display text-3xl font-semibold text-ink">{figures(data)}</p>
-                <p className="text-sm text-ink-2">
-                  {sessions === 1 ? 'En 1 sesión verificada' : `En ${sessions} sesiones verificadas`}
-                </p>
+                {sessions > 0 && (
+                  <p className="text-sm text-ink-2">
+                    {sessions === 1 ? 'En 1 sesión verificada' : `En ${sessions} sesiones verificadas`}
+                  </p>
+                )}
               </div>
               {open && (
                 <div
@@ -190,7 +192,7 @@ export default function RecognitionProgressPage() {
                   aria-valuemax={100}
                   aria-valuenow={percent(data)}
                   aria-valuetext={figures(data)}
-                  className="h-3 overflow-hidden rounded-full bg-gray-100"
+                  className="h-3 overflow-hidden rounded-full bg-line"
                 >
                   <div className="h-full rounded-full bg-brand" style={{ width: `${percent(data)}%` }} />
                 </div>
@@ -207,8 +209,8 @@ export default function RecognitionProgressPage() {
                 </p>
               )}
               {refusal && (
-                <p role="alert" className="flex gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                  <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <p role="alert" className="flex gap-2 rounded-xl bg-credit-soft px-3 py-2.5 text-sm text-ink">
+                  <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-credit-text" />
                   {refusal}
                 </p>
               )}

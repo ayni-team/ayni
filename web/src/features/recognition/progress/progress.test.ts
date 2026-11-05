@@ -100,4 +100,8 @@ describe('my requests', () => {
     );
     expect(sessionLine({ hours: 1 }, LIMA)).toBe('1 hora');
   });
+
+  it('writes the line of a request without its date when it is absent', () => {
+    expect(requestLine({ totalHours: 3, sessionsCount: 1 }, 'America/Lima')).toBe('Enviada · 3 horas · 1 sesión');
+  });
 });

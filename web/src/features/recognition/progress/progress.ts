@@ -79,8 +79,9 @@ export function dayOf(instant: string | null | undefined, zone: string): string 
 /** "Enviada el 20 oct 2026 · 20 horas · 12 sesiones". */
 export function requestLine(request: MyRequest, zone: string): string {
   const sessions = request.sessionsCount ?? 0;
+  const sent = dayOf(request.submittedAt, zone);
   return [
-    `Enviada el ${dayOf(request.submittedAt, zone)}`,
+    sent ? `Enviada el ${sent}` : 'Enviada',
     hours(request.totalHours ?? 0),
     `${sessions} ${sessions === 1 ? 'sesión' : 'sesiones'}`,
   ].join(' · ');
