@@ -88,7 +88,7 @@ function Bars({ days }: { days: readonly UsageDay[] }) {
   const axis = axisOf(peak ? hoursOf(peak) : 1);
   const every = labelEvery(days.length);
   return (
-    <div className="overflow-x-auto pt-3" tabIndex={0} role="group" aria-label="Horas intercambiadas por día">
+    <div className="overflow-x-auto pt-3" role="group" aria-label="Horas intercambiadas por día">
       <div className="flex" style={{ minWidth: `${Math.max(320, days.length * 18)}px` }}>
         <div
           aria-hidden="true"
