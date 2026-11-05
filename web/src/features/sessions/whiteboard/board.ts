@@ -7,6 +7,7 @@ import type { Schema } from '@/shared/api';
  * - `stroke`: `{ points: [[x, y], ...], color, width }`
  * - `text`: `{ x, y, text, color }`, on one or several lines
  * - `note`: `{ x, y, text, author }`, a yellow note signed by whoever wrote it
+ * - `shape`: `{ shape: 'rect' | 'ellipse', x, y, width, height, color }`
  *
  * The coordinates are those of a board of `BOARD_WIDTH` × `BOARD_HEIGHT`, whatever the size of the
  * screen, so both participants see the same drawing.
@@ -21,7 +22,17 @@ export type Point = readonly [number, number];
 export type Drawing =
   | { kind: 'stroke'; id: string; points: Point[]; color: string; width: number }
   | { kind: 'text'; id: string; x: number; y: number; lines: string[]; color: string }
-  | { kind: 'note'; id: string; x: number; y: number; lines: string[]; author: string | null };
+  | { kind: 'note'; id: string; x: number; y: number; lines: string[]; author: string | null }
+  | {
+      kind: 'shape';
+      id: string;
+      shape: 'rect' | 'ellipse';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      color: string;
+    };
 
 const INK = '#1D2033';
 
@@ -80,6 +91,19 @@ export function drawingOf(element: BoardElement): Drawing | null {
       width: isNumber(data.width) && data.width > 0 ? data.width : 3,
     };
   }
+  if (element.type === 'shape') {
+    if (!isNumber(data.x) || !isNumber(data.y) || !isNumber(data.width) || !isNumber(data.height)) return null;
+    return {
+      kind: 'shape',
+      id,
+      shape: data.shape === 'ellipse' ? 'ellipse' : 'rect',
+      x: data.x,
+      y: data.y,
+      width: Math.abs(data.width),
+      height: Math.abs(data.height),
+      color: colorOf(data.color),
+    };
+  }
   if (!isNumber(data.x) || !isNumber(data.y) || typeof data.text !== 'string') return null;
   if (element.type === 'text') {
     return { kind: 'text', id, x: data.x, y: data.y, lines: linesOf(data.text), color: colorOf(data.color) };
@@ -121,6 +145,9 @@ function boxOf(drawing: Drawing): { left: number; top: number; right: number; bo
     const xs = drawing.points.map(([x]) => x);
     const ys = drawing.points.map(([, y]) => y);
     return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+  }
+  if (drawing.kind === 'shape') {
+    return { left: drawing.x, top: drawing.y, right: drawing.x + drawing.width, bottom: drawing.y + drawing.height };
   }
   if (drawing.kind === 'note') {
     return {
