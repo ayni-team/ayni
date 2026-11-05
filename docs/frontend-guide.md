@@ -208,6 +208,11 @@ The server's `message` is English and technical. People see this:
   `ErrorState` with "Reintentar" if it fails), so the zone is never the UTC fallback in a screen.
   The public screens (FE-01, FE-02) do not wait for it. `Date.now()` stays valid for **instants**
   (a countdown, the time left to a start), never for days.
+- A countdown runs against the **server's clock**. Every answer under `/api/` carries `X-Server-Time`
+  (ISO 8601, UTC), read from the clock the rules read, and `shared/api` keeps the difference with the
+  browser's. `useCountdown(instant)` and `serverNow()` (`shared/time`) use it by default; before the
+  first answer it is 0. So a browser with a wrong clock, or the demo profile's moved clock, still
+  shows the real time left.
 
 ### Money
 

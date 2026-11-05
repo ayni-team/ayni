@@ -1,4 +1,5 @@
 import { authorization, forgetSession } from '../session/session';
+import { noteServerTime } from '../time/serverClock';
 import { ApiError } from './errors';
 import type { HttpMethod, OptionsArgument, PathsWith, RequestOptions, ResponseOf } from './types';
 
@@ -106,6 +107,7 @@ async function send(
     if (failure instanceof DOMException && failure.name === 'AbortError') throw failure;
     throw ApiError.network(template);
   }
+  noteServerTime(response.headers.get('X-Server-Time'));
 
   if (!response.ok) {
     const answer = await readBody(response).catch(() => undefined);
