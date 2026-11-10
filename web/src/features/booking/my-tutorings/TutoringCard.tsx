@@ -1,5 +1,5 @@
 import type { Schema } from '@/shared/api';
-import { dayInZone, formatInZone, todayInZone } from '@/shared/time';
+import { dayInZone, formatInZone, serverNow, todayInZone } from '@/shared/time';
 import { Badge, Button } from '@/shared/ui';
 import { cx } from '@/shared/ui/cx';
 
@@ -26,12 +26,12 @@ function DateTile({ date, timezone }: { date: string; timezone: string }) {
 
   return (
     <div
-      className="flex h-16 w-14 sm:h-16 sm:w-16 flex-col items-center justify-center rounded-xl bg-slate-100/70 border border-slate-200/60 flex-shrink-0 text-center select-none"
+      className="flex h-16 w-14 flex-shrink-0 select-none flex-col items-center justify-center rounded-xl bg-info-soft text-center sm:h-16 sm:w-16"
       aria-hidden="true"
     >
-      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">{weekday}</span>
-      <span className="text-xl sm:text-2xl font-bold text-slate-800 leading-none my-0.5">{day}</span>
-      <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 tracking-wider">{month}</span>
+      <span className="text-[10px] font-semibold tracking-wider text-info-text sm:text-[11px]">{weekday}</span>
+      <span className="my-0.5 font-display text-xl font-semibold leading-none text-info-text sm:text-2xl">{day}</span>
+      <span className="text-[10px] font-semibold tracking-wider text-info-text sm:text-[11px]">{month}</span>
     </div>
   );
 }
@@ -42,11 +42,13 @@ function DateTile({ date, timezone }: { date: string; timezone: string }) {
 function getStartsInText(startsAt: string | undefined, timezone: string, joinable?: boolean): string | null {
   if (!startsAt || joinable) return null;
   const target = new Date(startsAt).getTime();
-  const now = Date.now();
+  // The time of the server, not of this computer: the 12 hours of a late cancellation are counted
+  // there, and the demo clock can be moved.
+  const now = serverNow();
   const diffMs = target - now;
   if (diffMs <= 0) return null;
 
-  const isToday = dayInZone(startsAt, timezone) === todayInZone(timezone);
+  const isToday = dayInZone(startsAt, timezone) === todayInZone(timezone, new Date(now));
   const isWithin12Hours = diffMs <= 12 * 3600 * 1000;
 
   if (isToday || isWithin12Hours) {
@@ -150,8 +152,8 @@ export function TutoringCard({
     <article
       aria-label={`${courseName} ${tutorName}`}
       className={cx(
-        'rounded-2xl bg-white p-4 sm:p-5 transition-shadow shadow-sm',
-        isJoinable ? 'border-2 border-brand' : 'border border-gray-200 hover:border-gray-300',
+        'rounded-[20px] bg-white p-4 sm:p-5 transition-shadow shadow-sm',
+        isJoinable ? 'border-2 border-brand' : 'border border-line hover:border-line',
       )}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -160,9 +162,9 @@ export function TutoringCard({
           {booking.startsAt && <DateTile date={booking.startsAt} timezone={timezone} />}
 
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-bold text-gray-900 truncate">{courseName}</h2>
-            <p className="mt-0.5 text-sm text-gray-600">{timeAndDuration}</p>
-            {tutorName && <p className="mt-0.5 text-sm text-gray-500">{tutorName}</p>}
+            <h2 className="text-base font-bold text-ink truncate">{courseName}</h2>
+            <p className="mt-0.5 text-sm text-ink-2">{timeAndDuration}</p>
+            {tutorName && <p className="mt-0.5 text-sm text-ink-2">{tutorName}</p>}
           </div>
         </div>
 
@@ -170,7 +172,7 @@ export function TutoringCard({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3 flex-shrink-0 pl-16 sm:pl-0">
           <div className="flex flex-wrap items-center gap-2">
             {renderStatusBadges()}
-            {startsInText && <span className="text-xs sm:text-sm text-gray-500">{startsInText}</span>}
+            {startsInText && <span className="text-xs sm:text-sm text-ink-2">{startsInText}</span>}
           </div>
           <div>{renderActionButton()}</div>
         </div>
