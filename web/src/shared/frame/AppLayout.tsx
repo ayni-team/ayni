@@ -5,7 +5,6 @@ import { useMe } from '../session/useMe';
 import { useSession } from '../session/useSession';
 import { ErrorState } from '../ui/ErrorState';
 import { PageLoading } from '../ui/Spinner';
-import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { navigationFor, type NavEntry } from './navigation';
 
@@ -67,7 +66,6 @@ export function AppLayout({ navigation, bell }: AppLayoutProps) {
           </Suspense>
         )}
       </main>
-      <AppFooter />
     </div>
   );
 }
