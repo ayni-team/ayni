@@ -202,7 +202,7 @@ export default function MyTutoringsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl py-4 sm:py-6">
+    <div>
       <PageHeader title="Mis tutorías" description={`Las que recibes. Horas en hora de ${zoneCity}.`} />
 
       <Tabs label="Vistas de tutorías" items={TABS} value={view} onChange={handleTabChange} className="mb-6" />
@@ -216,7 +216,7 @@ export default function MyTutoringsPage() {
       {!isLoading && !error && items.length === 0 && (
         <EmptyState
           icon={
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink-2">
               <IconInbox className="h-6 w-6" />
             </div>
           }

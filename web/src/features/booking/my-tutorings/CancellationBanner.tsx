@@ -12,7 +12,7 @@ export function CancellationBanner({ message }: CancellationBannerProps) {
   return (
     <div
       role="status"
-      className="mb-4 inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm"
+      className="mb-4 inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-sm"
     >
       <IconCheck className="h-4 w-4 text-white flex-shrink-0" />
       <span>{message}</span>
