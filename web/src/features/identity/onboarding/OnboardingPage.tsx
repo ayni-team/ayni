@@ -47,6 +47,25 @@ const STEPS: readonly {
   },
 ];
 
+/** The shield of the block that comes from the university, as the design draws it (shared/ui has none). */
+function IconShieldCheck({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
 function stepIndex(step: ActiveStep): number {
   return STEPS.findIndex((candidate) => candidate.value === step);
 }
@@ -69,7 +88,7 @@ function WizardSteps({ active }: { active: ActiveStep }) {
                 className={
                   done || current
                     ? 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-brand-secondary'
-                    : 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-xs font-semibold text-gray-500'
+                    : 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-white text-xs font-semibold text-ink-2'
                 }
               >
                 {done ? <IconCheck className="h-4 w-4" /> : index + 1}
@@ -80,8 +99,8 @@ function WizardSteps({ active }: { active: ActiveStep }) {
                   current
                     ? 'truncate font-semibold text-brand-text'
                     : done
-                      ? 'hidden truncate font-medium text-gray-800 sm:inline'
-                      : 'hidden truncate text-gray-500 sm:inline'
+                      ? 'hidden truncate font-medium text-ink-2 sm:inline'
+                      : 'hidden truncate text-ink-2 sm:inline'
                 }
               >
                 {step.label}
@@ -89,7 +108,7 @@ function WizardSteps({ active }: { active: ActiveStep }) {
             </div>
 
             {index < STEPS.length - 1 && (
-              <span className={done ? 'h-px min-w-4 flex-1 bg-brand' : 'h-px min-w-4 flex-1 bg-gray-300'} />
+              <span className={done ? 'h-px min-w-4 flex-1 bg-brand' : 'h-px min-w-4 flex-1 bg-line'} />
             )}
           </li>
         );
@@ -118,7 +137,7 @@ function OnboardingLoading() {
 
         <Skeleton className="h-4 w-3/4" />
 
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-ink-2">
           <Spinner size="sm" decorative />
 
           <span>Cargando tu perfil…</span>
@@ -137,15 +156,18 @@ function ReadOnlyAcademicData({ me }: { me: Schema<'MyProfileView'> }) {
   ] as const;
 
   return (
-    <div className="rounded-xl bg-gray-50 p-4">
-      <p className="mb-4 text-xs font-semibold text-gray-600">De tu universidad · no editable</p>
+    <div className="rounded-xl bg-surface p-4">
+      <p className="mb-4 flex items-center gap-1.5 text-xs font-semibold text-ink-2">
+        <IconShieldCheck className="h-4 w-4 shrink-0" />
+        De tu universidad · no editable
+      </p>
 
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {fields.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-xs text-gray-500">{label}</dt>
+            <dt className="text-xs text-ink-2">{label}</dt>
 
-            <dd className="mt-1 text-sm font-semibold text-gray-900">{value}</dd>
+            <dd className="mt-1 text-sm font-semibold text-ink">{value}</dd>
           </div>
         ))}
       </dl>
@@ -178,11 +200,11 @@ function ProfileStep({ me }: { me: Schema<'MyProfileView'> }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Bienvenida a Ayni, {firstName}</h1>
+        <h1 className="font-display text-[32px] font-semibold leading-tight text-ink">
+          Bienvenida a Ayni, {firstName}
+        </h1>
 
-        <p className="mt-2 text-sm text-gray-600">
-          Primero, tu perfil. Lo que viene de tu universidad no se edita aquí.
-        </p>
+        <p className="mt-2 text-sm text-ink-2">Primero, tu perfil. Lo que viene de tu universidad no se edita aquí.</p>
       </div>
 
       <Card>
@@ -225,13 +247,13 @@ function CourseLabel({ item, grade }: { item: CatalogItem; grade?: number }) {
   return (
     <div className="flex min-w-0 flex-1 items-start justify-between gap-4">
       <div className="min-w-0">
-        <p className="font-medium text-gray-900">{item.name ?? 'Curso'}</p>
+        <p className="font-medium text-ink">{item.name ?? 'Curso'}</p>
 
-        {item.courseCode && <p className="text-xs text-gray-500">{item.courseCode}</p>}
+        {item.courseCode && <p className="text-xs text-ink-2">{item.courseCode}</p>}
       </div>
 
       {grade !== undefined && (
-        <span className="shrink-0 text-xs text-gray-600">
+        <span className="shrink-0 text-xs text-ink-2">
           Nota{' '}
           {grade.toLocaleString('es-PE', {
             minimumFractionDigits: 2,
@@ -248,14 +270,14 @@ function ImportedCourses({ suggestions }: { suggestions: SuggestedCourse[] }) {
 
   if (valid.length === 0) {
     return (
-      <p className="rounded-xl border border-gray-200 px-4 py-5 text-sm text-gray-600">
+      <p className="rounded-xl border border-line px-4 py-5 text-sm text-ink-2">
         Tu récord se importó, pero no hay cursos habilitados para enseñar todavía.
       </p>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200">
+    <div className="overflow-hidden rounded-xl border border-line">
       {valid.map((suggestion, index) => {
         const item = suggestion.item;
 
@@ -264,7 +286,7 @@ function ImportedCourses({ suggestions }: { suggestions: SuggestedCourse[] }) {
         }
 
         return (
-          <div key={item.id} className={index === 0 ? 'px-4 py-3' : 'border-t border-gray-200 px-4 py-3'}>
+          <div key={item.id} className={index === 0 ? 'px-4 py-3' : 'border-t border-line px-4 py-3'}>
             <CourseLabel item={item} grade={suggestion.grade} />
           </div>
         );
@@ -306,9 +328,9 @@ function AcademicRecordStep({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Tu récord académico</h1>
+        <h1 className="font-display text-[32px] font-semibold leading-tight text-ink">Tu récord académico</h1>
 
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-ink-2">
           Lo traemos de {universityCode} para saber qué cursos podrías enseñar. No guardamos tus notas en tu perfil.
         </p>
       </div>
@@ -330,7 +352,7 @@ function AcademicRecordStep({
             </div>
 
             {suggestions.isPending ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2 py-4 text-sm text-ink-2">
                 <Spinner size="sm" decorative />
 
                 <span>Revisando tus cursos…</span>
@@ -358,9 +380,9 @@ function AcademicRecordStep({
         ) : (
           <>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Aún no importaste tu récord.</p>
+              <p className="text-sm font-semibold text-ink">Aún no importaste tu récord.</p>
 
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-ink-2">
                 Toma unos segundos. Puedes volver a importarlo después desde tu perfil.
               </p>
             </div>
@@ -394,7 +416,7 @@ function SelectableCatalog({
 }) {
   if (items.length === 0) {
     return (
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-ink-2">
         {searching
           ? 'No encontramos cursos con esa búsqueda.'
           : 'Ya aprobaste todos los cursos del catálogo: no tienes nada pendiente en qué pedir ayuda.'}
@@ -436,7 +458,7 @@ function TeachingSuggestions({
   const valid = suggestions.filter((suggestion) => suggestion.item?.id);
 
   if (valid.length === 0) {
-    return <p className="text-sm text-gray-600">No hay cursos de tu récord habilitados para enseñar todavía.</p>;
+    return <p className="text-sm text-ink-2">No hay cursos de tu récord habilitados para enseñar todavía.</p>;
   }
 
   return (
@@ -561,7 +583,7 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
 
         <Skeleton className="h-4 w-full max-w-lg" />
 
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-ink-2">
           <Spinner size="sm" decorative />
 
           <span>Cargando tus cursos…</span>
@@ -601,11 +623,11 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+        <h1 className="font-display text-[32px] font-semibold leading-tight text-ink">
           Lo que necesitas y lo que puedes enseñar
         </h1>
 
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-ink-2">
           Elige en las dos listas. Ambas pueden quedar vacías y las cambias después.
         </p>
       </div>
@@ -614,9 +636,9 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="flex flex-col gap-4">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">¿En qué necesitas ayuda?</h2>
+              <h2 className="font-display text-lg font-semibold text-ink">¿En qué necesitas ayuda?</h2>
 
-              <p className="mt-1 text-xs text-gray-600">Del catálogo de {universityCode}.</p>
+              <p className="mt-1 text-xs text-ink-2">Del catálogo de {universityCode}.</p>
             </div>
 
             <Field label="Buscar en el catálogo">
@@ -629,7 +651,7 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
             </Field>
 
             {catalog.isPending || catalog.isFetching ? (
-              <div className="flex items-center gap-2 py-3 text-sm text-gray-600">
+              <div className="flex items-center gap-2 py-3 text-sm text-ink-2">
                 <Spinner size="sm" decorative />
 
                 <span>Buscando cursos…</span>
@@ -648,9 +670,9 @@ function InterestsStep({ onBack, refetchMe }: { onBack: () => void; refetchMe: (
 
           <Card className="flex flex-col gap-4">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">¿Qué puedes enseñar?</h2>
+              <h2 className="font-display text-lg font-semibold text-ink">¿Qué puedes enseñar?</h2>
 
-              <p className="mt-1 text-xs text-gray-600">Solo cursos de tu récord.</p>
+              <p className="mt-1 text-xs text-ink-2">Solo cursos de tu récord.</p>
             </div>
 
             <TeachingSuggestions
