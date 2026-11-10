@@ -207,7 +207,7 @@ cannot be audited.
 *Policy: a skill can only be offered if it is enabled*, by grade or by reviewed evidence.
 
 **Tutor** `DeclareWeeklyAvailability` (ranges on a weekly timetable, for example Monday 17:00–19:00)
-→ **AvailabilityPublished** → **HoursGenerated**
+→ **HoursGenerated**
 
 The ranges repeat every week. **Availability belongs to the tutor, not to a skill**: being free on
 Monday at five means being free, and any enabled skill can be taught in that hour. Forcing one

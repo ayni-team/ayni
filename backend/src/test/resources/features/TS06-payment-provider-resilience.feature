@@ -1,5 +1,7 @@
-# Scenarios map to PaymentProviderResilienceAcceptanceTest and
-# PaymentProviderCircuitBreakerTest / ResilientPaymentProviderTest.
+# The first scenario runs over HTTP against a real PostgreSQL in
+# PaymentProviderResilienceAcceptanceTest; the timeout and the circuit, with a fake provider and
+# without Spring, in ResilientPaymentProviderTest, each with the scenario's name. The states of the
+# circuit itself are covered by PaymentProviderCircuitBreakerTest.
 
 Feature: Keep Ayni available during a payment provider outage
 

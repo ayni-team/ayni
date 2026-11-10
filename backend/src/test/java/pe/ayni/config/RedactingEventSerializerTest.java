@@ -15,7 +15,6 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import pe.ayni.shared.domain.CreditType;
 import pe.ayni.shared.domain.Credits;
 import pe.ayni.shared.events.AccessRequested;
-import pe.ayni.shared.events.AvailabilityPublished;
 import pe.ayni.shared.events.BookingCancelled;
 import pe.ayni.shared.events.BookingConfirmed;
 import pe.ayni.shared.events.CoordinatorActivated;
@@ -37,7 +36,6 @@ import pe.ayni.shared.events.SkillEnabled;
 import pe.ayni.shared.events.SkillWithdrawn;
 import pe.ayni.shared.events.StudentActivated;
 import pe.ayni.shared.events.UniversityRegistered;
-import pe.ayni.shared.events.UniversitySuspended;
 import pe.ayni.shared.events.ValidationResolved;
 import pe.ayni.shared.events.WhiteboardClosed;
 
@@ -65,7 +63,6 @@ class RedactingEventSerializerTest {
     UUID b = UUID.randomUUID();
     UUID c = UUID.randomUUID();
     return Stream.of(
-        new AvailabilityPublished("UPC", a, AT),
         new BookingCancelled(
             "UPC", a, b, c, List.of(a), BookingCancelled.CancelledBy.TUTOR, true, AT),
         new BookingConfirmed(
@@ -87,7 +84,6 @@ class RedactingEventSerializerTest {
         new SkillEnabled("UPC", a, b, AT),
         new SkillWithdrawn("UPC", a, b, AT),
         new UniversityRegistered("UPC", "Universidad Peruana de Ciencias Aplicadas", AT),
-        new UniversitySuspended("UPC", AT),
         new ValidationResolved("UPC", a, b, c, true, null, AT),
         new WhiteboardClosed("UPC", a, b, c, false, AT));
   }

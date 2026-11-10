@@ -1,29 +1,12 @@
 # US03 - As a student, I want to book a block of tutoring with a tutor, so that I get help with a
 # subject at an hour that suits us both, paying for it with my credits.
 #
-# Every scenario names the test that runs it, against a real PostgreSQL. A scenario nobody runs yet
-# is tagged @pending and says why.
+# Every scenario has a test with its name as display name, against a real PostgreSQL, mostly in
+# BookABlockAcceptanceTest. The races and the rollbacks have their own tests beside it
+# (HoldRaceTest, BookingConfirmationDatabaseTest, ExpiredHoldsJobTest); the session of the booking
+# is SessionOnBookingConfirmedTest (sessions) and the confirmation email NoticesAcceptanceTest
+# (notifications). A scenario nobody runs yet is tagged @pending and says why.
 #
-#   Successful booking                   BookABlockAcceptanceTest.successfulBooking
-#                                        BookABlockAcceptanceTest.aSecondAttemptIsRefused
-#   Credits closest to expiring first    BookABlockAcceptanceTest.creditsClosestToExpiringAreSpentFirst
-#   Insufficient credits                 BookABlockAcceptanceTest.insufficientCreditsSayHowManyAreMissing
-#                                        BookingConfirmationDatabaseTest.walletsRefusalIsNotAnUnexpectedRollback
-#   Block taken, while choosing          BookABlockAcceptanceTest.anHourAnotherStudentHoldsCannotBeTaken
-#                                        HoldRaceTest.exactlyOneStudentHoldsTheHour
-#   Block taken, while confirming        BookABlockAcceptanceTest.confirmingAnHourAnotherStudentHoldsChargesNothing
-#                                        BookingConfirmationDatabaseTest.theVersionColumnDecidesARaceAtConfirmation
-#   The hold says the server time       BookABlockAcceptanceTest.theHoldSaysWhatTimeItIsForTheServer
-#   Temporary hold expiry                BookABlockAcceptanceTest.anUnconfirmedHoldExpiresAfterFiveMinutes
-#                                        BookABlockAcceptanceTest.confirmingAnExpiredHoldIsRefused
-#                                        ExpiredHoldsJobTest.freesTheExpiredHoldsOfEveryUniversity
-#   Failure during the booking           BookABlockAcceptanceTest.aFailureDuringTheBookingLeavesNothingBehind
-#                                        BookingConfirmationDatabaseTest.aFailureAfterEverythingWasWrittenLeavesNothingBehind
-#   The booking creates the session      BookABlockAcceptanceTest.successfulBooking
-#                                        SessionOnBookingConfirmedTest (sessions module)
-#   Need description, booking & session  BookABlockAcceptanceTest.theNeedDescriptionTravelsWithTheBooking
-#   Leaving the confirmation             BookABlockAcceptanceTest.leavingTheConfirmationGivesTheHoursBack
-#   Receiving the booking confirmation   NoticesAcceptanceTest.receivingTheBookingConfirmation (notifications)
 
 Feature: Booking a block of tutoring
 

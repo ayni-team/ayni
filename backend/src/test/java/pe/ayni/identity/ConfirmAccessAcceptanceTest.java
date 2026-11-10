@@ -244,7 +244,7 @@ class ConfirmAccessAcceptanceTest {
     }
 
     @Test
-    @DisplayName("First access of a new student creates the account from the academic system")
+    @DisplayName("First access of a new student with their academic profile")
     void firstAccessActivatesNewStudent() throws Exception {
 
         String email =

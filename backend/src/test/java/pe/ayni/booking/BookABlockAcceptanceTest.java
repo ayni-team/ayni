@@ -88,7 +88,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Block taken seconds earlier by another student: the hold is refused clearly")
+  @DisplayName("Block taken seconds earlier by another student, while choosing")
   void anHourAnotherStudentHoldsCannotBeTaken() throws Exception {
 
     hold(ana, tomorrowAt(10), 1).andExpect(status().isCreated());
@@ -105,7 +105,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Temporary hold expiry: after five minutes without confirming, the block is freed")
+  @DisplayName("Temporary hold expiry")
   void anUnconfirmedHoldExpiresAfterFiveMinutes() throws Exception {
 
     hold(ana, tomorrowAt(11), 1).andExpect(status().isCreated());
@@ -125,7 +125,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Leaving the confirmation gives the hours back at once, and twice is harmless")
+  @DisplayName("Leaving the confirmation")
   void leavingTheConfirmationGivesTheHoursBack() throws Exception {
 
     hold(ana, tomorrowAt(9), 2).andExpect(status().isCreated());
@@ -193,7 +193,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Successful booking: credits deducted, block taken for others, BookingConfirmed")
+  @DisplayName("Successful booking")
   void successfulBooking() throws Exception {
 
     grant(ana, 5);
@@ -268,7 +268,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Consumption by expiry order: the credits closest to expiring are spent first")
+  @DisplayName("Credits closest to expiring are spent first")
   void creditsClosestToExpiringAreSpentFirst() throws Exception {
 
     Instant now = clock.instant();
@@ -303,7 +303,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Insufficient credits: the answer says how many are missing and nothing moves")
+  @DisplayName("Insufficient credits")
   void insufficientCreditsSayHowManyAreMissing() throws Exception {
 
     grant(ana, 1);
@@ -324,7 +324,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Block taken seconds earlier by another student: confirming it charges nothing")
+  @DisplayName("Block taken seconds earlier by another student, while confirming")
   void confirmingAnHourAnotherStudentHoldsChargesNothing() throws Exception {
 
     grant(bruno, 3);
@@ -357,7 +357,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Failure during the booking: the balance is as it was and the block is freed")
+  @DisplayName("Failure during the booking")
   void aFailureDuringTheBookingLeavesNothingBehind() throws Exception {
 
     grant(ana, 3);
@@ -385,7 +385,7 @@ class BookABlockAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("Need description: it travels with the booking and is readable by other modules")
+  @DisplayName("The need description travels with the booking")
   void theNeedDescriptionTravelsWithTheBooking() throws Exception {
 
     grant(ana, 3);
