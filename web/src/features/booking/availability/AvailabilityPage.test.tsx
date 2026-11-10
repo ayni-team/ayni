@@ -119,6 +119,25 @@ describe('FE-40 tutor availability', () => {
     expect(state.server.requests('GET', '/api/v1/tutor/availability')).toHaveLength(1);
   });
 
+  it('offers whole hours that read 15:00, and marks the fields required without an asterisk', async () => {
+    serveAvailability();
+    renderWithProviders(<AvailabilityPage />, { route: '/tutor/disponibilidad' });
+
+    const weekly = await screen.findByRole('region', { name: 'Horario semanal' });
+    const from = within(weekly).getByLabelText(/^Desde/);
+
+    expect(from.tagName).toBe('SELECT');
+    expect(
+      within(from)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toContain('15:00');
+    expect(within(from).getAllByRole('option')).toHaveLength(24);
+    expect(from).toBeRequired();
+    expect(within(weekly).getByLabelText('Día')).toBeRequired();
+    expect(within(weekly).queryByText('*')).not.toBeInTheDocument();
+  });
+
   it('declares a range, reports generated hours and shows it after the GET refresh', async () => {
     signIn('STUDENT');
 
@@ -180,13 +199,9 @@ describe('FE-40 tutor availability', () => {
 
     const validFrom = within(weekly).getByLabelText(/^Vigente desde/);
 
-    await user.clear(from);
+    await user.selectOptions(from, '15:00');
 
-    await user.type(from, '15:00');
-
-    await user.clear(to);
-
-    await user.type(to, '17:00');
+    await user.selectOptions(to, '17:00');
 
     await user.clear(validFrom);
 
@@ -232,13 +247,9 @@ describe('FE-40 tutor availability', () => {
 
     const to = within(weekly).getByLabelText(/^Hasta/);
 
-    await user.clear(from);
+    await user.selectOptions(from, '15:00');
 
-    await user.type(from, '15:00');
-
-    await user.clear(to);
-
-    await user.type(to, '14:00');
+    await user.selectOptions(to, '14:00');
 
     await user.click(
       within(weekly).getByRole('button', {
@@ -340,13 +351,9 @@ describe('FE-40 tutor availability', () => {
 
     const to = within(exceptionCard).getByLabelText(/^Hasta/);
 
-    await user.clear(from);
+    await user.selectOptions(from, '16:00');
 
-    await user.type(from, '16:00');
-
-    await user.clear(to);
-
-    await user.type(to, '18:00');
+    await user.selectOptions(to, '18:00');
 
     await user.click(
       within(exceptionCard).getByRole('button', {

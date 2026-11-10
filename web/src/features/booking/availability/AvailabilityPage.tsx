@@ -24,6 +24,16 @@ const AVAILABILITY_KEY = ['booking', 'tutor-availability'] as const;
 
 const CURRENT_PAUSE_KEY = ['booking', 'current-availability-pause'] as const;
 
+/**
+ * The hours a block can start or end at. Blocks are one hour long, so a range goes from one o'clock
+ * to another: a list of whole hours reads "15:00" whatever the language of the browser, which an
+ * `<input type="time">` does not (it showed "03:00 PM").
+ */
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => {
+  const value = `${String(hour).padStart(2, '0')}:00`;
+  return { value, label: value };
+});
+
 const DAY_OPTIONS = [
   {
     value: 'MONDAY',
@@ -176,15 +186,15 @@ function WeeklyRangeList({
     return (
       <div
         role="alert"
-        className="flex flex-col gap-3 rounded-lg bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-3 rounded-lg bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div className="flex items-start gap-2">
-          <IconInfo className="mt-0.5 h-4 w-4 shrink-0 text-gray-600" />
+          <IconInfo className="mt-0.5 h-4 w-4 shrink-0 text-ink-2" />
 
           <div>
-            <p className="text-sm font-medium text-gray-900">No pudimos mostrar lo que ya declaraste</p>
+            <p className="text-sm font-medium text-ink">No pudimos mostrar lo que ya declaraste</p>
 
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="mt-1 text-xs text-ink-2">
               Puedes declarar horarios nuevos mientras vuelves a cargar la lista.
             </p>
           </div>
@@ -199,16 +209,16 @@ function WeeklyRangeList({
 
   if (ranges.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-center">
-        <p className="text-sm font-medium text-gray-900">Aún no declaraste horarios semanales</p>
+      <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
+        <p className="text-sm font-medium text-ink">Aún no declaraste horarios semanales</p>
 
-        <p className="mt-1 text-xs text-gray-600">Agrega un rango y aparecerá aquí también cuando vuelvas a entrar.</p>
+        <p className="mt-1 text-xs text-ink-2">Agrega un rango y aparecerá aquí también cuando vuelvas a entrar.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200">
+    <div className="overflow-hidden rounded-xl border border-line">
       {ranges.map((range, index) => {
         const id = range.id;
 
@@ -220,15 +230,15 @@ function WeeklyRangeList({
             className={
               index === 0
                 ? 'flex items-center justify-between gap-4 px-4 py-3'
-                : 'flex items-center justify-between gap-4 border-t border-gray-200 px-4 py-3'
+                : 'flex items-center justify-between gap-4 border-t border-line px-4 py-3'
             }
           >
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-ink">
                 {day} · {formatTime(range.startsAtTime)} – {formatTime(range.endsAtTime)}
               </p>
 
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-ink-2">
                 Vigente desde el {formatShortDate(range.validFrom)}
                 {range.validUntil ? ` hasta el ${formatShortDate(range.validUntil)}` : ''}
               </p>
@@ -255,7 +265,7 @@ function WeeklyRangeList({
 function HelpfulInformation() {
   return (
     <Card title="Lo que conviene saber">
-      <div className="flex flex-col gap-4 text-sm text-gray-600">
+      <div className="flex flex-col gap-4 text-sm text-ink-2">
         <div className="flex items-start gap-2">
           <IconInfo className="mt-0.5 h-4 w-4 shrink-0" />
 
@@ -644,12 +654,13 @@ export default function AvailabilityPage() {
                 onRemove={removePattern}
               />
 
-              <form onSubmit={submitRange} className="flex flex-col gap-3 border-t border-gray-200 pt-4" noValidate>
-                <p className="text-sm font-semibold text-gray-900">Agregar un rango</p>
+              <form onSubmit={submitRange} className="flex flex-col gap-3 border-t border-line pt-4" noValidate>
+                <p className="text-sm font-semibold text-ink">Agregar un rango</p>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.25fr_0.85fr_0.85fr_1.25fr_auto] lg:items-end">
-                  <Field label="Día" required>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.3fr_auto] lg:items-end">
+                  <Field label="Día">
                     <Select
+                      required
                       options={DAY_OPTIONS}
                       value={range.dayOfWeek}
                       onChange={(event) => {
@@ -663,9 +674,10 @@ export default function AvailabilityPage() {
                     />
                   </Field>
 
-                  <Field label="Desde" required>
-                    <TextField
-                      type="time"
+                  <Field label="Desde">
+                    <Select
+                      required
+                      options={HOUR_OPTIONS}
                       value={range.startsAtTime}
                       onChange={(event) => {
                         setRangeEndError(undefined);
@@ -678,9 +690,10 @@ export default function AvailabilityPage() {
                     />
                   </Field>
 
-                  <Field label="Hasta" required error={rangeEndError}>
-                    <TextField
-                      type="time"
+                  <Field label="Hasta" error={rangeEndError}>
+                    <Select
+                      required
+                      options={HOUR_OPTIONS}
                       value={range.endsAtTime}
                       onChange={(event) => {
                         setRangeEndError(undefined);
@@ -693,8 +706,9 @@ export default function AvailabilityPage() {
                     />
                   </Field>
 
-                  <Field label="Vigente desde" required>
+                  <Field label="Vigente desde">
                     <TextField
+                      required
                       type="date"
                       value={range.validFrom}
                       onChange={(event) => {
@@ -725,8 +739,9 @@ export default function AvailabilityPage() {
           <Card title="Excepción de un día" description="Agrega o quita horas solo en una fecha.">
             <form onSubmit={submitException} className="flex flex-col gap-3" noValidate>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.35fr_0.9fr_0.9fr_auto] lg:items-end">
-                <Field label="Fecha" required>
+                <Field label="Fecha">
                   <TextField
+                    required
                     type="date"
                     value={exception.exceptionDate}
                     onChange={(event) => {
@@ -740,8 +755,9 @@ export default function AvailabilityPage() {
                   />
                 </Field>
 
-                <Field label="Tipo" required>
+                <Field label="Tipo">
                   <Select
+                    required
                     options={EXCEPTION_OPTIONS}
                     value={exception.kind}
                     onChange={(event) => {
@@ -756,8 +772,9 @@ export default function AvailabilityPage() {
                 </Field>
 
                 <Field label="Desde">
-                  <TextField
-                    type="time"
+                  <Select
+                    options={HOUR_OPTIONS}
+                    placeholder="—"
                     value={exception.startsAtTime}
                     onChange={(event) => {
                       setExceptionTimeError(undefined);
@@ -771,8 +788,9 @@ export default function AvailabilityPage() {
                 </Field>
 
                 <Field label="Hasta" error={exceptionTimeError}>
-                  <TextField
-                    type="time"
+                  <Select
+                    options={HOUR_OPTIONS}
+                    placeholder="—"
                     value={exception.endsAtTime}
                     onChange={(event) => {
                       setExceptionTimeError(undefined);
@@ -795,7 +813,7 @@ export default function AvailabilityPage() {
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-ink-2">
                 En “Quitar horas” puedes dejar Desde y Hasta vacíos para quitar todo el día.
               </p>
 
@@ -818,7 +836,7 @@ export default function AvailabilityPage() {
               </div>
             ) : currentPause.isError ? (
               <div role="alert" className="flex flex-col gap-3">
-                <p className="text-sm font-medium text-gray-900">No pudimos revisar si estás en pausa.</p>
+                <p className="text-sm font-medium text-ink">No pudimos revisar si estás en pausa.</p>
 
                 <Button
                   variant="secondary"
@@ -849,11 +867,12 @@ export default function AvailabilityPage() {
               </div>
             ) : (
               <form onSubmit={submitPause} className="flex flex-col gap-4" noValidate>
-                <p className="text-sm text-gray-600">No estás en pausa.</p>
+                <p className="text-sm text-ink-2">No estás en pausa.</p>
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
-                  <Field label="Desde" required>
+                  <Field label="Desde">
                     <TextField
+                      required
                       type="date"
                       value={pause.startsOn}
                       onChange={(event) => {
@@ -867,8 +886,9 @@ export default function AvailabilityPage() {
                     />
                   </Field>
 
-                  <Field label="Hasta" required error={pauseDateError}>
+                  <Field label="Hasta" error={pauseDateError}>
                     <TextField
+                      required
                       type="date"
                       value={pause.endsOn}
                       onChange={(event) => {
