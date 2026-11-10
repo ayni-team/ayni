@@ -18,7 +18,9 @@ export const bookingRoutes: FeatureRoutes = {
     { path: '/tutor/agenda', access: ['STUDENT'], screen: 'FE-41', element: <AgendaPage /> },
   ],
   navigation: [
-    { to: '/mis-tutorias', label: 'Mis tutorías', role: 'STUDENT', group: 'learn', order: 20 },
+    // A session is reached from Mis tutorías, so the tab stays active inside it. A tutor reaches it
+    // from Agenda too, but the route does not say in which role it is opened.
+    { to: '/mis-tutorias', label: 'Mis tutorías', role: 'STUDENT', group: 'learn', order: 20, also: ['/sesion'] },
     { to: '/tutor/disponibilidad', label: 'Disponibilidad', role: 'STUDENT', group: 'teach', order: 20 },
     { to: '/tutor/agenda', label: 'Agenda', role: 'STUDENT', group: 'teach', order: 10 },
   ],
