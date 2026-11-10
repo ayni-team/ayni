@@ -9,5 +9,7 @@ const SearchPage = lazy(() => import('./search/SearchPage'));
  */
 export const matchingRoutes: FeatureRoutes = {
   routes: [{ path: '/buscar', access: ['STUDENT'], screen: 'FE-10', element: <SearchPage /> }],
-  navigation: [{ to: '/buscar', label: 'Buscar', role: 'STUDENT', group: 'learn', order: 10 }],
+  navigation: [
+    { to: '/buscar', label: 'Buscar tutoría', role: 'STUDENT', group: 'learn', order: 10, also: ['/reservar'] },
+  ],
 };

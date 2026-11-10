@@ -65,7 +65,7 @@ export function SearchDayList({
 
           return (
             <section key={day} aria-label={dayHeading} className="space-y-2.5">
-              <h3 className="text-sm font-semibold text-gray-700 px-1">{dayHeading}</h3>
+              <h3 className="text-sm font-semibold text-ink-2 px-1">{dayHeading}</h3>
 
               <div className="space-y-2">
                 {dayOffers.map((offer) => {
@@ -83,12 +83,12 @@ export function SearchDayList({
                   return (
                     <div
                       key={offer.blockId ?? `${offer.tutorId}-${offer.startsAt}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs hover:border-gray-300 transition-colors sm:p-4"
+                      className="flex items-center justify-between gap-3 rounded-[20px] border border-line bg-white p-3.5 shadow-xs hover:border-line transition-colors sm:p-4"
                     >
                       {/* Left: Time start / end */}
                       <div className="w-14 shrink-0 text-left">
-                        <div className="text-sm font-bold text-gray-900">{startStr}</div>
-                        <div className="text-xs text-gray-500">{endStr}</div>
+                        <div className="text-sm font-bold text-ink">{startStr}</div>
+                        <div className="text-xs text-ink-2">{endStr}</div>
                       </div>
 
                       {/* Center: Tutor Avatar & Details */}
@@ -96,12 +96,12 @@ export function SearchDayList({
                         <Avatar name={offer.tutorName ?? ''} size="md" className="shrink-0" />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="truncate text-sm font-semibold text-gray-900">{offer.tutorName}</p>
+                            <p className="truncate text-sm font-semibold text-ink">{offer.tutorName}</p>
                             {offer.newTutor && <Badge tone="info">Tutor nuevo</Badge>}
                           </div>
-                          <p className="truncate text-xs text-gray-600 mt-0.5">{starsText}</p>
+                          <p className="truncate text-xs text-ink-2 mt-0.5">{starsText}</p>
                           {offer.sessionsTaught !== undefined && (
-                            <p className="hidden text-xs text-gray-500 sm:block mt-0.5">
+                            <p className="hidden text-xs text-ink-2 sm:block mt-0.5">
                               {offer.sessionsTaught} {offer.sessionsTaught === 1 ? 'sesión' : 'sesiones'} de este curso
                             </p>
                           )}
