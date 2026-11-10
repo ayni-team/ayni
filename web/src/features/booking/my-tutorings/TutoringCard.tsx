@@ -1,5 +1,5 @@
 import type { Schema } from '@/shared/api';
-import { dayInZone, formatInZone, todayInZone } from '@/shared/time';
+import { dayInZone, formatInZone, serverNow, todayInZone } from '@/shared/time';
 import { Badge, Button } from '@/shared/ui';
 import { cx } from '@/shared/ui/cx';
 
@@ -60,6 +60,11 @@ function getStartsInText(startsAt: string | undefined, timezone: string, joinabl
   return null;
 }
 
+/** Whether the hour of a tutoring is over, by the time of the server. */
+export function hasEnded(endsAt: string | undefined, now: number = serverNow()): boolean {
+  return Boolean(endsAt) && new Date(endsAt as string).getTime() <= now;
+}
+
 /**
  * Single booking card for upcoming and history views.
  * Highlights joinable sessions with a red brand border and primary "Entrar" button.
@@ -100,14 +105,20 @@ export function TutoringCard({
 
     switch (booking.status) {
       case 'COMPLETED':
-        return <Badge tone="neutral">Completada</Badge>;
+        return <Badge tone="neutral">Realizada</Badge>;
       case 'NO_SHOW':
         return <Badge tone="warning">No asistió</Badge>;
       case 'CANCELLED':
         return <Badge tone="danger">Cancelada</Badge>;
       case 'CONFIRMED':
       default:
-        return <Badge tone="info">Confirmada</Badge>;
+        // The backend keeps a booking that took place as CONFIRMED; once its hour ended, by the
+        // clock of the server, it is told as done.
+        return hasEnded(booking.endsAt) ? (
+          <Badge tone="neutral">Realizada</Badge>
+        ) : (
+          <Badge tone="info">Confirmada</Badge>
+        );
     }
   };
 

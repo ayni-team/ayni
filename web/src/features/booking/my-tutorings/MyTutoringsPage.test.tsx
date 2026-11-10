@@ -246,7 +246,7 @@ describe('FE-12 MyTutoringsPage', () => {
     await user.click(historyTab);
 
     // History badges
-    expect(await screen.findByText('Completada')).toBeInTheDocument();
+    expect(await screen.findByText('Realizada')).toBeInTheDocument();
     expect(screen.getByText('No asistió')).toBeInTheDocument();
     expect(screen.getByText('Cancelada')).toBeInTheDocument();
 
@@ -273,6 +273,29 @@ describe('FE-12 MyTutoringsPage', () => {
     await user.click(await screen.findByRole('tab', { name: 'Historial' }));
 
     expect(await screen.findAllByRole('button', { name: 'Repasar' })).toHaveLength(1);
+  });
+
+  it('tells a confirmed tutoring whose hour ended, by the server, as done', async () => {
+    const server = setupServer();
+    const ended = { ...HISTORY_BOOKINGS[0], status: 'CONFIRMED', endsAt: '2020-01-01T15:00:00Z' };
+    const ahead = {
+      ...HISTORY_BOOKINGS[0],
+      bookingId: 'still-ahead',
+      status: 'CONFIRMED',
+      startsAt: '2999-01-01T14:00:00Z',
+      endsAt: '2999-01-01T15:00:00Z',
+    };
+    server.on('GET', '/api/v1/bookings/mine', (req) =>
+      req.query.get('view') === 'HISTORY'
+        ? { body: { ...HISTORY_RESPONSE, items: [ended, ahead] } }
+        : { body: UPCOMING_RESPONSE },
+    );
+
+    const { user } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('tab', { name: 'Historial' }));
+
+    expect(await screen.findByText('Realizada')).toBeInTheDocument();
+    expect(screen.getByText('Confirmada')).toBeInTheDocument();
   });
 
   it('shows empty state when student has no tutorings', async () => {
