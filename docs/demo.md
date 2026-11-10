@@ -173,6 +173,22 @@ A student activated live gets the university's five initial credits.
 of the document; only its `students` are read, and an address in both files is the local one. See
 `backend/academic-directory/README.md`.
 
+### Campus benefits
+
+Under `demo`, `wallet.infrastructure.DemoCampusBenefitsData` has the coordinator of each university
+create three campus benefits, through the same use case as `POST /api/v1/coordinator/benefits`, once
+the coordinators exist. Their costs are chosen against the three earned credits of the tutors
+above, so FE-33 shows a redemption and a refusal:
+
+| Benefit | Cost | What it shows |
+|---|---|---|
+| Impresiones en la biblioteca | 1 | a redemption anybody with an earned credit can make |
+| Menú en la cafetería | 3 | a tutor's three earned credits, spent at once: a second one is refused |
+| Taller de oratoria | 8 | more than anybody has earned: refused with `missingCredits: 5` for a tutor |
+
+A second start finds them by name and creates nothing; a benefit the coordinator renamed or
+deactivated since is left as it is.
+
 ## The history
 
 Nobody enters the sessions the demonstration books, so without help the database would have no

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { errorText, isApiError, useApiMutation, useApiQuery, useIdempotencyKey } from '@/shared/api';
+import { errorBody, errorText, isApiError, useApiMutation, useApiQuery, useIdempotencyKey } from '@/shared/api';
 import {
   Button,
   Card,
@@ -25,6 +25,7 @@ import {
   refusalText,
   type Benefit,
   type CreditUse,
+  type Refusal,
 } from './benefits';
 
 interface Pending {
@@ -106,7 +107,7 @@ export default function BenefitsPage() {
       setAmount('1');
     } catch (failure) {
       if (isApiError(failure, 409)) {
-        toast.error(refusalText(pending.use.credits, earned));
+        toast.error(refusalText(errorBody<Refusal>(failure)));
         key.renew();
         setPending(null);
       } else {
