@@ -23,13 +23,9 @@ export function NeedForm({
   onBuyCredits,
 }: NeedFormProps) {
   return (
-    <form
-      noValidate
-      onSubmit={onSubmit}
-      className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-    >
+    <form noValidate onSubmit={onSubmit} className="space-y-4 rounded-[20px] border border-line bg-white p-6 shadow-sm">
       <div>
-        <label htmlFor="needDescription" className="block text-sm font-semibold text-gray-900 mb-2">
+        <label htmlFor="needDescription" className="block text-sm font-semibold text-ink mb-2">
           ¿En qué necesitas ayuda?
         </label>
         <textarea
@@ -40,9 +36,9 @@ export function NeedForm({
           rows={4}
           maxLength={500}
           disabled={disabled || isConfirming}
-          className="block w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:bg-gray-50 disabled:text-gray-400 resize-y"
+          className="block w-full rounded-xl border border-line p-3 text-sm text-ink placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:bg-surface disabled:text-gray-400 resize-y"
         />
-        <p className="mt-1.5 text-xs text-gray-500">Obligatorio. Tu tutor lo lee antes de la sesión.</p>
+        <p className="mt-1.5 text-xs text-ink-2">Obligatorio. Tu tutor lo lee antes de la sesión.</p>
         {error && (
           <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">
             {error}

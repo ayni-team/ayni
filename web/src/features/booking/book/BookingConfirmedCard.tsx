@@ -45,20 +45,20 @@ export function BookingConfirmedCard({
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900">Reserva confirmada</h1>
+      <h1 className="text-2xl font-bold text-ink">Reserva confirmada</h1>
 
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 sm:p-8 shadow-sm space-y-3">
+      <div className="rounded-[20px] border border-line bg-white p-6 sm:p-8 shadow-sm space-y-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-100 text-sky-600">
           <IconCheck className="h-6 w-6 stroke-[2.5]" />
         </div>
 
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Listo, {tutorName} te espera</h2>
-          <p className="mt-1 text-xs text-gray-500">
+          <h2 className="text-lg font-bold text-ink">Listo, {tutorName} te espera</h2>
+          <p className="mt-1 text-xs text-ink-2">
             {dayText}
             {timeRange ? ` · ${timeRange}` : ''} · {courseName}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-ink-2">
             Se descontó {creditsCharged} {creditsCharged === 1 ? 'crédito' : 'créditos'}. La sala se abre 15 minutos
             antes.
           </p>
