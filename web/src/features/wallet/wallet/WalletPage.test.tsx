@@ -72,11 +72,11 @@ describe('FE-30 WalletPage', () => {
 
     expect(await screen.findByText(/1 ganado en total/)).toBeInTheDocument();
     const allocated = screen.getByRole('heading', { name: 'Asignados por la UPC' }).closest('article');
-    expect(within(allocated as HTMLElement).getByText('7 vencen el 15 dic')).toBeInTheDocument();
+    expect(within(allocated as HTMLElement).getByText('7 vigentes hasta el 14/12')).toBeInTheDocument();
     const earned = screen.getByRole('heading', { name: 'Ganados enseñando' }).closest('article');
     expect(within(earned as HTMLElement).getByText('No vencen')).toBeInTheDocument();
     expect(within(earned as HTMLElement).getByText('Cuenta para el reconocimiento')).toBeInTheDocument();
-    expect(screen.getByText('7 créditos asignados por la UPC vencen el 15 de diciembre.')).toBeInTheDocument();
+    expect(screen.getByText('7 créditos asignados por la UPC están vigentes hasta el 14/12.')).toBeInTheDocument();
     expect(screen.queryByText(/English text/)).not.toBeInTheDocument();
   });
 
