@@ -71,7 +71,12 @@ public record SessionResponse(
     @Schema(description = "What was prepared from the need so the tutor arrives prepared (US07); "
         + "null when the service did not prepare it, and then the session shows only the need",
         nullable = true)
-        Material supportMaterial) {
+        Material supportMaterial,
+    @Schema(description = "True for a practice room: a room two accounts open to try the screen, "
+        + "its video and its whiteboard, which lives only in memory, moves no credit and has no "
+        + "rating. The screen goes back to the practice page when it ends. False for every real "
+        + "session", example = "false")
+        boolean practice) {
 
   /** The course or tool a session is about, with the name the catalogue gives it. */
   @Schema(name = "SessionCatalogItem")
@@ -144,6 +149,15 @@ public record SessionResponse(
   }
 
   static SessionResponse of(SessionDetails session) {
+    return of(session, false);
+  }
+
+  /** A practice room, read as a session ({@code PracticeRooms}). */
+  static SessionResponse ofPractice(SessionDetails room) {
+    return of(room, true);
+  }
+
+  private static SessionResponse of(SessionDetails session, boolean practice) {
     return new SessionResponse(
         session.id(),
         session.bookingId(),
@@ -167,6 +181,7 @@ public record SessionResponse(
         session.endConfirmedAt(),
         session.endedAt(),
         session.closesAt(),
-        Material.of(session.supportMaterial()));
+        Material.of(session.supportMaterial()),
+        practice);
   }
 }

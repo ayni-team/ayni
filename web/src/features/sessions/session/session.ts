@@ -105,6 +105,13 @@ export interface RoomNotice {
 /** The line that waits for the other person. Only a tutor who does not come gives the credit back. */
 export function waitingNotice(session: Session, zone: string): RoomNotice {
   const name = otherName(session);
+  if (session.practice) {
+    return {
+      tone: 'info',
+      title: `Esperando a ${name}`,
+      detail: 'Es una sala de práctica: comparte su enlace con la otra cuenta. No se cancela si tarda.',
+    };
+  }
   const limit = noShowLimit(session, zone);
   const consequence =
     session.role === 'TUTOR' ? 'la sesión se cancela.' : 'la sesión se cancela y te devolvemos el crédito.';

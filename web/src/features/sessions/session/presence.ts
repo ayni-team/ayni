@@ -41,9 +41,17 @@ export function unverifiedConsequence(session: Session): string {
 }
 
 export function ifNobodyConfirms(session: Session): string {
+  if (session.practice) return 'En una sala de práctica no se gana ni se devuelve ningún crédito.';
   return session.role === 'TUTOR'
     ? 'Si alguien no confirma, la sesión queda sin verificar: no ganas horas y el estudiante recupera su crédito.'
     : 'Si alguien no confirma, la sesión queda sin verificar: el tutor no gana horas y tus créditos vuelven a ti.';
+}
+
+/** Where the code comes from. A practice room sends none and takes any six digits. */
+export function codeHint(session: Session): string {
+  return session.practice
+    ? 'Sala de práctica: no se envía ningún correo. Escribe cualquier código de 6 dígitos.'
+    : 'Te enviamos un código de 6 dígitos a tu correo institucional. Escríbelo aquí.';
 }
 
 export function confirmedDetail(session: Session, time: string): string {

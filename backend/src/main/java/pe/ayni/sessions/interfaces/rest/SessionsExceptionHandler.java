@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import pe.ayni.sessions.domain.model.NotAParticipant;
+import pe.ayni.sessions.domain.model.PracticeRoomsFull;
 import pe.ayni.sessions.domain.model.WhiteboardVersionConflict;
 import pe.ayni.sessions.domain.model.PresenceCheckUnavailable;
 import pe.ayni.sessions.domain.model.PresenceResendRefused;
@@ -35,7 +36,8 @@ import pe.ayni.shared.tenancy.MissingUserException;
     assignableTypes = {
       SessionsController.class,
       WhiteboardController.class,
-      SessionReviewController.class
+      SessionReviewController.class,
+      PracticeRoomsController.class
     })
 class SessionsExceptionHandler {
 
@@ -49,6 +51,13 @@ class SessionsExceptionHandler {
   ResponseEntity<ApiError> handleNotAParticipant(
       NotAParticipant exception, HttpServletRequest request) {
     return answer(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+  }
+
+  /** As many practice rooms are open as the backend keeps: the state refuses one more. */
+  @ExceptionHandler(PracticeRoomsFull.class)
+  ResponseEntity<ApiError> handlePracticeRoomsFull(
+      PracticeRoomsFull exception, HttpServletRequest request) {
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
   }
 
   @ExceptionHandler(WhiteboardVersionConflict.class)

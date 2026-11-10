@@ -56,6 +56,9 @@ services:
       # The secret the video passes are signed with, shared with Jitsi below (US08). Development
       # value only: a deployment sets its own, of at least 32 characters.
       AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
+      # Where the browsers open the call. To try it from a second computer on the local network,
+      # http://<IP of this machine>:8000, together with JITSI_PUBLIC_URL and JITSI_ADVERTISE_IP
+      # below (docs/demo.md, "Practice rooms").
       AYNI_JITSI_URL: ${AYNI_JITSI_URL:-http://localhost:8000}
       # The simulated academic system (ADR 0006): one <CODE>.json per university in the folder
       # mounted below, read each time a student is looked up. Adding a university's file needs no
@@ -64,6 +67,11 @@ services:
       # The evidence a student submits for a tool (US16), one folder per university, in a named
       # volume so it survives the container being replaced.
       AYNI_SKILLS_EVIDENCE_DIR: /var/lib/ayni/evidence
+      # Who may call the API from a browser, and where the emailed access link points. The defaults
+      # are this machine; a second computer on the local network needs its address in both
+      # (docs/demo.md, "Practice rooms").
+      AYNI_ALLOWED_ORIGINS: ${AYNI_ALLOWED_ORIGINS:-http://localhost:5173}
+      AYNI_IDENTITY_ACCESS_LINK_BASE_URL: ${AYNI_IDENTITY_ACCESS_LINK_BASE_URL:-http://localhost:5173/access/confirm}
       AYNI_MAIL_HOST: mailpit
       AYNI_MAIL_PORT: 1025
       # An optional real relay for a short list of addresses, such as the lead's own mailbox
@@ -141,7 +149,9 @@ services:
       JWT_APP_SECRET: ${AYNI_JITSI_JWT_SECRET:-ayni-development-jitsi-secret-change-me}
       JWT_ACCEPTED_ISSUERS: ayni
       JWT_ACCEPTED_AUDIENCES: jitsi
-      PUBLIC_URL: http://localhost:8000
+      # The address of the call as the browsers reach it, and the address the video bridge offers
+      # them for the media (UDP 10000). Both stay on this machine unless set (docs/demo.md).
+      PUBLIC_URL: ${JITSI_PUBLIC_URL:-http://localhost:8000}
       XMPP_DOMAIN: meet.jitsi
       XMPP_AUTH_DOMAIN: auth.meet.jitsi
       XMPP_GUEST_DOMAIN: guest.meet.jitsi
@@ -151,7 +161,7 @@ services:
       XMPP_BOSH_URL_BASE: http://xmpp.meet.jitsi:5280
       JICOFO_AUTH_PASSWORD: ayni-development-jicofo
       JVB_AUTH_PASSWORD: ayni-development-jvb
-      JVB_ADVERTISE_IPS: 127.0.0.1
+      JVB_ADVERTISE_IPS: ${JITSI_ADVERTISE_IP:-127.0.0.1}
       TZ: UTC
     networks:
       - jitsi
