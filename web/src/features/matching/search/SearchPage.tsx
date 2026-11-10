@@ -237,7 +237,7 @@ export default function SearchPage() {
             title="Elige un curso para ver sus horas libres"
             description="Te mostramos los próximos 7 días; puedes cambiar el rango."
             icon={
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink-2">
                 <IconTray className="h-6 w-6" />
               </div>
             }
@@ -247,7 +247,7 @@ export default function SearchPage() {
 
       {/* State 2: Loading */}
       {selectedCatalogItemId && (search.isLoading || !zoneKnown) && (
-        <div className="mt-6 space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 space-y-4 rounded-[20px] border border-line bg-white p-6">
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-72" />
           <div className="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-4 lg:grid-cols-7">
@@ -263,13 +263,13 @@ export default function SearchPage() {
         <div className="mt-8">
           <div
             role="alert"
-            className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm"
+            className="flex flex-col items-center gap-3 rounded-[20px] border border-line bg-white px-6 py-10 text-center"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-rose-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-red-700">
               <IconWifiOff className="h-6 w-6" />
             </div>
-            <h2 className="text-base font-semibold text-gray-900">No pudimos cargar esto</h2>
-            <p className="max-w-md text-sm text-gray-600">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
+            <h2 className="font-display text-lg font-semibold text-ink">No pudimos cargar esto</h2>
+            <p className="max-w-md text-sm text-ink-2">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
             <div className="mt-2">
               <Button variant="secondary" onClick={() => search.refetch()} loading={search.isFetching}>
                 Reintentar
@@ -286,7 +286,7 @@ export default function SearchPage() {
             title="No hay horas libres para este curso"
             description="Prueba con otro rango de fechas."
             icon={
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink-2">
                 <IconTray className="h-6 w-6" />
               </div>
             }
@@ -316,7 +316,8 @@ export default function SearchPage() {
           ) : (
             <>
               {/* Desktop view: Weekly Grid + Tutor Drawer */}
-              <div className="hidden lg:flex lg:items-start lg:gap-5">
+              {/* The panel sits beside the grid from xl; below it, under the grid, so nothing overflows */}
+              <div className="hidden lg:flex lg:flex-col lg:gap-5 xl:flex-row xl:items-start">
                 <SearchGrid
                   courseName={selectedCourse?.name ?? 'Curso'}
                   mondayStr={mondayStr}
@@ -342,8 +343,8 @@ export default function SearchPage() {
 
               {/* Mobile view: List grouped by day + Pagination */}
               <div className="lg:hidden space-y-4">
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 px-1">
-                  <IconClock className="h-4 w-4 text-gray-400" />
+                <div className="flex items-center gap-1.5 text-xs text-ink-2 px-1">
+                  <IconClock className="h-4 w-4 text-ink-2" />
                   <span>Hora de Lima · 1 hora = 1 crédito</span>
                 </div>
 
