@@ -97,9 +97,25 @@ export function shortDay(value: string, zone: string): string {
   return formatInZone(value, zone, { day: 'numeric', month: 'short' }).replace('.', '');
 }
 
-/** "3 vencen el 31 oct", "1 vence el 15 dic". */
+/**
+ * The last day credits can still be spent, "30/10", in the zone of the university.
+ *
+ * `expiresAt` is the first instant they no longer count, so the day shown is the one of the instant
+ * just before it. A credit that expires at midnight in Lima (05:00 UTC) is good until the day
+ * before, and one that expires at midnight UTC (19:00 in Lima) is good until that same evening: in
+ * both cases the student never reads a day on which the credits are already gone.
+ */
+export function lastValidDay(expiresAt: string, zone: string): string {
+  const lastInstant = new Date(Date.parse(expiresAt) - 1);
+  const day = formatInZone(lastInstant, zone, { day: 'numeric' }).padStart(2, '0');
+  const month = formatInZone(lastInstant, zone, { month: 'numeric' }).padStart(2, '0');
+  return `${day}/${month}`;
+}
+
+/** "3 vigentes hasta el 30/10", "1 vigente hasta el 14/12". */
 export function expiryLine(group: { amount: number; expiresAt: string }, zone: string): string {
-  return `${group.amount} ${group.amount === 1 ? 'vence' : 'vencen'} el ${shortDay(group.expiresAt, zone)}`;
+  const valid = group.amount === 1 ? 'vigente' : 'vigentes';
+  return `${group.amount} ${valid} hasta el ${lastValidDay(group.expiresAt, zone)}`;
 }
 
 function originAdjective(type: CreditType, one: boolean, universityCode: string | undefined): string {
@@ -116,12 +132,12 @@ function originAdjective(type: CreditType, one: boolean, universityCode: string 
   }
 }
 
-/** "3 créditos asignados por la UPC vencen el 31 de octubre." */
+/** "3 créditos asignados por la UPC están vigentes hasta el 30/10." */
 export function expiryNotice(expiry: NextExpiry, zone: string, universityCode: string | undefined): string {
   const one = expiry.amount === 1;
-  const day = formatInZone(expiry.expiresAt, zone, { day: 'numeric', month: 'long' });
+  const day = lastValidDay(expiry.expiresAt, zone);
   const origin = originAdjective(expiry.type, one, universityCode);
-  return `${expiry.amount} ${one ? 'crédito' : 'créditos'} ${origin} ${one ? 'vence' : 'vencen'} el ${day}.`;
+  return `${expiry.amount} ${one ? 'crédito' : 'créditos'} ${origin} ${one ? 'está vigente' : 'están vigentes'} hasta el ${day}.`;
 }
 
 /** The reason of a movement, in Spanish; a reason the web does not know yet says it is a movement. */

@@ -430,6 +430,11 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
   `/creditos/compras/:id`).
 - **Handles:** a zero balance (`available` is 0) shows a text of the web's own: "Aún no tienes
   créditos". `guidance` is not shown.
+- **Expiry date, decided:** a group is shown as valid "hasta el DD/MM", the last day it can still
+  be spent in the zone of the university: the day of the instant just before `expiresAt`, which is
+  the first instant it no longer counts. Credits that expire at midnight in Lima are good until the
+  day before; credits that expire at midnight UTC (19:00 in Lima, as the demo seeds them) are good
+  until that same evening. The student never reads a day on which the credits are already gone.
 - **Done when:** a student with credits of two origins sees both with their expiry, and the filters
   narrow the history.
 

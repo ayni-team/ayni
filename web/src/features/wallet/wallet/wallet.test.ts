@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   expiryLine,
+  lastValidDay,
   expiryNotice,
   movementLink,
   nextExpiry,
@@ -53,16 +54,19 @@ describe('FE-30 wallet logic', () => {
     ).toEqual({ type: 'SEED', amount: 3, expiresAt: '2026-10-31T05:00:00Z' });
   });
 
-  it('writes the expiry in the zone of the university, in singular and plural', () => {
-    expect(expiryLine({ amount: 3, expiresAt: '2026-10-31T05:00:00Z' }, LIMA)).toBe('3 vencen el 31 oct');
-    expect(expiryLine({ amount: 1, expiresAt: '2026-12-15T05:00:00Z' }, LIMA)).toBe('1 vence el 15 dic');
-    // Midnight in UTC is still the day before in Lima.
-    expect(expiryLine({ amount: 1, expiresAt: '2027-02-03T00:00:00Z' }, LIMA)).toBe('1 vence el 2 feb');
+  it('writes the last day the credits can be spent, in the zone of the university', () => {
+    // Midnight in Lima is 05:00 UTC: the credits are good until the day before.
+    expect(expiryLine({ amount: 3, expiresAt: '2026-10-31T05:00:00Z' }, LIMA)).toBe('3 vigentes hasta el 30/10');
+    expect(expiryLine({ amount: 1, expiresAt: '2026-12-15T05:00:00Z' }, LIMA)).toBe('1 vigente hasta el 14/12');
+    // Midnight in UTC is 19:00 of the day before in Lima: good until that evening.
+    expect(expiryLine({ amount: 1, expiresAt: '2027-02-03T00:00:00Z' }, LIMA)).toBe('1 vigente hasta el 02/02');
+    // Any other time of the day: good until that same day.
+    expect(lastValidDay('2026-11-12T15:30:00Z', LIMA)).toBe('12/11');
     expect(expiryNotice({ type: 'ALLOCATED', amount: 3, expiresAt: '2026-10-31T05:00:00Z' }, LIMA, 'UPC')).toBe(
-      '3 créditos asignados por la UPC vencen el 31 de octubre.',
+      '3 créditos asignados por la UPC están vigentes hasta el 30/10.',
     );
     expect(expiryNotice({ type: 'SEED', amount: 1, expiresAt: '2026-10-31T05:00:00Z' }, LIMA, 'UPC')).toBe(
-      '1 crédito inicial vence el 31 de octubre.',
+      '1 crédito inicial está vigente hasta el 30/10.',
     );
   });
 
