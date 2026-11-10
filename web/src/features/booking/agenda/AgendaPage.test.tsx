@@ -293,6 +293,57 @@ describe('FE-41 tutor agenda', () => {
     expect(state.server.requests('GET', '/api/v1/sessions')[0].query.get('bookingId')).toBe(BOOKING_NOW);
   });
 
+  it('offers the tutor the review of a past tutoring, through the session of its booking', async () => {
+    signIn('STUDENT');
+
+    const state = serveAgenda();
+
+    const pastId = 'h0000000-0000-4000-8000-000000000009';
+
+    state.server.on('GET', '/api/v1/tutor/agenda/history', {
+      body: {
+        items: [
+          booked({
+            bookingId: pastId,
+            status: 'CONFIRMED',
+            startsAt: '2026-10-21T21:00:00Z',
+            endsAt: '2026-10-21T22:00:00Z',
+          }),
+          booked({
+            bookingId: 'h0000000-0000-4000-8000-000000000010',
+            status: 'CANCELLED',
+            startsAt: '2026-10-20T21:00:00Z',
+            endsAt: '2026-10-20T22:00:00Z',
+          }),
+        ],
+        page: 0,
+        size: 10,
+        totalElements: 2,
+        totalPages: 1,
+        timezone: 'America/Lima',
+      },
+    });
+
+    state.server.on('GET', '/api/v1/sessions', {
+      body: { sessionId: SESSION_ID, bookingId: pastId, status: 'COMPLETED' },
+    });
+
+    const { user, location } = renderWithProviders(<AgendaPage />, { route: '/tutor/agenda' });
+
+    await user.click(await screen.findByRole('tab', { name: 'Historial' }));
+
+    const review = await screen.findAllByRole('button', { name: 'Repasar' });
+
+    // Only the one that took place: a cancelled tutoring has no session to review.
+    expect(review).toHaveLength(1);
+
+    await user.click(review[0]);
+
+    await waitFor(() => expect(location()).toBe(`/sesion/${SESSION_ID}/repaso`));
+
+    expect(state.server.requests('GET', '/api/v1/sessions')[0].query.get('bookingId')).toBe(pastId);
+  });
+
   it('warns before a late tutor cancellation and only cancels after confirmLate=true', async () => {
     signIn('STUDENT');
 

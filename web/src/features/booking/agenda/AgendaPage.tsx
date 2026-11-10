@@ -374,7 +374,17 @@ function AgendaDays({
   );
 }
 
-function HistoryRow({ booking, timezone }: { booking: TutorBooking; timezone: string }) {
+function HistoryRow({
+  booking,
+  timezone,
+  reviewing,
+  onReview,
+}: {
+  booking: TutorBooking;
+  timezone: string;
+  reviewing: boolean;
+  onReview: (booking: TutorBooking) => void;
+}) {
   const name = studentName(booking);
 
   const course = courseName(booking);
@@ -397,7 +407,22 @@ function HistoryRow({ booking, timezone }: { booking: TutorBooking; timezone: st
         </div>
       </div>
 
-      <Badge tone={status.tone}>{status.label}</Badge>
+      <div className="flex shrink-0 items-center gap-3">
+        <Badge tone={status.tone}>{status.label}</Badge>
+
+        {/* FE-24 admits both participants; a cancelled tutoring has no session to review. */}
+        {booking.status !== 'CANCELLED' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={reviewing}
+            onClick={() => onReview(booking)}
+            className="font-semibold text-brand-text"
+          >
+            Repasar
+          </Button>
+        )}
+      </div>
     </article>
   );
 }
@@ -417,6 +442,8 @@ export default function AgendaPage() {
   const [historyPage, setHistoryPage] = useState(0);
 
   const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -536,6 +563,37 @@ export default function AgendaPage() {
       toaster.error('No pudimos abrir la sesión. Inténtalo de nuevo.');
     } finally {
       setJoiningId(null);
+    }
+  }
+
+  /** FE-24 for the tutor: the review of the session of a past tutoring, found by its booking. */
+  async function reviewBooking(booking: TutorBooking) {
+    const bookingId = booking.bookingId;
+
+    if (!bookingId) {
+      return;
+    }
+
+    setReviewingId(bookingId);
+
+    try {
+      const session = await api.get('/api/v1/sessions', {
+        query: {
+          bookingId,
+        },
+      });
+
+      if (!session.sessionId) {
+        toaster.error('No encontramos la sesión de esta tutoría.');
+
+        return;
+      }
+
+      navigate(`/sesion/${session.sessionId}/repaso`);
+    } catch {
+      toaster.error('No pudimos abrir el repaso. Inténtalo de nuevo.');
+    } finally {
+      setReviewingId(null);
     }
   }
 
@@ -693,6 +751,8 @@ export default function AgendaPage() {
                       key={booking.bookingId ?? `${booking.startsAt}-${index}`}
                       booking={booking}
                       timezone={history.data?.timezone ?? timezone}
+                      reviewing={Boolean(booking.bookingId && reviewingId === booking.bookingId)}
+                      onReview={(past) => void reviewBooking(past)}
                     />
                   ))}
                 </div>
