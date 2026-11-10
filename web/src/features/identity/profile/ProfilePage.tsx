@@ -63,9 +63,9 @@ function AcademicData({ profile }: { profile: Schema<'MyProfileView'> }) {
       <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {fields.map(([label, value]) => (
           <div key={label}>
-            <dt className="text-xs font-medium text-gray-500">{label}</dt>
+            <dt className="text-xs font-medium text-ink-2">{label}</dt>
 
-            <dd className="mt-1 text-sm font-semibold text-gray-900">{value}</dd>
+            <dd className="mt-1 text-sm font-semibold text-ink">{value}</dd>
           </div>
         ))}
       </dl>
@@ -271,13 +271,13 @@ function LearningInterests() {
     >
       <form onSubmit={submit} className="flex flex-col gap-6">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Mis necesidades actuales</h3>
+          <h3 className="font-display text-base font-semibold text-ink">Mis necesidades actuales</h3>
 
           {currentSelection.length === 0 ? (
-            <div className="mt-3 rounded-xl border border-dashed border-gray-300 px-5 py-6 text-center">
-              <p className="text-sm font-medium text-gray-900">Todavía no elegiste cursos.</p>
+            <div className="mt-3 rounded-xl border border-dashed border-line px-5 py-6 text-center">
+              <p className="text-sm font-medium text-ink">Todavía no elegiste cursos.</p>
 
-              <p className="mt-1 text-sm text-gray-600">Busca uno abajo para agregarlo.</p>
+              <p className="mt-1 text-sm text-ink-2">Busca uno abajo para agregarlo.</p>
             </div>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -301,7 +301,7 @@ function LearningInterests() {
           )}
         </div>
 
-        <div className="border-t border-gray-200 pt-5">
+        <div className="border-t border-line pt-5">
           <Field label="Agregar otro curso" hint="Busca por nombre del curso.">
             <TextField
               type="search"
@@ -312,7 +312,7 @@ function LearningInterests() {
           </Field>
 
           {debouncedSearch && (catalog.isPending || catalog.isFetching) && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+            <div className="mt-4 flex items-center gap-2 text-sm text-ink-2">
               <Spinner size="sm" decorative />
 
               <span>Buscando cursos…</span>
@@ -333,7 +333,7 @@ function LearningInterests() {
           {debouncedSearch && !catalog.isPending && !catalog.isFetching && !catalog.isError && (
             <div className="mt-4">
               {(catalog.data?.items ?? []).length === 0 ? (
-                <p className="text-sm text-gray-600">No encontramos cursos con esa búsqueda.</p>
+                <p className="text-sm text-ink-2">No encontramos cursos con esa búsqueda.</p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(catalog.data?.items ?? []).map((item) => {
@@ -446,7 +446,7 @@ function AcademicRecordRefresh() {
       }
     >
       {suggestions.isPending && (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-ink-2">
           <Spinner size="sm" decorative />
 
           <span>Revisando tu récord actual…</span>
@@ -469,7 +469,7 @@ function AcademicRecordRefresh() {
       )}
 
       {!suggestions.isPending && !suggestions.isError && !imported && (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-ink-2">
           Ayni volverá a consultar el sistema académico de tu universidad y actualizará tu carrera, ciclo, periodo y
           cursos aprobados.
         </p>
@@ -487,7 +487,7 @@ function AcademicRecordRefresh() {
             Estos cursos aparecen desde la última actualización:
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-gray-200">
+          <div className="overflow-hidden rounded-xl border border-line">
             {newCourses.map((suggestion, index) => {
               const item = suggestion.item;
 
@@ -503,20 +503,20 @@ function AcademicRecordRefresh() {
                   className={
                     index === 0
                       ? 'flex items-center justify-between gap-4 px-4 py-3'
-                      : 'flex items-center justify-between gap-4 border-t border-gray-200 px-4 py-3'
+                      : 'flex items-center justify-between gap-4 border-t border-line px-4 py-3'
                   }
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{item.name ?? 'Curso'}</p>
+                    <p className="text-sm font-medium text-ink">{item.name ?? 'Curso'}</p>
 
-                    {item.courseCode && <p className="mt-0.5 text-xs text-gray-500">{item.courseCode}</p>}
+                    {item.courseCode && <p className="mt-0.5 text-xs text-ink-2">{item.courseCode}</p>}
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Badge tone="success">Nuevo</Badge>
 
                     {suggestion.grade !== undefined && (
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-ink-2">
                         Nota{' '}
                         {suggestion.grade.toLocaleString('es-PE', {
                           minimumFractionDigits: 2,
