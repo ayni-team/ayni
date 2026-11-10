@@ -1087,11 +1087,46 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "The warning to confirm, when confirmed is false, or the receipt",
             "content": {
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/CreditUseResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused by the state of the wallet or of the confirmation. The code says which: INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletApiError"
+                },
+                "examples": {
+                  "Not enough earned credits": {
+                    "description": "Not enough earned credits",
+                    "value": {
+                      "timestamp": "2026-11-10T15:00:00Z",
+                      "status": 409,
+                      "error": "Conflict",
+                      "message": "Insufficient earned credits, missing 2",
+                      "path": "/api/v1/wallet/donations",
+                      "code": "INSUFFICIENT_EARNED_CREDITS",
+                      "missingCredits": 2
+                    }
+                  },
+                  "The warning expired": {
+                    "description": "The warning expired",
+                    "value": {
+                      "timestamp": "2026-11-10T15:11:00Z",
+                      "status": 409,
+                      "error": "Conflict",
+                      "message": "The confirmation has expired; request a new one",
+                      "path": "/api/v1/wallet/donations",
+                      "code": "CONFIRMATION_EXPIRED"
+                    }
+                  }
                 }
               }
             }
@@ -1140,11 +1175,46 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "The warning to confirm, when confirmed is false, or the receipt",
             "content": {
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/CreditUseResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused by the state of the wallet or of the confirmation. The code says which: INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletApiError"
+                },
+                "examples": {
+                  "Not enough earned credits": {
+                    "description": "Not enough earned credits",
+                    "value": {
+                      "timestamp": "2026-11-10T15:00:00Z",
+                      "status": 409,
+                      "error": "Conflict",
+                      "message": "Insufficient earned credits, missing 2",
+                      "path": "/api/v1/wallet/benefits/9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f/redemptions",
+                      "code": "INSUFFICIENT_EARNED_CREDITS",
+                      "missingCredits": 2
+                    }
+                  },
+                  "The warning expired": {
+                    "description": "The warning expired",
+                    "value": {
+                      "timestamp": "2026-11-10T15:11:00Z",
+                      "status": 409,
+                      "error": "Conflict",
+                      "message": "The confirmation has expired; request a new one",
+                      "path": "/api/v1/wallet/benefits/9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f/redemptions",
+                      "code": "CONFIRMATION_EXPIRED"
+                    }
+                  }
                 }
               }
             }
@@ -2272,7 +2342,7 @@
                 "example": {
                   "id": "22222222-2222-4222-8222-222222222222",
                   "credits": 2,
-                  "amount": 10,
+                  "amount": 10.0,
                   "currency": "PEN",
                   "status": "CONFIRMED",
                   "providerReference": "simulated-22222222-2222-4222-8222-222222222222",
@@ -3619,7 +3689,7 @@
                   "emailDomains": [
                     "usil.edu.pe"
                   ],
-                  "minimumTeachingGrade": 16,
+                  "minimumTeachingGrade": 16.0,
                   "timezone": "America/Lima",
                   "active": true,
                   "studentCount": 0,
@@ -4402,7 +4472,7 @@
                   "A tutor with two skills": {
                     "description": "A tutor with two skills",
                     "value": {
-                      "minimumAverage": 3,
+                      "minimumAverage": 3.0,
                       "skills": [
                         {
                           "catalogItemId": "22222222-2222-4222-8222-222222222222",
@@ -4430,7 +4500,7 @@
                           "sessionsTaught": 1,
                           "ratingsCount": 1,
                           "averageStars": null,
-                          "provisionalAverage": 4,
+                          "provisionalAverage": 4.0,
                           "ratingsMissingForAverage": 2,
                           "topTags": [
                             {
@@ -7342,12 +7412,12 @@
         "type": "object",
         "properties": {
           "minimumGrade": {
-            "maximum": 20,
+            "maximum": 20.0,
             "exclusiveMaximum": false,
-            "minimum": 0,
+            "minimum": 0.0,
             "exclusiveMinimum": false,
             "type": "number",
-            "example": 14
+            "example": 14.0
           }
         },
         "description": "Sets the minimum grade needed to teach a course"
@@ -7357,7 +7427,7 @@
         "properties": {
           "minimumGrade": {
             "type": "number",
-            "example": 14
+            "example": 14.0
           },
           "updatedAt": {
             "type": "string",
@@ -8049,6 +8119,19 @@
           "path": {
             "type": "string",
             "example": "/api/v1/tutor/availability/pauses"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable name of the refusal: INSUFFICIENT_CREDITS when the balance does not cover the hours. Absent on other errors",
+            "nullable": true,
+            "example": "INSUFFICIENT_CREDITS"
+          },
+          "missingCredits": {
+            "type": "integer",
+            "description": "How many credits the booking lacks. Present only with INSUFFICIENT_CREDITS",
+            "format": "int32",
+            "nullable": true,
+            "example": 2
           }
         },
         "description": "What went wrong"
@@ -9517,9 +9600,9 @@
             }
           },
           "minimumTeachingGrade": {
-            "maximum": 20,
+            "maximum": 20.0,
             "exclusiveMaximum": false,
-            "minimum": 0,
+            "minimum": 0.0,
             "exclusiveMinimum": false,
             "type": "number"
           },
@@ -10054,7 +10137,7 @@
           "minimumAverage": {
             "type": "number",
             "description": "Average below which a skill is marked at risk",
-            "example": 3
+            "example": 3.0
           },
           "skills": {
             "type": "array",
@@ -12736,6 +12819,47 @@
             "example": "DELETE /api/v1/bookings/d1f0c2a4-5b6e-4c7d-8e9f-0a1b2c3d4e5f?confirmLate=true"
           }
         }
+      },
+      "WalletApiError": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-20T14:31:05Z"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 409
+          },
+          "error": {
+            "type": "string",
+            "example": "Conflict"
+          },
+          "message": {
+            "type": "string",
+            "example": "Insufficient credits, missing 2"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/wallet"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable name of a refusal the screen tells apart: INSUFFICIENT_CREDITS, INSUFFICIENT_EARNED_CREDITS, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT. Absent on other errors",
+            "nullable": true,
+            "example": "INSUFFICIENT_EARNED_CREDITS"
+          },
+          "missingCredits": {
+            "type": "integer",
+            "description": "How many credits the operation lacks. Present only with INSUFFICIENT_CREDITS and INSUFFICIENT_EARNED_CREDITS",
+            "format": "int32",
+            "nullable": true,
+            "example": 2
+          }
+        },
+        "description": "What went wrong"
       }
     },
     "securitySchemes": {

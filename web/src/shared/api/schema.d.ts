@@ -2887,6 +2887,17 @@ export interface components {
             message?: string;
             /** @example /api/v1/tutor/availability/pauses */
             path?: string;
+            /**
+             * @description Stable name of the refusal: INSUFFICIENT_CREDITS when the balance does not cover the hours. Absent on other errors
+             * @example INSUFFICIENT_CREDITS
+             */
+            code?: string | null;
+            /**
+             * Format: int32
+             * @description How many credits the booking lacks. Present only with INSUFFICIENT_CREDITS
+             * @example 2
+             */
+            missingCredits?: number | null;
         };
         AvailabilityPauseRequest: {
             /**
@@ -6034,6 +6045,36 @@ export interface components {
              */
             confirmationRequest?: string;
         };
+        /** @description What went wrong */
+        WalletApiError: {
+            /**
+             * Format: date-time
+             * @example 2026-09-20T14:31:05Z
+             */
+            timestamp?: string;
+            /**
+             * Format: int32
+             * @example 409
+             */
+            status?: number;
+            /** @example Conflict */
+            error?: string;
+            /** @example Insufficient credits, missing 2 */
+            message?: string;
+            /** @example /api/v1/wallet */
+            path?: string;
+            /**
+             * @description Stable name of a refusal the screen tells apart: INSUFFICIENT_CREDITS, INSUFFICIENT_EARNED_CREDITS, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT. Absent on other errors
+             * @example INSUFFICIENT_EARNED_CREDITS
+             */
+            code?: string | null;
+            /**
+             * Format: int32
+             * @description How many credits the operation lacks. Present only with INSUFFICIENT_CREDITS and INSUFFICIENT_EARNED_CREDITS
+             * @example 2
+             */
+            missingCredits?: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -6701,13 +6742,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
+            /** @description The warning to confirm, when confirmed is false, or the receipt */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "*/*": components["schemas"]["CreditUseResponse"];
+                };
+            };
+            /** @description Refused by the state of the wallet or of the confirmation. The code says which: INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletApiError"];
                 };
             };
         };
@@ -6729,13 +6779,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description OK */
+            /** @description The warning to confirm, when confirmed is false, or the receipt */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "*/*": components["schemas"]["CreditUseResponse"];
+                };
+            };
+            /** @description Refused by the state of the wallet or of the confirmation. The code says which: INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED, CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH, CONFIRMATION_USED or IDEMPOTENCY_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletApiError"];
                 };
             };
         };

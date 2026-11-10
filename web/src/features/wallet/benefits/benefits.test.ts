@@ -31,13 +31,15 @@ describe('FE-33 benefits logic', () => {
   });
 
   it('says how many are missing and that bought ones do not count', () => {
-    expect(missingText(3, 1)).toBe('Te faltan 2 créditos ganados. Los comprados o asignados no cuentan.');
-    expect(missingText(2, 1)).toBe('Te falta 1 crédito ganado. Los comprados o asignados no cuentan.');
+    expect(missingText(2)).toBe('Te faltan 2 créditos ganados. Los comprados o asignados no cuentan.');
+    expect(missingText(1)).toBe('Te falta 1 crédito ganado. Los comprados o asignados no cuentan.');
   });
 
   it('tells being short of credits from a confirmation that ran out', () => {
-    expect(refusalText(3, 1)).toContain('Te faltan 2');
-    expect(refusalText(1, 3)).toBe('La confirmación venció. Vuelve a intentarlo.');
+    expect(refusalText({ code: 'INSUFFICIENT_EARNED_CREDITS', missingCredits: 2 })).toContain('Te faltan 2');
+    expect(refusalText({ code: 'CONFIRMATION_EXPIRED' })).toBe('La confirmación venció. Vuelve a intentarlo.');
+    expect(refusalText({ code: 'CONFIRMATION_USED' })).toContain('ya se usó');
+    expect(refusalText(undefined)).toBe('No pudimos completarlo. Vuelve a intentarlo.');
   });
 
   it('asks and thanks in its own words', () => {

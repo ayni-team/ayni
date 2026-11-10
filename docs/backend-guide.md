@@ -994,6 +994,21 @@ the university. Spending earned credits does not erase the teaching from recogni
 Confirmation challenges are kept for ten minutes and can be used once; update
 `ayni.wallet.credit-use-confirmation-validity` to change that window.
 
+**Telling one 409 from another (W27).** Every refusal of a redemption or a donation is a `409`, so
+the error adds a stable `code`, and a refusal for lack of credits says how many are missing in
+`missingCredits`; both fields are left out of every other error, which keeps its five fields.
+
+| `code` | When | `missingCredits` |
+|---|---|---|
+| `INSUFFICIENT_EARNED_CREDITS` | the earned credits do not cover the benefit or the donation | how many are missing |
+| `INSUFFICIENT_CREDITS` | a charge the balance does not cover (the same refusal booking answers below) | how many are missing |
+| `CONFIRMATION_REQUIRED` | `confirmed=true` without a `confirmationId` | — |
+| `CONFIRMATION_INVALID` | a `confirmationId` that is not the student's | — |
+| `CONFIRMATION_EXPIRED` | the ten minutes of the warning ran out: ask for a new one | — |
+| `CONFIRMATION_MISMATCH` | the confirmation was given for another benefit, operation or amount | — |
+| `CONFIRMATION_USED` | the confirmation was already spent | — |
+| `IDEMPOTENCY_CONFLICT` | the `Idempotency-Key` was used for a different operation | — |
+
 **Rules that live here and nowhere else:** spend the group closest to expiring first; a refund
 returns credits to the group they came from with the expiry they had; the ledger is append only and
 a correction is a new entry; only `SEED` and `ALLOCATED` expire.
@@ -1133,7 +1148,8 @@ then a second transaction gives back the student's holds on those hours, so they
 search at once. The second step cannot happen inside the first: wallet's refusal has already marked
 it for rollback. A refusal answers 409 with the reason (the hour was taken, the hold ran out, the
 tutor is not enabled, or the credits that are missing); anything unexpected answers 500 saying that
-nothing was charged.
+nothing was charged. The refusal for lack of credits also carries `code: INSUFFICIENT_CREDITS` and
+the number in `missingCredits` (W27), so the screen does not read it from the message.
 
 **Cancelling.** Only the booking's student or tutor may cancel it, before the session starts; the
 booking is locked while it is cancelled, so two cancellations at once end with one refund and one

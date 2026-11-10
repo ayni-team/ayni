@@ -38,6 +38,10 @@ Feature: Demo data for every screen
     Then the ledger and the activity log of each university are intact
     And the clock reads the real time
 
+  Scenario: Each university has three campus benefits of different costs
+    Then each university offers a benefit of one credit, one of three and one of eight
+    And a tutor with three earned credits can redeem the one of three once, and is told what is missing for the one of eight
+
   Scenario: A second start duplicates nothing
     When the demonstration data runs again
     Then no row is added

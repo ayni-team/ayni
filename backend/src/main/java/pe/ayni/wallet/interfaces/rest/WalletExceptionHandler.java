@@ -43,22 +43,37 @@ class WalletExceptionHandler {
     this.clock = clock;
   }
 
+  /**
+   * Not enough earned credits for a benefit or a donation, which only earned credits can pay. The
+   * answer names the refusal and says how many credits are missing, so the screen never works it
+   * out from a balance it read earlier.
+   */
   @ExceptionHandler(InsufficientEarnedCreditsException.class)
   ResponseEntity<ApiError> handleInsufficientEarnedCredits(
       InsufficientEarnedCreditsException exception, HttpServletRequest request) {
-    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+    return answer(
+        HttpStatus.CONFLICT,
+        exception.getMessage(),
+        "INSUFFICIENT_EARNED_CREDITS",
+        exception.missing().amount(),
+        request);
   }
 
   /**
    * Not enough credits.
    *
    * <p>409 and not 400: the request was perfectly well formed, it is the state of the wallet that
-   * refuses it. The message carries how many credits are missing.
+   * refuses it. The message and {@code missingCredits} carry how many credits are missing.
    */
   @ExceptionHandler(InsufficientCreditsException.class)
   ResponseEntity<ApiError> handleInsufficientCredits(
       InsufficientCreditsException exception, HttpServletRequest request) {
-    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+    return answer(
+        HttpStatus.CONFLICT,
+        exception.getMessage(),
+        "INSUFFICIENT_CREDITS",
+        exception.missing().amount(),
+        request);
   }
 
   @ExceptionHandler(CampusBenefitNotFoundException.class)
@@ -70,13 +85,18 @@ class WalletExceptionHandler {
   @ExceptionHandler(CreditUseIdempotencyConflict.class)
   ResponseEntity<ApiError> handleIdempotencyConflict(
       CreditUseIdempotencyConflict exception, HttpServletRequest request) {
-    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+    return answer(HttpStatus.CONFLICT, exception.getMessage(), "IDEMPOTENCY_CONFLICT", null, request);
   }
 
   @ExceptionHandler(CreditUseConfirmationException.class)
   ResponseEntity<ApiError> handleConfirmation(
       CreditUseConfirmationException exception, HttpServletRequest request) {
-    return answer(HttpStatus.CONFLICT, exception.getMessage(), request);
+    return answer(
+        HttpStatus.CONFLICT,
+        exception.getMessage(),
+        "CONFIRMATION_" + exception.reason().name(),
+        null,
+        request);
   }
 
   @ExceptionHandler(WalletAccessDeniedException.class)
@@ -151,7 +171,16 @@ class WalletExceptionHandler {
 
   private ResponseEntity<ApiError> answer(
       HttpStatus status, String message, HttpServletRequest request) {
+    return answer(status, message, null, null, request);
+  }
+
+  private ResponseEntity<ApiError> answer(
+      HttpStatus status,
+      String message,
+      String code,
+      Integer missingCredits,
+      HttpServletRequest request) {
     return ResponseEntity.status(status)
-        .body(ApiError.of(status, message, request, clock.instant()));
+        .body(ApiError.of(status, message, code, missingCredits, request, clock.instant()));
   }
 }

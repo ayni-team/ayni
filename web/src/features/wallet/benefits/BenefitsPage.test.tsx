@@ -93,7 +93,10 @@ describe('FE-33 BenefitsPage', () => {
     const server = setup([{ id: 'b1', name: 'Impresiones', creditsCost: 5 }]);
     server.on('POST', REDEEM, (request) =>
       (request.body as { confirmed: boolean }).confirmed
-        ? { status: 409, body: { status: 409, message: 'Not enough' } }
+        ? {
+            status: 409,
+            body: { status: 409, message: 'Not enough', code: 'INSUFFICIENT_EARNED_CREDITS', missingCredits: 2 },
+          }
         : { body: CHALLENGE },
     );
     const { user } = open();
@@ -106,6 +109,24 @@ describe('FE-33 BenefitsPage', () => {
       await screen.findByText('Te faltan 2 créditos ganados. Los comprados o asignados no cuentan.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Not enough')).not.toBeInTheDocument();
+  });
+
+  it('tells an expired confirmation apart from missing credits, whatever the balance says', async () => {
+    // The benefit costs more than the balance the screen read: only the answer decides.
+    const server = setup([{ id: 'b1', name: 'Impresiones', creditsCost: 5 }]);
+    server.on('POST', REDEEM, (request) =>
+      (request.body as { confirmed: boolean }).confirmed
+        ? { status: 409, body: { status: 409, message: 'Expired', code: 'CONFIRMATION_EXPIRED' } }
+        : { body: CHALLENGE },
+    );
+    const { user } = open();
+    await screen.findByText('3');
+
+    await user.click(await screen.findByRole('button', { name: 'Canjear Impresiones' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Confirmar' }));
+
+    expect(await screen.findByText('La confirmación venció. Vuelve a intentarlo.')).toBeInTheDocument();
+    expect(screen.queryByText(/Te faltan/)).not.toBeInTheDocument();
   });
 
   it('keeps the same key when the platform fails, so a retry spends once', async () => {

@@ -22,18 +22,29 @@ export function donationError(value: string): string | undefined {
 }
 
 /** "Te faltan 2 créditos ganados. Los comprados o asignados no cuentan." */
-export function missingText(needed: number, earned: number): string {
-  const missing = Math.max(0, needed - earned);
+export function missingText(missing: number): string {
   const amount = missing === 1 ? 'Te falta 1 crédito ganado' : `Te faltan ${missing} créditos ganados`;
   return `${amount}. Los comprados o asignados no cuentan.`;
 }
 
+/** The body of a refused confirmation: the common shape plus what tells one refusal from another. */
+export type Refusal = Pick<Schema<'WalletApiError'>, 'code' | 'missingCredits'>;
+
 /**
- * What a refused confirmation means. The answer says nothing we can read, so it goes by the balance:
- * short of earned credits, or a confirmation that ran out, which lasts ten minutes.
+ * What a refused confirmation means, from what the answer says: short of earned credits (`code`
+ * and `missingCredits`), or a confirmation that ran out or cannot be used again. Never from the
+ * balance the screen read before, which may be older than the refusal.
  */
-export function refusalText(needed: number, earned: number): string {
-  return needed > earned ? missingText(needed, earned) : 'La confirmación venció. Vuelve a intentarlo.';
+export function refusalText(refusal: Refusal | undefined): string {
+  const code = refusal?.code;
+  if ((code === 'INSUFFICIENT_EARNED_CREDITS' || code === 'INSUFFICIENT_CREDITS') && refusal?.missingCredits) {
+    return missingText(refusal.missingCredits);
+  }
+  if (code === 'CONFIRMATION_EXPIRED' || code === 'CONFIRMATION_INVALID') {
+    return 'La confirmación venció. Vuelve a intentarlo.';
+  }
+  if (code === 'CONFIRMATION_USED') return 'Esta confirmación ya se usó. Revisa tus movimientos antes de repetirlo.';
+  return 'No pudimos completarlo. Vuelve a intentarlo.';
 }
 
 export type CreditUse =
