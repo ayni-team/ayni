@@ -4,29 +4,12 @@
 # Includes the part of US02 the search owns: when several tutors are free at the same hour, all of
 # them come back with their standing in the course, and the student chooses.
 #
-# Every scenario names the test that runs it, against a real PostgreSQL. The acceptance tests fill
-# the projection by publishing booking's events; the end to end tests go through skills, booking and
-# wallet over HTTP and write nothing by hand.
+# Every scenario has a test with its name as display name, against a real PostgreSQL. The acceptance
+# tests (SearchOffersAcceptanceTest) fill the projection by publishing booking's events; the end to
+# end tests (SearchOffersEndToEndTest) go through skills, booking and wallet over HTTP and write
+# nothing by hand. How the search is kept up to date is OfferProjectionListenersTest, one test per
+# event, and the order of the results NearestOffersTest and AvailableOfferTest.
 #
-#   Search with results                         SearchOffersAcceptanceTest.searchWithResults
-#   Several tutors at the same hour             SearchOffersAcceptanceTest.severalTutorsAtTheSameHour
-#                                               NearestOffersTest, AvailableOfferTest.searchOrder
-#   No availability in the chosen window        SearchOffersAcceptanceTest.noAvailabilityInTheChosenWindow
-#                                               SearchOffersUseCaseTest.anEmptyWindowFallsBackToTheClosest
-#   No tutor at all for the course              SearchOffersAcceptanceTest.noTutorAtAll
-#   Times are stored in UTC and shown in the university's time zone
-#                                               SearchOffersAcceptanceTest.timesAreStoredInUtcAndShownInTheUniversitysTimeZone
-#   Hours that have already started are not offered
-#                                               SearchOffersAcceptanceTest.hoursThatStartedAreNotOffered
-#   Only the offers of the student's university SearchOffersAcceptanceTest.onlyTheOffersOfTheStudentsUniversity
-#   A tutor searching the course does not find their own hours
-#                                               SearchOffersAcceptanceTest.aTutorDoesNotFindTheirOwnHours
-#   A long list comes in pages                  SearchOffersAcceptanceTest.aLongListComesInPages
-#   A tutor with an enabled course declares availability, is found, and booked hours leave
-#                                               SearchOffersEndToEndTest.aTutorIsFoundUntilTheHoursAreBooked
-#   A tutor who declares availability before their first course is found after the night
-#                                               SearchOffersEndToEndTest.availabilityBeforeTheFirstCourseWaitsForTheNightlyJob
-#   How the search is kept up to date           OfferProjectionListenersTest, one test per event
 
 Feature: Finding tutoring available for a course
 

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import pe.ayni.identity.UserRole;
@@ -32,6 +34,7 @@ class ImportAcademicRecordUseCaseTest {
     private static final Instant NOW =
             Instant.parse("2026-09-22T14:00:00Z");
     @Test
+    @DisplayName("Prevent skipping the profile step")
     void rejectsAcademicImportBeforeProfileStep() {
         UserRepository users =
                 mock(UserRepository.class);
@@ -76,8 +79,10 @@ class ImportAcademicRecordUseCaseTest {
                 () -> TenantContext.runAs("UPC", () -> useCase.execute(userId)))
                 .isInstanceOf(IdentityRuleViolation.class)
                 .hasMessageContaining("profile step");
+        verifyNoInteractions(records);
     }
     @Test
+    @DisplayName("Import the academic record")
     void importsAcademicRecordsForTenantUser() {
         UserRepository users =
                 mock(UserRepository.class);

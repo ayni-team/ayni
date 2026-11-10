@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import pe.ayni.payments.application.PaymentProvider;
 import pe.ayni.payments.application.PaymentProviderGateway;
 import pe.ayni.payments.application.PaymentProviderUnavailable;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ResilientPaymentProviderTest {
@@ -33,6 +34,7 @@ class ResilientPaymentProviderTest {
   private static final Duration UNANSWERED = Duration.ofSeconds(5);
 
   @Test
+  @DisplayName("A slow provider is timed out and new payment calls are rejected")
   void timesOutOpensTheCircuitAndRejectsFurtherCallsWithoutQueuing() {
     PaymentProviderGateway gateway = mock(PaymentProviderGateway.class);
     CountDownLatch releaseProvider = new CountDownLatch(1);
@@ -152,6 +154,7 @@ class ResilientPaymentProviderTest {
   }
 
   @Test
+  @DisplayName("The circuit automatically recovers when the provider responds")
   void automaticallyRecoversWhenTheHalfOpenRequestSucceeds() {
     PaymentProviderGateway gateway = mock(PaymentProviderGateway.class);
     AtomicInteger attempts = new AtomicInteger();

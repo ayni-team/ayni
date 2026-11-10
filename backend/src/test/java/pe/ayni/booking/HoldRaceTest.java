@@ -25,7 +25,7 @@ class HoldRaceTest extends BookingScenario {
   private static final int STUDENTS = 6;
 
   @Test
-  @DisplayName("of several students holding the same hour at once, exactly one gets it")
+  @DisplayName("Of six students holding the same hour at once, exactly one gets it")
   void exactlyOneStudentHoldsTheHour() throws Exception {
 
     List<UUID> students = new ArrayList<>();

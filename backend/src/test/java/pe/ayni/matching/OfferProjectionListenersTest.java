@@ -159,7 +159,7 @@ class OfferProjectionListenersTest {
   }
 
   @Test
-  @DisplayName("HoursGenerated offers every hour for every enabled course, with name and standing")
+  @DisplayName("Availability is valid for all my enabled skills")
   void generatedHoursAreOffered() {
 
     when(skills.enabledSkillsOf(tutor)).thenReturn(List.of(databases, calculus));

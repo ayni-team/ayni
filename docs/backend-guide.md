@@ -164,6 +164,8 @@ second iteration does not pay for them again.
 - **Each scenario of the `.feature` names the test that runs it**, with the same display name.
   A scenario that is not built yet stays in the file tagged `@pending` and is listed in the pull
   request under "Still pending", so nothing disappears silently.
+  `architecture.ScenarioNamesTest` fails the build when a scenario that is not `@pending` has no
+  test with exactly its name, and names the file and the scenario to fix.
 - **Integration tests use the module's own Testcontainers database** (`<Module>TestDatabase`, one
   static container), and the time is read from the injected `Clock`.
 
@@ -241,9 +243,10 @@ ADR 0007, its part about requests. Every request proves who it is with the sessi
 `AccessControlFilter` looks the session up by the hash of the token in `identity.user_sessions`,
 one row by index, and binds its university to `TenantContext` and its person to `CurrentUser`.
 **`X-Tenant-Id` and `X-User-Id` are no longer read by the application**: the university of a request
-is the one of its session, and nobody can name another. Wherever a table below says that a missing
-`X-Tenant-Id` or `X-User-Id` answers `400`, the application now answers `401` before the endpoint
-runs, because there is no session; the `400` of the use case stays for the tests.
+is the one of its session, and nobody can name another. A request without a session is answered
+`401` before the endpoint runs, so the tables below do not list a missing header among the causes
+of a `400`; that `400` of the use cases is only seen by the tests that still send the headers (see
+"In tests" below).
 
 **Who may call what, by route group** (`RouteAccess`):
 
@@ -449,7 +452,7 @@ itself, a mistake of the platform. Skills synchronises the catalogue with it (se
 curriculum" under skills).
 
 **Publishes:** `AccessRequested`, `StudentActivated`, `CoordinatorActivated`,
-`UniversityRegistered`, `UniversitySuspended`, `CreditPolicyChanged`, `UniversityIdentityChanged`.
+`UniversityRegistered`, `CreditPolicyChanged`, `UniversityIdentityChanged`.
 
 **Endpoints**
 
@@ -554,7 +557,7 @@ is kept in upper case and the domains in lower case. Nothing is published when i
 | Status | When |
 |---|---|
 | 201 | Registered. The body is the university with `studentCount` and `coordinatorCount` at 0 |
-| 400 | A field is missing or wrong: no domain, a grade outside 0 to 20, a time zone that does not exist, credits or validity below 1, a missing `X-User-Id` |
+| 400 | A field is missing or wrong: no domain, a grade outside 0 to 20, a time zone that does not exist, credits or validity below 1 |
 | 409 | The code or one of the email domains already belongs to a university, whatever its case or status |
 
 Registering takes a database lock before it looks for the code and the domains, so two requests for
@@ -594,7 +597,7 @@ one of the university's domains. Nothing is published when it is refused.
 | Status | When |
 |---|---|
 | 201 | Invited. The coordinator exists as `PENDING` and the link is on its way |
-| 400 | A field is missing, the email is not one, it is not of a domain of the university, or `X-User-Id` is missing |
+| 400 | A field is missing, the email is not one, it is not of a domain of the university |
 | 404 | The university does not exist |
 | 409 | The university is suspended, or the address already has a user in it, pending or active |
 
@@ -632,7 +635,7 @@ publishes nothing; audit writes it down (see "Listens to (US48)" under audit).
 | Status | When |
 |---|---|
 | 200 | Replaced |
-| 400 | `creditsAmount` or `validityDays` below 1, or a missing `X-Tenant-Id` or `X-User-Id` |
+| 400 | `creditsAmount` or `validityDays` below 1 |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or someone who does not belong to it |
 | 409 | The university is suspended, or it has no baseline policy to replace |
 
@@ -789,9 +792,10 @@ endpoint for it is `POST /api/v1/me/onboarding/interests` below.
 **Calls:** `IdentityApi.approvedCourses`, `IdentityApi.requireTenant` for the grade threshold,
 `IdentityApi.requireUser` and `IdentityApi.completeOnboarding` at the last step of the onboarding,
 `IdentityApi.academicCurriculum` to synchronise the catalogue with the academic system.
-**Listens to:** `StudentActivated` — to enable the courses their grades already justify;
-`SessionCompleted` — to count the sessions taught on each catalogue item, which a moderator reviews the
-catalogue by (US44). Skills keeps its own count because it cannot ask reputation for it: reputation
+**Listens to:** `SessionCompleted` — to count the sessions taught on each catalogue item, which a
+moderator reviews the catalogue by (US44). Nothing is enabled when a student is activated: the
+courses their grades justify are enabled when they declare them at the last step of the onboarding
+or offer them later (US13), both through `OfferApprovedCourseUseCase`. Skills keeps its own count because it cannot ask reputation for it: reputation
 already depends on skills, and the modules would depend on each other.
 
 | Method | Path | Who | Does |
@@ -814,7 +818,7 @@ already depends on skills, and the modules would depend on each other.
 | GET | `/api/v1/coordinator/skill-proposals/{id}` | coordinator | one proposal with the catalogue items it looks like (US43) |
 | POST | `/api/v1/coordinator/skill-proposals/{id}/decision` | coordinator | approves (adds a global item), joins to an existing item, or rejects with a reason (US43) |
 | GET | `/api/v1/coordinator/catalog/{id}/usage` | coordinator | tutors offering an item and sessions taught on it, counted in the coordinator's university only, for a global tool too; counts, never people (US44) |
-| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the ADMIN role, which does not exist yet (TS03) (US44) |
+| POST | `/api/v1/coordinator/catalog/{id}/retire` | coordinator | retires a course of the university and withdraws every offer of it; the body confirms the number of tutors affected. A global tool answers 403: it is left to the platform administrator (`PLATFORM_ADMIN`, TS03), who has no endpoint for it yet (US44) |
 | POST | `/api/v1/coordinator/catalog/{id}/merge` | coordinator | joins a duplicate course to the one that stays, both of the university: offers, interests, proposals and counted sessions follow, the duplicate is retired. If either is a global tool it answers 403, and nothing changes (US44) |
 | GET | `/api/v1/coordinator/academic-catalog/courses` | coordinator | the courses of the university, by course code, retired ones marked (US51) |
 | POST | `/api/v1/coordinator/academic-catalog/courses` | coordinator | loads the curriculum: adds new courses, updates names, brings back retired ones, never removes; all or nothing (US51) |
@@ -954,7 +958,7 @@ Owns the credits. **The only module allowed to write the ledger.**
 
 ```java
 public interface WalletApi {
-  CreditBalance balanceOf(UUID userId);
+  CreditBalanceView balanceOf(UUID userId);
   ChargeReceipt charge(UUID userId, Credits amount, UUID bookingId);   // throws InsufficientCredits
   void refund(UUID bookingId);
   void grant(UUID userId, Credits amount, CreditType type, Instant expiresAt, UUID sourceId);
@@ -1067,8 +1071,7 @@ hours exist, or a cancellation gives hours back, matching asks here which of the
 the current university have not started and can still be booked. A held hour counts as open,
 because a hold ends either in a booking, which is announced, or back in circulation, which is not.
 
-**Publishes:** `BookingConfirmed`, `BookingCancelled`, `AvailabilityPublished`, `HoursGenerated`,
-`HoursWithdrawn`.
+**Publishes:** `BookingConfirmed`, `BookingCancelled`, `HoursGenerated`, `HoursWithdrawn`.
 **Calls:** `SkillsApi.isTutorEnabledFor`, `WalletApi.charge`, `IdentityApi.isActive`; for the names of its
 lists and its hold (W23), `SkillsApi.itemsOf` and `IdentityApi.namesOf`.
 **Listens to:** `SessionAbandoned` — marks the booking `NO_SHOW`, and when the student was present
@@ -1149,7 +1152,7 @@ The warning is the answer to the first request and cancels nothing: `409` with `
 | Status | When |
 |---|---|
 | 204 | Cancelled, or it already was |
-| 400 | A missing `X-Tenant-Id` or `X-User-Id`, or a booking id that is not a UUID |
+| 400 | A booking id that is not a UUID |
 | 403 | The caller is neither the student nor the tutor of the booking |
 | 404 | The booking does not exist in this university. Another university's booking answers the same |
 | 409 | The confirmation of a late cancellation is needed, or the session has already started |
@@ -1245,8 +1248,8 @@ comes back to `AVAILABLE` when the rules give it again, a pause ended early or a
 again, and `HoursGenerated` announces it. `RELEASED` is kept for an hour freed by cancelling its
 booking, which generation never restores. Which hours the rules give is decided by the same
 `BlockGenerator` that creates them. A booked hour stands, as US19
-scenario 4 asks: until cancelling exists (US05) removing availability does not cancel, and the
-answer counts the booked hours that stand so the tutor knows.
+scenario 4 asks: removing availability never cancels a booking (only cancelling does, with its
+refund, US05), and the answer counts the booked hours that stand so the tutor knows.
 
 ---
 
@@ -1327,7 +1330,8 @@ for the support material prepared from it (US07), for the skill that `SessionAba
 the course that the answers name (W23); `SkillsApi.itemsOf` and `IdentityApi.namesOf` — for the
 names of the course and of the other person (W23); `IdentityApi.activeTenantCodes` — for the jobs
 that look at every university.
-**Listens to:** `BookingConfirmed` — that is what creates the session.
+**Listens to:** `BookingConfirmed` — that is what creates the session; `BookingCancelled` — cancels
+the session of the booking while it is still scheduled.
 
 | Method | Path | Who |
 |---|---|---|
@@ -1565,8 +1569,8 @@ board.
 
 The live channels are kept in the memory of the instance, which is enough for the monolith (ADR
 0002); a second instance would need a broker in between. The token is checked when a channel opens;
-a token revoked during a session keeps its open channel until the session ends. The screen of the web
-application is not built yet.
+a token revoked during a session keeps its open channel until the session ends. The web application
+draws it in the session screen (`web/src/features/sessions/whiteboard`).
 
 ---
 
@@ -1698,15 +1702,14 @@ and their names.
 enabled for that skill who never taught it has no row yet and answers `200` with 0 sessions, 0
 ratings and no average: a new tutor, as matching shows them. It answers `404` only when the tutor
 has no standing and `SkillsApi.isTutorEnabledFor` says they do not teach that skill in the
-university. A missing `X-Tenant-Id`, a missing `catalogItemId` or an id that is not a UUID answer
-`400`.
+university. A missing `catalogItemId` or an id that is not a UUID answer `400`.
 
 The student rates with stars and tags. The tutor answers three facts: punctual, connection held,
 session flowed. One rating per session and per direction. Below three ratings there is no average,
 only a new tutor mark. Standing is per skill, never overall.
 
 **`POST /api/v1/sessions/{id}/rating`** (US32 and US34). One endpoint, two directions: the caller is
-the person in `X-User-Id`, and who they are in the session decides what they send.
+the person of the session, and who they are in the tutoring decides what they send.
 
 - A **student** sends `stars` (1 to 5) and optionally `tags` and `comment`. It becomes a
   `STUDENT_TO_TUTOR` rating and counts in the tutor's standing in the skill of the session.
@@ -1722,7 +1725,7 @@ window and cannot be rated. A successful rating publishes `SessionRated`, which 
 | Status | When |
 |---|---|
 | 201 | Registered. The body carries the id of the rating |
-| 400 | A student without `stars`, a tutor missing any of the three facts, `stars` outside 1 to 5, a missing `X-Tenant-Id` or `X-User-Id`, or a session id that is not a UUID |
+| 400 | A student without `stars`, a tutor missing any of the three facts, `stars` outside 1 to 5, or a session id that is not a UUID |
 | 403 | The caller is neither the tutor nor the student of the session |
 | 404 | There is no completed session with that id in this university. Another university's session answers the same |
 | 409 | That direction of the session was already rated |
@@ -1961,10 +1964,10 @@ administrator, who belongs to none.
 **Not listened to, on purpose.** `AccessRequested` and `PresenceCodeIssued` carry the access link
 and the presence code in clear, and `StudentActivated` carries an email address: no entry holds an
 email, a link or a code. `CreditsExpiring` is a reminder of something that has not happened yet,
-`HoursGenerated`, `HoursWithdrawn` and `AvailabilityPublished` are availability and not a
+`HoursGenerated` and `HoursWithdrawn` are availability and not a
 reservation, `PurchaseConfirmed` is already told by the `CreditsGranted` it causes, `SessionRated`
-belongs to reputation, and `UniversityRegistered` and `UniversitySuspended` are the platform
-administrator opening or closing a university, which is not a change of its configuration.
+belongs to reputation, and `UniversityRegistered` is the platform administrator opening a
+university, which is not a change of its configuration.
 
 The listeners use `@ApplicationModuleListener` and bind the university with
 `TenantContext.runAs(event.tenantId(), ...)`. An entry is written in a transaction of its own, and a
@@ -1990,14 +1993,14 @@ the university of the request: another university's entries are not reachable by
 | Status | When |
 |---|---|
 | 200 | A page of entries, possibly empty |
-| 400 | A missing `X-Tenant-Id` or `X-User-Id`, an identifier that is not a UUID, a date that is not ISO 8601, or `to` before `from` |
+| 400 | An identifier that is not a UUID, a date that is not ISO 8601, or `to` before `from` |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or somebody the university does not know. The attempt is recorded |
 
 **A refusal that is remembered.** The use case writes an `AUDIT_LOG_ACCESS_DENIED` entry for the
 person (`actorRole` is the one they have in the university, `UNKNOWN` when it does not know them,
 and `details.reason` says why) and then throws; the transaction is declared with
 `noRollbackFor = AuditAccessDenied.class`, so the entry stays. The acceptance test reads the row
-after the `403`. A request with no `X-User-Id` is malformed, answers `400` and writes nothing.
+after the `403`. A request with no session is answered `401` by the access filter and writes nothing.
 
 **Append only.** The table refuses `UPDATE`, `DELETE` and `TRUNCATE` with triggers, described in
 `database/data-model.md`. A correction is a new entry.
@@ -2096,7 +2099,7 @@ its board can no longer change; the job does not look at boards.
 | Status | When |
 |---|---|
 | 200 | A page, the alert, or the alert dismissed |
-| 400 | A missing `X-Tenant-Id` or `X-User-Id`, an id that is not a UUID, a `status` that is not one of the three, a body that is missing, or a `reason` that is blank or too long |
+| 400 | An id that is not a UUID, a `status` that is not one of the three, a body that is missing, or a `reason` that is blank or too long |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, or somebody the university does not know |
 | 404 | The alert does not exist **in this university**. Another university's alert answers the same |
 | 409 | Dismissing an alert that was already resolved |
@@ -2177,19 +2180,28 @@ and at most 20. It carries identifiers only: the client resolves the names with 
 | Status | When |
 |---|---|
 | 200 | The totals and the series, or the file |
-| 400 | A missing `X-Tenant-Id` or `X-User-Id`, a missing `from` or `to`, a date that is not ISO 8601, `to` before `from`, or a period of more than 366 days |
+| 400 | A missing `from` or `to`, a date that is not ISO 8601, `to` before `from`, or a period of more than 366 days |
 | 403 | The person is not an active coordinator of that university: a student, a coordinator who is restricted, one of another university, or somebody the university does not know |
 
-**Not built.** The `/api/v1/admin/overview` endpoint waits for the administrator role (TS03).
+**Not built.** The `/api/v1/admin/overview` endpoint. The platform administrator exists since TS03
+(`PLATFORM_ADMIN`), but no university is bound for them, so they see none of its rows (see
+"Access control"): an overview across universities needs a query of its own first.
 
 ---
 
 ## payments
 
-`payments` owns credit purchases and exposes `POST /api/v1/payments/purchases`. The
-student comes from `X-User-Id`, the university from `X-Tenant-Id`, and each attempt requires an
-`Idempotency-Key`. A repeated key for the same student returns the original result; a new attempt
-after a rejection needs a new key.
+`payments` owns credit purchases. The student and the university come from the session
+(`Authorization: Bearer`, see "Access control"), like every other route of a student.
+
+| Method | Path | Who | Does |
+|---|---|---|---|
+| POST | `/api/v1/payments/purchases` | student | buys credits; `Idempotency-Key` header required. `201` when the provider answered, `202` while the purchase is pending, `200` for a key already used |
+| GET | `/api/v1/payments/purchases` | student | the student's purchases, newest first, with the outcome of each |
+| GET | `/api/v1/payments/purchases/{purchaseId}` | student | one purchase of the student, with its receipt; `404` for another student's or another university's |
+
+A repeated key for the same student returns the original result; a new attempt after a rejection
+needs a new key.
 
 Until the universities' academic cycles are available through a public interface, the purchase
 allowance is five confirmed credits per student per UTC calendar month. Failed payments do not

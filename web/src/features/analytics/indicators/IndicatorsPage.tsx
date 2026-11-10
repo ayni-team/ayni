@@ -198,7 +198,7 @@ function Daily({ days }: { days: readonly UsageDay[] }) {
 
 function UncoveredDemand({ indicators }: { indicators: Indicators }) {
   const demand = indicators.uncoveredDemand ?? [];
-  // Not GET /api/v1/catalog, as the guide says: that route answers 403 to a coordinator.
+  // Not GET /api/v1/catalog: that route answers 403 to a coordinator.
   const catalog = useApiQuery(['analytics', 'courses'], '/api/v1/coordinator/academic-catalog/courses', {
     enabled: demand.length > 0,
   });

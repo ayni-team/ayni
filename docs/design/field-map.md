@@ -407,7 +407,7 @@ periodo inválido, sin actividad, cargando, error.
 | Periodo | parámetros `from`, `to`; más de 366 días → 400 |
 | Totales | `UsageIndicators.totals.sessionsCompleted`, `.hoursExchanged`, `.activeStudents`, `.newStudents`, `.recognitionsGranted` |
 | Barras por día | `UsageIndicators.days[].day`, `.figures.hoursExchanged` (tooltip: `.sessionsCompleted`) |
-| Cursos buscados sin tutor | `UsageIndicators.uncoveredDemand[].catalogItemId`, `.searches`; nombre y código con `GET /api/v1/catalog` |
+| Cursos buscados sin tutor | `UsageIndicators.uncoveredDemand[].catalogItemId`, `.searches`; nombre y código con `GET /api/v1/coordinator/academic-catalog/courses` (el coordinador recibe 403 en `GET /api/v1/catalog`) |
 | Descargar CSV | `GET /api/v1/coordinator/indicators/export` |
 
 ## FE-60 Avisos

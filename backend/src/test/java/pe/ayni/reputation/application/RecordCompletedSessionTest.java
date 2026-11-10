@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import pe.ayni.reputation.domain.model.RatingWindow;
@@ -23,6 +24,7 @@ import pe.ayni.shared.tenancy.TenantContext;
 class RecordCompletedSessionTest {
 
     @Test
+    @DisplayName("A completed session is counted in the skill it was about")
     void createsStandingAndRatingWindowOnFirstCompletedSession() {
         String tenantId = "upc";
         UUID sessionId = UUID.randomUUID();

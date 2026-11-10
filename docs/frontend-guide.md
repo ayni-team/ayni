@@ -582,7 +582,8 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
   .../indicators/export` (CSV).
 - **Does:** the totals of a period (default: the last 30 days) as numbers, the daily series as a
   simple table or bars, the courses with the most searches nobody covered (`uncoveredDemand`, ids:
-  resolve the names from `GET /api/v1/catalog`), and a download button for the CSV. No names or
+  resolve the names from `GET /api/v1/coordinator/academic-catalog/courses`; `GET /api/v1/catalog`
+  answers `403` to a coordinator), and a download button for the CSV. No names or
   identifiers of people ever appear.
 - **Handles:** a period over 366 days is refused (`400`): limit the picker.
 
