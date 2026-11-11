@@ -57,7 +57,8 @@ The board keeps its 2000 elements; a long session measured far below that.
 
 - The web gains a whiteboard with every tool, and loses the code of its own: the SVG canvas and its
   tools are gone.
-- Excalidraw is about 180 kB gzip, loaded only by the room and the review.
+- Excalidraw is about 400 kB gzip (375 kB of JavaScript, 23 kB of CSS, 8.5 kB of Spanish), loaded only
+  by the room and the review; the entry of the application does not grow.
 - **Risks.** A new dependency with 230 packages in a repository that suffered injected code
   (`docs/security.md`); its transitive advisories, today in Mermaid and `nanoid`, are not reachable
   from the board but have to be read on each update. An update of Excalidraw may move what the
