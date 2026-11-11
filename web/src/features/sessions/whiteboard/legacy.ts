@@ -13,7 +13,7 @@ import {
 import type { SceneElement } from './scene';
 
 /**
- * Boards drawn before Excalidraw (ADR 0014) are converted when they are read, never rewritten: the
+ * Boards drawn before Excalidraw (ADR 0010) are converted when they are read, never rewritten: the
  * server keeps what it has, and a board of the old format reads the same in the room and in the
  * review of a session. The result is a minimal Excalidraw element; Excalidraw's `restoreElements`
  * fills in the rest before it is drawn.

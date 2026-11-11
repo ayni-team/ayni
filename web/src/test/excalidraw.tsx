@@ -13,7 +13,7 @@ type Element = { id: string; type: string; version: number; versionNonce: number
 
 interface Props {
   excalidrawAPI?: (api: unknown) => void;
-  initialData?: { elements?: Element[] };
+  initialData?: { elements?: Element[] } | (() => Promise<{ elements?: Element[] }>);
   onChange?: (elements: readonly Element[]) => void;
   onPointerUp?: () => void;
   viewModeEnabled?: boolean;
@@ -37,7 +37,7 @@ function Excalidraw(props: Props) {
   useEffect(() => {
     const board: FakeBoard = {
       props,
-      elements: [...(props.initialData?.elements ?? [])],
+      elements: [],
       updates: [],
       scrolled: 0,
       draw(change) {
@@ -48,9 +48,16 @@ function Excalidraw(props: Props) {
     };
     fakeExcalidraw.current = board;
     fakeExcalidraw.all.push(board);
+    // Like Excalidraw, the initial data is read once and applied asynchronously.
+    void Promise.resolve(typeof props.initialData === 'function' ? props.initialData() : props.initialData).then(
+      (data) => {
+        board.elements = [...(data?.elements ?? [])];
+      },
+    );
     props.excalidrawAPI?.({
       getSceneElementsIncludingDeleted: () => board.elements,
-      getAppState: () => ({ selectedElementIds: {}, selectedElementsAreBeingDragged: false }),
+      getSceneElements: () => board.elements.filter((element) => !element.isDeleted),
+      getAppState: () => ({ selectedElementIds: {}, selectedElementsAreBeingDragged: false, width: 800, height: 600 }),
       updateScene: (scene: { elements?: Element[]; captureUpdate?: string }) => {
         board.updates.push(scene);
         if (scene.elements) board.elements = [...scene.elements];
@@ -91,4 +98,5 @@ export const excalidrawModule = {
   MainMenu,
   CaptureUpdateAction: { IMMEDIATELY: 'IMMEDIATELY', NEVER: 'NEVER', EVENTUALLY: 'EVENTUALLY' },
   restoreElements: (elements: Element[]) => elements.map((element) => ({ ...element })),
+  getCommonBounds: () => [0, 0, 10, 10],
 };

@@ -26,7 +26,7 @@ function randomNonce(): number {
 }
 
 /**
- * Keeps an Excalidraw scene and a board of the server in step (ADR 0014). It knows, for each
+ * Keeps an Excalidraw scene and a board of the server in step (ADR 0010). It knows, for each
  * element, the last edit the board has: the one this client sent or the one it received.
  *
  * - `changes` answers what to send for the scene as it is: the elements whose edit the board does

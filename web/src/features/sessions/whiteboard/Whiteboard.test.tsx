@@ -45,8 +45,18 @@ async function setup(onClosed?: () => void) {
   return fakeExcalidraw.current!;
 }
 
-function open(version = 1, elements: unknown[] = []) {
+/** The board arrives; Excalidraw takes it as its initial data, asynchronously, as it does. */
+async function open(version = 1, elements: unknown[] = []) {
   act(() => last().accept(version, elements));
+  await act(async () => {
+    await Promise.resolve();
+    vi.advanceTimersByTime(1);
+    await Promise.resolve();
+  });
+  // And frames it once it has measured it.
+  await act(async () => {
+    vi.advanceTimersByTime(100);
+  });
 }
 
 function chip() {
@@ -85,13 +95,11 @@ describe('FE-22 Whiteboard', () => {
     expect(screen.getByTestId('excalidraw')).toHaveAttribute('lang', 'es-ES');
     expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'true');
 
-    open(3, [THEIRS]);
+    await open(3, [THEIRS]);
 
     expect(chip()).toHaveTextContent('Guardado · podrás repasarla después');
     expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'false');
     expect(board.elements.map((element) => element.id)).toEqual(['theirs']);
-    // What arrives never enters the undo history of this person.
-    expect(board.updates.at(-1)?.captureUpdate).toBe('NEVER');
     expect(board.scrolled).toBe(1);
     // And it is not sent back.
     expect(last().sent).toEqual([]);
@@ -99,7 +107,7 @@ describe('FE-22 Whiteboard', () => {
 
   it('sends what is drawn, once, and then each edit', async () => {
     await setup();
-    open();
+    await open();
 
     draw((elements) => [...elements, shape('mine') as never]);
 
@@ -120,7 +128,7 @@ describe('FE-22 Whiteboard', () => {
 
   it('while somebody draws, sends at most every so often, and the last state when they let go', async () => {
     const board = await setup();
-    open();
+    await open();
 
     act(() => {
       for (let step = 1; step <= 10; step += 1) {
@@ -141,7 +149,7 @@ describe('FE-22 Whiteboard', () => {
 
   it('what the other person draws, edits and deletes arrives into the scene', async () => {
     const board = await setup();
-    open(1, [THEIRS]);
+    await open(1, [THEIRS]);
 
     const moved = toBoardElement(shape('theirs', { x: 80, version: 2, versionNonce: 3 }) as unknown as SceneElement);
     act(() =>
@@ -156,7 +164,7 @@ describe('FE-22 Whiteboard', () => {
 
   it('says it is reconnecting, keeps the drawing, and sends it on coming back', async () => {
     await setup();
-    open(1, [THEIRS]);
+    await open(1, [THEIRS]);
 
     act(() => last().drop());
     expect(chip()).toHaveTextContent('Reconectando… la pizarra vuelve completa');
@@ -167,7 +175,7 @@ describe('FE-22 Whiteboard', () => {
       vi.advanceTimersByTime(backoffMs(1));
     });
     expect(FakeSocket.instances).toHaveLength(2);
-    open(2, [THEIRS]);
+    await open(2, [THEIRS]);
 
     expect(sentOperations()).toEqual([
       expect.objectContaining({ action: 'PUT_ELEMENT', element: expect.objectContaining({ id: 'offline' }) }),
@@ -178,7 +186,7 @@ describe('FE-22 Whiteboard', () => {
   it('stays to be read once the session is over, and says so to the room', async () => {
     const onClosed = vi.fn();
     await setup(onClosed);
-    open(1, [THEIRS]);
+    await open(1, [THEIRS]);
 
     act(() => last().drop(SESSION_OVER));
 
@@ -189,7 +197,7 @@ describe('FE-22 Whiteboard', () => {
 
   it('says when the board is full, in Spanish, and takes out what did not fit', async () => {
     const board = await setup();
-    open(
+    await open(
       1,
       Array.from({ length: 2000 }, (_, index) => ({ ...THEIRS, id: `e${index}` })),
     );

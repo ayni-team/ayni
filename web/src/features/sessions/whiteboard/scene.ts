@@ -3,7 +3,7 @@ import type { BoardElement } from './board';
 import { fromLegacy, isLegacy } from './legacy';
 
 /**
- * How an Excalidraw scene and the elements of a board stored by the server (ADR 0009, ADR 0014)
+ * How an Excalidraw scene and the elements of a board stored by the server (ADR 0009, ADR 0010)
  * map to each other. Every Excalidraw element is one element of the board: `id` is its id, `type`
  * its type and `data` the element itself, as JSON. The server never reads `data`.
  *
@@ -17,7 +17,7 @@ const TYPE_LIMIT = 32;
 
 /**
  * The types the board keeps. Images, embedded pages and iframes are left out on purpose: the board
- * does not carry files and does not load other sites (ADR 0014).
+ * does not carry files and does not load other sites (ADR 0010).
  */
 const KEPT_TYPES: ReadonlySet<string> = new Set([
   'rectangle',

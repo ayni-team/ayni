@@ -79,6 +79,15 @@ Fixed. Adding a dependency is a decision of the lead, taken in a pull request.
 | Styles | Tailwind CSS, with the university's colours as CSS variables |
 | API types | `openapi-typescript` over `docs/api/openapi.json`, generated into `src/shared/api/schema.d.ts` |
 | Tests | Vitest and Testing Library |
+| Whiteboard | `@excalidraw/excalidraw` **0.18.1, pinned exactly**: the one exception, below |
+
+**The one exception: Excalidraw.** The whiteboard (FE-22, FE-24) is Excalidraw, decided by the lead
+in [ADR 0010](adr/0010-whiteboard-drawn-with-excalidraw.md). It is used only inside
+`features/sessions/whiteboard`, loaded lazily, and never imported by any other screen. It is pinned
+to an exact version, installed with `npm install --save-exact --ignore-scripts`, and an update is a
+pull request of its own that vets it again (`npm view`, the packages it brings and their install
+scripts, `npm audit`, `node scripts/check-injected-code.mjs`) and checks that nothing is requested
+from another host. This is not a precedent: any other dependency is still a decision of the lead.
 
 Everything else the platform already gives you: `fetch`, `WebSocket`, `Intl`, `crypto.randomUUID()`.
 No date library: the server sends ISO 8601 instants and the zone to show them in.
@@ -640,7 +649,7 @@ A screen is finished when all of this is true:
 
 - [ ] It follows its Figma frame, on desktop and on a phone width
 - [ ] It handles loading, empty, error and ready, and every refusal its section lists
-- [ ] It uses only `shared/ui` and `shared/api`, and no new dependency
+- [ ] It uses only `shared/ui` and `shared/api`, and no new dependency (Excalidraw only in the whiteboard)
 - [ ] It has its test of the logic
 - [ ] `npm run format` was run before opening the pull request; the CI checks it
 - [ ] `npm run build` passes (type check included) and the CI is green
@@ -652,7 +661,7 @@ A screen is finished when all of this is true:
 
 - Do not call `fetch` outside `shared/api`.
 - Do not hand-write a response type: the generated one is the contract. If it is wrong, the backend is.
-- Do not add dependencies, and do not copy a component into your feature that `shared/ui` has.
+- Do not add dependencies (Excalidraw, in the whiteboard, is the one exception), and do not copy a component into your feature that `shared/ui` has.
 - Do not change another person's screen, nor `App.tsx`, `shared/` or `routes.tsx` of a feature that is not yours.
 - Do not store tokens anywhere but the session, nor put the email or the token in a URL (the access link's `token` is the one exception, and it is spent at once). The email never travels in a URL, so the sign-in preview asks for the university by its domain (`?domain=`).
 - Do not decide the contract with the backend yourself. Ask in the pull request.

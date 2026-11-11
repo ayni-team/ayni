@@ -2,7 +2,7 @@ import type { Schema } from '@/shared/api';
 
 /**
  * An element of a whiteboard as the server stores it: `{ id, type, data }`, with `data` opaque to
- * the server (ADR 0009). Since ADR 0014 every element is an Excalidraw element (`scene.ts`).
+ * the server (ADR 0009). Since ADR 0010 every element is an Excalidraw element (`scene.ts`).
  *
  * Boards drawn before that hold the types below, which `legacy.ts` reads to show them again:
  *

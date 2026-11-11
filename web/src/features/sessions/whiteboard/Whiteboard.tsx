@@ -23,7 +23,7 @@ function statusOf(board: ChannelSnapshot): { text: string; tone: 'quiet' | 'loud
 }
 
 /**
- * FE-22 · the shared whiteboard, in the room: Excalidraw with every tool it has (ADR 0014), over
+ * FE-22 · the shared whiteboard, in the room: Excalidraw with every tool it has (ADR 0010), over
  * the live channel of ADR 0009. The channel opens at once, while Excalidraw loads. When the
  * session is over the board stays, to be read.
  */

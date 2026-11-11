@@ -1,5 +1,5 @@
 /*
- * Excalidraw dressed as Ayni (ADR 0014). Only the presentation: its variables, scoped to the
+ * Excalidraw dressed as Ayni (ADR 0010). Only the presentation: its variables, scoped to the
  * boards, so the university's colour is the accent and the interface speaks in the application's
  * font. Every rule is inside `.ayni-board`, so nothing leaks to the rest of the screen.
  */
@@ -12,9 +12,13 @@
   --color-primary-light: var(--brand-primary-soft);
   --color-primary-light-darker: color-mix(in srgb, var(--brand-primary-soft) 75%, var(--brand-primary));
   --color-selection: var(--brand-primary);
+  --color-surface-primary-container: var(--brand-primary-soft);
+  --color-on-primary-container: var(--brand-primary-pressed);
+  --color-brand-hover: var(--brand-primary-pressed);
+  --color-brand-active: var(--brand-primary-pressed);
 }
 
-/* Out of scope for now (ADR 0014): the library of templates is downloaded from another site. */
+/* Out of scope for now (ADR 0010): the library of templates is downloaded from another site. */
 .ayni-board .default-sidebar-trigger,
 .ayni-board .sidebar-trigger {
   display: none !important;

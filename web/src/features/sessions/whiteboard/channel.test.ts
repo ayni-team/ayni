@@ -160,7 +160,8 @@ describe('FE-22 the live channel', () => {
 
   it('respects the limits of the server, on this side', () => {
     const channel = newChannel();
-    const big: BoardElement = { id: 'big', type: 'stroke', data: { text: 'x'.repeat(17 * 1024) } as never };
+    const big: BoardElement = { id: 'big', type: 'stroke', data: { text: 'x'.repeat(33 * 1024) } as never };
+    const long: BoardElement = { id: 'long', type: 'freedraw', data: { text: 'x'.repeat(31 * 1024) } as never };
     last().accept(
       1,
       Array.from({ length: 2000 }, (_, index) => el(`e${index}`)),
@@ -168,9 +169,11 @@ describe('FE-22 the live channel', () => {
 
     expect(channel.put(big)).toBe('TOO_BIG');
     expect(channel.put(el('one-more'))).toBe('FULL');
+    // A long stroke fits in the 32 KB of ADR 0010, when it replaces one already there.
+    expect(channel.put({ ...long, id: 'e3' })).toBe('OK');
     // Replacing one already on the board does not make it grow.
     expect(channel.put(el('e7'))).toBe('OK');
-    expect(last().sent).toHaveLength(1);
+    expect(last().sent).toHaveLength(2);
   });
 
   it('forgets what the server refused, and says so', () => {

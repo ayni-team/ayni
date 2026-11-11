@@ -1,11 +1,11 @@
-import { MainMenu, restoreElements } from '@excalidraw/excalidraw';
-import type { ExcalidrawProps } from '@excalidraw/excalidraw/types';
+import { MainMenu, getCommonBounds, restoreElements } from '@excalidraw/excalidraw';
+import type { ExcalidrawImperativeAPI, ExcalidrawProps } from '@excalidraw/excalidraw/types';
 import '@excalidraw/excalidraw/index.css';
 import './excalidraw.css';
 import type { SceneElement } from './scene';
 
 /**
- * What the room and the review share of Excalidraw (ADR 0014). This module, and the two that
+ * What the room and the review share of Excalidraw (ADR 0010). This module, and the two that
  * import it, are only loaded on the screens that draw a board: Excalidraw weighs more than the
  * rest of the application.
  */
@@ -76,3 +76,22 @@ export const INITIAL_APP_STATE = {
   currentItemFontFamily: 6,
   viewBackgroundColor: '#ffffff',
 } as const;
+
+/**
+ * Puts what was drawn in the middle of the board, once Excalidraw has measured it; a board larger
+ * than the window is zoomed out until it fits. A small one keeps its size: zooming in on three
+ * words would only blur them.
+ */
+export function frame(api: ExcalidrawImperativeAPI): void {
+  window.setTimeout(() => {
+    const elements = api.getSceneElements();
+    if (elements.length === 0) return;
+    const [minX, minY, maxX, maxY] = getCommonBounds(elements);
+    const { width, height } = api.getAppState();
+    const fits = maxX - minX <= width * 0.9 && maxY - minY <= height * 0.85;
+    api.scrollToContent(
+      elements,
+      fits ? { animate: false } : { fitToViewport: true, viewportZoomFactor: 0.85, animate: false },
+    );
+  }, 60);
+}

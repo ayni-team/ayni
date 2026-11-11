@@ -1,5 +1,5 @@
 /**
- * Serves Excalidraw's fonts from this origin (ADR 0014). By default Excalidraw fetches the fonts of
+ * Serves Excalidraw's fonts from this origin (ADR 0010). By default Excalidraw fetches the fonts of
  * the canvas from a CDN; the boards set `window.EXCALIDRAW_ASSET_PATH` to `/excalidraw/` instead,
  * and this plugin answers that path from the package itself: in development straight from
  * `node_modules`, and on a build by copying the folder into `dist`. No dependency and nothing to

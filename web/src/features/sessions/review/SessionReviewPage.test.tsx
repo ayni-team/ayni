@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
 import { serveFrame, signIn } from '@/test/fixtures';
@@ -54,7 +54,11 @@ describe('FE-24 SessionReviewPage', () => {
     // A board of the old format, converted: Excalidraw is loaded only now, in view mode.
     expect(await screen.findByText(/Resumen de la sesión/)).toBeInTheDocument();
     expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'true');
-    expect(fakeExcalidraw.current?.elements).toMatchObject([{ id: 't1', type: 'text', text: 'Resumen de la sesión' }]);
+    await waitFor(() =>
+      expect(fakeExcalidraw.current?.elements).toMatchObject([
+        { id: 't1', type: 'text', text: 'Resumen de la sesión' },
+      ]),
+    );
     expect(screen.queryByText(/English/)).not.toBeInTheDocument();
   });
 
@@ -90,8 +94,8 @@ describe('FE-24 SessionReviewPage', () => {
 
     expect(await screen.findByText('Pizarra con 1 trazo. Tercera forma normal')).toBeInTheDocument();
     expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'true');
+    await waitFor(() => expect(fakeExcalidraw.current?.scrolled).toBe(1));
     expect(fakeExcalidraw.current?.elements.map((element) => element.id)).toEqual(['r1', 'l1']);
-    expect(fakeExcalidraw.current?.scrolled).toBe(1);
   });
 
   it('says nobody drew on a board with nothing', async () => {

@@ -3,7 +3,7 @@ import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/t
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useToast } from '@/shared/ui';
 import type { WhiteboardChannel } from './channel';
-import { BoardMenu, INITIAL_APP_STATE, UI_OPTIONS, onPaste, rejectEmbeds, restore } from './excalidraw';
+import { BoardMenu, INITIAL_APP_STATE, frame, UI_OPTIONS, onPaste, rejectEmbeds, restore } from './excalidraw';
 import { withValidIds, type SceneElement } from './scene';
 import { BoardSync } from './sync';
 
@@ -32,7 +32,7 @@ function stopFiles(event: DragEvent) {
 }
 
 /**
- * FE-22 · the board of the room, drawn with Excalidraw (ADR 0014). The channel orders what both
+ * FE-22 · the board of the room, drawn with Excalidraw (ADR 0010). The channel orders what both
  * participants do (ADR 0009): this component only turns the scene into operations and the board
  * into the scene, through `BoardSync`. Undo and redo are Excalidraw's, of each person's own
  * changes, because what arrives never enters the history.
@@ -53,26 +53,46 @@ export default function LiveBoard({
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const sync = useMemo(() => new BoardSync(restore), []);
   const timer = useRef<number | undefined>(undefined);
-  const fitted = useRef(false);
+  // Excalidraw sets its scene up asynchronously from `initialData`, replacing whatever was put in
+  // it before: the first board is that initial data, and what arrives next waits for it.
+  const first = useMemo(() => {
+    let resolve: (elements: SceneElement[]) => void = () => {};
+    const promise = new Promise<SceneElement[]>((done) => (resolve = done));
+    return { promise, resolve, given: false };
+  }, []);
+  const [initialized, setInitialized] = useState(false);
 
   /** What the board says, into the scene, without entering the undo history. */
   const receive = useCallback(() => {
-    if (!api) return;
     const board = channel.getSnapshot();
     if (!board.ready) return;
+    if (!initialized || !api) {
+      if (!first.given) {
+        first.given = true;
+        first.resolve(sync.receive(board.elements, []) ?? []);
+      }
+      return;
+    }
     const next = sync.receive(board.elements, api.getSceneElementsIncludingDeleted(), editingOf(api.getAppState()));
     if (next) api.updateScene({ elements: next, captureUpdate: CaptureUpdateAction.NEVER });
-    if (!fitted.current) {
-      fitted.current = true;
-      if (board.elements.length > 0) api.scrollToContent(undefined, { fitToContent: true, animate: false });
-    }
-  }, [api, channel, sync]);
+  }, [api, channel, first, initialized, sync]);
+
+  const initialData = useCallback(async () => {
+    const elements = await first.promise;
+    // Excalidraw applies what this answers as soon as it is answered; from then on, the scene is its.
+    window.setTimeout(() => setInitialized(true), 0);
+    return { elements, appState: INITIAL_APP_STATE };
+  }, [first]);
+
+  useEffect(() => {
+    if (initialized && api) frame(api);
+  }, [initialized, api]);
 
   /** What changed in the scene, to the server. */
   const send = useCallback(() => {
     window.clearTimeout(timer.current);
     timer.current = undefined;
-    if (!api || !channel.getSnapshot().ready) return;
+    if (!api || !initialized || !channel.getSnapshot().ready) return;
     const scene = api.getSceneElementsIncludingDeleted() as SceneElement[];
     const renamed = withValidIds(scene, () => crypto.randomUUID());
     if (renamed) {
@@ -99,7 +119,7 @@ export default function LiveBoard({
       // The board does not have it: receiving it again takes it out of the scene too.
       receive();
     }
-  }, [api, channel, receive, sync, toast]);
+  }, [api, channel, initialized, receive, sync, toast]);
 
   const sendSoon = useCallback(() => {
     if (timer.current === undefined) timer.current = window.setTimeout(send, SEND_EVERY_MS);
@@ -120,14 +140,14 @@ export default function LiveBoard({
     <div className="ayni-board absolute inset-0" onDragOverCapture={stopFiles} onDropCapture={stopFiles}>
       <Excalidraw
         excalidrawAPI={setApi}
-        initialData={{ appState: INITIAL_APP_STATE }}
+        initialData={initialData}
         onChange={sendSoon}
         // After Excalidraw has finished the element it was drawing.
         onPointerUp={() => window.setTimeout(send, 0)}
         onPaste={onPaste}
         langCode="es-ES"
         theme="light"
-        viewModeEnabled={!ready || readOnly}
+        viewModeEnabled={!ready || !initialized || readOnly}
         UIOptions={UI_OPTIONS}
         validateEmbeddable={rejectEmbeds}
         aiEnabled={false}
