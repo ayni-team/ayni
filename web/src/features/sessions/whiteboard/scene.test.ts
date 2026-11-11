@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { BoardElement } from './board';
 import { fromLegacy } from './legacy';
 import {
   boardSummary,
@@ -12,6 +13,11 @@ import {
 } from './scene';
 
 /** An Excalidraw element with what the mapping reads; the rest does not matter here. */
+/** An element as the server answers it; its `data` is anything (ADR 0009). */
+function stored(id: string, type: string, data: unknown): BoardElement {
+  return { id, type, data } as BoardElement;
+}
+
 function scene(id: string, extra: Record<string, unknown> = {}): SceneElement {
   return {
     id,
@@ -87,7 +93,7 @@ describe('an Excalidraw scene as the elements of a board, and back', () => {
     expect(indexAt(0)).toBe('a0');
     expect(indexAt(61)).toBe('az');
     expect(indexAt(62)).toBe('b00');
-    expect(indexAt(1999) < indexAt(2000)).toBe(true);
+    expect(String(indexAt(1999)) < String(indexAt(2000))).toBe(true);
   });
 
   it('replaces an id the server would refuse, and every reference to it', () => {
@@ -119,21 +125,17 @@ describe('an Excalidraw scene as the elements of a board, and back', () => {
 describe('a board drawn before Excalidraw', () => {
   it('reads the four old types as Excalidraw elements, in the order they were drawn', () => {
     const elements = sceneOf([
-      { id: 'title', type: 'text', data: { text: 'Resumen', x: 40, y: 40, color: '#1F2937' } },
-      {
-        id: 'underline',
-        type: 'stroke',
-        data: {
-          points: [
-            [40, 70],
-            [260, 80],
-          ],
-          color: '#E42322',
-          width: 3,
-        },
-      },
-      { id: 'box', type: 'shape', data: { shape: 'ellipse', x: 5, y: 6, width: -50, height: 40, color: '#2563EB' } },
-      { id: 'n', type: 'note', data: { x: 300, y: 100, text: 'Revisar la 3FN', author: 'Ana' } },
+      stored('title', 'text', { text: 'Resumen', x: 40, y: 40, color: '#1F2937' }),
+      stored('underline', 'stroke', {
+        points: [
+          [40, 70],
+          [260, 80],
+        ],
+        color: '#E42322',
+        width: 3,
+      }),
+      stored('box', 'shape', { shape: 'ellipse', x: 5, y: 6, width: -50, height: 40, color: '#2563EB' }),
+      stored('n', 'note', { x: 300, y: 100, text: 'Revisar la 3FN', author: 'Ana' }),
     ]);
 
     expect(elements.map((element) => [element.id, element.type, element.index])).toEqual([
@@ -166,7 +168,7 @@ describe('a board drawn before Excalidraw', () => {
   });
 
   it('is never taken for an Excalidraw element, even a text', () => {
-    expect(isSceneData({ id: 't', type: 'text', data: { text: 'Hola', x: 1, y: 2 } })).toBe(false);
+    expect(isSceneData(stored('t', 'text', { text: 'Hola', x: 1, y: 2 }))).toBe(false);
   });
 
   it('leaves out an old element that cannot be read', () => {
@@ -175,7 +177,7 @@ describe('a board drawn before Excalidraw', () => {
   });
 
   it('gives the parts of a note ids the server takes, for a long id too', () => {
-    const parts = fromLegacy({ id: 'x'.repeat(64), type: 'note', data: { x: 0, y: 0, text: 'a', author: 'B' } });
+    const parts = fromLegacy(stored('x'.repeat(64), 'note', { x: 0, y: 0, text: 'a', author: 'B' }));
 
     expect(parts.every((part) => /^[A-Za-z0-9_-]{1,64}$/.test(part.id))).toBe(true);
     expect(new Set(parts.map((part) => part.id)).size).toBe(3);

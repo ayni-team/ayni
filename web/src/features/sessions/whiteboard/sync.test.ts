@@ -267,7 +267,9 @@ describe('two people on one board, through the channel', () => {
   });
 
   function same() {
-    const stored = server.elements.map((each) => `${each.id}@${(each.data as { version: number }).version}`).sort();
+    const stored = server.elements
+      .map((each) => `${each.id}@${(each.data as unknown as { version: number }).version}`)
+      .sort();
     expect(alive(ana.scene)).toEqual(stored);
     expect(alive(bruno.scene)).toEqual(stored);
   }
