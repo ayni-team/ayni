@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { isApiError } from '@/shared/api';
 import { ButtonLink, Card, ErrorState, Skeleton } from '@/shared/ui';
+import { practiceIsOver, type PracticeEnded } from '../practice/practice';
 import { ClosedRoom, EndSessionButton, WaitingClose } from './Closing';
 import { LiveRoom } from './LiveRoom';
 import { RoomSummary } from './RoomSummary';
@@ -23,11 +24,19 @@ function Loading() {
  *
  * One page for the whole life of a session, chosen by its state (`phaseOf`): before the room opens,
  * open, waiting for the other person, in progress and over.
+ *
+ * A practice room (`practice`) is this same screen. It has no rating: once it ends it goes back to
+ * `/practica`.
  */
 export default function SessionPage() {
   const { id = '' } = useParams<{ id: string }>();
   const { query, session, phase, joined, enter, renewPass, entering } = useSessionRoom(id);
   const [backInRoom, setBackInRoom] = useState(false);
+
+  if (practiceIsOver(session, query.error)) {
+    const ended: PracticeEnded = { practiceEnded: true };
+    return <Navigate to="/practica" replace state={ended} />;
+  }
 
   if (query.isPending) return <Loading />;
 

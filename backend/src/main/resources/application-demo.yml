@@ -19,6 +19,10 @@ ayni:
       # Jitsi checks a pass against the real time, so a pass signed with a moved clock would be
       # refused. The pass keeps its length and never outlives the session (JitsiVideoRoomPasses).
       sign-with-real-time: true
+    # The practice rooms of the team, to try the room between two accounts with no record
+    # (docs/demo.md). AYNI_PRACTICE_ROOMS=false turns them off here too.
+    practice-rooms:
+      enabled: ${AYNI_PRACTICE_ROOMS:true}
   audit:
     analysis-delay: PT10S
   payments:

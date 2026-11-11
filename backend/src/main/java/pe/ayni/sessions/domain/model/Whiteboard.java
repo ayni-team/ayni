@@ -53,10 +53,18 @@ public class Whiteboard {
   /** An empty board for a session, before anybody drew on it. */
   public static Whiteboard emptyFor(Session session, Instant now) {
     Objects.requireNonNull(session, "session must not be null");
+    return emptyFor(session.getTenantId(), session.getId(), now);
+  }
+
+  /**
+   * An empty board for a session known only by its identifiers. A practice room keeps one in
+   * memory, with the same rules, and never stores it ({@link PracticeRoom}).
+   */
+  public static Whiteboard emptyFor(String tenantId, UUID sessionId, Instant now) {
     Whiteboard board = new Whiteboard();
     board.id = UUID.randomUUID();
-    board.tenantId = session.getTenantId();
-    board.sessionId = session.getId();
+    board.tenantId = Objects.requireNonNull(tenantId, "tenantId must not be null");
+    board.sessionId = Objects.requireNonNull(sessionId, "sessionId must not be null");
     board.content = BoardContent.EMPTY;
     board.hasActivity = false;
     board.updatedAt = Objects.requireNonNull(now, "now must not be null");

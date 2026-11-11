@@ -1360,6 +1360,7 @@ the session of the booking while it is still scheduled.
 | GET/PUT | `/api/v1/sessions/{id}/whiteboard` | participant |
 | GET | `/api/v1/sessions/{id}/review` | participant — a session of their history, as it was left (US12) |
 | WebSocket | `/api/v1/sessions/{id}/whiteboard/live` | participant, while the session is in progress |
+| POST | `/api/v1/practice-rooms` | any student — opens a practice room (below); `404` while the switch is off |
 
 **Joining.** `GET /sessions/{id}` shows a participant the session and the student's need, read
 through `BookingApi.requireBooking`, and never the room name. `POST /sessions/{id}/join` hands the
@@ -1587,6 +1588,46 @@ The live channels are kept in the memory of the instance, which is enough for th
 0002); a second instance would need a broker in between. The token is checked when a channel opens;
 a token revoked during a session keeps its open channel until the session ends. The web application
 draws it in the session screen (`web/src/features/sessions/whiteboard`).
+
+**Practice rooms (a tool of the team, not a feature).** Two accounts of a university open the real
+session screen, its video call and its whiteboard, at any time, with no booking, no credits and
+**no record**: the room lives only in the memory of the backend (`PracticeRooms`, with the rules in
+`domain.model.PracticeRoom`). It writes no row of any table, publishes no event (no audit, notice or
+email), moves no credit and does not touch the ledger. It is off unless
+`ayni.sessions.practice-rooms.enabled` is true (`AYNI_PRACTICE_ROOMS`, `false` by default; the
+`demo` profile turns it on, and `AYNI_PRACTICE_ROOMS=false` turns it off there too).
+
+- `POST /api/v1/practice-rooms`, without a body, answers `201` with `{"sessionId", "path":
+  "/sesion/<id>"}`. The id is a random UUID. At most `max-open` rooms (20) are open at once; one more
+  is `409`. Switched off, `404` and no id is ever a room.
+- **Where it hooks in.** `SessionsController` asks `PracticeRooms.isOpen(id)` before calling any use
+  case, and `WhiteboardEditing` before calling `WhiteboardStore`: an open room of the reader's
+  university answers from memory, any other id goes exactly where it always went. The WebSocket
+  channel, its handshake and `WhiteboardChannels` are unchanged: they already go through
+  `WhiteboardEditing`, and they key the channels by the id.
+- **Who is who.** The first person to join is the tutor, the second the student, and anybody else
+  gets `403` on every endpoint, the live channel included. `GET /sessions/{id}` lets somebody who
+  has not joined read the room only while a seat is free, with the role they would take, because the
+  screen reads the session before it offers to enter. A person of another university gets `404`.
+- **What it answers.** The course and the need are "Sala de práctica", no support material, the
+  schedule runs from its creation to `lifetime` (four hours) later, `IN_PROGRESS` once both joined,
+  and the other person's name comes from `IdentityApi.namesOf`. Joining hands over a video pass of
+  `VideoRoomPasses`, for a random room name, as for a session. `GET /sessions/{id}` and
+  `POST /sessions/{id}/join` carry `practice: true` (false for every session), so the web goes back
+  to `/practica` instead of the rating.
+- **Presence and the end.** Any six digit code confirms presence, and a resend answers `202` and
+  sends nothing. The first to end it waits for the other; the second gets `COMPLETED`, nothing is
+  credited, the channels of the board close with `4409` and the room is forgotten (`404` from then
+  on). A room nobody ended is forgotten when its lifetime is over (`sweep-delay`, every minute), and
+  every room when the backend restarts.
+- **The board** is a `Whiteboard` kept in memory, so versions, the order of the operations, the
+  board sent whole on reconnecting and the limits (2000 elements, 16 KB each) are those of ADR 0009.
+- Proven by `features/practice-rooms.feature` (`PracticeRoomsAcceptanceTest`,
+  `PracticeRoomsSwitchedOffTest`). Its last but one scenario signs the people in first, then compares
+  the number of rows and a fingerprint of the contents of every table of every schema before and
+  after a whole practice, and checks that no event of the application was published and that the
+  ledger and the audit log still verify. How to try it with two browsers or two computers:
+  `docs/demo.md`, "Practice rooms".
 
 ---
 

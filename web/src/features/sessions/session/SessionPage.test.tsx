@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Schema } from '@/shared/api';
 import { fakeServer } from '@/test/fakeServer';
@@ -308,5 +308,70 @@ describe('FE-23 closing, inside the room', () => {
     expect(await screen.findByText('La sesión quedó sin verificar')).toBeInTheDocument();
     expect(screen.getByText('Una sesión sin verificar no se califica.')).toBeInTheDocument();
     expect(server.requests('GET', `${URL}/rating`)).toHaveLength(0);
+  });
+});
+
+describe('a practice room, in the session screen', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const PRACTICE: Schema<'Session'> = {
+    ...LIVE,
+    practice: true,
+    catalogItem: { name: 'Sala de práctica' },
+    needDescription: 'Sala de práctica',
+    presence: CODE,
+  };
+
+  it('says any six digits confirm presence and that nothing is credited', async () => {
+    setup(PRACTICE);
+
+    open();
+
+    expect(
+      await screen.findByText('Sala de práctica: no se envía ningún correo. Escribe cualquier código de 6 dígitos.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('En una sala de práctica no se gana ni se devuelve ningún crédito.')).toBeInTheDocument();
+  });
+
+  it('a real session still says the code goes by email', async () => {
+    setup({ ...LIVE, practice: false, presence: CODE });
+
+    open();
+
+    expect(
+      await screen.findByText('Te enviamos un código de 6 dígitos a tu correo institucional. Escríbelo aquí.'),
+    ).toBeInTheDocument();
+  });
+
+  it('goes back to /practica instead of the rating once the room is completed', async () => {
+    setup({ ...PRACTICE, status: 'COMPLETED', endedAt: PAST });
+
+    const { location } = open();
+
+    await waitFor(() => expect(location()).toBe('/practica'));
+    expect(screen.queryByText('Los dos confirmaron su presencia')).not.toBeInTheDocument();
+  });
+
+  it('goes back to /practica when the room it was waiting in is forgotten', async () => {
+    const server = setup({ ...PRACTICE, endConfirmedAt: PAST });
+    const { location, client } = open();
+
+    await screen.findByText('Terminaste la sesión');
+    // The other person ended it too: the backend forgot the room, and the next look answers 404.
+    server.on('GET', URL, { status: 404, body: { status: 404, message: 'Session not found' } });
+    await act(() => client.refetchQueries({ queryKey: ['sessions'] }));
+
+    await waitFor(() => expect(location()).toBe('/practica'));
+  });
+
+  it('a real session that is completed still shows how it ended', async () => {
+    setup({ ...LIVE, practice: false, status: 'COMPLETED', endedAt: PAST });
+
+    const { location } = open();
+
+    expect(await screen.findByText('Los dos confirmaron su presencia')).toBeInTheDocument();
+    expect(location()).toBe('/sesion/x');
   });
 });

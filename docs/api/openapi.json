@@ -2265,6 +2265,52 @@
         }
       }
     },
+    "/api/v1/practice-rooms": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "summary": "Open a practice room",
+        "description": "A tool of the team, not a feature of the product: opens a room two accounts of the same university use through the screen of a session, at any time, to try its video call and its whiteboard. It lives only in the memory of the backend: no booking, no session, no row of any table, no credit, no event and no email. The endpoints of a session answer for its id as they do for a session; the first person to join is the tutor, the second the student, and anybody else is refused with 403. Any six digit code confirms presence. When both end it, it answers COMPLETED, closes the whiteboard and is forgotten; otherwise it is forgotten four hours after it was opened, or when the backend restarts. Only while ayni.sessions.practice-rooms.enabled is true (AYNI_PRACTICE_ROOMS, on under the demo profile); off, this answers 404. No request body.",
+        "operationId": "openPracticeRoom",
+        "responses": {
+          "201": {
+            "description": "The room, empty",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeRoom"
+                },
+                "example": {
+                  "sessionId": "9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f",
+                  "path": "/sesion/9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Practice rooms are not enabled in this backend",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionsApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "As many practice rooms are open as the backend keeps at once (ayni.sessions.practice-rooms.max-open, 20): end one or wait until one expires",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionsApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payments/purchases": {
       "get": {
         "tags": [
@@ -8517,6 +8563,11 @@
           },
           "video": {
             "$ref": "#/components/schemas/SessionVideoPass"
+          },
+          "practice": {
+            "type": "boolean",
+            "description": "True for a practice room, which stores nothing and has no rating; false for every real session",
+            "example": false
           }
         }
       },
@@ -8656,6 +8707,22 @@
           }
         },
         "description": "The student has not taught the hours asked for"
+      },
+      "PracticeRoom": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "The id the session endpoints take for this room. Random and unguessable: whoever holds it, signed in at the same university, can enter while a seat is free",
+            "format": "uuid",
+            "example": "9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f"
+          },
+          "path": {
+            "type": "string",
+            "description": "The path of the session screen in the web application",
+            "example": "/sesion/9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f"
+          }
+        }
       },
       "RecognitionRequest": {
         "type": "object",
@@ -10774,6 +10841,11 @@
           },
           "supportMaterial": {
             "$ref": "#/components/schemas/SessionSupportMaterial"
+          },
+          "practice": {
+            "type": "boolean",
+            "description": "True for a practice room: a room two accounts open to try the screen, its video and its whiteboard, which lives only in memory, moves no credit and has no rating. The screen goes back to the practice page when it ends. False for every real session",
+            "example": false
           }
         }
       },

@@ -8,6 +8,7 @@ import {
   attemptsLeftText,
   attemptsText,
   codeFrom,
+  codeHint,
   confirmedDetail,
   ifNobodyConfirms,
   presenceState,
@@ -240,9 +241,7 @@ export function PresencePanel({
           Confirma tu presencia
         </p>
       )}
-      <p className="text-sm text-ink-2">
-        Te enviamos un código de 6 dígitos a tu correo institucional. Escríbelo aquí.
-      </p>
+      <p className="text-sm text-ink-2">{codeHint(session)}</p>
       <CodeBoxes
         code={code}
         onChange={presence.type}

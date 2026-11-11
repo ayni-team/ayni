@@ -37,7 +37,10 @@ public record JoinedSessionResponse(
         Instant tutorJoinedAt,
     @Schema(description = "The pass to the video call of this session, for the one who joined; "
         + "null when no video service is configured", nullable = true)
-        Video video) {
+        Video video,
+    @Schema(description = "True for a practice room, which stores nothing and has no rating; false "
+        + "for every real session", example = "false")
+        boolean practice) {
 
   /** What the client opens the video call with (US08). */
   @Schema(name = "SessionVideoPass")
@@ -58,6 +61,15 @@ public record JoinedSessionResponse(
   }
 
   static JoinedSessionResponse of(JoinedSession joined) {
+    return of(joined, false);
+  }
+
+  /** Entering a practice room ({@code PracticeRooms}). */
+  static JoinedSessionResponse ofPractice(JoinedSession joined) {
+    return of(joined, true);
+  }
+
+  private static JoinedSessionResponse of(JoinedSession joined, boolean practice) {
     return new JoinedSessionResponse(
         joined.sessionId(),
         SessionResponse.CatalogItem.of(joined.catalogItem()),
@@ -70,6 +82,7 @@ public record JoinedSessionResponse(
         joined.scheduledEnd(),
         joined.studentJoinedAt(),
         joined.tutorJoinedAt(),
-        Video.of(joined.video()));
+        Video.of(joined.video()),
+        practice);
   }
 }

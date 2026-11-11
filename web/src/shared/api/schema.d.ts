@@ -600,6 +600,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/practice-rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a practice room
+         * @description A tool of the team, not a feature of the product: opens a room two accounts of the same university use through the screen of a session, at any time, to try its video call and its whiteboard. It lives only in the memory of the backend: no booking, no session, no row of any table, no credit, no event and no email. The endpoints of a session answer for its id as they do for a session; the first person to join is the tutor, the second the student, and anybody else is refused with 403. Any six digit code confirms presence. When both end it, it answers COMPLETED, closes the whiteboard and is forgotten; otherwise it is forgotten four hours after it was opened, or when the backend restarts. Only while ayni.sessions.practice-rooms.enabled is true (AYNI_PRACTICE_ROOMS, on under the demo profile); off, this answers 404. No request body.
+         */
+        post: operations["openPracticeRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payments/purchases": {
         parameters: {
             query?: never;
@@ -3191,6 +3211,11 @@ export interface components {
              */
             tutorJoinedAt?: string | null;
             video?: components["schemas"]["SessionVideoPass"];
+            /**
+             * @description True for a practice room, which stores nothing and has no rating; false for every real session
+             * @example false
+             */
+            practice?: boolean;
         };
         /** @description The course the session was about, with its name */
         SessionCatalogItem: {
@@ -3293,6 +3318,19 @@ export interface components {
              * @example 4
              */
             missingHours?: number;
+        };
+        PracticeRoom: {
+            /**
+             * Format: uuid
+             * @description The id the session endpoints take for this room. Random and unguessable: whoever holds it, signed in at the same university, can enter while a seat is free
+             * @example 9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f
+             */
+            sessionId?: string;
+            /**
+             * @description The path of the session screen in the web application
+             * @example /sesion/9d4c1f0e-2b3a-4c5d-8e6f-7a8b9c0d1e2f
+             */
+            path?: string;
         };
         /** @description A request for the university to recognise the hours taught */
         RecognitionRequest: {
@@ -4667,6 +4705,11 @@ export interface components {
              */
             closesAt?: string;
             supportMaterial?: components["schemas"]["SessionSupportMaterial"];
+            /**
+             * @description True for a practice room: a room two accounts open to try the screen, its video and its whiteboard, which lives only in memory, moves no credit and has no rating. The screen goes back to the practice page when it ends. False for every real session
+             * @example false
+             */
+            practice?: boolean;
         };
         /** @description The reader's own presence code, without the code; null until it is sent */
         SessionPresence: {
@@ -7524,6 +7567,44 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["InsufficientHoursError"];
+                };
+            };
+        };
+    };
+    openPracticeRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The room, empty */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PracticeRoom"];
+                };
+            };
+            /** @description Practice rooms are not enabled in this backend */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionsApiError"];
+                };
+            };
+            /** @description As many practice rooms are open as the backend keeps at once (ayni.sessions.practice-rooms.max-open, 20): end one or wait until one expires */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionsApiError"];
                 };
             };
         };

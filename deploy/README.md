@@ -1064,6 +1064,35 @@ To undo a reset, restore its dump as in [Backup and restore](#8-backup-and-resto
 resets, remove the line from `.env`, or disable the workflow (Actions, Reset demo data, Disable
 workflow).
 
+## 12. Practice rooms
+
+A practice room lets two accounts open the screen of a session, with its video call and its
+whiteboard, at any time, to try them: no booking, no credits, and no record of any kind. It lives
+only in the memory of the backend (`PracticeRooms`, `docs/backend-guide.md` under sessions) and the
+web application opens one at `/practica`, a page no menu leads to. It is a tool of the team, not a
+feature of the product, so it is **off** in every deployment: `AYNI_PRACTICE_ROOMS` is `false`
+unless `backend/.env` says otherwise, and `POST /api/v1/practice-rooms` answers `404` then.
+
+Turn it on only while the team tries the room, on the backend machine:
+
+```bash
+cd /opt/ayni/deploy/backend
+grep -q '^AYNI_PRACTICE_ROOMS=' .env || echo 'AYNI_PRACTICE_ROOMS=true' >> .env
+docker compose up -d backend
+```
+
+and off again as soon as it is done:
+
+```bash
+sed -i '/^AYNI_PRACTICE_ROOMS=/d' .env
+docker compose up -d backend
+```
+
+Each `up -d` replaces the backend container (a few seconds without API), and every open room is
+forgotten with it. The backend keeps running with `prod`: this switch is not the `demo` profile,
+which a deployment never runs (below). Over HTTPS nothing else is needed: the browser lets the
+camera and the microphone in, and the video machine already serves the calls.
+
 ## What not to do
 
 - **Never `docker compose down -v`**, `docker volume rm`, `docker volume prune` or
