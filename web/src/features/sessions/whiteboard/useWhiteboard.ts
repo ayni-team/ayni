@@ -32,10 +32,5 @@ export function useWhiteboard(sessionId: string, onClosed?: () => void) {
     };
   }, [channel]);
 
-  return {
-    ...snapshot,
-    put: channel.put.bind(channel),
-    remove: channel.remove.bind(channel),
-    clear: channel.clear.bind(channel),
-  };
+  return { ...snapshot, channel };
 }

@@ -1,19 +1,19 @@
-import { BoardDrawing, boardSummary } from './BoardDrawings';
-import { drawingsOf, fittedViewBox, type BoardElement } from './board';
+import { Suspense, lazy } from 'react';
+import type { BoardElement } from './board';
+import { BoardLoading } from './BoardLoading';
 
-/** A board that is only read: no connection, no tools. It shows the part that was used. */
+const ReadOnlyBoard = lazy(() => import('./ReadOnlyBoard'));
+
+/**
+ * A board that is only read, as the review of a session shows it (FE-24): Excalidraw in view
+ * mode, no tools and no connection. Boards of the old format are converted when read.
+ */
 export function BoardView({ elements }: { elements: readonly BoardElement[] | undefined }) {
-  const drawings = drawingsOf(elements);
   return (
-    <svg
-      role="img"
-      aria-label={boardSummary(drawings)}
-      viewBox={fittedViewBox(drawings)}
-      className="h-auto w-full rounded-xl border border-line bg-white"
-    >
-      {drawings.map((drawing) => (
-        <BoardDrawing key={drawing.id} drawing={drawing} />
-      ))}
-    </svg>
+    <div className="relative h-[420px] overflow-hidden rounded-xl border border-line bg-white sm:h-[520px]">
+      <Suspense fallback={<BoardLoading label="Cargando la pizarra…" />}>
+        <ReadOnlyBoard elements={elements ?? []} />
+      </Suspense>
+    </div>
   );
 }

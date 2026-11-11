@@ -1,0 +1,42 @@
+/*
+ * Excalidraw dressed as Ayni (ADR 0014). Only the presentation: its variables, scoped to the
+ * boards, so the university's colour is the accent and the interface speaks in the application's
+ * font. Every rule is inside `.ayni-board`, so nothing leaks to the rest of the screen.
+ */
+.ayni-board .excalidraw {
+  --ui-font: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --color-primary: var(--brand-primary);
+  --color-primary-darker: var(--brand-primary-pressed);
+  --color-primary-darkest: var(--brand-primary-pressed);
+  --color-primary-hover: var(--brand-primary-pressed);
+  --color-primary-light: var(--brand-primary-soft);
+  --color-primary-light-darker: color-mix(in srgb, var(--brand-primary-soft) 75%, var(--brand-primary));
+  --color-selection: var(--brand-primary);
+}
+
+/* Out of scope for now (ADR 0014): the library of templates is downloaded from another site. */
+.ayni-board .default-sidebar-trigger,
+.ayni-board .sidebar-trigger {
+  display: none !important;
+}
+
+/*
+ * "More tools" keeps the frame and the laser; embedding a page and Mermaid are out. Excalidraw
+ * 0.18.1 gives both items the same test id, and the "Generate" heading only precedes them.
+ */
+.ayni-board .App-toolbar__extra-tools-dropdown [data-testid='toolbar-embeddable'],
+.ayni-board .App-toolbar__extra-tools-dropdown .dropdown-menu-container > div:not([class]) {
+  display: none !important;
+}
+
+/* The help keeps its shortcuts; the links to Excalidraw's blog, docs and GitHub are not ours. */
+.ayni-board ~ * .HelpDialog__header,
+.excalidraw .HelpDialog__header {
+  display: none !important;
+}
+
+/* A board that is only read shows the drawing and the zoom, not an empty toolbar. */
+.ayni-board--read .App-toolbar-content > :not(.main-menu-trigger),
+.ayni-board--read .layer-ui__wrapper__footer-right {
+  display: none !important;
+}
