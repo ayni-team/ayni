@@ -35,7 +35,7 @@ export type ServerMessage = BoardMessage | AppliedMessage | ErrorMessage;
 
 /** The limits of the server: more than this and it refuses the operation. */
 export const MAX_ELEMENTS = 2000;
-export const MAX_ELEMENT_BYTES = 16 * 1024;
+export const MAX_ELEMENT_BYTES = 32 * 1024;
 
 export function elementBytes(element: BoardElement): number {
   return new TextEncoder().encode(JSON.stringify(element)).length;

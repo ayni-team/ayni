@@ -85,7 +85,7 @@ class WhiteboardController {
       content = @Content(schema = @Schema(implementation = WhiteboardResponse.class)))
   @ApiResponse(
       responseCode = "400",
-      description = "An element without id or type, more than 2000 elements or one over 16 KB",
+      description = "An element without id or type, more than 2000 elements or one over 32 KB",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "403",

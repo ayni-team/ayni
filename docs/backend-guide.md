@@ -1579,7 +1579,7 @@ board.
 | Status | When |
 |---|---|
 | 200 | The board, or the board replaced |
-| 400 | An element without a valid `id` (1 to 64 letters, digits, `-`, `_`) or a `type`, more than 2000 elements, or one over 16 KB |
+| 400 | An element without a valid `id` (1 to 64 letters, digits, `-`, `_`) or a `type`, more than 2000 elements, or one over 32 KB |
 | 403 | The caller is neither the student nor the tutor of the session |
 | 404 | The session does not exist in this university |
 | 409 | `PUT` on a session that is not in progress, or with a `version` that is not the current one |
@@ -1621,7 +1621,7 @@ email), moves no credit and does not touch the ledger. It is off unless
   on). A room nobody ended is forgotten when its lifetime is over (`sweep-delay`, every minute), and
   every room when the backend restarts.
 - **The board** is a `Whiteboard` kept in memory, so versions, the order of the operations, the
-  board sent whole on reconnecting and the limits (2000 elements, 16 KB each) are those of ADR 0009.
+  board sent whole on reconnecting and the limits (2000 elements, 32 KB each) are those of ADR 0009 and ADR 0010.
 - Proven by `features/practice-rooms.feature` (`PracticeRoomsAcceptanceTest`,
   `PracticeRoomsSwitchedOffTest`). Its last but one scenario signs the people in first, then compares
   the number of rows and a fingerprint of the contents of every table of every schema before and

@@ -1,7 +1,8 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
 import { serveFrame, signIn } from '@/test/fixtures';
+import { fakeExcalidraw } from '@/test/excalidraw';
 import { renderWithProviders } from '@/test/render';
 import SessionReviewPage from './SessionReviewPage';
 
@@ -50,8 +51,51 @@ describe('FE-24 SessionReviewPage', () => {
     expect(screen.getByText('La sesión se realizó y los dos confirmaron su presencia.')).toBeInTheDocument();
     expect(screen.getByText('Duró 58 minutos de los 60 reservados')).toBeInTheDocument();
     expect(screen.getByText('“Repasar normalización”')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /Resumen de la sesión/ })).toBeInTheDocument();
+    // A board of the old format, converted: Excalidraw is loaded only now, in view mode.
+    expect(await screen.findByText(/Resumen de la sesión/)).toBeInTheDocument();
+    expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'true');
+    await waitFor(() =>
+      expect(fakeExcalidraw.current?.elements).toMatchObject([
+        { id: 't1', type: 'text', text: 'Resumen de la sesión' },
+      ]),
+    );
     expect(screen.queryByText(/English/)).not.toBeInTheDocument();
+  });
+
+  it('shows a board drawn with Excalidraw as it was, only to be read', async () => {
+    const rectangle = {
+      id: 'r1',
+      type: 'rectangle',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 50,
+      version: 4,
+      versionNonce: 99,
+      isDeleted: false,
+      index: 'a0',
+    };
+    const label = { ...rectangle, id: 'l1', type: 'text', text: 'Tercera forma normal', index: 'a1' };
+    setup({
+      body: {
+        ...REVIEW,
+        whiteboard: {
+          hasActivity: true,
+          live: false,
+          elements: [
+            { id: 'r1', type: 'rectangle', data: rectangle },
+            { id: 'l1', type: 'text', data: label },
+          ],
+        },
+      },
+    });
+
+    open();
+
+    expect(await screen.findByText('Pizarra con 1 trazo. Tercera forma normal')).toBeInTheDocument();
+    expect(screen.getByTestId('excalidraw')).toHaveAttribute('data-view-mode', 'true');
+    await waitFor(() => expect(fakeExcalidraw.current?.scrolled).toBe(1));
+    expect(fakeExcalidraw.current?.elements.map((element) => element.id)).toEqual(['r1', 'l1']);
   });
 
   it('says nobody drew on a board with nothing', async () => {

@@ -33,8 +33,12 @@ import pe.ayni.shared.events.WhiteboardClosed;
 @Service
 public class WhiteboardEditing {
 
-  /** The largest an element may be, as JSON. */
-  static final int MAX_ELEMENT_BYTES = 16 * 1024;
+  /**
+   * The largest an element may be, as JSON. An Excalidraw freehand stroke weighs about 15 bytes a
+   * point with two decimals, more with a pen's pressures: 32 KB is a stroke of some 2000 points,
+   * half a minute of drawing without lifting the pointer (ADR 0010).
+   */
+  static final int MAX_ELEMENT_BYTES = 32 * 1024;
 
   private final WhiteboardStore store;
   private final PracticeRooms practice;
@@ -151,7 +155,7 @@ public class WhiteboardEditing {
   private void requireSize(BoardElement element) {
     try {
       if (json.writeValueAsBytes(element).length > MAX_ELEMENT_BYTES) {
-        throw new WhiteboardRuleViolation("An element takes at most 16 KB");
+        throw new WhiteboardRuleViolation("An element takes at most 32 KB");
       }
     } catch (JsonProcessingException notJson) {
       throw new WhiteboardRuleViolation("The element cannot be stored");

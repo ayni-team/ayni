@@ -1,21 +1,20 @@
 import type { Schema } from '@/shared/api';
 
 /**
- * What the elements of a whiteboard hold. The server keeps `data` opaque (ADR 0009): this file is
- * where the web says what each `type` carries, for the live board and for the review of a session.
+ * An element of a whiteboard as the server stores it: `{ id, type, data }`, with `data` opaque to
+ * the server (ADR 0009). Since ADR 0010 every element is an Excalidraw element (`scene.ts`).
+ *
+ * Boards drawn before that hold the types below, which `legacy.ts` reads to show them again:
  *
  * - `stroke`: `{ points: [[x, y], ...], color, width }`
- * - `text`: `{ x, y, text, color }`, on one or several lines
+ * - `text`: `{ x, y, text, color }`, on one or several lines, `y` at the foot of the first one
  * - `note`: `{ x, y, text, author }`, a yellow note signed by whoever wrote it
  * - `shape`: `{ shape: 'rect' | 'ellipse', x, y, width, height, color }`
  *
- * The coordinates are those of a board of `BOARD_WIDTH` × `BOARD_HEIGHT`, whatever the size of the
- * screen, so both participants see the same drawing.
+ * Their coordinates are those of a board of 1200 × 800, which on an Excalidraw canvas are simply
+ * coordinates.
  */
 export type BoardElement = Schema<'BoardElement'>;
-
-export const BOARD_WIDTH = 1200;
-export const BOARD_HEIGHT = 800;
 
 export type Point = readonly [number, number];
 
@@ -34,7 +33,7 @@ export type Drawing =
       color: string;
     };
 
-const INK = '#1D2033';
+export const INK = '#1D2033';
 
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -74,8 +73,8 @@ export function linesOf(text: string, width: number | null = null): string[] {
 }
 
 /**
- * Reads an element as something to draw. The data comes from another client and may be of a later
- * version of the web: what cannot be read is left out, never a crash.
+ * Reads an element of the old format. The data comes from another client and may be anything:
+ * what cannot be read is left out, never a crash.
  */
 export function drawingOf(element: BoardElement): Drawing | null {
   const data = (element.data ?? {}) as Record<string, unknown>;
@@ -121,86 +120,11 @@ export function drawingOf(element: BoardElement): Drawing | null {
   return null;
 }
 
-export function drawingsOf(elements: readonly BoardElement[] | undefined): Drawing[] {
-  return (elements ?? []).flatMap((element) => {
-    const drawing = drawingOf(element);
-    return drawing ? [drawing] : [];
-  });
-}
-
 export const NOTE_WIDTH = 300;
-const LINE_HEIGHT = 30;
-const NOTE_PADDING = 18;
-
-export function lineHeightOf(kind: 'text' | 'note'): number {
-  return kind === 'note' ? 26 : LINE_HEIGHT;
-}
+export const NOTE_PADDING = 18;
+export const TEXT_LINE_HEIGHT = 30;
+export const NOTE_LINE_HEIGHT = 26;
 
 export function noteHeight(lines: number, signed: boolean): number {
-  return NOTE_PADDING * 2 + lines * lineHeightOf('note') + (signed ? 26 : 0);
-}
-
-function boxOf(drawing: Drawing): { left: number; top: number; right: number; bottom: number } {
-  if (drawing.kind === 'stroke') {
-    const xs = drawing.points.map(([x]) => x);
-    const ys = drawing.points.map(([, y]) => y);
-    return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
-  }
-  if (drawing.kind === 'shape') {
-    return { left: drawing.x, top: drawing.y, right: drawing.x + drawing.width, bottom: drawing.y + drawing.height };
-  }
-  if (drawing.kind === 'note') {
-    return {
-      left: drawing.x,
-      top: drawing.y,
-      right: drawing.x + NOTE_WIDTH,
-      bottom: drawing.y + noteHeight(drawing.lines.length, Boolean(drawing.author)),
-    };
-  }
-  const longest = Math.max(...drawing.lines.map((line) => line.length));
-  return {
-    left: drawing.x,
-    top: drawing.y - LINE_HEIGHT,
-    // About half a body of the font per character.
-    right: drawing.x + longest * 12,
-    bottom: drawing.y + (drawing.lines.length - 1) * LINE_HEIGHT + 8,
-  };
-}
-
-/**
- * The part of the board that was used, for a board that is only read: a few lines in a corner of a
- * big board would otherwise read as nothing. Never smaller than a third of the board.
- */
-export function fittedViewBox(drawings: readonly Drawing[]): string {
-  if (drawings.length === 0) return `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`;
-  const boxes = drawings.map(boxOf);
-  const margin = 24;
-  const left = Math.max(0, Math.min(...boxes.map((box) => box.left)) - margin);
-  const top = Math.max(0, Math.min(...boxes.map((box) => box.top)) - margin);
-  const right = Math.max(...boxes.map((box) => box.right)) + margin;
-  const bottom = Math.max(...boxes.map((box) => box.bottom)) + margin;
-  const width = Math.max(right - left, BOARD_WIDTH / 3);
-  const height = Math.max(bottom - top, BOARD_HEIGHT / 3);
-  return `${left} ${top} ${width} ${height}`;
-}
-
-/** A path through the points; a single point is a dot. */
-export function pathOf(points: readonly Point[]): string {
-  const [first, ...rest] = points;
-  if (rest.length === 0) return `M ${first[0]} ${first[1]} l 0.01 0`;
-  return `M ${first[0]} ${first[1]} ${rest.map(([x, y]) => `L ${x} ${y}`).join(' ')}`;
-}
-
-/**
- * Thins a stroke until it fits in the limit of the server, keeping its ends. A very long stroke
- * loses detail, not its shape.
- */
-export function fittingPoints(points: readonly Point[], fits: (points: readonly Point[]) => boolean): Point[] {
-  let current = [...points];
-  while (!fits(current) && current.length > 2) {
-    const last = current[current.length - 1];
-    current = current.filter((_, index) => index % 2 === 0);
-    if (current[current.length - 1] !== last) current.push(last);
-  }
-  return current;
+  return NOTE_PADDING * 2 + lines * NOTE_LINE_HEIGHT + (signed ? 26 : 0);
 }

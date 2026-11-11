@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -84,7 +83,14 @@ class DemoHistoryData {
       int stars,
       Set<String> tags,
       String comment,
-      boolean drawn) {}
+      Board board) {}
+
+  /** Whether the two drew on the whiteboard, and in which of its formats (ADR 0010). */
+  private enum Board {
+    NONE,
+    OLD_FORMAT,
+    EXCALIDRAW
+  }
 
   /** The people of one university the history is told with. */
   private record Cast(
@@ -223,33 +229,33 @@ class DemoHistoryData {
         new Tutoring(cast.student(), cast.mainTutor(), 30, 2, Outcome.COMPLETED,
             "Formas normales y dependencias funcionales para el parcial.",
             5, Set.of("Explica claro", "Paciente"),
-            "Me ayudó muchísimo, por fin entendí la tercera forma normal.", true),
+            "Me ayudó muchísimo, por fin entendí la tercera forma normal.", Board.OLD_FORMAT),
         new Tutoring(cast.otherStudent(), cast.morningTutor(), 27, 2, Outcome.COMPLETED,
             "No entiendo la herencia ni cuándo usar una interfaz.",
             5, Set.of("Domina el tema", "Buenos ejemplos"),
-            "Muy buena explicación, con ejemplos de examen.", true),
+            "Muy buena explicación, con ejemplos de examen.", Board.EXCALIDRAW),
         new Tutoring(cast.weekendTutor(), cast.morningTutor(), 24, 1, Outcome.COMPLETED,
             "Repasar recursión antes de la práctica.",
             4, Set.of("Puntual"),
-            "Bien, aunque fue un poco rápido.", false),
+            "Bien, aunque fue un poco rápido.", Board.NONE),
         new Tutoring(cast.otherStudent(), cast.mainTutor(), 18, 1, Outcome.COMPLETED,
             "Consultas SQL con varias tablas.",
             4, Set.of("Paciente"),
-            "Resolvimos todas mis dudas.", false),
+            "Resolvimos todas mis dudas.", Board.NONE),
         new Tutoring(cast.student(), cast.weekendTutor(), 15, 2, Outcome.COMPLETED,
             "Estadística: intervalos de confianza.",
             5, Set.of("Explica claro", "Buenos ejemplos"),
-            "Excelente, muy ordenada.", false),
+            "Excelente, muy ordenada.", Board.NONE),
         new Tutoring(cast.shortTutor(), cast.weekendTutor(), 12, 1, Outcome.COMPLETED,
             "Ejercicios de estructuras de datos.",
             3, Set.of("Llegó tarde"),
-            "Aprendí, pero empezamos tarde y la conexión se cortó dos veces.", false),
+            "Aprendí, pero empezamos tarde y la conexión se cortó dos veces.", Board.NONE),
         new Tutoring(cast.student(), cast.shortTutor(), 9, 1, Outcome.TUTOR_ABSENT,
             "Ayuda con el informe del trabajo final.",
-            0, Set.of(), null, false),
+            0, Set.of(), null, Board.NONE),
         new Tutoring(cast.otherStudent(), cast.mainTutor(), 6, 1, Outcome.STUDENT_ABSENT,
             "Repaso general antes del examen final.",
-            0, Set.of(), null, false));
+            0, Set.of(), null, Board.NONE));
   }
 
   private void play(Tutoring tutoring, LocalDate today) {
@@ -280,9 +286,9 @@ class DemoHistoryData {
 
       at(start.plus(Duration.ofMinutes(6)));
       sessions.confirmPresence(session);
-      if (tutoring.drawn()) {
+      if (tutoring.board() != Board.NONE) {
         at(start.plus(Duration.ofMinutes(20)));
-        draw(session, tutor, student);
+        draw(session, tutor, student, tutoring.board());
       }
 
       at(booked.endsAt().minus(Duration.ofMinutes(3)));
@@ -305,25 +311,17 @@ class DemoHistoryData {
     }
   }
 
-  /** What the tutor wrote on the whiteboard, and what the student added. */
-  private void draw(UUID session, UUID tutor, UUID student) {
-    sessions.draw(
-        session, tutor, "title", "text",
-        Map.of("text", "Resumen de la sesión", "x", 40, "y", 40, "color", "#1F2937"));
-    sessions.draw(
-        session, tutor, "steps", "text",
-        Map.of(
-            "text", "1. Identificar el problema\n2. Plantear un ejemplo\n3. Resolverlo juntos",
-            "x", 40, "y", 100, "color", "#1F2937"));
-    sessions.draw(
-        session, student, "underline", "stroke",
-        Map.of(
-            "points", List.of(List.of(40, 70), List.of(260, 70)),
-            "color", "#E42322",
-            "width", 3));
-    sessions.draw(
-        session, student, "question", "text",
-        Map.of("text", "¿Y si el caso tiene dos excepciones?", "x", 40, "y", 220, "color", "#2563EB"));
+  /**
+   * What the tutor wrote on the whiteboard, and what the student added: one board of the format
+   * from before Excalidraw, which the web converts when it reads it, and one drawn with Excalidraw.
+   */
+  private void draw(UUID session, UUID tutor, UUID student, Board board) {
+    List<DemoBoards.Drawn> drawn =
+        board == Board.EXCALIDRAW ? DemoBoards.excalidraw() : DemoBoards.oldFormat();
+    for (DemoBoards.Drawn element : drawn) {
+      sessions.draw(
+          session, element.byTutor() ? tutor : student, element.id(), element.type(), element.data());
+    }
   }
 
   /**

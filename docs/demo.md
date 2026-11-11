@@ -224,7 +224,9 @@ What each university ends with (the same in both, with the people of its table):
 
 - six sessions **completed** by three tutors, three hours each (one of two hours and one of one),
   with ratings of five, four and three stars, tags and comments, and the tutor's three answers about
-  the student; two of them with drawings on the whiteboard;
+  the student; two of them with drawings on the whiteboard: the first in the format from before
+  Excalidraw (Ana Torres with Bruno at UPC), the second drawn with Excalidraw (Milagros Castillo with
+  Mateo Cárdenas at UPC), so the review of a session (FE-24) shows both;
 - one session **abandoned** because the tutor did not come (Ana and Rocío are refunded and get the
   notice) and one because the student did not (Milagros and Rocío pay the hour);
 - twelve searches of the courses nobody teaches, spread over the weeks;
@@ -569,6 +571,8 @@ Both people must be of the same university; somebody of USIL does not find a roo
    the student, and the room is in progress for both: the video on the right, the whiteboard on the
    left. Allow the camera and the microphone when the browser asks.
 6. Presence: any six digits confirm it. No email is sent.
+   The whiteboard is Excalidraw (ADR 0010): what one draws appears in the other window at once,
+   undo only takes back one's own changes, and the menu (☰) has **Limpiar lienzo** for both.
 7. **Terminar sesión** in both. The first one waits for the other; when the second ends it, both
    go back to `/practica`, which says the room ended. There is no rating.
 

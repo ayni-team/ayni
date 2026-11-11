@@ -6193,7 +6193,7 @@ export interface operations {
                     "*/*": components["schemas"]["Whiteboard"];
                 };
             };
-            /** @description An element without id or type, more than 2000 elements or one over 16 KB */
+            /** @description An element without id or type, more than 2000 elements or one over 32 KB */
             400: {
                 headers: {
                     [name: string]: unknown;
