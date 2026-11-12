@@ -286,6 +286,23 @@ colores propias. Las notas de pizarras viejas se muestran como tarjeta amarilla 
 | Curso y nombre del tutor | RB-1, RB-2 |
 | Cursor de la otra persona | no está: necesita un mensaje efímero en el canal (siguiente paso del ADR 0010) |
 
+**Vistas de la sala y pantalla compartida (FE-20 / FE-22): estado sin dibujar.** No hay frame; se
+construyó con `shared/ui` y el lead lo ajusta cuando exista. Bajo la cabecera, pestañas "Vista de la
+sala": **Pizarra** (la del frame: pizarra grande, video pequeño, presencia y necesidad a la derecha),
+**Dividida** (pizarra y video lado a lado, con un control de reparto; presencia y necesidad pasan a
+botones de la barra que abren un diálogo) y **Video** (el video ocupa el área principal; la pizarra
+queda montada pero oculta). En el teléfono todo se apila, el video primero y más alto en Dividida y
+Video. A la derecha, "Compartir pantalla" (o "Dejar de compartir"), solo donde el navegador puede
+compartir.
+
+| Dato | Origen |
+|---|---|
+| Vista elegida y reparto | de la persona, recordados en `sessionStorage` por sesión (**web**) |
+| Alguien comparte pantalla | evento `contentSharingParticipantsChanged` de Jitsi (`data`: ids); solo con `external_api.js` (HTTPS) |
+| "Dejar de compartir" | evento `screenSharingStatusChanged` de Jitsi (`on`) |
+| Compartir pantalla | comando `toggleShareScreen` de Jitsi; en el iframe simple de desarrollo (http), el botón de la propia llamada |
+| Pasa a Dividida al compartir y vuelve al terminar | **regla** de la web, solo desde la vista Pizarra y si la persona no cambió de vista entretanto |
+
 ## FE-23 Cierre y calificación
 
 [calificar desktop](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=44-3387) ·

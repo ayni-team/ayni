@@ -1,46 +1,11 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fakeJitsi, jitsiScriptLoads as scriptLoads } from './fakeJitsi';
 import { forgetLoadedScripts } from './jitsi';
 import { VideoCall } from './VideoCall';
 
 const PASS = { url: 'https://meet.ayni.pe/room-1', token: 'the-jwt', expiresAt: '2099-01-01T00:00:00Z' };
-
-/** A double of what `external_api.js` defines. */
-function fakeJitsi() {
-  const instances: {
-    domain: string;
-    options: Record<string, unknown>;
-    fire: (e: string, p?: unknown) => void;
-    dispose: ReturnType<typeof vi.fn>;
-  }[] = [];
-  class Jitsi {
-    listeners = new Map<string, (payload?: unknown) => void>();
-    dispose = vi.fn();
-    constructor(
-      public domain: string,
-      public options: Record<string, unknown>,
-    ) {
-      instances.push({
-        domain,
-        options,
-        dispose: this.dispose,
-        fire: (event, payload) => this.listeners.get(event)?.(payload),
-      });
-    }
-    addListener(event: string, listener: (payload?: unknown) => void) {
-      this.listeners.set(event, listener);
-    }
-  }
-  return { Jitsi, instances };
-}
-
-function scriptLoads(withApi = true) {
-  const script = document.head.querySelector('script');
-  if (!script) throw new Error('no script');
-  if (!withApi) delete window.JitsiMeetExternalAPI;
-  script.dispatchEvent(new Event(withApi ? 'load' : 'error'));
-}
 
 describe('FE-22 VideoCall', () => {
   let double: ReturnType<typeof fakeJitsi>;
@@ -183,5 +148,69 @@ describe('FE-22 VideoCall', () => {
 
     await user.click(screen.getByRole('button', { name: 'Volver a entrar' }));
     await waitFor(() => expect(double.instances).toHaveLength(2));
+  });
+  it('shares the screen through the API, and says who shares from its events', async () => {
+    const onShareControl = vi.fn();
+    const onShareChange = vi.fn();
+    render(
+      <VideoCall
+        pass={PASS}
+        renew={vi.fn(async () => undefined)}
+        onShareControl={onShareControl}
+        onShareChange={onShareChange}
+      />,
+    );
+    scriptLoads();
+    await waitFor(() => expect(double.instances).toHaveLength(1));
+
+    const control = onShareControl.mock.lastCall?.[0];
+    expect(control).toMatchObject({ kind: 'command' });
+    control.toggle();
+    expect(double.instances[0].executeCommand).toHaveBeenCalledWith('toggleShareScreen');
+
+    act(() => double.instances[0].fire('screenSharingStatusChanged', { on: true, details: { sourceType: 'screen' } }));
+    expect(onShareChange).toHaveBeenLastCalledWith({ anybody: false, mine: true });
+    act(() => double.instances[0].fire('contentSharingParticipantsChanged', { data: ['abc'] }));
+    expect(onShareChange).toHaveBeenLastCalledWith({ anybody: true, mine: true });
+    act(() => double.instances[0].fire('screenSharingStatusChanged', { on: false }));
+    act(() => double.instances[0].fire('contentSharingParticipantsChanged', { data: [] }));
+    expect(onShareChange).toHaveBeenLastCalledWith({ anybody: false, mine: false });
+  });
+
+  it('forgets the share and the command when the call is left', async () => {
+    const onShareControl = vi.fn();
+    const onShareChange = vi.fn();
+    render(
+      <VideoCall
+        pass={PASS}
+        renew={vi.fn(async () => undefined)}
+        onShareControl={onShareControl}
+        onShareChange={onShareChange}
+      />,
+    );
+    scriptLoads();
+    await waitFor(() => expect(double.instances).toHaveLength(1));
+    act(() => double.instances[0].fire('contentSharingParticipantsChanged', { data: ['abc'] }));
+
+    act(() => double.instances[0].fire('readyToClose'));
+
+    expect(onShareControl).toHaveBeenLastCalledWith(null);
+    expect(onShareChange).toHaveBeenLastCalledWith({ anybody: false, mine: false });
+  });
+
+  it('says that only the call itself shares in the plain iframe, which sends no events', () => {
+    const onShareControl = vi.fn();
+    const { unmount } = render(
+      <VideoCall
+        pass={{ ...PASS, url: 'http://localhost:8000/room-1' }}
+        renew={vi.fn(async () => undefined)}
+        onShareControl={onShareControl}
+      />,
+    );
+
+    expect(onShareControl).toHaveBeenLastCalledWith({ kind: 'own-button' });
+    expect(document.querySelector('iframe')?.allow).toContain('display-capture');
+    unmount();
+    expect(onShareControl).toHaveBeenLastCalledWith(null);
   });
 });
