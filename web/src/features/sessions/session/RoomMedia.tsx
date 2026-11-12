@@ -1,4 +1,5 @@
-import { VideoCall } from '../video/VideoCall';
+import { cx } from '@/shared/ui';
+import { VideoCall, type CallShare, type ShareControl } from '../video/VideoCall';
 import { Whiteboard } from '../whiteboard/Whiteboard';
 import { IconVideo } from './icons';
 import { otherRole, type JoinedSession, type Session } from './session';
@@ -12,28 +13,57 @@ export interface RoomMediaProps {
   renewPass: () => Promise<unknown>;
   /** The whiteboard says the session is over before the next look at the session does. */
   onBoardClosed?: () => void;
+  /** The video fills the box the layout gives it instead of its own height. */
+  fill?: boolean;
+  onShareControl?: (control: ShareControl | null) => void;
+  onShareChange?: (share: CallShare) => void;
 }
 
 /**
  * The place of the video and of the whiteboard in the room. The layout of `LiveRoom` gives each its
- * box: the video on the right on a desktop and on top on a phone, the whiteboard filling the rest.
- * What goes inside changes here, and the page does not move.
+ * box, and changes it with the view the person chooses; what goes inside changes here, and the page
+ * does not move.
  */
-export function RoomMedia({ kind, session, joined, renewPass, onBoardClosed }: RoomMediaProps) {
+export function RoomMedia({
+  kind,
+  session,
+  joined,
+  renewPass,
+  onBoardClosed,
+  fill = false,
+  onShareControl,
+  onShareChange,
+}: RoomMediaProps) {
+  const height = fill ? 'h-full min-h-0' : 'h-[220px] lg:h-[240px]';
   if (kind === 'video') {
     if (joined === null) {
       return (
         <div
           role="status"
-          className="flex h-[220px] items-center justify-center rounded-[20px] bg-ink text-sm text-white lg:h-[240px]"
+          className={cx('flex items-center justify-center rounded-[20px] bg-ink text-sm text-white', height)}
         >
           Conectando el video…
         </div>
       );
     }
-    if (joined.video) return <VideoCall pass={joined.video} renew={renewPass} />;
+    if (joined.video) {
+      return (
+        <VideoCall
+          pass={joined.video}
+          renew={renewPass}
+          fill={fill}
+          onShareControl={onShareControl}
+          onShareChange={onShareChange}
+        />
+      );
+    }
     return (
-      <div className="flex h-[220px] flex-col items-center justify-center gap-2 rounded-[20px] bg-ink p-4 text-center text-white lg:h-[240px]">
+      <div
+        className={cx(
+          'flex flex-col items-center justify-center gap-2 rounded-[20px] bg-ink p-4 text-center text-white',
+          height,
+        )}
+      >
         <IconVideo className="h-6 w-6" />
         <p className="text-sm font-semibold">El video no está disponible</p>
         <p className="text-xs text-white/80">Sigue en la pizarra; tu {otherRole(session)} te ve aquí.</p>

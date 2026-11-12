@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { forgetLoadedScripts, isFatal, loadJitsi, plainFrameUrl, renewDelay, videoTarget } from './jitsi';
+import {
+  anybodySharing,
+  forgetLoadedScripts,
+  isFatal,
+  loadJitsi,
+  ownShareOn,
+  plainFrameUrl,
+  renewDelay,
+  videoTarget,
+} from './jitsi';
 
 describe('FE-22 the video pass', () => {
   it('reads the address of the room', () => {
@@ -17,6 +26,16 @@ describe('FE-22 the video pass', () => {
     expect(videoTarget('not a url')).toBeNull();
     expect(videoTarget('https://meet.ayni.pe/')).toBeNull();
     expect(videoTarget(undefined)).toBeNull();
+  });
+
+  it('reads the sharing events with the payloads of the real external_api.js', () => {
+    expect(ownShareOn({ on: true, details: { sourceType: 'screen' } })).toBe(true);
+    expect(ownShareOn({ on: false })).toBe(false);
+    expect(ownShareOn(undefined)).toBe(false);
+    expect(anybodySharing({ data: ['a1b2'] })).toBe(true);
+    expect(anybodySharing({ data: [] })).toBe(false);
+    expect(anybodySharing({ data: 'a1b2' })).toBe(false);
+    expect(anybodySharing(null)).toBe(false);
   });
 
   it('writes the address of the iframe of the Jitsi of docker compose', () => {

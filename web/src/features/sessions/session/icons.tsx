@@ -35,3 +35,21 @@ export const IconShieldCheck = icon(
     <path d="m9 12 2 2 4-4" />
   </>,
 );
+
+/** The split view: two columns side by side. */
+export const IconColumns = icon(
+  <>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M12 3v18" />
+  </>,
+);
+
+export const IconScreenShare = icon(
+  <>
+    <path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3" />
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+    <path d="m17 8 5-5" />
+    <path d="M17 3h5v5" />
+  </>,
+);

@@ -28,6 +28,7 @@ export function videoTarget(url: string | undefined): VideoTarget | null {
 
 export interface JitsiApi {
   addListener: (event: string, listener: (payload?: unknown) => void) => unknown;
+  executeCommand: (command: string, ...args: unknown[]) => void;
   dispose: () => void;
 }
 
@@ -92,6 +93,17 @@ export function forgetLoadedScripts(): void {
 export function isFatal(payload: unknown): boolean {
   const error = (payload as { error?: { isFatal?: unknown } } | undefined)?.error;
   return error?.isFatal === true;
+}
+
+/** `screenSharingStatusChanged`: whether this person's own screen is being shared (`{ on }`). */
+export function ownShareOn(payload: unknown): boolean {
+  return (payload as { on?: unknown } | undefined)?.on === true;
+}
+
+/** `contentSharingParticipantsChanged`: whether anybody in the call shares a screen (`{ data: ids }`). */
+export function anybodySharing(payload: unknown): boolean {
+  const data = (payload as { data?: unknown } | undefined)?.data;
+  return Array.isArray(data) && data.length > 0;
 }
 
 const RENEW_MARGIN_MS = 30_000;

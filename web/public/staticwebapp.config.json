@@ -1,7 +1,7 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/fonts/*", "/logos/*", "/favicon.ico"]
+    "exclude": ["/assets/*", "/fonts/*", "/logos/*", "/excalidraw/*", "/favicon.ico"]
   },
   "routes": [
     {
@@ -12,6 +12,12 @@
     },
     {
       "route": "/fonts/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "route": "/excalidraw/fonts/*",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       }
