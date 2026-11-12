@@ -594,8 +594,10 @@ Last, the web application. Once
 [the deploy workflow is configured](#configuring-the-deploy-workflow-once), **Deploy** does it: it
 runs as the last job of each release, and by hand from Actions (Deploy, Run workflow) with any
 tag. It repeats the step above through Azure,
-which changes nothing the second time, and then builds the web with `VITE_API_BASE_URL` and
-publishes it. Before it is configured, publish the web by hand, from your own computer; the token
+which changes nothing the second time, and then builds the web with `VITE_API_BASE_URL`, publishes
+it to the **production** environment with the Static Web Apps CLI, and fails unless the production
+address then serves the script of that build. Before it is configured, publish the web by hand, from
+your own computer, the same way; the token
 goes from `az` to the tool without being printed. This is how it was published on 2026-10-27:
 
 ```bash
@@ -903,6 +905,23 @@ Practise a restore into a spare database before you need one.
 Flyway applies the new migrations when the new backend starts. The backend replaces itself in a few
 seconds, and the proxy stays up. **Deploy** publishes the web application of the tag afterwards; by
 hand, publish it as in [Starting](#starting).
+
+The web always goes to production. Until 2026-11-12, **Deploy** published it with
+`Azure/static-web-apps-deploy`, which chooses the environment from the event: a release starts
+from a merged pull request, so v0.2.0 to v0.3.2 went to a preview environment named after their
+pull request (`<words>-<number>.<region>.azurestaticapps.net`), and production only received a
+release when Deploy was run by hand (v0.2.0, v0.3.0 and v0.3.1). The CLI with
+`--env production` does not depend on the event. A preview environment left behind serves an old
+web at an address of its own; list and delete them from your own computer:
+
+```bash
+az staticwebapp environment list --resource-group ayni --name ayni-web \
+  --query "[].{name:name, host:hostname}" -o table
+az staticwebapp environment delete --resource-group ayni --name ayni-web \
+  --environment-name <name> --yes
+```
+
+`default` is production: never delete it.
 
 The video machine changes only when `jitsi/docker-compose.yml` does (a new Jitsi version is a new
 image tag in that file). When it does, on the video machine:
@@ -1290,7 +1309,10 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - Run on GitHub and Azure on 2026-10-28, with v0.1.1: merging the release pull request into `main`
   tagged it from its title, published the image, signed in to Azure as the managed identity,
   moved the backend machine to the tag through `az vm run-command` (as `ayni`, healthy), and
-  published the web application with the token read from Azure. Not yet run: a title without a
+  published the web application with the token read from Azure (to a preview environment, it
+  turned out; see [Updating](#9-updating)). Publishing with the CLI to production, and the check
+  that production serves the build, run for the first time with the release after 2026-11-12.
+  Not yet run: a title without a
   version (the next patch counted from the latest tag), a tag pushed by hand, and **Deploy** by
   hand with an older tag (rolling back).
 - Media over `10000/udp`: a call between two people on different networks, with audio and video
