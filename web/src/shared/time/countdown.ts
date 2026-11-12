@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { serverOffset } from './serverClock';
 
 /**
  * Countdowns: the five minutes a held hour lasts (`HeldHours.heldUntil`), the 30 seconds before a
@@ -7,8 +8,9 @@ import { useEffect, useState } from 'react';
  *
  * An instant the server set (`heldUntil`) is counted against the server's time, not the browser's:
  * the demo profile moves the server's clock, and a browser with a wrong clock is wrong the same
- * way. `clockOffset(serverNow)` measures the difference once, when the answer arrives, and
- * `useCountdown` takes it as `offsetMs`.
+ * way. Every answer of the API says the server's time in `X-Server-Time` (`serverClock.ts`), and
+ * `useCountdown` counts against it unless it is given another `offsetMs`. `clockOffset(serverNow)`
+ * measures the difference from a time in the body of an answer (`HeldHours.serverNow`).
  */
 
 /**
@@ -52,26 +54,29 @@ export interface Countdown {
 export interface CountdownOptions {
   /** Every how many milliseconds it redraws. */
   stepMs?: number;
-  /** The server's clock minus the browser's, from `clockOffset`. Without it the browser's clock decides. */
+  /** The server's clock minus the browser's. Without it, the one the last answer of the API said. */
   offsetMs?: number;
 }
 
 /** Redraws every second until the instant; `null` means there is nothing to count down to. */
 export function useCountdown(
   until: string | Date | number | null | undefined,
-  { stepMs = 1000, offsetMs = 0 }: CountdownOptions = {},
+  { stepMs = 1000, offsetMs }: CountdownOptions = {},
 ): Countdown {
-  const [now, setNow] = useState(() => Date.now() + offsetMs);
+  const read = () => Date.now() + (offsetMs ?? serverOffset());
+  const [now, setNow] = useState(read);
 
   useEffect(() => {
     if (until === null || until === undefined) return undefined;
-    setNow(Date.now() + offsetMs);
+    setNow(read());
     const timer = window.setInterval(() => {
-      const current = Date.now() + offsetMs;
+      const current = read();
       setNow(current);
       if (remainingMs(until, current) === 0) window.clearInterval(timer);
     }, stepMs);
     return () => window.clearInterval(timer);
+    // `read` only depends on offsetMs, and the offset of the answers is read on every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [until, stepMs, offsetMs]);
 
   const left = until === null || until === undefined ? 0 : remainingMs(until, now);

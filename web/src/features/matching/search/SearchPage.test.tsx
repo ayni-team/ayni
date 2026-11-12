@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Schema } from '@/shared/api';
 import { fakeServer } from '@/test/fakeServer';
@@ -66,6 +67,36 @@ describe('FE-10 SearchPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Buscar tutoría' })).toBeInTheDocument();
     expect(screen.getByText('Elige un curso para ver sus horas libres')).toBeInTheDocument();
     expect(screen.getByText('Te mostramos los próximos 7 días; puedes cambiar el rango.')).toBeInTheDocument();
+  });
+
+  it('picks the course by typing its name or code, with the code and the university below', async () => {
+    const server = setupServer();
+    server.on('GET', '/api/v1/search/offers', {
+      body: {
+        offers: [],
+        exactMatch: true,
+        timezone: 'America/Lima',
+        page: 0,
+        size: 20,
+        totalElements: 0,
+        totalPages: 0,
+      },
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<SearchPage />, { route: '/buscar' });
+
+    const picker = await screen.findByRole('combobox', { name: 'Curso o habilidad' });
+    await user.type(picker, 'ma265');
+    expect(screen.queryByRole('option', { name: /Algoritmos/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /Matemática Discreta/ }));
+
+    await waitFor(() =>
+      expect(server.requests('GET', '/api/v1/search/offers').at(-1)?.query.get('catalogItemId')).toBe(
+        'b0000000-0000-4000-8000-000000000103',
+      ),
+    );
+    expect(screen.getAllByText('MA265 · curso UPC').length).toBeGreaterThan(0);
+    expect(screen.getByRole('group', { name: 'Semana' })).toBeInTheDocument();
   });
 
   it('shows offers in Lima time and allows choosing an offer to go to /reservar', async () => {

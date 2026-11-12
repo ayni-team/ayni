@@ -59,6 +59,9 @@ services:
       AYNI_JITSI_JWT_SECRET: ${AYNI_JITSI_JWT_SECRET:?Set AYNI_JITSI_JWT_SECRET in deploy/backend/.env}
       AYNI_JITSI_URL: ${AYNI_JITSI_URL:?Set AYNI_JITSI_URL in deploy/backend/.env}
       AYNI_JITSI_APP_ID: ${AYNI_JITSI_APP_ID:-ayni}
+      # Practice rooms, the team's tool to try the room between two accounts with no record. Off;
+      # turn it on only while trying it and off again afterwards (deploy/README.md).
+      AYNI_PRACTICE_ROOMS: ${AYNI_PRACTICE_ROOMS:-false}
 
       AYNI_IDENTITY_ACCESS_LINK_BASE_URL: ${AYNI_IDENTITY_ACCESS_LINK_BASE_URL:?Set AYNI_IDENTITY_ACCESS_LINK_BASE_URL in deploy/backend/.env}
       AYNI_ALLOWED_ORIGINS: ${AYNI_ALLOWED_ORIGINS:?Set AYNI_ALLOWED_ORIGINS in deploy/backend/.env}

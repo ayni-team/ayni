@@ -26,7 +26,7 @@ class TutorStandingTest {
     }
 
     @Test
-    @DisplayName("below three ratings the tutor is new and no average is shown")
+    @DisplayName("Tutor without enough history")
     void belowThreeRatingsTheTutorIsNew() {
         TutorStanding standing = withRatings(2, "4.50");
 
@@ -35,7 +35,7 @@ class TutorStandingTest {
     }
 
     @Test
-    @DisplayName("from the third rating the average is shown")
+    @DisplayName("Tutor with enough history")
     void fromTheThirdRatingTheAverageIsShown() {
         TutorStanding standing = withRatings(3, "4.33");
 

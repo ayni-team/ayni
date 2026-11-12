@@ -246,17 +246,56 @@ describe('FE-12 MyTutoringsPage', () => {
     await user.click(historyTab);
 
     // History badges
-    expect(await screen.findByText('Completada')).toBeInTheDocument();
+    expect(await screen.findByText('Realizada')).toBeInTheDocument();
     expect(screen.getByText('No asistió')).toBeInTheDocument();
     expect(screen.getByText('Cancelada')).toBeInTheDocument();
 
-    // "Repasar" button exists for completed tutoring
-    const reviewBtn = screen.getByRole('button', { name: 'Repasar' });
+    // "Repasar" exists for the completed tutoring, the first of the history, and for the one missed
+    const reviewBtn = screen.getAllByRole('button', { name: 'Repasar' })[0];
     await user.click(reviewBtn);
 
     await waitFor(() => {
       expect(location()).toBe('/sesion/77777777-7777-4777-8777-777777777777/repaso');
     });
+  });
+
+  it('offers "Repasar" for a past tutoring the backend keeps as confirmed, and not for a cancelled one', async () => {
+    const server = setupServer();
+    const past = { ...HISTORY_BOOKINGS[0], status: 'CONFIRMED' };
+    const cancelled = { ...HISTORY_BOOKINGS[0], bookingId: 'cancelled-booking', status: 'CANCELLED' };
+    server.on('GET', '/api/v1/bookings/mine', (req) =>
+      req.query.get('view') === 'HISTORY'
+        ? { body: { ...HISTORY_RESPONSE, items: [past, cancelled] } }
+        : { body: UPCOMING_RESPONSE },
+    );
+
+    const { user } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('tab', { name: 'Historial' }));
+
+    expect(await screen.findAllByRole('button', { name: 'Repasar' })).toHaveLength(1);
+  });
+
+  it('tells a confirmed tutoring whose hour ended, by the server, as done', async () => {
+    const server = setupServer();
+    const ended = { ...HISTORY_BOOKINGS[0], status: 'CONFIRMED', endsAt: '2020-01-01T15:00:00Z' };
+    const ahead = {
+      ...HISTORY_BOOKINGS[0],
+      bookingId: 'still-ahead',
+      status: 'CONFIRMED',
+      startsAt: '2999-01-01T14:00:00Z',
+      endsAt: '2999-01-01T15:00:00Z',
+    };
+    server.on('GET', '/api/v1/bookings/mine', (req) =>
+      req.query.get('view') === 'HISTORY'
+        ? { body: { ...HISTORY_RESPONSE, items: [ended, ahead] } }
+        : { body: UPCOMING_RESPONSE },
+    );
+
+    const { user } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
+    await user.click(await screen.findByRole('tab', { name: 'Historial' }));
+
+    expect(await screen.findByText('Realizada')).toBeInTheDocument();
+    expect(screen.getByText('Confirmada')).toBeInTheDocument();
   });
 
   it('shows empty state when student has no tutorings', async () => {
@@ -382,7 +421,7 @@ describe('FE-12 MyTutoringsPage', () => {
 
     const { user, location } = renderWithProviders(<MyTutoringsPage />, { route: '/mis-tutorias' });
     await user.click(await screen.findByRole('tab', { name: 'Historial' }));
-    await user.click(await screen.findByRole('button', { name: 'Repasar' }));
+    await user.click((await screen.findAllByRole('button', { name: 'Repasar' }))[0]);
 
     expect(await screen.findByText('No encontramos lo que buscas')).toBeInTheDocument();
     expect(location()).toBe('/mis-tutorias');

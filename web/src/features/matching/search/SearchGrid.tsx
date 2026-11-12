@@ -6,6 +6,26 @@ import { formatHourLabel, formatShortName, getDaysOfWeek, getSlotKey } from './d
 type Offer = Schema<'Offer'>;
 type StudentBooking = Schema<'StudentBooking'>;
 
+/** The globe before the zone of the hours, as the design draws it (shared/ui has none yet). */
+function IconGlobe({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
 export interface SelectedSlot {
   day: string;
   hour: number;
@@ -75,50 +95,60 @@ export function SearchGrid({
   }
 
   return (
-    <div className="flex-1 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="min-w-0 flex-1 rounded-[20px] border border-line bg-white p-4 sm:p-5">
       {/* Grid Header & Legend */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
-        <div>
-          <h2 className="text-base font-bold text-gray-900">Horas libres · {courseName}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">🌐 Hora de Lima · cada bloque es 1 hora = 1 crédito</p>
+      <div className="flex flex-col gap-3 pb-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-display text-lg font-semibold text-ink">Horas libres · {courseName}</h2>
+          <p className="mt-0.5 flex items-center gap-1 text-[13px] text-ink-2">
+            <IconGlobe className="h-3.5 w-3.5 shrink-0" />
+            Hora de Lima · cada bloque es 1 hora = 1 crédito
+          </p>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 font-medium text-blue-800 border border-blue-100">
-            1 tutor
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400 bg-cyan-50 px-2.5 py-0.5 font-medium text-cyan-900">
+        {/* Legend: swatches of 12 px, as the design draws them */}
+        <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-ink-2" aria-label="Leyenda">
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className="h-3 w-3 rounded-[3px] bg-info-soft" />1 tutor
+          </li>
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className="h-3 w-3 rounded-[3px] border border-info-text bg-info-soft" />
             Varios tutores
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-400 bg-gray-50 px-2.5 py-0.5 font-medium text-gray-700">
+          </li>
+          <li className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className="h-3 w-3 rounded-[3px] border border-dashed border-ink-3 bg-white" />
             Tu tutoría
-          </span>
-        </div>
+          </li>
+        </ul>
       </div>
 
-      {/* Calendar Grid Table */}
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full border-collapse text-center">
+      {/* Calendar Grid Table: the columns share what there is, so the panel beside it fits */}
+      <div className="overflow-x-auto">
+        <table className="w-full table-fixed border-collapse text-center">
           <thead>
             <tr>
-              <th scope="col" className="w-14 pb-3 text-xs font-normal text-gray-400" />
+              <th scope="col" className="w-12 pb-3 text-xs font-normal text-ink-2" />
               {daysOfWeek.map((day) => {
                 const dayName = formatDay(day, { weekday: 'short' }).replace('.', '').toUpperCase();
                 const dayNum = parseInt(day.split('-')[2], 10);
                 const isSelectedDay = selectedSlot?.day === day;
 
                 return (
-                  <th key={day} scope="col" className="pb-3 text-center min-w-[100px] px-1">
+                  <th key={day} scope="col" className="px-1 pb-3 text-center">
                     <div
                       className={cx(
                         'text-xs font-semibold uppercase',
-                        isSelectedDay ? 'text-brand-text' : 'text-gray-500',
+                        isSelectedDay ? 'text-brand-text' : 'text-ink-2',
                       )}
                     >
                       {dayName}
                     </div>
-                    <div className={cx('text-base font-bold', isSelectedDay ? 'text-brand-text' : 'text-gray-900')}>
+                    <div
+                      className={cx(
+                        'font-display text-xl font-semibold',
+                        isSelectedDay ? 'text-brand-text' : 'text-ink',
+                      )}
+                    >
                       {dayNum}
                     </div>
                   </th>
@@ -131,11 +161,11 @@ export function SearchGrid({
               const hourLabel = formatHourLabel(hour);
 
               return (
-                <tr key={hour} className="border-t border-gray-100">
+                <tr key={hour} className="border-t border-line">
                   {/* Hour label column */}
                   <th
                     scope="row"
-                    className="w-14 py-3 pr-2 text-right align-top text-xs font-normal text-gray-400 select-none"
+                    className="w-12 select-none py-3 pr-2 text-right align-top text-xs font-normal text-ink-2"
                   >
                     {hourLabel}
                   </th>
@@ -148,20 +178,18 @@ export function SearchGrid({
                     const isSelected = selectedSlot?.day === day && selectedSlot?.hour === hour;
 
                     return (
-                      <td key={day} className="p-1 align-top h-14 border-l border-gray-100">
+                      <td key={day} className="h-14 border-l border-line p-1 align-top">
                         {userBooking ? (
-                          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-1.5 text-left select-none">
+                          <div className="select-none rounded-lg border border-dashed border-ink-3 bg-white p-1.5 text-left">
                             <div className="flex items-center gap-1">
                               <Avatar
                                 name={userBooking.tutor?.name ?? ''}
                                 size="sm"
-                                className="h-5 w-5 text-[9px] shrink-0"
+                                className="!h-6 !w-6 !text-[9px] shrink-0"
                               />
                               <div className="min-w-0">
-                                <p className="truncate text-[11px] font-semibold text-gray-900 leading-tight">
-                                  Tu tutoría
-                                </p>
-                                <p className="truncate text-[10px] text-gray-500 leading-tight">
+                                <p className="truncate text-[11px] font-semibold leading-tight text-ink">Tu tutoría</p>
+                                <p className="truncate text-[10px] leading-tight text-ink-2">
                                   con {userBooking.tutor?.name?.split(' ')[0]}
                                 </p>
                               </div>
@@ -173,63 +201,54 @@ export function SearchGrid({
                             onClick={() => onSelectSlot({ day, hour, offers: slotOffers })}
                             aria-label={`Ver ${slotOffers.length} tutores disponibles a las ${hourLabel}`}
                             className={cx(
-                              'w-full rounded-lg p-1.5 text-left transition-all focus:outline-none focus:ring-2',
+                              'w-full rounded-lg p-1.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
                               isSelected
-                                ? 'bg-brand-primary text-brand-secondary shadow-sm ring-2 ring-brand-primary ring-offset-1'
+                                ? 'bg-brand-primary text-brand-secondary'
                                 : slotOffers.length === 1
-                                  ? 'border border-blue-100 bg-blue-50/80 hover:bg-blue-100 text-gray-900 focus:ring-blue-400'
-                                  : 'border border-cyan-300 bg-cyan-50/80 hover:bg-cyan-100 text-cyan-950 focus:ring-cyan-400',
+                                  ? 'border border-transparent bg-info-soft text-ink hover:border-info-text'
+                                  : 'border border-info-text bg-info-soft text-info-text hover:bg-white',
                             )}
                           >
-                            {isSelected ? (
-                              <div className="flex items-center gap-1.5">
-                                <div className="flex -space-x-1 overflow-hidden shrink-0">
+                            {isSelected || slotOffers.length > 1 ? (
+                              // Several tutors, or the hour chosen: the faces on top and how many below, as
+                              // the design draws it, so a narrow column still reads.
+                              <div className="flex flex-col items-start gap-1">
+                                <div className="flex shrink-0 -space-x-1 overflow-hidden">
                                   {slotOffers.slice(0, 3).map((o, idx) => (
                                     <Avatar
                                       key={idx}
                                       name={o.tutorName ?? ''}
                                       size="sm"
-                                      className="h-5 w-5 text-[9px] ring-1 ring-white"
+                                      className="!h-6 !w-6 !text-[9px] ring-1 ring-white"
                                     />
                                   ))}
                                 </div>
-                                <span className="truncate text-xs font-bold text-brand-secondary">
+                                <span
+                                  className={cx(
+                                    'max-w-full truncate text-xs font-semibold',
+                                    isSelected ? 'text-brand-secondary' : 'text-info-text',
+                                  )}
+                                >
                                   {slotOffers.length} {slotOffers.length === 1 ? 'tutor' : 'tutores'}
                                 </span>
                               </div>
-                            ) : slotOffers.length === 1 ? (
+                            ) : (
                               <div className="flex items-center gap-1.5">
                                 <Avatar
                                   name={slotOffers[0].tutorName ?? ''}
                                   size="sm"
-                                  className="h-5 w-5 text-[9px] shrink-0"
+                                  className="!h-6 !w-6 !text-[9px] shrink-0"
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-semibold text-gray-900 leading-tight">
+                                  <p className="truncate text-xs font-semibold leading-tight text-ink">
                                     {formatShortName(slotOffers[0].tutorName)}
                                   </p>
-                                  <p className="text-[10px] text-gray-600 leading-tight">
+                                  <p className="text-[10px] leading-tight text-ink-2">
                                     {slotOffers[0].newTutor
                                       ? 'Nuevo'
                                       : `★ ${Number(slotOffers[0].averageStars ?? 0).toFixed(1)}`}
                                   </p>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <div className="flex -space-x-1 overflow-hidden shrink-0">
-                                  {slotOffers.slice(0, 3).map((o, idx) => (
-                                    <Avatar
-                                      key={idx}
-                                      name={o.tutorName ?? ''}
-                                      size="sm"
-                                      className="h-5 w-5 text-[9px] ring-1 ring-white"
-                                    />
-                                  ))}
-                                </div>
-                                <span className="truncate text-xs font-medium text-cyan-950">
-                                  {slotOffers.length} tutores
-                                </span>
                               </div>
                             )}
                           </button>

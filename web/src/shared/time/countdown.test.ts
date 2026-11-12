@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clockOffset, formatCountdown, remainingMs, useCountdown } from './countdown';
+import { noteServerTime, resetServerClock, serverNow, serverOffset } from './serverClock';
 
 describe('countdown', () => {
   it('writes what is left as the hold shows it', () => {
@@ -81,5 +82,44 @@ describe('useCountdown', () => {
   it('has nothing to count without an instant', () => {
     const { result } = renderHook(() => useCountdown(null));
     expect(result.current).toEqual({ remainingMs: 0, expired: true, label: '0:00' });
+  });
+});
+
+describe('the countdown against the time of the server', () => {
+  const TWO_HOURS = 2 * 3_600_000;
+
+  afterEach(() => {
+    resetServerClock();
+    vi.useRealTimers();
+  });
+
+  it('notes the difference from the header, and ignores a missing or unreadable one', () => {
+    noteServerTime('2026-10-23T22:00:00Z', Date.parse('2026-10-23T20:00:00Z'));
+    expect(serverOffset()).toBe(TWO_HOURS);
+    noteServerTime(null);
+    noteServerTime('not an instant');
+    expect(serverOffset()).toBe(TWO_HOURS);
+  });
+
+  it('counts against the moved clock with no option, and has no difference before an answer', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-23T20:00:00Z'));
+    const until = '2026-10-23T22:10:00Z';
+
+    expect(renderHook(() => useCountdown(until)).result.current.label).toBe('2:10:00');
+
+    noteServerTime('2026-10-23T22:00:00Z');
+    expect(serverNow()).toBe(Date.parse('2026-10-23T22:00:00Z'));
+    expect(renderHook(() => useCountdown(until)).result.current.label).toBe('10:00');
+  });
+
+  it('lets the screen say its own difference', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-23T20:00:00Z'));
+    noteServerTime('2026-10-23T22:00:00Z');
+
+    const { result } = renderHook(() => useCountdown('2026-10-23T20:05:00Z', { offsetMs: 0 }));
+
+    expect(result.current.label).toBe('5:00');
   });
 });

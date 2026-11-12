@@ -1,6 +1,10 @@
 package pe.ayni.wallet.interfaces.rest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -45,6 +49,50 @@ class CampusBenefitsController {
       description =
           "Send confirmed=false to receive the irreversible-operation warning without spending "
               + "credits. Submit its confirmationId with the same Idempotency-Key and confirmed=true.")
+  @ApiResponse(
+      responseCode = "200",
+      description = "The warning to confirm, when confirmed is false, or the receipt",
+      content = @Content(schema = @Schema(implementation = CreditUseResponse.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Refused by the state of the wallet or of the confirmation. The code says which:"
+              + " INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED,"
+              + " CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH,"
+              + " CONFIRMATION_USED or IDEMPOTENCY_CONFLICT",
+      content =
+          @Content(
+              mediaType = "application/json",
+              schema = @Schema(implementation = ApiError.class),
+              examples = {
+                @ExampleObject(
+                    name = "Not enough earned credits",
+                    value =
+                        """
+                        {
+                          "timestamp": "2026-11-10T15:00:00Z",
+                          "status": 409,
+                          "error": "Conflict",
+                          "message": "Insufficient earned credits, missing 2",
+                          "path": "/api/v1/wallet/benefits/9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f/redemptions",
+                          "code": "INSUFFICIENT_EARNED_CREDITS",
+                          "missingCredits": 2
+                        }
+                        """),
+                @ExampleObject(
+                    name = "The warning expired",
+                    value =
+                        """
+                        {
+                          "timestamp": "2026-11-10T15:11:00Z",
+                          "status": 409,
+                          "error": "Conflict",
+                          "message": "The confirmation has expired; request a new one",
+                          "path": "/api/v1/wallet/benefits/9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f/redemptions",
+                          "code": "CONFIRMATION_EXPIRED"
+                        }
+                        """)
+              }))
   CreditUseResponse redeemBenefit(
       @PathVariable UUID benefitId,
       @Valid @RequestBody CreditUseRequest request,
@@ -64,6 +112,50 @@ class CampusBenefitsController {
       description =
           "Send confirmed=false to receive the irreversible-operation warning without spending "
               + "credits. Submit its confirmationId with the same Idempotency-Key and confirmed=true.")
+  @ApiResponse(
+      responseCode = "200",
+      description = "The warning to confirm, when confirmed is false, or the receipt",
+      content = @Content(schema = @Schema(implementation = CreditUseResponse.class)))
+  @ApiResponse(
+      responseCode = "409",
+      description =
+          "Refused by the state of the wallet or of the confirmation. The code says which:"
+              + " INSUFFICIENT_EARNED_CREDITS with missingCredits, CONFIRMATION_REQUIRED,"
+              + " CONFIRMATION_INVALID, CONFIRMATION_EXPIRED, CONFIRMATION_MISMATCH,"
+              + " CONFIRMATION_USED or IDEMPOTENCY_CONFLICT",
+      content =
+          @Content(
+              mediaType = "application/json",
+              schema = @Schema(implementation = ApiError.class),
+              examples = {
+                @ExampleObject(
+                    name = "Not enough earned credits",
+                    value =
+                        """
+                        {
+                          "timestamp": "2026-11-10T15:00:00Z",
+                          "status": 409,
+                          "error": "Conflict",
+                          "message": "Insufficient earned credits, missing 2",
+                          "path": "/api/v1/wallet/donations",
+                          "code": "INSUFFICIENT_EARNED_CREDITS",
+                          "missingCredits": 2
+                        }
+                        """),
+                @ExampleObject(
+                    name = "The warning expired",
+                    value =
+                        """
+                        {
+                          "timestamp": "2026-11-10T15:11:00Z",
+                          "status": 409,
+                          "error": "Conflict",
+                          "message": "The confirmation has expired; request a new one",
+                          "path": "/api/v1/wallet/donations",
+                          "code": "CONFIRMATION_EXPIRED"
+                        }
+                        """)
+              }))
   CreditUseResponse donate(
       @Valid @RequestBody DonationRequest request,
       @RequestHeader("Idempotency-Key") @Size(min = 1, max = 64) String idempotencyKey) {

@@ -1,5 +1,6 @@
 package pe.ayni.config;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -108,6 +109,9 @@ class CorsOriginsTest {
                 .param("email", "someone@nowhere.example")
                 .header(HttpHeaders.ORIGIN, "https://app.ayni.test"))
         .andExpect(
-            header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION));
+            header()
+                .string(
+                    HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                    containsString(HttpHeaders.CONTENT_DISPOSITION)));
   }
 }

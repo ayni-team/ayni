@@ -49,7 +49,7 @@ class BookingConfirmationDatabaseTest extends BookingScenario {
    * made rolls back with it.
    */
   @Test
-  @DisplayName("two confirmations racing for one hour: the version column decides, the loser pays nothing")
+  @DisplayName("Two confirmations racing for one hour are decided by the version of the hour")
   void theVersionColumnDecidesARaceAtConfirmation() throws Exception {
 
     grant(ana, 5);
@@ -110,7 +110,7 @@ class BookingConfirmationDatabaseTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("the lost race reaches the student as HourUnavailable, caused by the version conflict")
+  @DisplayName("The student who loses the race is told that the hour was just taken")
   void theLostRaceIsTranslatedForTheStudent() throws Exception {
 
     grant(ana, 5);
@@ -168,7 +168,7 @@ class BookingConfirmationDatabaseTest extends BookingScenario {
    * UnexpectedRollbackException}. It must not appear anywhere.
    */
   @Test
-  @DisplayName("a failure after everything was written leaves the balance intact and the hour free")
+  @DisplayName("A failure after everything was written leaves the balance intact and the hour free")
   void aFailureAfterEverythingWasWrittenLeavesNothingBehind() throws Exception {
 
     grant(ana, 3);
@@ -205,7 +205,7 @@ class BookingConfirmationDatabaseTest extends BookingScenario {
    * rollback.
    */
   @Test
-  @DisplayName("wallet's refusal reaches the student as it is, never as an unexpected rollback")
+  @DisplayName("The wallet's refusal reaches the student as it is, never as an unexpected rollback")
   void walletsRefusalIsNotAnUnexpectedRollback() throws Exception {
 
     grant(ana, 1);

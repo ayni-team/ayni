@@ -26,27 +26,42 @@ import pe.ayni.shared.events.WhiteboardClosed;
  *
  * <p>No transaction here on purpose: a change has to be committed before anybody is told about it,
  * and told before the next change of the same board is.
+ *
+ * <p>The board of an open practice room is kept in memory by {@link PracticeRooms} instead of
+ * {@link WhiteboardStore}: the same rules, the same order and the same channels, and no row.
  */
 @Service
 public class WhiteboardEditing {
 
-  /** The largest an element may be, as JSON. */
-  static final int MAX_ELEMENT_BYTES = 16 * 1024;
+  /**
+   * The largest an element may be, as JSON. An Excalidraw freehand stroke weighs about 15 bytes a
+   * point with two decimals, more with a pen's pressures: 32 KB is a stroke of some 2000 points,
+   * half a minute of drawing without lifting the pointer (ADR 0010).
+   */
+  static final int MAX_ELEMENT_BYTES = 32 * 1024;
 
   private final WhiteboardStore store;
+  private final PracticeRooms practice;
   private final WhiteboardBroadcaster broadcaster;
   private final ObjectMapper json;
   private final Map<UUID, ReentrantLock> boards = new ConcurrentHashMap<>();
 
-  WhiteboardEditing(WhiteboardStore store, WhiteboardBroadcaster broadcaster, ObjectMapper json) {
+  WhiteboardEditing(
+      WhiteboardStore store,
+      PracticeRooms practice,
+      WhiteboardBroadcaster broadcaster,
+      ObjectMapper json) {
     this.store = store;
+    this.practice = practice;
     this.broadcaster = broadcaster;
     this.json = json;
   }
 
   /** The board as it is now, for a participant, in any state of the session. */
   public WhiteboardView read(UUID sessionId, UUID userId) {
-    return store.read(sessionId, userId);
+    return practice.isOpen(sessionId)
+        ? practice.readBoard(sessionId, userId)
+        : store.read(sessionId, userId);
   }
 
   /**
@@ -56,7 +71,11 @@ public class WhiteboardEditing {
    * @throws pe.ayni.sessions.domain.model.SessionNotOpen when the session is not in progress
    */
   public void requireLive(UUID sessionId, UUID userId) {
-    store.requireLive(sessionId, userId);
+    if (practice.isOpen(sessionId)) {
+      practice.requireLive(sessionId, userId);
+    } else {
+      store.requireLive(sessionId, userId);
+    }
   }
 
   /**
@@ -72,8 +91,8 @@ public class WhiteboardEditing {
     inOrder(
         sessionId,
         () -> {
-          store.requireLive(sessionId, userId);
-          joined.accept(store.read(sessionId, userId));
+          requireLive(sessionId, userId);
+          joined.accept(read(sessionId, userId));
           return null;
         });
   }
@@ -93,7 +112,10 @@ public class WhiteboardEditing {
     return inOrder(
         sessionId,
         () -> {
-          AppliedOperation applied = store.apply(sessionId, userId, operation);
+          AppliedOperation applied =
+              practice.isOpen(sessionId)
+                  ? practice.draw(sessionId, userId, operation)
+                  : store.apply(sessionId, userId, operation);
           broadcaster.applied(applied);
           return applied;
         });
@@ -111,7 +133,10 @@ public class WhiteboardEditing {
     return inOrder(
         sessionId,
         () -> {
-          WhiteboardView replaced = store.replace(sessionId, userId, elements, seenVersion);
+          WhiteboardView replaced =
+              practice.isOpen(sessionId)
+                  ? practice.replace(sessionId, userId, elements, seenVersion)
+                  : store.replace(sessionId, userId, elements, seenVersion);
           broadcaster.replaced(replaced);
           return replaced;
         });
@@ -130,7 +155,7 @@ public class WhiteboardEditing {
   private void requireSize(BoardElement element) {
     try {
       if (json.writeValueAsBytes(element).length > MAX_ELEMENT_BYTES) {
-        throw new WhiteboardRuleViolation("An element takes at most 16 KB");
+        throw new WhiteboardRuleViolation("An element takes at most 32 KB");
       }
     } catch (JsonProcessingException notJson) {
       throw new WhiteboardRuleViolation("The element cannot be stored");
@@ -143,7 +168,12 @@ public class WhiteboardEditing {
    */
   @TransactionalEventListener
   void on(WhiteboardClosed closed) {
-    broadcaster.closed(closed.sessionId());
-    boards.remove(closed.sessionId());
+    closeLive(closed.sessionId());
+  }
+
+  /** Closes the live channels of a board and forgets its lock: the session, or the room, is over. */
+  void closeLive(UUID sessionId) {
+    broadcaster.closed(sessionId);
+    boards.remove(sessionId);
   }
 }

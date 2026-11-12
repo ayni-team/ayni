@@ -27,7 +27,8 @@ import org.springframework.web.filter.CorsFilter;
  * <p>Of the headers of an answer, a page on another origin only reads the few the browser deems
  * safe. {@code Content-Disposition}, which names a downloaded file (the indicators' CSV, an
  * evidence file), is exposed as well, so the web application keeps that name when it is served
- * from another host than the API.
+ * from another host than the API, and so is {@code X-Server-Time} ({@link ServerTimeFilter}), which
+ * its countdowns are counted against.
  *
  * <p>It is a servlet filter that runs before {@code AccessControlFilter}, not a mapping of Spring
  * MVC. The access filter answers {@code 401} and {@code 403} itself, before MVC is reached; without
@@ -48,6 +49,7 @@ public class CorsConfig {
     cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     cors.addAllowedHeader(CorsConfiguration.ALL);
     cors.addExposedHeader(HttpHeaders.CONTENT_DISPOSITION);
+    cors.addExposedHeader(ServerTimeFilter.HEADER);
     cors.setMaxAge(1800L);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

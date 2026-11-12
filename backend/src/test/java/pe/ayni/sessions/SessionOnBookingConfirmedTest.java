@@ -66,7 +66,7 @@ class SessionOnBookingConfirmedTest {
   }
 
   @Test
-  @DisplayName("a confirmed booking gets a scheduled session with its hours and participants")
+  @DisplayName("The booking creates the session")
   void aConfirmedBookingGetsItsSession() {
 
     BookingConfirmed confirmed = aConfirmedBooking();
@@ -81,6 +81,20 @@ class SessionOnBookingConfirmedTest {
     assertThat(session.getScheduledEnd()).isEqualTo(confirmed.endsAt());
     assertThat(session.getRoomName()).matches("ayni-[0-9a-f]{32}");
     assertThat(sessions.findByTenantIdAndBookingId("PUCP", confirmed.bookingId())).isEmpty();
+  }
+
+  @Test
+  @DisplayName("The session of the booking reaches the need description")
+  void theSessionPointsAtTheBookingThatCarriesTheNeed() {
+
+    BookingConfirmed confirmed = aConfirmedBooking();
+
+    transactions.executeWithoutResult(status -> events.publishEvent(confirmed));
+
+    // The description stays in booking; the session keeps the booking it came from, which is how
+    // GET /api/v1/sessions/{id} reads it through BookingApi (US08).
+    Session session = sessions.findByTenantIdAndBookingId(UPC, confirmed.bookingId()).orElseThrow();
+    assertThat(session.getBookingId()).isEqualTo(confirmed.bookingId());
   }
 
   @Test
@@ -102,7 +116,7 @@ class SessionOnBookingConfirmedTest {
   }
 
   @Test
-  @DisplayName("a confirmation whose transaction rolled back creates nothing")
+  @DisplayName("A confirmation whose transaction rolled back creates no session")
   void aRolledBackConfirmationCreatesNothing() {
 
     BookingConfirmed confirmed = aConfirmedBooking();
@@ -117,7 +131,7 @@ class SessionOnBookingConfirmedTest {
   }
 
   @Test
-  @DisplayName("a delayed confirmation for a cancelled booking does not create a session")
+  @DisplayName("A late confirmation of a booking already cancelled creates no session")
   void aCancelledBookingDoesNotGetASession() {
 
     BookingConfirmed confirmed = aConfirmedBooking();

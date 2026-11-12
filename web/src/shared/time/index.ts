@@ -1,4 +1,5 @@
 export { clockOffset, formatCountdown, remainingMs, useCountdown } from './countdown';
+export { serverNow, serverOffset } from './serverClock';
 export type { Countdown, CountdownOptions } from './countdown';
 export { addDays, dayInZone, daysBetween, formatDay, formatInZone, relativeTime, todayInZone } from './format';
 export type { DateTimePreset } from './format';

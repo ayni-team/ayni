@@ -90,7 +90,7 @@ class RequestAccessUseCaseTest {
     }
 
     @Test
-    @DisplayName("creates an activation link for a new student")
+    @DisplayName("Access request from a new student")
     void createsActivationLinkForNewStudent() {
         when(tenants.findByStatus(TenantStatus.ACTIVE))
                 .thenReturn(List.of(upc()));
@@ -161,7 +161,7 @@ class RequestAccessUseCaseTest {
     }
 
     @Test
-    @DisplayName("creates a login link for an existing student")
+    @DisplayName("Access request from a student who already has an account")
     void createsLoginLinkForExistingStudent() {
         when(tenants.findByStatus(TenantStatus.ACTIVE))
                 .thenReturn(List.of(upc()));
@@ -224,7 +224,7 @@ class RequestAccessUseCaseTest {
     }
 
     @Test
-    @DisplayName("rejects an email whose institution is not affiliated")
+    @DisplayName("Domain not affiliated")
     void rejectsUnaffiliatedInstitution() {
         when(tenants.findByStatus(TenantStatus.ACTIVE))
                 .thenReturn(List.of(upc()));

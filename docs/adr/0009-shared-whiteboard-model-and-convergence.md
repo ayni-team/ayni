@@ -1,6 +1,7 @@
 # 9. The shared whiteboard: elements, operations in the server's order, and a snapshot to rejoin
 
-- **Status:** Accepted
+- **Status:** Accepted. The web draws it with Excalidraw and the limit of an element is 32 KB
+  since [ADR 0010](0010-whiteboard-drawn-with-excalidraw.md); everything else stands.
 - **Date:** 2026-10-15
 
 ## Context

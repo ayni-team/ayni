@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { excalidrawAssets } from './scripts/excalidraw-assets.mjs';
 
 // Node's own types are not a dependency of the web; this is the one global the config reads.
 declare const process: { env: Record<string, string | undefined> };
@@ -9,7 +10,8 @@ declare const process: { env: Record<string, string | undefined> };
 const api = process.env.AYNI_API_URL ?? 'http://localhost:8080';
 
 export default defineConfig({
-  plugins: [react()],
+  // The fonts of the whiteboard's canvas, from this origin and not a CDN (ADR 0014).
+  plugins: [react(), excalidrawAssets()],
   resolve: {
     alias: { '@': decodeURIComponent(new URL('./src', import.meta.url).pathname) },
   },
@@ -20,7 +22,8 @@ export default defineConfig({
     // Calling "/api/..." from the application keeps the browser on a single origin, so there is
     // no CORS to think about while developing.
     proxy: {
-      '/api': { target: api, changeOrigin: true },
+      // `ws` for the live channel of the whiteboards, which goes through here like the rest of /api.
+      '/api': { target: api, changeOrigin: true, ws: true },
       '/actuator': { target: api, changeOrigin: true },
     },
   },

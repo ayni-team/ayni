@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@/test/fakeServer';
 import { signIn } from '@/test/fixtures';
 import { currentSession } from '../session/session';
+import { resetServerClock, serverOffset } from '../time/serverClock';
 import { api, apiUrl, buildUrl, downloadFile, uploadFiles } from './client';
 import { ApiError } from './errors';
 
@@ -142,5 +143,26 @@ describe('files', () => {
 
     expect(click).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the time of the server', () => {
+  afterEach(() => {
+    resetServerClock();
+    vi.unstubAllGlobals();
+  });
+
+  it('is noted from any answer of the API, a refusal too', async () => {
+    const server = fakeServer();
+    server.on('GET', '/api/v1/university', {
+      status: 404,
+      body: { status: 404 },
+      headers: { 'X-Server-Time': new Date(Date.now() + 3_600_000).toISOString() },
+    });
+
+    await expect(api.get('/api/v1/university')).rejects.toBeInstanceOf(ApiError);
+
+    expect(serverOffset()).toBeGreaterThan(3_590_000);
+    expect(serverOffset()).toBeLessThan(3_610_000);
   });
 });

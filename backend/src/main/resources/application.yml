@@ -140,6 +140,17 @@ ayni:
       jwt-secret: ${AYNI_JITSI_JWT_SECRET:}
       # A pass lets in for this long, never past the end of the session; joining again issues one.
       token-ttl: PT5M
+    # Practice rooms: two accounts try the screen of a session, its video and its whiteboard, with
+    # no booking and no record, only in the memory of the backend (PracticeRooms). A tool of the
+    # team: off unless AYNI_PRACTICE_ROOMS=true, on under the demo profile. Off, opening one is 404.
+    practice-rooms:
+      enabled: ${AYNI_PRACTICE_ROOMS:false}
+      # At most this many open at once; one more is refused with 409.
+      max-open: 20
+      # A room is forgotten this long after it was opened, ended or not.
+      lifetime: PT4H
+      # How often the rooms whose lifetime is over are forgotten and their boards closed.
+      sweep-delay: PT1M
   wallet:
     # The daily wallet job warns once for each expiring group this many days in advance.
     expiry-notice-days: 7

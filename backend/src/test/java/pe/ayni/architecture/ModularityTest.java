@@ -8,7 +8,7 @@ import pe.ayni.AyniApplication;
 /**
  * Verifies that the modules stay independent of one another.
  *
- * <p>This is the only architecture test in the project, and it is worth its three lines: it fails
+ * <p>This is the architecture test that matters most, and it is worth its three lines: it fails
  * the build when a module reaches into another module's internals instead of going through its
  * events or the interface it publishes. Without it, the boundaries are an agreement that erodes on
  * the first hurried pull request.

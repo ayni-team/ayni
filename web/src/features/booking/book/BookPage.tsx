@@ -285,8 +285,8 @@ export default function BookPage() {
   // If missing essential parameters
   if (!canBook) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 pb-12">
-        <h1 className="text-2xl font-bold text-gray-900">Reservar</h1>
+      <div className="mx-auto max-w-[720px] space-y-4 pb-12">
+        <h1 className="font-display text-[32px] font-semibold leading-tight text-ink">Reservar</h1>
         <EmptyState
           title="No seleccionaste ninguna tutoría"
           description="Elige un curso y un horario libre en la búsqueda para poder apartar y confirmar la reserva."
@@ -321,20 +321,20 @@ export default function BookPage() {
   const isTerminalRefusal = conflictKind === 'HOUR_TAKEN' || conflictKind === 'TUTOR_NOT_ENABLED';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pb-12">
+    <div className="mx-auto max-w-[720px] space-y-4 pb-12">
       {/* Top back navigation in red text */}
       <div>
         <button
           type="button"
           onClick={handleReleaseAndBack}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           <span>← Volver a Buscar</span>
         </button>
       </div>
 
       {/* Title */}
-      <h1 className="text-2xl font-bold text-gray-900">Reservar</h1>
+      <h1 className="font-display text-[32px] font-semibold leading-tight text-ink">Reservar</h1>
 
       {/* Terminal or unexpected conflict banners */}
       {conflictKind && conflictKind !== 'INSUFFICIENT_CREDITS' && (

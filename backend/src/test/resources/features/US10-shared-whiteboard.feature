@@ -3,8 +3,8 @@
 #
 # Each scenario runs over HTTP and real WebSockets against a real PostgreSQL, with the same name, in
 # SharedWhiteboardAcceptanceTest. The rules of the board are in WhiteboardTest, without Spring. The
-# model and the order of the operations are ADR 0009. The screen of the web application is not part
-# of this story's backend and is not built yet.
+# model and the order of the operations are ADR 0009; what the web draws with it, Excalidraw, is
+# ADR 0010. The screen of the web application is not part of this story's backend.
 
 Feature: Shared whiteboard
 
@@ -42,6 +42,11 @@ Feature: Shared whiteboard
     When that participant replaces it with that version
     Then the answer is 409 and nothing changes
     And with the current version the board is replaced and both participants receive it
+
+  Scenario: An element takes up to 32 KB, as much as a long freehand stroke
+    Given a participant connected to the live channel
+    When they send an element of 31 KB, and then one of 33 KB
+    Then the first is applied and the second is answered with an error 400
 
   Scenario: An operation the board refuses keeps the channel open
     Given a participant connected to the live channel

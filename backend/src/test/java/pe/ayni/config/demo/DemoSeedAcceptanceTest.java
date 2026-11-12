@@ -297,6 +297,34 @@ class DemoSeedAcceptanceTest {
   }
 
   @Test
+  @DisplayName("Each university has three campus benefits of different costs")
+  void eachUniversityHasThreeCampusBenefitsOfDifferentCosts() {
+    for (String university : List.of(DemoCast.UPC, DemoCast.USIL)) {
+      assertThat(
+              jdbc.queryForList(
+                  "select credits_cost from wallet.campus_benefits"
+                      + " where tenant_id = ? and active order by credits_cost",
+                  Integer.class,
+                  university))
+          .as(university)
+          .containsExactly(1, 3, 8);
+    }
+    // The tutors of the demonstration have three earned credits: the benefit of three fits once,
+    // the one of eight never does.
+    for (Person tutor : List.of(DemoCast.BRUNO, DemoCast.MATEO)) {
+      assertThat(
+              jdbc.queryForObject(
+                  "select coalesce(sum(lot.remaining_amount), 0) from wallet.credit_lots lot"
+                      + " join wallet.credit_accounts account on account.id = lot.account_id"
+                      + " where account.user_id = ? and lot.credit_type = 'EARNED'",
+                  Integer.class,
+                  tutor.id()))
+          .as(tutor.fullName())
+          .isEqualTo(3);
+    }
+  }
+
+  @Test
   @DisplayName("A second start duplicates nothing")
   void aSecondStartDuplicatesNothing() throws Exception {
     Map<String, Long> before = rowCounts();
@@ -320,7 +348,7 @@ class DemoSeedAcceptanceTest {
             "booking.availability_patterns", "booking.availability_exceptions",
             "booking.availability_pauses", "booking.bookings", "sessions.sessions",
             "reputation.ratings", "recognition.requests", "recognition.rules",
-            "wallet.ledger_entries", "notifications.notifications",
+            "wallet.ledger_entries", "wallet.campus_benefits", "notifications.notifications",
             "analytics.uncovered_demand")) {
       counts.put(table, jdbc.queryForObject("select count(*) from " + table, Long.class));
     }

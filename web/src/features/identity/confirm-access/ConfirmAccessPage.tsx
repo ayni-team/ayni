@@ -140,7 +140,7 @@ export default function ConfirmAccessPage() {
   if (failure === 'spent') {
     return (
       <div className="flex w-full flex-col items-center gap-7">
-        <AyniLogo className="text-gray-950" />
+        <AyniLogo className="h-12" />
 
         <ErrorState
           title="El enlace venció o ya se usó"
@@ -154,7 +154,7 @@ export default function ConfirmAccessPage() {
   if (failure === 'confirm') {
     return (
       <div className="flex w-full flex-col items-center gap-7">
-        <AyniLogo className="text-gray-950" />
+        <AyniLogo className="h-12" />
 
         <ErrorState
           title="No pudimos abrir tu sesión"
@@ -172,7 +172,7 @@ export default function ConfirmAccessPage() {
   if (failure === 'profile') {
     return (
       <div className="flex w-full flex-col items-center gap-7">
-        <AyniLogo className="text-gray-950" />
+        <AyniLogo className="h-12" />
 
         <ErrorState
           title="Tu sesión ya está abierta"
@@ -189,17 +189,17 @@ export default function ConfirmAccessPage() {
 
   return (
     <div className="flex w-full flex-col items-center gap-7">
-      <AyniLogo className="text-gray-950" />
+      <AyniLogo className="h-12" />
 
       <Card className="flex w-full flex-col items-center gap-4 py-10 text-center">
         <Spinner size="lg" label={phase === 'confirming' ? 'Abriendo tu sesión' : 'Cargando tu perfil'} />
 
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="font-display text-[28px] font-semibold leading-tight text-ink">
             {phase === 'confirming' ? 'Abriendo tu sesión' : 'Preparando Ayni para ti'}
           </h1>
 
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-[15px] text-ink-2">
             {phase === 'confirming'
               ? 'Estamos validando el enlace de un solo uso.'
               : 'Ya abrimos tu sesión. Estamos revisando dónde debes continuar.'}

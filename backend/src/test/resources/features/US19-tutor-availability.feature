@@ -1,11 +1,11 @@
 # US19 - As a tutor, I want to publish the hours I am free every week, so that students can book
 # the subjects I teach without offering hours I cannot honour.
 #
-# Scenarios 1, 3 and 5 are covered by TutorAvailabilityAcceptanceTest, over HTTP against a real
-# PostgreSQL. Scenario 2 is matching's to answer: booking generates one block per hour, not per
-# skill, and matching turns each block into one offer per enabled skill when it hears
-# HoursGenerated. Scenario 4 needs confirmed bookings and a way to remove a window, neither of which
-# is covered by AdjustAvailabilityAcceptanceTest along with the pause and date-exception updates.
+# The scenarios run over HTTP against a real PostgreSQL in TutorAvailabilityAcceptanceTest, with
+# the same names. "Availability is valid for all my enabled skills" is matching's to answer:
+# booking generates one block per hour, not per skill, and matching turns each block into one offer
+# per enabled skill when it hears HoursGenerated (OfferProjectionListenersTest). Removing a weekly
+# range is run by AdjustAvailabilityAcceptanceTest, along with the pause and the date exceptions.
 #
 # The last two scenarios read back what the tutor declared, which the agenda does not show: it
 # lists the hours, not the rules they come from. They are run by

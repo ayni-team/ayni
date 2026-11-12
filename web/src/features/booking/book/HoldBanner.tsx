@@ -13,10 +13,10 @@ export function HoldBanner({ isHolding, isExpired, remainingMs, label }: HoldBan
   if (isHolding) {
     return (
       <div
-        className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm text-sm text-gray-700"
+        className="flex items-center gap-3 rounded-[20px] border border-line bg-white p-4 text-sm text-ink-2"
         role="status"
       >
-        <Spinner size="sm" className="text-brand" decorative />
+        <Spinner size="sm" className="text-brand-text" decorative />
         <span className="font-medium">Apartando la hora para ti...</span>
       </div>
     );
@@ -24,22 +24,22 @@ export function HoldBanner({ isHolding, isExpired, remainingMs, label }: HoldBan
 
   if (isExpired) {
     return (
-      <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4 text-gray-900" role="alert">
+      <div className="rounded-[20px] bg-brand-soft p-4 text-ink" role="alert">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center">
           <div className="flex items-center justify-start">
-            <IconClock className="h-5 w-5 text-brand" />
+            <IconClock className="h-5 w-5 text-brand-text" />
           </div>
-          <span className="text-sm font-semibold text-brand text-center">Se acabó el tiempo</span>
+          <span className="text-sm font-semibold text-brand-text text-center">Se acabó el tiempo</span>
           <div className="flex items-center justify-end">
-            <span className="font-mono text-base font-bold text-brand" aria-live="polite">
+            <span className="font-display text-[22px] font-semibold tabular-nums text-brand-text" aria-live="polite">
               0:00
             </span>
           </div>
         </div>
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-rose-200">
-          <div className="h-full bg-rose-200" style={{ width: '0%' }} />
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white">
+          <div className="h-full bg-brand" style={{ width: '0%' }} />
         </div>
-        <p className="mt-2 text-xs text-gray-500">La hora volvió a estar libre para otros estudiantes.</p>
+        <p className="mt-2 text-xs text-ink-2">La hora volvió a estar libre para otros estudiantes.</p>
       </div>
     );
   }
@@ -47,29 +47,25 @@ export function HoldBanner({ isHolding, isExpired, remainingMs, label }: HoldBan
   const progressPercent = Math.min(100, Math.max(0, (remainingMs / HOLD_TOTAL_MS) * 100));
 
   return (
-    <div
-      className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4 text-gray-900"
-      role="region"
-      aria-label="Tiempo restante de reserva"
-    >
+    <div className="rounded-[20px] bg-brand-soft p-4 text-ink" role="region" aria-label="Tiempo restante de reserva">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center">
         <div className="flex items-center justify-start">
-          <IconClock className="h-5 w-5 text-brand" />
+          <IconClock className="h-5 w-5 text-brand-text" />
         </div>
-        <span className="text-sm font-semibold text-gray-900 text-center">Te guardamos esta hora</span>
+        <span className="text-sm font-semibold text-ink text-center">Te guardamos esta hora</span>
         <div className="flex items-center justify-end">
-          <span className="font-mono text-base font-bold text-gray-900" aria-live="polite">
+          <span className="font-display text-[22px] font-semibold tabular-nums text-brand-text" aria-live="polite">
             {label}
           </span>
         </div>
       </div>
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-rose-200">
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white">
         <div
           className="h-full bg-brand transition-all duration-1000 ease-linear"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      <p className="mt-2 text-xs text-gray-500">Si sales sin confirmar, la hora se libera para otros.</p>
+      <p className="mt-2 text-xs text-ink-2">Si sales sin confirmar, la hora se libera para otros.</p>
     </div>
   );
 }

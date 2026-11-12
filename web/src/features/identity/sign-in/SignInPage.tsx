@@ -115,16 +115,16 @@ export default function SignInPage() {
 
   return (
     <div className="flex w-full flex-col items-center gap-7">
-      <AyniLogo className="text-gray-950" />
+      <AyniLogo className="h-12" />
 
-      <Card className="relative w-full overflow-hidden !p-0">
+      <Card className="relative w-full max-w-[460px] overflow-hidden !p-0">
         <div
           className={universityFound || sentTo ? 'h-1 w-full bg-brand' : 'h-1 w-full bg-transparent'}
           aria-hidden="true"
         />
 
         {sentTo ? (
-          <div className="flex flex-col gap-5 p-6 sm:p-8" role="status">
+          <div className="flex flex-col gap-5 p-6 sm:p-9" role="status">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand-text">
               <svg
                 viewBox="0 0 24 24"
@@ -142,9 +142,9 @@ export default function SignInPage() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Revisa tu correo</h1>
+              <h1 className="font-display text-[28px] font-semibold leading-tight text-ink">Revisa tu correo</h1>
 
-              <p className="mt-3 text-sm leading-6 text-gray-600">
+              <p className="mt-3 text-[15px] leading-6 text-ink-2">
                 Te enviamos un enlace a {sentTo}. Vence en 10 minutos.
               </p>
             </div>
@@ -170,14 +170,14 @@ export default function SignInPage() {
               Usar otro correo
             </button>
 
-            <p className="text-xs text-gray-500">Reenviar se habilita 30 segundos después del envío.</p>
+            <p className="text-xs text-ink-2">Reenviar se habilita 30 segundos después del envío.</p>
           </div>
         ) : (
-          <form onSubmit={submit} className="flex flex-col gap-5 p-6 sm:p-8" noValidate>
+          <form onSubmit={submit} className="flex flex-col gap-5 p-6 sm:p-9" noValidate>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Ingresa a Ayni</h1>
+              <h1 className="font-display text-[28px] font-semibold leading-tight text-ink">Ingresa a Ayni</h1>
 
-              <p className="mt-3 text-sm leading-6 text-gray-600">
+              <p className="mt-3 text-[15px] leading-6 text-ink-2">
                 Usa tu correo institucional. Te enviamos un enlace para entrar: no hay contraseña.
               </p>
             </div>
@@ -198,7 +198,7 @@ export default function SignInPage() {
             </Field>
 
             {preview.status === 'searching' && (
-              <div className="flex items-center gap-2 text-sm text-gray-600" role="status">
+              <div className="flex items-center gap-2 text-sm text-ink-2" role="status">
                 <Spinner size="sm" decorative />
 
                 <span>Buscando tu universidad…</span>
@@ -210,7 +210,7 @@ export default function SignInPage() {
                 <UniversityLogo university={university} size="sm" />
 
                 <div className="min-w-0">
-                  <p className="font-medium leading-5 text-gray-900">{university.name ?? 'Universidad'}</p>
+                  <p className="text-sm font-semibold leading-5 text-ink">{university.name ?? 'Universidad'}</p>
 
                   <p className="text-xs font-medium text-brand-text">{university.code ?? ''}</p>
                 </div>
@@ -230,7 +230,7 @@ export default function SignInPage() {
         )}
       </Card>
 
-      <p className="max-w-sm text-center text-xs text-gray-500">
+      <p className="max-w-sm text-center text-xs text-ink-2">
         Cada ingreso es un enlace de un solo uso que vence en 10 minutos.
       </p>
     </div>

@@ -171,12 +171,32 @@ jobs:
           echo "::add-mask::$token"
           echo "value=$token" >> "$GITHUB_OUTPUT"
 
-      # Uploads web/dist as it is, with the routing and headers of web/public/staticwebapp.config.json.
-      - name: Publish
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ steps.token.outputs.value }}
-          action: upload
-          app_location: web/dist
-          skip_app_build: true
-          skip_api_build: true
+      # Uploads web/dist as it is, with the routing and headers of web/public/staticwebapp.config.json,
+      # always to the production environment. Not Azure/static-web-apps-deploy: it picks the
+      # environment from the event, and a release starts from a merged pull request, so that action
+      # published every release to a preview environment named after the pull request while
+      # production kept the old web.
+      - name: Publish to production
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ steps.token.outputs.value }}
+        run: npx --yes @azure/static-web-apps-cli@2.1.0 deploy web/dist --env production
+
+      # The job only passes when the production address serves the build just uploaded: the name of
+      # its script carries a hash of the build, and the page is served with no-cache.
+      - name: Check production serves this build
+        env:
+          STATIC_WEB_APP: ${{ vars.AYNI_STATIC_WEB_APP || 'ayni-web' }}
+        run: |
+          host="$(az staticwebapp show --resource-group "$RESOURCE_GROUP" --name "$STATIC_WEB_APP" \
+            --query defaultHostname -o tsv)"
+          expected="$(grep -o 'assets/index-[^"]*\.js' web/dist/index.html | head -n 1)"
+          for _ in $(seq 1 12); do
+            served="$(curl -fsS "https://$host/" | grep -o 'assets/index-[^"]*\.js' | head -n 1 || true)"
+            if [[ -n "$expected" && "$served" == "$expected" ]]; then
+              echo "https://$host serves $expected"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::https://$host serves '${served:-nothing}', not '$expected' of this build"
+          exit 1

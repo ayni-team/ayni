@@ -84,19 +84,27 @@ class BookingExceptionHandler {
 
   /**
    * The balance does not cover the hours. Wallet says how many credits are missing and the student
-   * is told that number, so they know what they are short of rather than only that they are.
+   * is told that number, in the message and in {@code missingCredits}, so they know what they are
+   * short of rather than only that they are.
    */
   @ExceptionHandler(InsufficientCreditsException.class)
   ResponseEntity<ApiError> handleInsufficientCredits(
       InsufficientCreditsException exception, HttpServletRequest request) {
     int missing = exception.missing().amount();
-    return answer(
-        HttpStatus.CONFLICT,
+    String message =
         "Not enough credits: "
             + missing
             + (missing == 1 ? " more is" : " more are")
-            + " needed to book these hours",
-        request);
+            + " needed to book these hours";
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(
+            ApiError.of(
+                HttpStatus.CONFLICT,
+                message,
+                "INSUFFICIENT_CREDITS",
+                missing,
+                request,
+                clock.instant()));
   }
 
   /** The subject asked for is not one the student's university can see. */

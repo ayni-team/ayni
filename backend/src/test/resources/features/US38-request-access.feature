@@ -65,13 +65,6 @@ Feature: Requesting access with an institutional email
     Then exactly one of them opens a session
     And the other is refused
 
-  Scenario: An activation link of a new student is refused until activation exists
-    Given nobody with the email of a new student has an account
-    And an activation link was sent to that email
-    When the link is opened
-    Then it is refused saying creating accounts is not available yet
-    And no account is created
-
   Scenario: The sign in link arrives by email and opens a session
     Given a student of "UPC" with the email "u202400001@upc.edu.pe"
     When access is requested for "u202400001@upc.edu.pe"

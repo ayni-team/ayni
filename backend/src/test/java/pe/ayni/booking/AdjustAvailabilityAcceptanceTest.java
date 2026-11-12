@@ -213,7 +213,7 @@ class AdjustAvailabilityAcceptanceTest extends BookingScenario {
   }
 
   @Test
-  @DisplayName("A tutor can reactivate early and restore the hours in the weekly pattern")
+  @DisplayName("A tutor can reactivate early and restore the weekly hours")
   void reactivatingEarlyRestoresWeeklyHours() throws Exception {
     pause(today(), tomorrow()).andExpect(status().isCreated());
     UUID pauseId = pauseId(today(), tomorrow());

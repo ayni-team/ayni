@@ -1,6 +1,6 @@
 import type { Schema } from '@/shared/api';
 import { formatInZone } from '@/shared/time';
-import { Avatar, Badge, Button, IconClock, IconClose, IconInfo } from '@/shared/ui';
+import { Avatar, Badge, Button, cx, IconClock, IconClose, IconInfo } from '@/shared/ui';
 import { formatHourLabel, getOtherFreeHoursText } from './dateUtils';
 
 type Offer = Schema<'Offer'>;
@@ -27,13 +27,13 @@ export function TutorDrawer({ day, hour, offers, allOffers, zone, onClose, onSel
   return (
     <aside
       aria-label="Detalle de tutores disponibles"
-      className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm w-full lg:w-96 shrink-0"
+      className="flex w-full shrink-0 flex-col rounded-[20px] border border-line bg-white p-5 xl:w-96"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-brand-text">{capitalizedDayTitle}</p>
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="font-display text-[28px] font-semibold leading-tight text-ink">
             {startHourStr} – {endHourStr}
           </h2>
         </div>
@@ -41,15 +41,15 @@ export function TutorDrawer({ day, hour, offers, allOffers, zone, onClose, onSel
           type="button"
           onClick={onClose}
           aria-label="Cerrar detalle"
-          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-primary"
+          className="rounded-lg p-1 text-ink-2 hover:bg-surface hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
         >
           <IconClose className="h-5 w-5" />
         </button>
       </div>
 
       {/* Info Callout */}
-      <div className="my-3 flex items-start gap-2 rounded-lg bg-gray-50 p-2.5 text-xs text-gray-700">
-        <IconInfo className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
+      <div className="my-3 flex items-start gap-2 rounded-xl bg-surface p-3 text-[13px] text-ink-2">
+        <IconInfo className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
           {offers.length} {offers.length === 1 ? 'tutor libre' : 'tutores libres'}. Ordenados por su calificación en
           este curso; los tutores nuevos van al final.
@@ -73,27 +73,30 @@ export function TutorDrawer({ day, hour, offers, allOffers, zone, onClose, onSel
           return (
             <div
               key={offer.blockId ?? `${offer.tutorId}-${offer.startsAt}`}
-              className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-xs hover:border-gray-300 transition-colors"
+              className={cx(
+                'rounded-xl bg-white p-3.5 transition-colors',
+                isFirst ? 'border-2 border-info-text' : 'border border-line hover:border-ink-3',
+              )}
             >
               <div className="flex items-start gap-3">
                 <Avatar name={offer.tutorName ?? ''} size="md" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate text-sm font-semibold text-gray-900">{offer.tutorName}</p>
+                    <p className="truncate font-display text-base font-semibold text-ink">{offer.tutorName}</p>
                     {offer.newTutor && <Badge tone="info">Tutor nuevo</Badge>}
                   </div>
-                  <p className="text-xs font-medium text-gray-700 mt-0.5">{starsText}</p>
+                  <p className="mt-0.5 text-[13px] font-medium text-ink">{starsText}</p>
                   {offer.sessionsTaught !== undefined && (
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="mt-0.5 text-xs text-ink-2">
                       {offer.sessionsTaught} {offer.sessionsTaught === 1 ? 'sesión' : 'sesiones'} de este curso
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between gap-2 border-t border-gray-100 pt-2.5">
-                <div className="flex items-center gap-1 text-[11px] text-gray-500 min-w-0 truncate">
-                  <IconClock className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-1 truncate text-xs text-ink-2">
+                  <IconClock className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{otherHoursText}</span>
                 </div>
                 <Button
@@ -111,7 +114,7 @@ export function TutorDrawer({ day, hour, offers, allOffers, zone, onClose, onSel
       </div>
 
       {/* Footer notice */}
-      <p className="mt-4 border-t border-gray-100 pt-3 text-center text-[11px] text-gray-500">
+      <p className="mt-4 text-xs text-ink-2">
         Al elegir, apartamos la hora 5 minutos para ti mientras escribes qué necesitas.
       </p>
     </aside>

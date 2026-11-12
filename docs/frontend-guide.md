@@ -79,6 +79,15 @@ Fixed. Adding a dependency is a decision of the lead, taken in a pull request.
 | Styles | Tailwind CSS, with the university's colours as CSS variables |
 | API types | `openapi-typescript` over `docs/api/openapi.json`, generated into `src/shared/api/schema.d.ts` |
 | Tests | Vitest and Testing Library |
+| Whiteboard | `@excalidraw/excalidraw` **0.18.1, pinned exactly**: the one exception, below |
+
+**The one exception: Excalidraw.** The whiteboard (FE-22, FE-24) is Excalidraw, decided by the lead
+in [ADR 0010](adr/0010-whiteboard-drawn-with-excalidraw.md). It is used only inside
+`features/sessions/whiteboard`, loaded lazily, and never imported by any other screen. It is pinned
+to an exact version, installed with `npm install --save-exact --ignore-scripts`, and an update is a
+pull request of its own that vets it again (`npm view`, the packages it brings and their install
+scripts, `npm audit`, `node scripts/check-injected-code.mjs`) and checks that nothing is requested
+from another host. This is not a precedent: any other dependency is still a decision of the lead.
 
 Everything else the platform already gives you: `fetch`, `WebSocket`, `Intl`, `crypto.randomUUID()`.
 No date library: the server sends ISO 8601 instants and the zone to show them in.
@@ -208,6 +217,11 @@ The server's `message` is English and technical. People see this:
   `ErrorState` with "Reintentar" if it fails), so the zone is never the UTC fallback in a screen.
   The public screens (FE-01, FE-02) do not wait for it. `Date.now()` stays valid for **instants**
   (a countdown, the time left to a start), never for days.
+- A countdown runs against the **server's clock**. Every answer under `/api/` carries `X-Server-Time`
+  (ISO 8601, UTC), read from the clock the rules read, and `shared/api` keeps the difference with the
+  browser's. `useCountdown(instant)` and `serverNow()` (`shared/time`) use it by default; before the
+  first answer it is 0. So a browser with a wrong clock, or the demo profile's moved clock, still
+  shows the real time left.
 
 ### Money
 
@@ -425,6 +439,11 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
   `/creditos/compras/:id`).
 - **Handles:** a zero balance (`available` is 0) shows a text of the web's own: "Aún no tienes
   créditos". `guidance` is not shown.
+- **Expiry date, decided:** a group is shown as valid "hasta el DD/MM", the last day it can still
+  be spent in the zone of the university: the day of the instant just before `expiresAt`, which is
+  the first instant it no longer counts. Credits that expire at midnight in Lima are good until the
+  day before; credits that expire at midnight UTC (19:00 in Lima, as the demo seeds them) are good
+  until that same evening. The student never reads a day on which the credits are already gone.
 - **Done when:** a student with credits of two origins sees both with their expiry, and the filters
   narrow the history.
 
@@ -577,7 +596,8 @@ and in ADR 0009; the screen ids are reserved here so the rest of the web can lin
   .../indicators/export` (CSV).
 - **Does:** the totals of a period (default: the last 30 days) as numbers, the daily series as a
   simple table or bars, the courses with the most searches nobody covered (`uncoveredDemand`, ids:
-  resolve the names from `GET /api/v1/catalog`), and a download button for the CSV. No names or
+  resolve the names from `GET /api/v1/coordinator/academic-catalog/courses`; `GET /api/v1/catalog`
+  answers `403` to a coordinator), and a download button for the CSV. No names or
   identifiers of people ever appear.
 - **Handles:** a period over 366 days is refused (`400`): limit the picker.
 
@@ -629,7 +649,7 @@ A screen is finished when all of this is true:
 
 - [ ] It follows its Figma frame, on desktop and on a phone width
 - [ ] It handles loading, empty, error and ready, and every refusal its section lists
-- [ ] It uses only `shared/ui` and `shared/api`, and no new dependency
+- [ ] It uses only `shared/ui` and `shared/api`, and no new dependency (Excalidraw only in the whiteboard)
 - [ ] It has its test of the logic
 - [ ] `npm run format` was run before opening the pull request; the CI checks it
 - [ ] `npm run build` passes (type check included) and the CI is green
@@ -641,7 +661,7 @@ A screen is finished when all of this is true:
 
 - Do not call `fetch` outside `shared/api`.
 - Do not hand-write a response type: the generated one is the contract. If it is wrong, the backend is.
-- Do not add dependencies, and do not copy a component into your feature that `shared/ui` has.
+- Do not add dependencies (Excalidraw, in the whiteboard, is the one exception), and do not copy a component into your feature that `shared/ui` has.
 - Do not change another person's screen, nor `App.tsx`, `shared/` or `routes.tsx` of a feature that is not yours.
 - Do not store tokens anywhere but the session, nor put the email or the token in a URL (the access link's `token` is the one exception, and it is spent at once). The email never travels in a URL, so the sign-in preview asks for the university by its domain (`?domain=`).
 - Do not decide the contract with the backend yourself. Ask in the pull request.

@@ -32,7 +32,7 @@ export function TutoringsPagination({
         Anterior
       </button>
 
-      <span className="text-sm text-gray-600 select-none">
+      <span className="text-sm text-ink-2 select-none">
         Página {page + 1} de {totalPages}
       </span>
 

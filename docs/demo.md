@@ -16,6 +16,7 @@ a deployment.
 - [Switching persona](#switching-persona)
 - [A real mailbox for a few addresses](#a-real-mailbox-for-a-few-addresses)
 - [The script of the presentation](#the-script-of-the-presentation)
+- [Practice rooms](#practice-rooms)
 - [Traps](#traps)
 - [Other demo switches](#other-demo-switches)
 
@@ -173,6 +174,22 @@ A student activated live gets the university's five initial credits.
 of the document; only its `students` are read, and an address in both files is the local one. See
 `backend/academic-directory/README.md`.
 
+### Campus benefits
+
+Under `demo`, `wallet.infrastructure.DemoCampusBenefitsData` has the coordinator of each university
+create three campus benefits, through the same use case as `POST /api/v1/coordinator/benefits`, once
+the coordinators exist. Their costs are chosen against the three earned credits of the tutors
+above, so FE-33 shows a redemption and a refusal:
+
+| Benefit | Cost | What it shows |
+|---|---|---|
+| Impresiones en la biblioteca | 1 | a redemption anybody with an earned credit can make |
+| Menú en la cafetería | 3 | a tutor's three earned credits, spent at once: a second one is refused |
+| Taller de oratoria | 8 | more than anybody has earned: refused with `missingCredits: 5` for a tutor |
+
+A second start finds them by name and creates nothing; a benefit the coordinator renamed or
+deactivated since is left as it is.
+
 ## The history
 
 Nobody enters the sessions the demonstration books, so without help the database would have no
@@ -207,7 +224,9 @@ What each university ends with (the same in both, with the people of its table):
 
 - six sessions **completed** by three tutors, three hours each (one of two hours and one of one),
   with ratings of five, four and three stars, tags and comments, and the tutor's three answers about
-  the student; two of them with drawings on the whiteboard;
+  the student; two of them with drawings on the whiteboard: the first in the format from before
+  Excalidraw (Ana Torres with Bruno at UPC), the second drawn with Excalidraw (Milagros Castillo with
+  Mateo Cárdenas at UPC), so the review of a session (FE-24) shows both;
 - one session **abandoned** because the tutor did not come (Ana and Rocío are refunded and get the
   notice) and one because the student did not (Milagros and Rocío pay the hour);
 - twelve searches of the courses nobody teaches, spread over the weeks;
@@ -510,6 +529,109 @@ curl -s -X DELETE localhost:8080/api/v1/admin/demo/clock -H "Authorization: Bear
 
 What happened while the clock was ahead stays: the expired credits, the closed session, the
 approved request. To start over, start from an empty database.
+
+## Practice rooms
+
+A practice room opens the real screen of a session, with its video call and its whiteboard, between
+two accounts, at any time: no booking, no credits, and **no record of any kind**. The room lives
+only in the memory of the backend and is forgotten when both end it, four hours after it was
+opened, or when the backend restarts (`docs/backend-guide.md`, sessions, "Practice rooms"). It is on
+under `demo` and off everywhere else (`AYNI_PRACTICE_ROOMS`). It reads the clock of the demo, so
+moving the clock four hours ahead forgets every room: leave the clock alone while one is open.
+
+Who to use: **Ana Flores** (`u202300012@upc.edu.pe`) and **Bruno Salas** (`u202300002@upc.edu.pe`),
+both of UPC and both with the onboarding finished. Ana Torres (`u202400001`) is not an option in the
+web: she is at the first step of the onboarding on purpose, and the web keeps her in `/onboarding`.
+Both people must be of the same university; somebody of USIL does not find a room of UPC.
+
+### Two browsers on one computer
+
+1. Start everything, with the video:
+
+   ```bash
+   SPRING_PROFILES_ACTIVE=demo AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S docker compose --profile video up
+   ```
+
+   Or the backend from Maven (`docker compose up -d postgres mailpit`, then
+   `docker compose --profile video up -d jitsi-web jitsi-prosody jitsi-jicofo jitsi-jvb`, then
+   `cd backend && SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run`) and the web with
+   `cd web && npm run dev`. With the backend on another port than 8080, start the web with
+   `AYNI_API_URL=http://localhost:<port> npm run dev`.
+2. **Browser A, a normal window.** Open <http://localhost:5173/ingresar>, type
+   `u202300012@upc.edu.pe` and press **Enviarme el enlace**. Open Mailpit, <http://localhost:8025>,
+   **in that same window**, open the newest email and its link. Ana is signed in.
+3. **Browser B, a private (incognito) window**, or another browser. Open
+   <http://localhost:5173/ingresar>, type `u202300002@upc.edu.pe`, **Enviarme el enlace**, and open
+   Mailpit and the link of Bruno's email **in the private window**. Each window keeps its own
+   session (`localStorage`), so a link opened in the other window signs the other one in.
+4. In A, open <http://localhost:5173/practica> (no menu leads there), press **Crear sala de
+   práctica**, then **Copiar enlace** and **Entrar**, and in the room **Entrar a la sala**. The first
+   to enter is the tutor.
+5. In B, paste the link (`http://localhost:5173/sesion/<id>`) and press **Entrar a la sala**. Bruno is
+   the student, and the room is in progress for both: the video on the right, the whiteboard on the
+   left. Allow the camera and the microphone when the browser asks.
+6. Presence: any six digits confirm it. No email is sent.
+   The whiteboard is Excalidraw (ADR 0010): what one draws appears in the other window at once,
+   undo only takes back one's own changes, and the menu (☰) has **Limpiar lienzo** for both.
+7. **Terminar sesión** in both. The first one waits for the other; when the second ends it, both
+   go back to `/practica`, which says the room ended. There is no rating.
+
+**Quicker, without Mailpit**: the web has no button for `login-as`, but the session it answers is
+the one the web keeps. Get the administrator's token as in [Signing in](#signing-in-with-each-role),
+then, for each window:
+
+```bash
+curl -s -X POST localhost:8080/api/v1/admin/demo/login-as -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' -d '{"email": "u202300012@upc.edu.pe"}'
+```
+
+and in the console of the developer tools of that window, on any page of `localhost:5173`:
+
+```js
+localStorage.setItem('ayni.session', JSON.stringify(/* the whole answer above */)); location.reload();
+```
+
+### Two computers on the local network
+
+Everything runs on computer 1; computer 2 only opens a browser. Find the address of computer 1
+(`ipconfig getifaddr en0` on macOS) and start with it:
+
+```bash
+IP=192.168.1.20
+SPRING_PROFILES_ACTIVE=demo AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S \
+AYNI_ALLOWED_ORIGINS=http://localhost:5173,http://$IP:5173 \
+AYNI_IDENTITY_ACCESS_LINK_BASE_URL=http://$IP:5173/access/confirm \
+AYNI_JITSI_URL=http://$IP:8000 JITSI_PUBLIC_URL=http://$IP:8000 JITSI_ADVERTISE_IP=$IP \
+docker compose --profile video up
+```
+
+| Variable | Default (as before) | Why |
+|---|---|---|
+| `AYNI_ALLOWED_ORIGINS` | `http://localhost:5173` | the backend refuses the requests and the whiteboard channel of any other origin |
+| `AYNI_IDENTITY_ACCESS_LINK_BASE_URL` | `http://localhost:5173/access/confirm` | the emailed link must open on computer 2 too |
+| `AYNI_JITSI_URL` | `http://localhost:8000` | where the browsers open the call |
+| `JITSI_PUBLIC_URL` | `http://localhost:8000` | the `PUBLIC_URL` of Jitsi, the same address |
+| `JITSI_ADVERTISE_IP` | `127.0.0.1` | the `JVB_ADVERTISE_IPS` of the video bridge: where the browsers send the media |
+
+Then:
+
+- Vite already listens on `0.0.0.0`. Computer 2 opens `http://<IP>:5173/ingresar` and Mailpit at
+  `http://<IP>:8025`, signs in as above, and then the room at `http://<IP>:5173/sesion/<id>`.
+- **The camera and the microphone need a secure origin**, and `http://<IP>` is not one. Start
+  Chrome on each computer that opens the address by IP like this (a profile of its own, or the flag
+  is ignored while Chrome is open):
+
+  ```bash
+  open -na "Google Chrome" --args --user-data-dir=/tmp/ayni-chrome \
+    --unsafely-treat-insecure-origin-as-secure=http://$IP:5173,http://$IP:8000
+  ```
+
+  On Windows, `chrome.exe --user-data-dir=%TEMP%\ayni-chrome
+  --unsafely-treat-insecure-origin-as-secure=http://<IP>:5173,http://<IP>:8000`. The same flag lets
+  **Copiar enlace** use the clipboard; without it the page selects the link to copy by hand.
+- **UDP 10000** has to reach computer 1: let Docker accept incoming connections in its firewall.
+  Without it the call opens and nobody is seen or heard.
+- On a deployment with HTTPS none of this is needed (`deploy/README.md`, "Practice rooms").
 
 ## Traps
 

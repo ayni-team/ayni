@@ -137,8 +137,10 @@ memory and is mirrored to localStorage, as the guide says.
 `YYYY-MM-DD` strings: `todayInZone`, `addDays`, `formatDay`. `relativeTime` writes "hace 5 min";
 `useCountdown(heldUntil, { offsetMs })` counts a hold down.
 
-A hold is counted against the server's clock, not the browser's (the demo profile moves the
-server's, and a browser can be minutes off). `HeldHours.serverNow` is the server's time when it
+A countdown runs against the server's clock, not the browser's (the demo profile moves the server's,
+and a browser can be minutes off). Every answer of the API carries `X-Server-Time`, the client keeps
+the difference in `shared/time`, and `useCountdown(instant)` and `serverNow()` use it by default; with
+no answer yet it is 0. `offsetMs` overrides it. `HeldHours.serverNow` is the server's time when it
 answered: `clockOffset(serverNow)` returns the server's clock minus the browser's, in milliseconds
 (0 when `serverNow` is missing), and that number is the `offsetMs` of `useCountdown`. Compute it once
 per answer, when the hold arrives, not on every render:

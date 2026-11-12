@@ -329,6 +329,33 @@ class SharedWhiteboardAcceptanceTest {
   }
 
   @Test
+  @DisplayName("An element takes up to 32 KB, as much as a long freehand stroke")
+  void anElementTakesUpTo32Kb() throws Exception {
+    WhiteboardScenario.Pair pair = scenario.inProgress();
+    try (BoardClient student = BoardClient.connect(port, pair.sessionId(), pair.studentToken())) {
+      student.awaitBoard(WAIT);
+
+      student.awaitApplied(student.put("long", strokeOf(31 * 1024)), WAIT);
+      student.put("too-long", strokeOf(33 * 1024));
+      JsonNode error = student.awaitError(WAIT).message();
+
+      assertThat(error.path("status").asInt()).isEqualTo(400);
+      assertThat(error.path("message").asText()).contains("32 KB");
+      assertThat(student.isOpen()).isTrue();
+      assertThat(idsOf(readBoard(pair.sessionId(), pair.studentToken()))).containsExactly("long");
+    }
+  }
+
+  /** The data of a freehand stroke of about that many bytes, as Excalidraw sends one. */
+  private static String strokeOf(int bytes) {
+    StringBuilder points = new StringBuilder("[[0,0]");
+    for (int i = 1; points.length() < bytes - 200; i++) {
+      points.append(",[").append(i % 700).append(".25,").append(i % 300).append(".75]");
+    }
+    return "{\"type\": \"freedraw\", \"version\": 1, \"points\": " + points.append(']') + "}";
+  }
+
+  @Test
   @DisplayName("An operation the board refuses keeps the channel open")
   void anOperationTheBoardRefusesKeepsTheChannelOpen() throws Exception {
     WhiteboardScenario.Pair pair = scenario.inProgress();

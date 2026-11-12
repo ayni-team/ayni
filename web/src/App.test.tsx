@@ -23,6 +23,7 @@ vi.mock('./features/booking/availability/AvailabilityPage', () => ({ default: ()
 vi.mock('./features/booking/agenda/AgendaPage', () => ({ default: () => 'Pantalla FE-41' }));
 vi.mock('./features/sessions/session/SessionPage', () => ({ default: () => 'Pantalla FE-20 a FE-23' }));
 vi.mock('./features/sessions/review/SessionReviewPage', () => ({ default: () => 'Pantalla FE-24' }));
+vi.mock('./features/sessions/practice/PracticePage', () => ({ default: () => 'Pantalla Sala de práctica' }));
 vi.mock('./features/wallet/wallet/WalletPage', () => ({ default: () => 'Pantalla FE-30' }));
 vi.mock('./features/wallet/benefits/BenefitsPage', () => ({ default: () => 'Pantalla FE-33' }));
 vi.mock('./features/payments/buy/BuyCreditsPage', () => ({ default: () => 'Pantalla FE-31' }));
@@ -49,6 +50,7 @@ const TABLE: [route: string, roles: Role[], screen: string][] = [
   ['/mis-tutorias', ['STUDENT'], 'FE-12'],
   ['/sesion/s1', ['STUDENT'], 'FE-20 a FE-23'],
   ['/sesion/s1/repaso', ['STUDENT'], 'FE-24'],
+  ['/practica', ['STUDENT'], 'Sala de práctica'],
   ['/creditos', ['STUDENT'], 'FE-30'],
   ['/creditos/comprar', ['STUDENT'], 'FE-31'],
   ['/creditos/compras', ['STUDENT'], 'FE-32'],

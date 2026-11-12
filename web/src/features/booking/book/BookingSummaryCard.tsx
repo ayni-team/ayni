@@ -1,4 +1,4 @@
-import { IconCalendar, initialsOf } from '@/shared/ui';
+import { CreditCoin, IconCalendar, initialsOf } from '@/shared/ui';
 import { formatInZone } from '@/shared/time';
 
 export interface BookingSummaryCardProps {
@@ -55,11 +55,11 @@ export function BookingSummaryCard({
   const codeSubtitle = [courseCode, universityCode ? `curso ${universityCode}` : null].filter(Boolean).join(' · ');
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm space-y-4">
+    <div className="overflow-hidden rounded-[20px] border border-line bg-white p-6 space-y-4">
       {/* Course Info */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900">{courseName}</h2>
-        {codeSubtitle && <p className="text-xs text-gray-500">{codeSubtitle}</p>}
+        <h2 className="font-display text-[22px] font-semibold text-ink">{courseName}</h2>
+        {codeSubtitle && <p className="text-xs text-ink-2">{codeSubtitle}</p>}
       </div>
 
       {/* Tutor Info */}
@@ -68,8 +68,8 @@ export function BookingSummaryCard({
           {initialsOf(tutorName)}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900">{tutorName}</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm font-semibold text-ink">{tutorName}</p>
+          <p className="text-xs text-ink-2">
             {stars ? (
               <span>
                 ★ {stars} · {ratings} calificaciones{sessionsText ? ` · ${sessionsText}` : ''}
@@ -85,26 +85,24 @@ export function BookingSummaryCard({
 
       {/* Date & Time */}
       {dayTimeText && (
-        <div className="flex items-center text-xs font-medium text-gray-700">
-          <IconCalendar className="mr-2 h-4 w-4 shrink-0 text-gray-500" />
+        <div className="flex items-center text-xs font-medium text-ink-2">
+          <IconCalendar className="mr-2 h-4 w-4 shrink-0 text-ink-2" />
           <span>{dayTimeText}</span>
         </div>
       )}
 
       {/* Cost & Balance gray strip */}
-      <div className="flex items-center justify-between rounded-xl bg-gray-50/90 px-4 py-3 text-xs text-gray-600">
+      <div className="flex items-center justify-between rounded-xl bg-surface px-4 py-3 text-xs text-ink-2">
         <div className="flex items-center gap-1.5">
           <span>Costo</span>
-          <span className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-amber-500 bg-amber-400 text-[8px] font-bold text-amber-950">
-            ●
-          </span>
-          <strong className="font-semibold text-gray-900">
+          <CreditCoin className="h-4 w-4" />
+          <strong className="font-semibold text-ink">
             {hours} {hours === 1 ? 'crédito' : 'créditos'}
           </strong>
         </div>
         <span>
           Tu saldo:{' '}
-          <strong className="font-semibold text-gray-900">
+          <strong className="font-semibold text-ink">
             {availableBalance !== undefined
               ? `${availableBalance} ${availableBalance === 1 ? 'crédito' : 'créditos'}`
               : '—'}

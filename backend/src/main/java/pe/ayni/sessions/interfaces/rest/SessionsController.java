@@ -24,6 +24,7 @@ import pe.ayni.sessions.application.EndSessionUseCase;
 import pe.ayni.sessions.application.FindSessionOfBookingQuery;
 import pe.ayni.sessions.application.IssuePresenceCodesUseCase;
 import pe.ayni.sessions.application.JoinSessionUseCase;
+import pe.ayni.sessions.application.PracticeRooms;
 import pe.ayni.sessions.application.SessionDetailsQuery;
 import pe.ayni.shared.tenancy.CurrentUser;
 
@@ -33,6 +34,11 @@ import pe.ayni.shared.tenancy.CurrentUser;
  * <p>The controller only translates HTTP into use cases. The reader is always {@link CurrentUser}:
  * whether they belong to the session is decided by the session, and anybody else is refused, link or
  * no link.
+ *
+ * <p>When the id is the one of an open practice room of the reader's university, the answer comes
+ * from {@link PracticeRooms}, in memory, and nothing is stored; every other id goes to its use
+ * case exactly as always. The branch is here, before any use case runs, so a room never reaches a
+ * repository, a lock of the database or an event.
  */
 @RestController
 @RequestMapping("/api/v1/sessions")
@@ -45,6 +51,7 @@ class SessionsController {
   private final ConfirmPresenceUseCase confirmPresence;
   private final IssuePresenceCodesUseCase issuePresenceCodes;
   private final EndSessionUseCase endSession;
+  private final PracticeRooms practice;
 
   SessionsController(
       SessionDetailsQuery sessionDetails,
@@ -52,13 +59,15 @@ class SessionsController {
       JoinSessionUseCase joinSession,
       ConfirmPresenceUseCase confirmPresence,
       IssuePresenceCodesUseCase issuePresenceCodes,
-      EndSessionUseCase endSession) {
+      EndSessionUseCase endSession,
+      PracticeRooms practice) {
     this.sessionDetails = sessionDetails;
     this.sessionOfBooking = sessionOfBooking;
     this.joinSession = joinSession;
     this.confirmPresence = confirmPresence;
     this.issuePresenceCodes = issuePresenceCodes;
     this.endSession = endSession;
+    this.practice = practice;
   }
 
   @GetMapping
@@ -149,7 +158,11 @@ class SessionsController {
               example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
           @PathVariable("id")
           UUID sessionId) {
-    return SessionResponse.of(sessionDetails.execute(sessionId, CurrentUser.require()));
+    UUID reader = CurrentUser.require();
+    if (practice.isOpen(sessionId)) {
+      return SessionResponse.ofPractice(practice.details(sessionId, reader));
+    }
+    return SessionResponse.of(sessionDetails.execute(sessionId, reader));
   }
 
   @PostMapping("/{id}/join")
@@ -212,7 +225,11 @@ class SessionsController {
               example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
           @PathVariable("id")
           UUID sessionId) {
-    return JoinedSessionResponse.of(joinSession.execute(sessionId, CurrentUser.require()));
+    UUID person = CurrentUser.require();
+    if (practice.isOpen(sessionId)) {
+      return JoinedSessionResponse.ofPractice(practice.join(sessionId, person));
+    }
+    return JoinedSessionResponse.of(joinSession.execute(sessionId, person));
   }
 
   @PostMapping("/{id}/presence")
@@ -293,8 +310,11 @@ class SessionsController {
           @PathVariable("id")
           UUID sessionId,
       @Valid @RequestBody ConfirmPresenceRequest request) {
-    return PresenceResponse.of(
-        confirmPresence.execute(sessionId, CurrentUser.require(), request.code()));
+    UUID person = CurrentUser.require();
+    if (practice.isOpen(sessionId)) {
+      return PresenceResponse.of(practice.confirmPresence(sessionId, person));
+    }
+    return PresenceResponse.of(confirmPresence.execute(sessionId, person, request.code()));
   }
 
   @PostMapping("/{id}/presence/resend")
@@ -350,7 +370,12 @@ class SessionsController {
               example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
           @PathVariable("id")
           UUID sessionId) {
-    issuePresenceCodes.resend(sessionId, CurrentUser.require());
+    UUID person = CurrentUser.require();
+    if (practice.isOpen(sessionId)) {
+      practice.resend(sessionId, person);
+      return;
+    }
+    issuePresenceCodes.resend(sessionId, person);
   }
 
   @PostMapping("/{id}/end")
@@ -412,6 +437,10 @@ class SessionsController {
               example = "5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f")
           @PathVariable("id")
           UUID sessionId) {
-    return EndedSessionResponse.of(endSession.execute(sessionId, CurrentUser.require()));
+    UUID person = CurrentUser.require();
+    if (practice.isOpen(sessionId)) {
+      return EndedSessionResponse.of(practice.end(sessionId, person));
+    }
+    return EndedSessionResponse.of(endSession.execute(sessionId, person));
   }
 }

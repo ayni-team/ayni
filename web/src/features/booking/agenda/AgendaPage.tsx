@@ -11,14 +11,13 @@ import {
   EmptyState,
   ErrorState,
   IconCalendar,
-  IconChevronLeft,
-  IconChevronRight,
+  pageCount,
   PageHeader,
   Pagination,
   Skeleton,
   Tabs,
-  pageCount,
   useToast,
+  WeekStepper,
 } from '@/shared/ui';
 
 type AgendaLine = Schema<'TutorAgendaLine'>;
@@ -227,12 +226,12 @@ function FreeLine({ line }: { line: AgendaLine }) {
   return (
     <article
       aria-label={`Hora libre ${start} a ${end}`}
-      className="grid grid-cols-[54px_1fr] gap-3 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-gray-600 sm:grid-cols-[70px_1fr]"
+      className="grid grid-cols-[54px_1fr] gap-3 rounded-[20px] border border-dashed border-ink-3 px-4 py-3 text-ink-2 sm:grid-cols-[70px_1fr]"
     >
       <div>
-        <p className="text-sm font-semibold text-gray-900">{start}</p>
+        <p className="text-sm font-semibold text-ink">{start}</p>
 
-        <p className="text-xs text-gray-500">{end}</p>
+        <p className="text-xs text-ink-2">{end}</p>
       </div>
 
       <div className="flex items-center">
@@ -278,30 +277,30 @@ function BookedLine({
       aria-label={`Tutoría con ${name} a las ${start}`}
       className={
         joinable
-          ? 'grid gap-3 rounded-xl border border-brand px-4 py-3 sm:grid-cols-[70px_40px_minmax(0,1fr)_auto] sm:items-center'
-          : 'grid gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 sm:grid-cols-[70px_40px_minmax(0,1fr)_auto] sm:items-center'
+          ? 'grid gap-3 rounded-[20px] border-2 border-brand bg-white px-4 py-3 sm:grid-cols-[70px_40px_minmax(0,1fr)_auto] sm:items-center'
+          : 'grid gap-3 rounded-[20px] border border-line bg-white px-4 py-3 sm:grid-cols-[70px_40px_minmax(0,1fr)_auto] sm:items-center'
       }
     >
       <div>
-        <p className="text-sm font-semibold text-gray-900">{start}</p>
+        <p className="text-sm font-semibold text-ink">{start}</p>
 
-        <p className="text-xs text-gray-500">{end}</p>
+        <p className="text-xs text-ink-2">{end}</p>
       </div>
 
       <Avatar name={name} size="sm" decorative />
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-gray-900">{name}</p>
+          <p className="text-sm font-semibold text-ink">{name}</p>
 
-          {joinable && <Badge tone="danger">Ahora</Badge>}
+          {joinable && <Badge tone="brand">Ahora</Badge>}
 
           {absenceCount > 0 && <Badge tone="warning">{absenceLabel(absenceCount)}</Badge>}
         </div>
 
-        <p className="mt-1 text-sm text-gray-700">{course}</p>
+        <p className="mt-1 text-sm text-ink-2">{course}</p>
 
-        {booking.needDescription && <p className="mt-1 text-xs text-gray-500">“{booking.needDescription}”</p>}
+        {booking.needDescription && <p className="mt-1 text-xs text-ink-2">“{booking.needDescription}”</p>}
       </div>
 
       <div className="flex justify-start sm:justify-end">
@@ -344,7 +343,7 @@ function AgendaDays({
           aria-label={group.date === 'sin-fecha' ? 'Horario' : dayLabel(group.date, timezone)}
           className="flex flex-col gap-2"
         >
-          <h2 className="text-sm font-medium text-gray-600">
+          <h2 className="text-sm font-medium text-ink-2">
             {group.date === 'sin-fecha' ? 'Horario' : dayLabel(group.date, timezone)}
           </h2>
 
@@ -374,7 +373,17 @@ function AgendaDays({
   );
 }
 
-function HistoryRow({ booking, timezone }: { booking: TutorBooking; timezone: string }) {
+function HistoryRow({
+  booking,
+  timezone,
+  reviewing,
+  onReview,
+}: {
+  booking: TutorBooking;
+  timezone: string;
+  reviewing: boolean;
+  onReview: (booking: TutorBooking) => void;
+}) {
   const name = studentName(booking);
 
   const course = courseName(booking);
@@ -382,22 +391,37 @@ function HistoryRow({ booking, timezone }: { booking: TutorBooking; timezone: st
   const status = historyStatus(booking.status);
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <article className="flex flex-col gap-3 rounded-xl border border-line bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <Avatar name={name} size="sm" decorative />
 
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900">
+          <p className="text-sm font-semibold text-ink">
             {name} · {course}
           </p>
 
-          <p className="mt-1 text-xs text-gray-500">{historyDate(booking, timezone)}</p>
+          <p className="mt-1 text-xs text-ink-2">{historyDate(booking, timezone)}</p>
 
-          {booking.needDescription && <p className="mt-1 text-xs text-gray-500">{booking.needDescription}</p>}
+          {booking.needDescription && <p className="mt-1 text-xs text-ink-2">{booking.needDescription}</p>}
         </div>
       </div>
 
-      <Badge tone={status.tone}>{status.label}</Badge>
+      <div className="flex shrink-0 items-center gap-3">
+        <Badge tone={status.tone}>{status.label}</Badge>
+
+        {/* FE-24 admits both participants; a cancelled tutoring has no session to review. */}
+        {booking.status !== 'CANCELLED' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={reviewing}
+            onClick={() => onReview(booking)}
+            className="font-semibold text-brand-text"
+          >
+            Repasar
+          </Button>
+        )}
+      </div>
     </article>
   );
 }
@@ -417,6 +441,8 @@ export default function AgendaPage() {
   const [historyPage, setHistoryPage] = useState(0);
 
   const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -539,6 +565,37 @@ export default function AgendaPage() {
     }
   }
 
+  /** FE-24 for the tutor: the review of the session of a past tutoring, found by its booking. */
+  async function reviewBooking(booking: TutorBooking) {
+    const bookingId = booking.bookingId;
+
+    if (!bookingId) {
+      return;
+    }
+
+    setReviewingId(bookingId);
+
+    try {
+      const session = await api.get('/api/v1/sessions', {
+        query: {
+          bookingId,
+        },
+      });
+
+      if (!session.sessionId) {
+        toaster.error('No encontramos la sesión de esta tutoría.');
+
+        return;
+      }
+
+      navigate(`/sesion/${session.sessionId}/repaso`);
+    } catch {
+      toaster.error('No pudimos abrir el repaso. Inténtalo de nuevo.');
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
   function requestCancellation(booking: TutorBooking) {
     const id = booking.bookingId;
 
@@ -615,27 +672,14 @@ export default function AgendaPage() {
       >
         {view === 'week' ? (
           <div className="flex flex-col gap-4">
-            <div className="flex w-full max-w-xs items-center justify-between rounded-lg border border-gray-200 bg-white">
-              <Button
-                aria-label="Semana anterior"
-                variant="ghost"
-                size="sm"
-                icon={<IconChevronLeft className="h-4 w-4" />}
-                disabled={!displayFrom}
-                onClick={() => moveWeek(-1)}
-              />
-
-              <p className="px-3 text-sm font-medium text-gray-800">{periodLabel(displayFrom, displayTo)}</p>
-
-              <Button
-                aria-label="Semana siguiente"
-                variant="ghost"
-                size="sm"
-                icon={<IconChevronRight className="h-4 w-4" />}
-                disabled={!displayTo}
-                onClick={() => moveWeek(1)}
-              />
-            </div>
+            <WeekStepper
+              className="w-full sm:w-[300px]"
+              text={periodLabel(displayFrom, displayTo)}
+              disablePrevious={!displayFrom}
+              disableNext={!displayTo}
+              onPrevious={() => moveWeek(-1)}
+              onNext={() => moveWeek(1)}
+            />
 
             {agenda.isPending ? (
               <WeekLoading />
@@ -693,6 +737,8 @@ export default function AgendaPage() {
                       key={booking.bookingId ?? `${booking.startsAt}-${index}`}
                       booking={booking}
                       timezone={history.data?.timezone ?? timezone}
+                      reviewing={Boolean(booking.bookingId && reviewingId === booking.bookingId)}
+                      onReview={(past) => void reviewBooking(past)}
                     />
                   ))}
                 </div>

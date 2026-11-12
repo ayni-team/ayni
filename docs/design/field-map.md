@@ -123,7 +123,8 @@ el aviso de calificación y el género ("tutora").
 ### Sesión en vivo — Pizarra · base de FE-22
 
 [Frame](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=11-56). Mismo mapa
-que FE-22. Quitado: la presencia de la otra persona, el cursor remoto y "Descargar".
+que FE-22. Quitado: la presencia de la otra persona, el cursor remoto y "Descargar". Desde el ADR
+0010 la barra de herramientas del frame no se usa: la pizarra es Excalidraw (ver FE-22).
 
 ### Buscar tutoría — Elegir hora · base de FE-10 escritorio
 
@@ -266,10 +267,16 @@ por llegar, escribiendo, confirmando, incorrecto (422), sin intentos, reenvío e
 [mobile](https://www.figma.com/design/RMzuCe7RghVuVZziEl6Zjs/Sin-título?node-id=43-3749) · estados:
 reconectando, sin video.
 
+**Cambia respecto del frame (ADR 0010).** El lienzo y sus herramientas son los de Excalidraw, con
+su barra tal como es (lápiz, formas, flechas, texto, borrador, selección, colores, capas, deshacer,
+zoom, atajos), en español; del frame quedan el marco de la pantalla, el estado de guardado arriba
+del lienzo y el color de la universidad como acento. Ya no hay notas firmadas ni paleta de cuatro
+colores propias. Las notas de pizarras viejas se muestran como tarjeta amarilla con su firma.
+
 | Dato | Origen |
 |---|---|
-| Contenido de la pizarra, notas, colores | `Whiteboard.elements[]` (`BoardElement.type`, `.data` opaco) y el canal `/whiteboard/live` (`board`, `applied`, `error`) |
-| Autor de la nota "— Ana" | lo escribe el cliente en `BoardElement.data` |
+| Contenido de la pizarra | `Whiteboard.elements[]`: cada elemento de Excalidraw es un `BoardElement` (`id`, `type`, `data` = el elemento), por el canal `/whiteboard/live` (`board`, `applied`, `error`) |
+| Herramientas, colores, deshacer | de Excalidraw; deshacer es de cada persona (lo recibido no entra en su historial) |
 | "Guardado · podrás repasarla después" | cada operación se guarda (**regla**); `Whiteboard.updatedAt` |
 | "En curso · 07:12" | `Session.status`, **derivado** de `Session.startedAt` |
 | Terminar sesión | FE-23 |
@@ -277,6 +284,24 @@ reconectando, sin video.
 | "El video no está disponible" | `JoinedSession.video = null` |
 | "Reconectando…" | cierre del WebSocket; al volver llega `board` completo |
 | Curso y nombre del tutor | RB-1, RB-2 |
+| Cursor de la otra persona | no está: necesita un mensaje efímero en el canal (siguiente paso del ADR 0010) |
+
+**Vistas de la sala y pantalla compartida (FE-20 / FE-22): estado sin dibujar.** No hay frame; se
+construyó con `shared/ui` y el lead lo ajusta cuando exista. Bajo la cabecera, pestañas "Vista de la
+sala": **Pizarra** (la del frame: pizarra grande, video pequeño, presencia y necesidad a la derecha),
+**Dividida** (pizarra y video lado a lado, con un control de reparto; presencia y necesidad pasan a
+botones de la barra que abren un diálogo) y **Video** (el video ocupa el área principal; la pizarra
+queda montada pero oculta). En el teléfono todo se apila, el video primero y más alto en Dividida y
+Video. A la derecha, "Compartir pantalla" (o "Dejar de compartir"), solo donde el navegador puede
+compartir.
+
+| Dato | Origen |
+|---|---|
+| Vista elegida y reparto | de la persona, recordados en `sessionStorage` por sesión (**web**) |
+| Alguien comparte pantalla | evento `contentSharingParticipantsChanged` de Jitsi (`data`: ids); solo con `external_api.js` (HTTPS) |
+| "Dejar de compartir" | evento `screenSharingStatusChanged` de Jitsi (`on`) |
+| Compartir pantalla | comando `toggleShareScreen` de Jitsi; en el iframe simple de desarrollo (http), el botón de la propia llamada |
+| Pasa a Dividida al compartir y vuelve al terminar | **regla** de la web, solo desde la vista Pizarra y si la persona no cambió de vista entretanto |
 
 ## FE-23 Cierre y calificación
 
@@ -407,7 +432,7 @@ periodo inválido, sin actividad, cargando, error.
 | Periodo | parámetros `from`, `to`; más de 366 días → 400 |
 | Totales | `UsageIndicators.totals.sessionsCompleted`, `.hoursExchanged`, `.activeStudents`, `.newStudents`, `.recognitionsGranted` |
 | Barras por día | `UsageIndicators.days[].day`, `.figures.hoursExchanged` (tooltip: `.sessionsCompleted`) |
-| Cursos buscados sin tutor | `UsageIndicators.uncoveredDemand[].catalogItemId`, `.searches`; nombre y código con `GET /api/v1/catalog` |
+| Cursos buscados sin tutor | `UsageIndicators.uncoveredDemand[].catalogItemId`, `.searches`; nombre y código con `GET /api/v1/coordinator/academic-catalog/courses` (el coordinador recibe 403 en `GET /api/v1/catalog`) |
 | Descargar CSV | `GET /api/v1/coordinator/indicators/export` |
 
 ## FE-60 Avisos
@@ -464,3 +489,7 @@ FE-02 Confirmar enlace, FE-04 Perfil, FE-24 Repasar sesión, FE-32 Compras, FE-3
 donaciones, FE-34 Reconocimiento del estudiante, FE-42 Mis habilidades, FE-43 Reputación y FE-52
 Regla de reconocimiento. Para FE-23, FE-30 y FE-31 se dibujaron los estados del contrato en
 escritorio y los principales en teléfono.
+
+FE-24 no tiene frame; su pizarra, desde el ADR 0010, es Excalidraw en modo solo lectura
+(`viewModeEnabled`: sin herramientas, con zoom, buscar y exportar imagen), encuadrada en lo que se
+dibujó. Muestra igual las pizarras del formato nuevo y las del viejo, que se convierten al leerlas.

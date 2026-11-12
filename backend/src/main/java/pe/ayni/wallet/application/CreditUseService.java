@@ -150,6 +150,7 @@ public class CreditUseService {
             null);
     if (!confirmation.credits().equals(amount)) {
       throw new CreditUseConfirmationException(
+          CreditUseConfirmationException.Reason.MISMATCH,
           "The donation amount does not match the confirmed amount");
     }
     previous =
@@ -212,19 +213,26 @@ public class CreditUseService {
       UUID benefitId) {
     if (confirmationId == null) {
       throw new CreditUseConfirmationException(
+          CreditUseConfirmationException.Reason.REQUIRED,
           "Request a confirmation warning before completing this irreversible operation");
     }
     CreditUseConfirmation confirmation =
         confirmations
             .lockByTenantStudentAndId(tenantId, studentId, confirmationId)
             .orElseThrow(
-                () -> new CreditUseConfirmationException("The confirmation is invalid or expired"));
+                () ->
+                    new CreditUseConfirmationException(
+                        CreditUseConfirmationException.Reason.INVALID,
+                        "The confirmation is invalid or expired"));
     if (confirmation.isExpiredAt(clock.instant())) {
-      throw new CreditUseConfirmationException("The confirmation has expired; request a new one");
+      throw new CreditUseConfirmationException(
+          CreditUseConfirmationException.Reason.EXPIRED,
+          "The confirmation has expired; request a new one");
     }
     if (confirmation.kind() != kind
         || !java.util.Objects.equals(confirmation.benefitId(), benefitId)) {
       throw new CreditUseConfirmationException(
+          CreditUseConfirmationException.Reason.MISMATCH,
           "The confirmation does not match this credit-use operation");
     }
     return confirmation;
@@ -232,7 +240,8 @@ public class CreditUseService {
 
   private static void requireUnusedConfirmation(CreditUseConfirmation confirmation) {
     if (confirmation.confirmedAt() != null) {
-      throw new CreditUseConfirmationException("This confirmation has already been used");
+      throw new CreditUseConfirmationException(
+          CreditUseConfirmationException.Reason.USED, "This confirmation has already been used");
     }
   }
 

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -280,9 +281,8 @@ class WalletEventListenersTest {
     UUID policyId =
             UUID.randomUUID();
 
-    Instant activatedAt =
-            Instant.parse(
-                    "2026-10-02T20:00:00Z");
+    // The credits last 30 days from now on the real clock, so the date cannot be a fixed one.
+    Instant activatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
     when(
             identity.currentPolicy(
@@ -323,7 +323,7 @@ class WalletEventListenersTest {
   @DisplayName("Initial credits of the term")
   void anActivatedStudentSeesTheInitialCreditsWithTheirExpiry() {
     UUID policyId = UUID.randomUUID();
-    Instant activatedAt = Instant.parse("2026-10-02T20:00:00Z");
+    Instant activatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     when(identity.currentPolicy(UPC, PolicyKind.BASELINE))
         .thenReturn(
             Optional.of(

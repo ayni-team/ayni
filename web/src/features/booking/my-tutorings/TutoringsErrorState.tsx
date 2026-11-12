@@ -41,15 +41,15 @@ export function TutoringsErrorState({ onRetry, retrying = false }: TutoringsErro
   return (
     <div
       role="alert"
-      className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white py-16 px-6 text-center shadow-sm"
+      className="flex flex-col items-center justify-center rounded-[20px] border border-line bg-white py-16 px-6 text-center shadow-sm"
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 mb-3">
         <IconWifiOff className="h-6 w-6" />
       </div>
 
-      <h2 className="text-base font-semibold text-gray-900">No pudimos cargar esto</h2>
+      <h2 className="text-base font-semibold text-ink">No pudimos cargar esto</h2>
 
-      <p className="mt-1 max-w-md text-sm text-gray-600">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
+      <p className="mt-1 max-w-md text-sm text-ink-2">La plataforma no respondió. Lo que escribiste sigue aquí.</p>
 
       <div className="mt-4">
         <Button variant="secondary" size="md" onClick={onRetry} loading={retrying}>
