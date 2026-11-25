@@ -183,12 +183,34 @@ describe('FE-22 the views of the room in progress', () => {
     const { user } = await inCall();
     await user.click(viewTab('Dividida'));
 
-    await user.click(screen.getByRole('button', { name: 'Lo que necesita Bruno Salas' }));
+    // The toolbar's button comes first; the folded card of the side is hidden by CSS on a desktop.
+    await user.click(screen.getAllByRole('button', { name: 'Lo que necesita Bruno Salas' })[0]);
     expect(await screen.findByRole('dialog')).toHaveTextContent('Repasar para la PC2');
     await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Presencia confirmada' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Tu presencia');
+  });
+
+  it('shrinks the confirmed presence to one line', async () => {
+    await inCall();
+    const panel = screen.getByRole('region', { name: 'Tu presencia' });
+    expect(panel).toHaveTextContent('Presencia confirmada');
+    expect(panel.querySelectorAll('p')).toHaveLength(1);
+    expect(screen.queryByText(/Confirmaste a las/)).not.toBeInTheDocument();
+  });
+
+  it('folds what was asked by default, and opens it with a click', async () => {
+    const { user } = await inCall();
+    const toggle = screen.getByRole('button', { name: 'Lo que necesita Bruno Salas', expanded: false });
+    expect(screen.getByText('“Repasar para la PC2”')).not.toBeVisible();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('“Repasar para la PC2”')).toBeVisible();
+
+    await user.click(toggle);
+    expect(screen.getByText('“Repasar para la PC2”')).not.toBeVisible();
   });
 });
 

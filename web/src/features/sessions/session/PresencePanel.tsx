@@ -218,8 +218,23 @@ export function PresencePanel({
 
   if (state === 'CONFIRMED') {
     const time = data?.confirmedAt ? formatInZone(data.confirmedAt, zone, 'time') : '';
+    // Once confirmed there is nothing left to do: the room's panel is one line, and the detail stays
+    // in the dialog (unframed), where there is room for it.
+    if (framed) {
+      return (
+        <section
+          aria-label="Tu presencia"
+          className={cx(shellClasses(state, framed), '!px-4 !py-2.5 sm:!px-4')}
+        >
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <IconShieldCheck className="h-5 w-5 shrink-0 text-info-text" />
+            Presencia confirmada
+          </p>
+        </section>
+      );
+    }
     return (
-      <section aria-label="Tu presencia" className={shellClasses(state, framed)}>
+      <section aria-label="Tu presencia">
         <p className="flex items-center gap-2.5 font-display text-lg font-semibold text-ink">
           <IconShieldCheck className="h-6 w-6 text-info-text" />
           Presencia confirmada
