@@ -49,13 +49,15 @@ export const TOOLBAR_BUTTONS = ['microphone', 'camera', 'desktop'] as const;
 /**
  * What the room changes of Jitsi's own configuration, the same with its API and in the plain iframe.
  * Every key is one Jitsi lets a client override (its `configWhitelist`). The name of the room is
- * an identifier nobody needs to read, and nobody else is invited: the room says who comes.
+ * an identifier nobody needs to read, and nobody else is invited: the room says who comes. The
+ * toolbar stays: with three buttons it is small, and hidden nobody finds the microphone.
  */
 export const CALL_CONFIG = {
   prejoinConfig: { enabled: false },
   prejoinPageEnabled: false,
   disableDeepLinking: true,
   toolbarButtons: [...TOOLBAR_BUTTONS],
+  toolbarConfig: { alwaysVisible: true },
   hideConferenceSubject: true,
   hideConferenceTimer: true,
   disableInviteFunctions: true,
