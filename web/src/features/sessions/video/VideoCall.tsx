@@ -3,6 +3,7 @@ import { serverNow } from '@/shared/time';
 import { Button, IconAlert, cx } from '@/shared/ui';
 import type { JoinedSession } from '../session/session';
 import {
+  CALL_CONFIG,
   MAX_RECONNECTS,
   RECONNECT_DELAY_MS,
   anybodySharing,
@@ -131,7 +132,7 @@ export function VideoCall({ pass, renew, fill = false, onShareControl, onShareCh
           parentNode: box.current,
           width: '100%',
           height: '100%',
-          configOverwrite: { prejoinConfig: { enabled: false }, prejoinPageEnabled: false, disableDeepLinking: true },
+          configOverwrite: CALL_CONFIG,
           interfaceConfigOverwrite: { MOBILE_APP_PROMO: false },
         });
         // From here Jitsi draws its own state, such as asking for the camera: it must be seen.
