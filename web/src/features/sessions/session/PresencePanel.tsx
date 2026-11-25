@@ -222,10 +222,7 @@ export function PresencePanel({
     // in the dialog (unframed), where there is room for it.
     if (framed) {
       return (
-        <section
-          aria-label="Tu presencia"
-          className={cx(shellClasses(state, framed), '!px-4 !py-2.5 sm:!px-4')}
-        >
+        <section aria-label="Tu presencia" className={cx(shellClasses(state, framed), '!px-4 !py-2.5 sm:!px-4')}>
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <IconShieldCheck className="h-5 w-5 shrink-0 text-info-text" />
             Presencia confirmada
