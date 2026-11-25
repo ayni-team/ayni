@@ -46,6 +46,7 @@ describe('FE-22 the video pass', () => {
     expect(hash.get('config.prejoinConfig.enabled')).toBe('false');
     expect(hash.get('config.prejoinPageEnabled')).toBe('false');
     expect(JSON.parse(hash.get('config.toolbarButtons') ?? 'null')).toEqual(['microphone', 'camera', 'desktop']);
+    expect(hash.get('config.toolbarConfig.alwaysVisible')).toBe('true');
     expect(hash.get('config.hideConferenceSubject')).toBe('true');
     expect(hash.get('config.disableInviteFunctions')).toBe('true');
   });
