@@ -416,7 +416,7 @@ the load only, so that every purchase reached the provider and the outbox. `dock
 Lazy initialization saves nothing measurable here. It stays on because it does no harm: the
 migrations are kept eager, so a database that cannot be reached still stops the start.
 
-On this laptop the two containers together use about 545–560 MiB idle and 605–615 MiB after the
+On this laptop the two containers together use about 542–557 MiB idle and 608–612 MiB after the
 load, against 487–503 MiB for the single backend of `develop`. The machine had 445 MiB used by the
 backend and about 214 MiB available, with 190 MiB of swap in use. The service alone would take
 almost all of what is available after the load, unless the backend shrinks there as it did here.
