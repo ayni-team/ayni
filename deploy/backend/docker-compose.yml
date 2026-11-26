@@ -2,10 +2,14 @@
 # The stack of the backend machine (deploy/README.md, "The two machines").
 #
 #   backend  the production image (backend/Dockerfile.prod), profile prod
+#   payments the payments service (payments-service/Dockerfile, ADR 0011), on a private network
+#            with the backend only, and no port of its own
 #   proxy    Caddy: the TLS certificate of the api. hostname
 #   mailpit  optional, only with --profile mailpit (see "Mail" in deploy/README.md)
 #
-# PostgreSQL is not here: it is the managed server the DB variables point to. Jitsi is not here
+# PostgreSQL is not here: it is the managed server the DB variables point to, with two databases on
+# it, ayni for the backend and ayni_payments for the payments service (deploy/README.md, "The
+# database of the payments service"). Jitsi is not here
 # either: it runs on a machine of its own (deploy/jitsi), and the backend never calls it, it only
 # signs the passes browsers take there. Nor is the web application: Azure Static Web Apps serves it
 # at app.<domain>, and the deploy workflow publishes it.
@@ -96,16 +100,13 @@ services:
       AYNI_ACADEMIC_DIRECTORY_URL: ${AYNI_ACADEMIC_DIRECTORY_URL:-}
       AYNI_SKILLS_EVIDENCE_DIR: ${AYNI_SKILLS_EVIDENCE_DIR:-/var/lib/ayni/evidence}
 
-      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
-      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
-      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
-      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
-      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
-      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
-      AYNI_PAYMENTS_FAILURE_THRESHOLD: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:-3}
-      AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:-PT30S}
-      AYNI_PAYMENTS_TIMEOUT: ${AYNI_PAYMENTS_TIMEOUT:-PT2S}
-      AYNI_PAYMENTS_MAX_CONCURRENT_CALLS: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:-2}
+      # Credit purchases are forwarded to the payments service below (ADR 0011), by its name on the
+      # private network; it calls back with the purchases it confirmed. The secret is the same in
+      # both containers.
+      AYNI_PAYMENTS_SERVICE_URL: http://payments:${AYNI_PAYMENTS_PORT:-8081}
+      AYNI_PAYMENTS_SERVICE_TIMEOUT: ${AYNI_PAYMENTS_SERVICE_TIMEOUT:-PT5S}
+      AYNI_PAYMENTS_SERVICE_MAX_CONCURRENT_CALLS: ${AYNI_PAYMENTS_SERVICE_MAX_CONCURRENT_CALLS:-10}
+      AYNI_INTERNAL_TOKEN: ${AYNI_INTERNAL_TOKEN:?Set AYNI_INTERNAL_TOKEN in deploy/backend/.env}
     volumes:
       # The evidence files (US16) and the simulated academic system (ADR 0006). Named volumes keep
       # them when the container is replaced by an update. They start with the ownership of the
@@ -126,7 +127,65 @@ services:
       start_period: 120s
     # A stop lets the requests in flight finish (server.shutdown: graceful).
     stop_grace_period: 40s
-    networks: [edge]
+    networks: [edge, payments]
+
+  # ---------------------------------------------------------------------------
+  # The payments service (ADR 0011). Gateway Offloading: no port is published and the proxy is not
+  # on its network, so the only way in is the backend, which authenticates the student first. Its
+  # own database, ayni_payments, is on the same managed server; create it once before the first
+  # start (deploy/README.md, "The database of the payments service").
+  #
+  # Sized for what is left of a machine of 1 GB next to the backend (deploy/README.md, "Memory"):
+  # the heap and the limit are variables, measured at the defaults below.
+  # ---------------------------------------------------------------------------
+  payments:
+    image: ${AYNI_PAYMENTS_IMAGE_REPOSITORY:?Set AYNI_PAYMENTS_IMAGE_REPOSITORY in deploy/backend/.env}:${AYNI_IMAGE_TAG:?Set AYNI_IMAGE_TAG in deploy/backend/.env}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${AYNI_PAYMENTS_MEMORY_LIMIT:-256m}
+    memswap_limit: ${AYNI_PAYMENTS_MEMORY_LIMIT:-256m}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # A fixed heap, never a percentage of the container, as for the backend.
+      JAVA_TOOL_OPTIONS: "-XX:+UseSerialGC -Xms32m -Xmx${AYNI_PAYMENTS_HEAP:-96m} -XX:MaxMetaspaceSize=80m -Xss512k -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m -XX:MaxDirectMemorySize=16m"
+      AYNI_PAYMENTS_PORT: ${AYNI_PAYMENTS_PORT:-8081}
+      AYNI_PAYMENTS_TOMCAT_THREADS_MAX: ${AYNI_PAYMENTS_TOMCAT_THREADS_MAX:-20}
+
+      AYNI_PAYMENTS_DB_URL: ${AYNI_PAYMENTS_DB_URL:?Set AYNI_PAYMENTS_DB_URL in deploy/backend/.env}
+      AYNI_PAYMENTS_DB_USER: ${AYNI_PAYMENTS_DB_USER:?Set AYNI_PAYMENTS_DB_USER in deploy/backend/.env}
+      AYNI_PAYMENTS_DB_PASSWORD: ${AYNI_PAYMENTS_DB_PASSWORD:?Set AYNI_PAYMENTS_DB_PASSWORD in deploy/backend/.env}
+      AYNI_PAYMENTS_DB_APP_USER: ${AYNI_PAYMENTS_DB_APP_USER:?Set AYNI_PAYMENTS_DB_APP_USER in deploy/backend/.env}
+      AYNI_PAYMENTS_DB_APP_PASSWORD: ${AYNI_PAYMENTS_DB_APP_PASSWORD:?Set AYNI_PAYMENTS_DB_APP_PASSWORD in deploy/backend/.env}
+      AYNI_PAYMENTS_DB_POOL_SIZE: ${AYNI_PAYMENTS_DB_POOL_SIZE:-3}
+
+      AYNI_INTERNAL_TOKEN: ${AYNI_INTERNAL_TOKEN:?Set AYNI_INTERNAL_TOKEN in deploy/backend/.env}
+      AYNI_PAYMENTS_MONOLITH_URL: http://backend:${AYNI_PORT:-8080}
+
+      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
+      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
+      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
+      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
+      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_FAILURE_THRESHOLD: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:-3}
+      AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:-PT30S}
+      AYNI_PAYMENTS_TIMEOUT: ${AYNI_PAYMENTS_TIMEOUT:-PT2S}
+      AYNI_PAYMENTS_MAX_CONCURRENT_CALLS: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:-2}
+      AYNI_PAYMENTS_OUTBOX_RELAY_DELAY: ${AYNI_PAYMENTS_OUTBOX_RELAY_DELAY:-PT2S}
+      AYNI_PAYMENTS_OUTBOX_BACKOFF_INITIAL: ${AYNI_PAYMENTS_OUTBOX_BACKOFF_INITIAL:-PT2S}
+      AYNI_PAYMENTS_OUTBOX_BACKOFF_MAX: ${AYNI_PAYMENTS_OUTBOX_BACKOFF_MAX:-PT5M}
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/$${AYNI_PAYMENTS_PORT:-8081} && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200'"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    stop_grace_period: 20s
+    networks: [payments]
 
   # ---------------------------------------------------------------------------
   # The proxy: the only service that publishes web ports. Caddy asks a certificate authority for a
@@ -185,6 +244,10 @@ networks:
   # The proxy, the backend and whatever the proxy forwards to.
   edge:
     name: ayni-edge
+  # The backend and the payments service, and nobody else: the proxy is not on it. Not internal,
+  # because the service reaches the managed PostgreSQL outside the machine.
+  payments:
+    name: ayni-payments
 
 volumes:
   evidence:
