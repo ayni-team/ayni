@@ -61,8 +61,7 @@ import pe.ayni.identity.infrastructure.UserSessionRepository;
         "ayni.sessions.presence-check-delay=PT24H",
         "ayni.sessions.closing-delay=PT24H",
         "ayni.sessions.no-show-delay=PT24H",
-        "ayni.audit.analysis-delay=PT24H",
-        "ayni.payments.reconciliation-delay=PT24H"
+        "ayni.audit.analysis-delay=PT24H"
     })
 @ActiveProfiles("demo")
 @AutoConfigureMockMvc
