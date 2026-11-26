@@ -87,9 +87,12 @@ class UniversityEmailDomainsAcceptanceTest {
                 new PlatformAdmin(
                         adminId, "admin-" + adminId + "@ayni.test", "Admin", PlatformAdminStatus.ACTIVE, NOW));
         String token = tokens.generate().rawToken();
+        // The session is checked against the real clock, so it must outlive today, not NOW: a fixed
+        // date plus thirty days expired on 2026-11-19 and every route answered 401.
+        Instant today = Instant.now();
         userSessions.save(
                 UserSession.forPlatformAdmin(
-                        UUID.randomUUID(), adminId, tokens.hash(token), NOW.plus(Duration.ofDays(30)), NOW));
+                        UUID.randomUUID(), adminId, tokens.hash(token), today.plus(Duration.ofDays(30)), today));
         return token;
     }
 
