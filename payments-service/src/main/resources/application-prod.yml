@@ -1,0 +1,30 @@
+# A deployment (deploy/backend/docker-compose.yml). Nothing here falls back on a development value:
+# the database, its two roles and the shared secret have no default, and the service refuses to
+# start, naming what is missing, before it connects to anything (RequiredEnvironment).
+
+spring:
+  datasource:
+    url: ${AYNI_PAYMENTS_DB_URL}
+    username: ${AYNI_PAYMENTS_DB_APP_USER}
+    password: ${AYNI_PAYMENTS_DB_APP_PASSWORD}
+  flyway:
+    user: ${AYNI_PAYMENTS_DB_USER}
+    password: ${AYNI_PAYMENTS_DB_PASSWORD}
+    placeholders:
+      app_user: ${AYNI_PAYMENTS_DB_APP_USER}
+      app_password: ${AYNI_PAYMENTS_DB_APP_PASSWORD}
+
+server:
+  # A stop lets the requests in flight finish.
+  shutdown: graceful
+
+ayni:
+  internal-token: ${AYNI_INTERNAL_TOKEN}
+  required-environment:
+    - AYNI_PAYMENTS_DB_URL
+    - AYNI_PAYMENTS_DB_USER
+    - AYNI_PAYMENTS_DB_PASSWORD
+    - AYNI_PAYMENTS_DB_APP_USER
+    - AYNI_PAYMENTS_DB_APP_PASSWORD
+    - AYNI_INTERNAL_TOKEN
+    - AYNI_PAYMENTS_MONOLITH_URL
