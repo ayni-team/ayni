@@ -391,7 +391,40 @@ Every container of both machines keeps at most three log files of 10 MB (`x-logg
 compose file), so a
 machine that stays on does not fill its disk with logs.
 
-### Memory of the video machine
+### Memory of the payments service
+
+Credit purchases run in a container of their own (ADR 0011), next to the backend on this machine.
+It is sized for what the backend leaves of 1 GB: SerialGC, a heap of `AYNI_PAYMENTS_HEAP` (96 MB),
+80 MB of metaspace, a 32 MB code cache, 512 KB stacks, C1 only, at most 3 database connections and
+20 request threads. Its container is limited to `AYNI_PAYMENTS_MEMORY_LIMIT` (256 MB), without swap.
+
+Measured on 2026-11-25 on an arm64 laptop (Docker Desktop), with this compose file, the production
+images and the prod profile, against a local PostgreSQL 16 with the demo data. The load was 200
+purchases of one credit in a row through the backend, from 26 signed in students of two
+universities, each answered `201` (p50 10 ms, p95 19 ms). The monthly limit was raised to 1000 for
+the load only, so that every purchase reached the provider and the outbox. `docker stats
+--no-stream`, three samples each, all within 0.2 MiB:
+
+| Container | Idle (120 s after healthy) | Right after 200 purchases | 60 s later |
+|---|---|---|---|
+| `payments`, `lazy-initialization` on (the default) | 164.7 MiB | 191.8 MiB | 191.7 MiB |
+| `payments`, `lazy-initialization` off | 164.8 MiB | 189.8 MiB | 189.6 MiB |
+| `backend` of this version (no payments module), run 1 | 377.5 MiB | 416.6 MiB | 416.5 MiB |
+| `backend` of this version (no payments module), run 2 | 392.6 MiB | 422.4 MiB | 422.4 MiB |
+| `backend` of `develop` (payments inside), same machine, data and load | 487.0 MiB | 503.4 MiB | 503.4 MiB |
+
+Lazy initialization saves nothing measurable here. It stays on because it does no harm: the
+migrations are kept eager, so a database that cannot be reached still stops the start.
+
+On this laptop the two containers together use about 545–560 MiB idle and 605–615 MiB after the
+load, against 487–503 MiB for the single backend of `develop`. The machine had 445 MiB used by the
+backend and about 214 MiB available, with 190 MiB of swap in use. The service alone would take
+almost all of what is available after the load, unless the backend shrinks there as it did here.
+**Measure on the machine before relying on it** (`docker stats --no-stream`, and `grep anon
+/sys/fs/cgroup/memory.stat` inside each container). If it does not fit, the options are, in order:
+lower the backend's `-Xmx` and `AYNI_BACKEND_MEMORY_LIMIT` together, using what it measures without
+the module there; lower `AYNI_PAYMENTS_HEAP` and measure again; or give the backend machine 2 GB.
+
 
 The images of jicofo and of the videobridge give each Java process a heap of 3 GB unless told
 otherwise. `jitsi/docker-compose.yml` caps them with `JICOFO_MAX_MEMORY` (256 MB) and
@@ -477,7 +510,54 @@ row level security bind the application, so build it exactly:
 You do not create any table or schema: the first start does. After it, check the roles (see
 [Verifying](#6-verifying)).
 
-## 4. The code and the configuration
+### The database of the payments service
+
+The payments service has a database of its own, `ayni_payments`, on the same server (Database per
+Service, ADR 0011), with the same two kinds of role:
+
+| Role | Purpose | Must be |
+|---|---|---|
+| `ayni_payments` | The owner of `ayni_payments`. The service's Flyway migrates as it | Not a superuser |
+| `ayni_payments_app` | What the service connects as | **No `BYPASSRLS`, not a superuser, owns nothing** |
+
+Connected as the server's administrator (step 2 above), once, before the first start of a version
+with the payments service. Use two new long passwords: `AYNI_PAYMENTS_DB_PASSWORD` and
+`AYNI_PAYMENTS_DB_APP_PASSWORD`.
+
+```sql
+CREATE ROLE ayni_payments LOGIN PASSWORD '<payments owner password>'
+    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+CREATE ROLE ayni_payments_app LOGIN PASSWORD '<payments application password>'
+    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+
+-- GRANT ayni_payments TO <admin-login>;   -- only if the next statement is refused, as above
+
+CREATE DATABASE ayni_payments OWNER ayni_payments;
+REVOKE ALL ON DATABASE ayni_payments FROM PUBLIC;
+GRANT CONNECT ON DATABASE ayni_payments TO ayni_payments_app;
+```
+
+On Azure, connected to `dbname=ayni_payments`:
+
+```sql
+ALTER SCHEMA public OWNER TO ayni_payments;
+```
+
+Neither role can connect to `ayni`, nor `ayni` and `ayni_app` to `ayni_payments`, unless you grant
+it: keep it that way. The service creates its schema, its table, the outbox and the policies of
+row level security on its first start. Then, connected to `ayni_payments`:
+
+```sql
+SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIKE 'ayni_payments%';
+-- both false
+SELECT relname, relrowsecurity FROM pg_class
+WHERE relnamespace = 'payments'::regnamespace AND relkind = 'r';
+-- purchases and outbox, both true
+```
+
+The connection string asks for TLS too:
+`jdbc:postgresql://<server-name>:5432/ayni_payments?sslmode=require` is `AYNI_PAYMENTS_DB_URL`.
+
 
 On each machine, the same checkout of the repository; each uses only its own folder of `deploy/`:
 
@@ -933,7 +1013,52 @@ cd deploy/jitsi && docker compose pull && docker compose up -d
 
 A call in progress is cut; do it when there is none.
 
-### Configuring the deploy workflow, once
+### Moving the purchases to the payments service, once
+
+The first release with the payments service (ADR 0011) needs more than a pull. Until it runs, the
+backend keeps purchases itself. **Do it by hand, not through Deploy**, on a quiet moment:
+
+1. Take a [backup](#8-backup-and-restore) of `ayni`.
+2. Create `ayni_payments` and its roles ([The database of the payments service](#the-database-of-the-payments-service)).
+3. Add to `deploy/backend/.env` every variable of the "Payments service" section of `.env.example`:
+   the image (`AYNI_PAYMENTS_IMAGE_REPOSITORY`), `AYNI_INTERNAL_TOKEN` (`openssl rand -base64 48`),
+   the four `AYNI_PAYMENTS_DB_*` and, if you changed any, the `AYNI_PAYMENTS_*` of the provider.
+   Without them `docker compose` refuses to start anything and names the first one missing, so a
+   Deploy that runs first fails before it touches a container.
+4. Stop the backend, so no purchase changes while they are copied:
+   `docker compose stop backend`. Search, booking and everything else are down for these minutes.
+5. Start the payments service alone at the new tag, so its migrations create the tables:
+
+   ```bash
+   cd /opt/ayni && git fetch --tags --force origin && git checkout --detach refs/tags/<tag>
+   cd deploy/backend && sed -i "s|^AYNI_IMAGE_TAG=.*|AYNI_IMAGE_TAG=<tag>|" .env
+   docker compose pull && docker compose up -d --wait payments
+   ```
+
+6. Copy the purchases, as the owners of both databases (libpq URLs, not JDBC ones; the script
+   needs bash and psql 16):
+
+   ```bash
+   docker run --rm -it -v /opt/ayni/payments-service/data-migration:/m:ro postgres:16 \
+     bash -c 'read -rsp "ayni password: " A; echo; read -rsp "ayni_payments password: " P; echo;
+       SOURCE_DATABASE_URL="postgresql://ayni:$A@<server-name>:5432/ayni?sslmode=require" \
+       TARGET_DATABASE_URL="postgresql://ayni_payments:$P@<server-name>:5432/ayni_payments?sslmode=require" \
+       /m/copy-purchases.sh'
+   ```
+
+   It prints the purchases of each side by university and status, and ends with "every purchase
+   of the monolith is in the payments service". It can be run again: what was copied stays as it
+   is. Confirmed purchases were already credited by the backend and are not sent again. The
+   reconciliation resolves the pending ones and their credit goes through the outbox like any
+   other.
+7. Start everything at the new tag: `./update.sh <tag>` from the checkout of step 5 (the same as
+   Deploy does).
+8. Check [Verifying](#6-verifying), then buy one credit with a test student. `docker compose logs
+   payments` shows the purchase, and the credit is in the wallet within a few seconds.
+
+`payments.purchases` of `ayni` stays as it was, and nothing reads or writes it any more. Dropping
+it is a later migration of the backend, once the copy has been checked in production.
+
 
 **Deploy** never opens SSH. It signs in to Azure with the OpenID Connect token GitHub gives each
 run, as a *managed identity*: an identity of the subscription with no password, which accepts only
@@ -1321,6 +1446,11 @@ machines, a real domain and a real browser, and should be run by hand the first 
 - Mailpit at the root of `MAILPIT_SITE` redirecting to `/mailpit/`: run on a laptop through the
   same `Caddyfile`, not on the machine. At `/mailpit/` of the backend's name it was run on the
   machine: without the password, or with a wrong one, it answers `401`.
+- The payments service (ADR 0011) on the machine: the memory of both containers there (see
+  [Memory of the payments service](#memory-of-the-payments-service)), the roles and the database
+  of [The database of the payments service](#the-database-of-the-payments-service) on Azure, the
+  copy of the purchases, and the first release that publishes the `ayni-payments` image. All of
+  it ran on a laptop with the same compose file and images (2026-11-25), never on Azure.
 - The memory of the backend on the machine itself, under real use (see [Memory](#memory)), and
   the memory of the video machine during a call of three people.
 - The Jitsi images on an Arm machine (`Standard_B2pts_v2`); they were measured on an arm64 laptop.

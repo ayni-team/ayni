@@ -356,7 +356,8 @@ development only.
   university, and its listing counts each university as itself. `IdentityApi.currentPolicy` names its
   university and reads as that one.
 - **What crosses universities on purpose and was adapted**: the payments reconciliation lists the
-  pending purchases of each university as itself, and the wallet expiry job finds the universities
+  pending purchases of each university as itself (in the payments service since ADR 0011, which
+  learns the universities from a function of its own database instead of from identity), and the wallet expiry job finds the universities
   with work by asking each active one, instead of one query over all of them.
 - A listener with `@ApplicationModuleListener` keeps binding the university of its event with
   `TenantContext.runAs(event.tenantId(), ...)`, which now also reaches the database.
@@ -2248,8 +2249,23 @@ and at most 20. It carries identifiers only: the client resolves the names with 
 
 ## payments
 
-`payments` owns credit purchases. The student and the university come from the session
-(`Authorization: Bearer`, see "Access control"), like every other route of a student.
+Credit purchases are a service of their own since ADR 0011: `payments-service/`, with its own
+database `ayni_payments`. The monolith keeps the routes below in the module `paymentsfacade`
+(Strangler Fig). The access filter authenticates them as any other route, and the call is forwarded
+to the service with `X-Tenant-Id`, `X-User-Id`, `Idempotency-Key` and the shared
+`X-Internal-Token`, with a 5 second timeout and at most 10 calls at once
+(`AYNI_PAYMENTS_SERVICE_URL`, `AYNI_PAYMENTS_SERVICE_TIMEOUT`,
+`AYNI_PAYMENTS_SERVICE_MAX_CONCURRENT_CALLS`, `AYNI_INTERNAL_TOKEN`). The service's answer comes back
+unchanged. When the service does not answer, the student gets `503` "Credit purchases are temporarily
+unavailable", and no other route waits for it. A confirmed purchase comes back as
+`POST /internal/v1/events/purchase-confirmed`, from the service's outbox, at least once. That route
+takes no session, only the internal token, and the proxy of a deployment does not forward it.
+`paymentsfacade` publishes `PurchaseConfirmed` from it; wallet credits each purchase once
+(`grantOnce`) and notifications sends one email per purchase. Everything below is what the service
+does. Its `AYNI_PAYMENTS_*` variables are read by the service container now, not the backend's.
+
+The student and the university come from the session (`Authorization: Bearer`, see "Access
+control"), like every other route of a student.
 
 | Method | Path | Who | Does |
 |---|---|---|---|
@@ -2306,7 +2322,9 @@ exists under `dev` or in a deployment) a platform administrator can change them 
 | `POST /api/v1/admin/demo/payments/circuit/reset` | closes the circuit and forgets the failures |
 
 The routes sit under `/api/v1/admin/**`, so the access filter already asks for `PLATFORM_ADMIN` (403
-for anybody else). The controller lives in `payments/interfaces/rest` and calls
+for anybody else). The monolith forwards them to the same routes of the service, which exist only
+under its own demo profile (`SPRING_PROFILES_ACTIVE=demo docker compose up` starts both with it).
+In the service the controller lives in `payments/interfaces/rest` and calls
 `SwitchSimulatedPaymentsUseCase`; the circuit breaker implements the port
 `PaymentCircuit` (a read and a reset) and is a bean of its own. The state is in memory. The
 script to present it, a rejected purchase, a pending one resolved later and an outage of the

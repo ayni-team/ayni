@@ -1,7 +1,10 @@
 # 8. Isolate payment-provider failures with an in-process circuit breaker
 
-- **Status:** Accepted
+- **Status:** Accepted; moved with the payments service by [0011](0011-extract-payments-as-a-service.md)
 - **Date:** 2026-10-06
+
+Since ADR 0011 all of this lives in `payments-service/`, with the same values and variables. "No
+new deployment service" below was true until that extraction.
 
 ## Context
 
