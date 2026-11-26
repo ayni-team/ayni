@@ -1,7 +1,8 @@
 # The Strangler Fig of ADR 0011: credit purchases moved to the payments service, and the monolith
 # keeps their routes, authenticates them as always and forwards them. Every scenario has a test with
 # exactly its name: PaymentsGatewayTest against a fake service on a local port,
-# PaymentsServiceDownTest with nothing listening at the service's address (QA-06), and
+# PaymentsServiceDownTest with nothing listening at the service's address (QA-06),
+# PaymentsServiceUnreachableTest with an address that never connects, and
 # DemoPaymentsProxyTest and DemoPaymentsProxyAbsentTest for the switch of the demo profile. What a
 # purchase does is the service's: payments-service/src/test/resources/features.
 
@@ -24,6 +25,10 @@ Feature: Credit purchases through the monolith
   Scenario: A payments service that does not answer in time is cut off after the timeout
     Given the service takes longer than the timeout to answer
     Then the student gets a 503 that says purchases are unavailable for now, once the timeout is over
+
+  Scenario: A payments service that cannot be connected to is a 503 after the timeout
+    Given the address of the service takes the call and never completes the connection
+    Then the student gets the same 503 once the timeout is over
 
   Scenario: A payments service that refuses the monolith's secret does not sign the student out
     Given the service answers 401 to the monolith

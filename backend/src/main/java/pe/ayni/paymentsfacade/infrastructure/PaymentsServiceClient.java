@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Semaphore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -111,8 +112,11 @@ public class PaymentsServiceClient {
         throw new PaymentsServiceUnavailable("The payments service refused the monolith");
       }
       return answer;
-    } catch (ResourceAccessException unreachable) {
-      log.warn("The payments service did not answer {} {}: {}", method, path, unreachable.getMessage());
+    } catch (ResourceAccessException | CancellationException unreachable) {
+      // A refused or failed connection is a ResourceAccessException. A timeout before the
+      // connection is even made (a stopped container on the Docker network) reaches here as the
+      // CancellationException of the client's own future: both mean the service did not answer.
+      log.warn("The payments service did not answer {} {}: {}", method, path, unreachable.toString());
       throw new PaymentsServiceUnavailable("The payments service did not answer", unreachable);
     } finally {
       bulkhead.release();
