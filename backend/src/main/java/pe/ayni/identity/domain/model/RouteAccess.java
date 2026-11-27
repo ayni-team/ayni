@@ -17,6 +17,10 @@ import java.util.Set;
  *       /api/v1/access/university}, Swagger and the health check are public: they are how somebody
  *       gets a session, the name and colours of the university an email belongs to, or they
  *       describe the platform.
+ *   <li>{@code /internal/**} takes no session at all: it is where the payments service delivers its
+ *       events, and the shared secret of {@code X-Internal-Token} guards it instead (the internal
+ *       token filter of {@code paymentsfacade}, ADR 0011). For this filter it is as open as a
+ *       public route; nobody without the secret gets past the next one.
  *   <li>{@code /api/v1/admin/**} requires {@code PLATFORM_ADMIN}.
  *   <li>{@code /api/v1/coordinator/**} requires {@code COORDINATOR}.
  *   <li>Signing out, and any path outside {@code /api}, requires a session of any kind.
@@ -38,6 +42,9 @@ public final class RouteAccess {
                     "/v3/api-docs",
                     "/actuator/health");
 
+    /** Machine to machine: no session, the internal token instead (ADR 0011). */
+    private static final List<String> INTERNAL_PATHS = List.of("/internal");
+
     private static final Set<AccessRole> ANYBODY = EnumSet.allOf(AccessRole.class);
 
     private static final Set<AccessRole> MEMBERS =
@@ -51,7 +58,8 @@ public final class RouteAccess {
 
     /** What the route needs. The path is the one inside the application, already decoded. */
     public static RouteAccess of(String method, String path) {
-        if (PUBLIC_PATHS.stream().anyMatch(prefix -> within(path, prefix))) {
+        if (PUBLIC_PATHS.stream().anyMatch(prefix -> within(path, prefix))
+                || INTERNAL_PATHS.stream().anyMatch(prefix -> within(path, prefix))) {
             return new RouteAccess(null);
         }
         if (within(path, "/api/v1/admin")) {

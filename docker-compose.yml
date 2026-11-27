@@ -3,9 +3,9 @@
 #
 #     docker compose up
 #
-# Postgres, the API and the web application. Nobody needs Java, Maven, Node or
-# Postgres installed: Docker provides all of it, and everyone runs the same
-# versions.
+# Postgres, the API, the payments service and the web application. Nobody
+# needs Java, Maven, Node or Postgres installed: Docker provides all of it, and
+# everyone runs the same versions.
 # =============================================================================
 
 services:
@@ -84,12 +84,11 @@ services:
       AYNI_REAL_RELAY_PASSWORD: ${AYNI_REAL_RELAY_PASSWORD:-}
       AYNI_REAL_RELAY_STARTTLS: ${AYNI_REAL_RELAY_STARTTLS:-}
       AYNI_REAL_RELAY_SSL: ${AYNI_REAL_RELAY_SSL:-}
-      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
-      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
-      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
-      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
-      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
-      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
+      # Credit purchases are the payments service's (ADR 0011): the backend forwards them to it by
+      # its name on this network, and it calls back with the purchases it confirmed. Both carry the
+      # same secret. Development value only.
+      AYNI_PAYMENTS_SERVICE_URL: http://payments:8081
+      AYNI_INTERNAL_TOKEN: ${AYNI_INTERNAL_TOKEN:-ayni-development-internal-token-change-me}
       # Development profile: modules whose data would otherwise come from a module
       # that does not exist yet fill a couple of examples at startup, so the
       # endpoints answer something in Swagger. Never set in a deployment.
@@ -107,6 +106,75 @@ services:
       - ./backend/academic-directory:/app/academic-directory:ro
       - maven-cache:/root/.m2
       - skills-evidence:/var/lib/ayni/evidence
+
+  # The database of the payments service, ayni_payments, on the same server (Database per Service,
+  # ADR 0011). PostgreSQL creates POSTGRES_DB only on an empty volume, so this one-off container
+  # creates the second database when it is missing, also on a volume that already has data, and
+  # exits. Its roles are created by the service's own migrations.
+  payments-db:
+    image: postgres:16-alpine
+    container_name: ayni-payments-db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ayni
+      PGPASSWORD: ayni
+      PGDATABASE: ayni
+    command:
+      - sh
+      - -c
+      - >-
+        psql -tAc "SELECT 1 FROM pg_database WHERE datname = 'ayni_payments'" | grep -q 1
+        || psql -c "CREATE DATABASE ayni_payments"
+    restart: "no"
+
+  # Credit purchases and the payment provider (ADR 0008, ADR 0011). Built from payments-service/ as
+  # a deployment runs it. It publishes no port: only the backend calls it, on this network.
+  payments:
+    build: ./payments-service
+    container_name: ayni-payments
+    depends_on:
+      payments-db:
+        condition: service_completed_successfully
+    # The same limits as a deployment (deploy/README.md, "Memory").
+    mem_limit: ${AYNI_PAYMENTS_MEMORY_LIMIT:-256m}
+    memswap_limit: ${AYNI_PAYMENTS_MEMORY_LIMIT:-256m}
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:+UseSerialGC -Xms32m -Xmx${AYNI_PAYMENTS_HEAP:-96m} -XX:MaxMetaspaceSize=80m -Xss512k -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=32m -XX:MaxDirectMemorySize=16m"
+      AYNI_PAYMENTS_DB_URL: jdbc:postgresql://postgres:5432/ayni_payments
+      # Two roles, as in the backend (TS01): Flyway migrates as the owner, the service connects as
+      # ayni_payments_app, which has no BYPASSRLS. Development values only.
+      AYNI_PAYMENTS_DB_USER: ayni
+      AYNI_PAYMENTS_DB_PASSWORD: ayni
+      AYNI_PAYMENTS_DB_APP_USER: ayni_payments_app
+      AYNI_PAYMENTS_DB_APP_PASSWORD: ayni_payments_app
+      AYNI_INTERNAL_TOKEN: ${AYNI_INTERNAL_TOKEN:-ayni-development-internal-token-change-me}
+      AYNI_PAYMENTS_MONOLITH_URL: http://backend:8080
+      AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:-5}
+      AYNI_PAYMENTS_PRICE_PER_CREDIT: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:-5.00}
+      AYNI_PAYMENTS_PENDING_TIMEOUT: ${AYNI_PAYMENTS_PENDING_TIMEOUT:-PT24H}
+      AYNI_PAYMENTS_RECONCILIATION_DELAY: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:-PT1M}
+      AYNI_PAYMENTS_SIMULATED_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:-CONFIRMED}
+      AYNI_PAYMENTS_FAILURE_THRESHOLD: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:-3}
+      AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:-PT30S}
+      AYNI_PAYMENTS_TIMEOUT: ${AYNI_PAYMENTS_TIMEOUT:-PT2S}
+      AYNI_PAYMENTS_MAX_CONCURRENT_CALLS: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:-2}
+      # demo turns on the switch of the simulated provider (docs/demo.md), as it does in the
+      # backend: SPRING_PROFILES_ACTIVE=demo docker compose up starts both with it.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8081 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200'"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   web:
     build: ./web

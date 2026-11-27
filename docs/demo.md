@@ -682,6 +682,14 @@ and reads or closes the circuit in front of the provider. The values are `CONFIR
 `PENDING` and `UNAVAILABLE`; anything else answers `400` and changes nothing. Like the clock, the
 state lives in memory: a restart takes it back to the properties.
 
+Since ADR 0011 the provider and its circuit live in the payments service, a container of their own.
+The backend forwards these routes to it, and the service needs the `demo` profile too:
+`SPRING_PROFILES_ACTIVE=demo docker compose up` gives it to both, and
+`AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S` reaches the service the same way. A restart of the
+`payments` container alone also resets the switches. The demo clock moves only the backend: the
+service keeps the real time, so moving the clock no longer expires a pending purchase or opens the
+allowance of a new month.
+
 ```bash
 # Read both outcomes and the circuit: CLOSED, OPEN or HALF_OPEN, the failures in a row, and until
 # when it stays open

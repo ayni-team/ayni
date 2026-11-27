@@ -4,7 +4,7 @@
 # Every scenario has a test with its name as display name in WalletMovementsAcceptanceTest, over
 # HTTP against a real PostgreSQL: GET /api/v1/wallet/movements. That expired credits stay in the
 # history is a scenario of US23 (WalletBalanceAcceptanceTest), and each story that moves credits
-# checks its own entry: booking (BookABlockAcceptanceTest), purchases (PaymentsAcceptanceTest) and
+# checks its own entry: booking (BookABlockAcceptanceTest), purchases (PurchaseConfirmedInboundTest) and
 # the campus benefits and donations (WalletRedemptionAcceptanceTest).
 
 Feature: The history of my credit movements

@@ -1,0 +1,12 @@
+# What the image does not need from payments-service/: the Dockerfile copies the Maven wrapper, the
+# pom and src.
+target/
+*.log
+.idea/
+.vscode/
+*.iml
+.DS_Store
+.env
+.env.*
+Dockerfile
+.dockerignore

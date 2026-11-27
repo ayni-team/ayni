@@ -25,10 +25,6 @@ ayni:
       enabled: ${AYNI_PRACTICE_ROOMS:true}
   audit:
     analysis-delay: PT10S
-  payments:
-    # docker compose always sets AYNI_PAYMENTS_RECONCILIATION_DELAY, which wins over this value:
-    # pass AYNI_PAYMENTS_RECONCILIATION_DELAY=PT5S to compose too (docs/demo.md).
-    reconciliation-delay: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:PT5S}
   identity:
     # A session lasts a year so that moving the clock weeks ahead does not sign the presenter out.
     # The access links keep their ten minutes and expire with the clock.

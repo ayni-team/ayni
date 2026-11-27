@@ -1,9 +1,9 @@
 name: Release
 
 # Merging a release pull request into main is the whole release: this workflow tags the merge
-# commit, builds the production image and publishes it to the GitHub Container Registry as
-# ghcr.io/<owner>/ayni-backend:<tag>, and then deploys that tag (deploy.yml) to the backend machine
-# and the web application.
+# commit, builds the production images and publishes them to the GitHub Container Registry as
+# ghcr.io/<owner>/ayni-backend:<tag> and ghcr.io/<owner>/ayni-payments:<tag> (the payments service,
+# ADR 0011), and then deploys that tag (deploy.yml) to the backend machine and the web application.
 #
 # The tag comes from the title of the pull request, chore(release): v1.2.0. A title without one
 # takes the next patch version after the latest tag (v1.2.0 -> v1.2.1). Pushing a v* tag by hand
@@ -129,9 +129,55 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # The payments service (ADR 0011), published under the same tag: deploy/backend/docker-compose.yml
+  # runs both images at AYNI_IMAGE_TAG, so a release is always a backend and a service built from the
+  # same commit.
+  payments-image:
+    name: Payments service image
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the image
+        id: image
+        run: |
+          echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ayni-payments" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: payments-service
+          file: payments-service/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ env.TAG }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.image.outputs.revision }}
+            org.opencontainers.image.version=${{ env.TAG }}
+          # A scope of its own, so the two images do not evict each other's cache.
+          cache-from: type=gha,scope=payments
+          cache-to: type=gha,mode=max,scope=payments
+
   deploy:
     name: Deploy
-    needs: [version, image]
+    needs: [version, image, payments-image]
     permissions:
       contents: read
       # The OpenID Connect token deploy.yml signs in to Azure with.

@@ -1,0 +1,59 @@
+# US35 in the payments service, over HTTP against PostgreSQL in PaymentsAcceptanceTest: every
+# scenario below has a test with exactly its name. The provider is replaced with confirmed/rejected
+# outcomes. The wallet is in the monolith: what this service owes it is a PurchaseConfirmed in its
+# outbox (ADR 0011), and the crediting itself is backend/src/test/resources/features/
+# purchase-confirmed-inbound.feature, where "Purchased credits do not count towards recognition"
+# now lives too.
+
+Feature: Buy credits for a tutoring session
+
+  Background:
+    Given a student of the university "UPC"
+    And the monthly purchase allowance is 5 credits
+    And each credit costs S/ 5.00
+
+  Scenario: A confirmed purchase credits the student immediately
+    When the student purchases 2 credits and payment is confirmed
+    Then the purchase is confirmed for S/ 10.00
+    And PurchaseConfirmed for 2 credits is recorded once in the outbox, in the same transaction
+
+  Scenario: A student who used the monthly limit is told the limit and credits used
+    Given the student purchased 5 credits this UTC calendar month
+    When the student tries to purchase 1 more credit
+    Then the purchase is refused with a monthly limit of 5 and 5 already used
+    And the maximum available purchase is 0 credits
+
+  Scenario: A purchase above the remaining allowance reports the maximum amount
+    Given the student purchased 4 credits this UTC calendar month
+    When the student tries to purchase 2 more credits
+    Then the purchase is refused with a monthly limit of 5 and 4 already used
+    And the maximum available purchase is 1 credit
+
+  Scenario: A rejected payment does not consume credits or the monthly allowance
+    When the student purchases 5 credits and payment is rejected
+    Then no PurchaseConfirmed is recorded
+    When the student retries with a new idempotency key and payment is confirmed
+    Then PurchaseConfirmed for 5 credits is recorded
+
+  Scenario: A repeated idempotency key does not credit twice
+    When the student purchases 2 credits twice with the same idempotency key
+    Then the first answer is 201 and the second 200, and both refer to the same purchase
+    And PurchaseConfirmed is recorded once
+
+  Scenario: An idempotency key cannot be reused for a different amount
+    Given the student already attempted a purchase of 2 credits with an idempotency key
+    When the student reuses that key to request 3 credits
+    Then the request is refused as a conflicting purchase
+    And only the first purchase is owed to the wallet
+
+  Scenario: The monthly allowance resets on the first day of the next UTC calendar month
+    Given the student purchased 5 credits in the previous UTC calendar month
+    When the new UTC calendar month begins
+    And the student purchases 5 credits and payment is confirmed
+    Then the purchase is confirmed
+
+  Scenario: Concurrent purchases cannot exceed the monthly allowance
+    Given the student purchased 3 credits this UTC calendar month
+    When two requests concurrently purchase 2 credits each
+    Then exactly one purchase is confirmed
+    And the monthly confirmed total is 5 credits

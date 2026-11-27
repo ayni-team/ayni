@@ -84,6 +84,8 @@ class ProductionProfileTest {
     variables.put("AYNI_DB_APP_PASSWORD", ApplicationRoleTestConnection.APPLICATION_ROLE);
     variables.put("AYNI_JITSI_JWT_SECRET", "a-secret-for-this-test-only-of-more-than-32-chars");
     variables.put("AYNI_IDENTITY_ACCESS_LINK_BASE_URL", WEB_APPLICATION + "/access/confirm");
+    variables.put("AYNI_INTERNAL_TOKEN", "an-internal-token-for-this-test-only");
+    variables.put("AYNI_PAYMENTS_SERVICE_URL", "http://127.0.0.1:9");
     variables.put("AYNI_BOOTSTRAP_ADMIN_EMAIL", FIRST_ADMINISTRATOR);
     variables.put("AYNI_ALLOWED_ORIGINS", WEB_APPLICATION);
     variables.put("AYNI_MAIL_HOST", "localhost");
@@ -156,7 +158,9 @@ class ProductionProfileTest {
             "AYNI_DB_APP_USER",
             "AYNI_DB_APP_PASSWORD",
             "AYNI_JITSI_JWT_SECRET",
-            "AYNI_IDENTITY_ACCESS_LINK_BASE_URL");
+            "AYNI_IDENTITY_ACCESS_LINK_BASE_URL",
+            "AYNI_INTERNAL_TOKEN",
+            "AYNI_PAYMENTS_SERVICE_URL");
 
     for (String missing : required) {
       List<String> arguments = new ArrayList<>(List.of("--spring.profiles.active=prod", "--server.port=0"));

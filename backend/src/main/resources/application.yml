@@ -191,21 +191,19 @@ ayni:
       password: ${AYNI_REAL_RELAY_PASSWORD:}
       starttls: ${AYNI_REAL_RELAY_STARTTLS:}
       ssl: ${AYNI_REAL_RELAY_SSL:}
-  payments:
-    # The first product rule uses a UTC calendar month until universities expose academic cycles.
-    monthly-credit-limit: ${AYNI_PAYMENTS_MONTHLY_CREDIT_LIMIT:5}
-    price-per-credit: ${AYNI_PAYMENTS_PRICE_PER_CREDIT:5.00}
-    pending-timeout: ${AYNI_PAYMENTS_PENDING_TIMEOUT:PT24H}
-    reconciliation-delay: ${AYNI_PAYMENTS_RECONCILIATION_DELAY:PT1M}
-    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE for a simulated initial charge.
-    simulated-outcome: ${AYNI_PAYMENTS_SIMULATED_OUTCOME:CONFIRMED}
-    # CONFIRMED, REJECTED, PENDING, or UNAVAILABLE when reconciling an unresolved payment.
-    simulated-resolution-outcome: ${AYNI_PAYMENTS_SIMULATED_RESOLUTION_OUTCOME:CONFIRMED}
-    resilience:
-      failure-threshold: ${AYNI_PAYMENTS_FAILURE_THRESHOLD:3}
-      open-duration: ${AYNI_PAYMENTS_CIRCUIT_OPEN_DURATION:PT30S}
-      timeout: ${AYNI_PAYMENTS_TIMEOUT:PT2S}
-      max-concurrent-calls: ${AYNI_PAYMENTS_MAX_CONCURRENT_CALLS:2}
+  # Credit purchases live in the payments service (ADR 0011). The monolith keeps their routes and
+  # forwards them there with the session's university and student; the service calls back with the
+  # purchases it confirmed (POST /internal/v1/events/purchase-confirmed). Its own settings, the
+  # AYNI_PAYMENTS_* of ADR 0008, are the service's now (payments-service/src/main/resources).
+  payments-service:
+    # The service on the private network: http://payments:8081 under docker compose.
+    url: ${AYNI_PAYMENTS_SERVICE_URL:http://localhost:8081}
+    # Longest wait to connect, and again to answer. Past it the student is told purchases are
+    # unavailable for now, and nothing else waits (QA-06).
+    timeout: ${AYNI_PAYMENTS_SERVICE_TIMEOUT:PT5S}
+    # Calls waiting for the service at once; one more is refused at once instead of holding one
+    # more request thread.
+    max-concurrent-calls: ${AYNI_PAYMENTS_SERVICE_MAX_CONCURRENT_CALLS:10}
   skills:
     # Where the evidence files of US16 are kept, one folder per university. docker compose mounts a
     # named volume here, so the files survive the container; without it, the temporary folder.
@@ -231,6 +229,10 @@ ayni:
     # The origins a browser may call the API and open a whiteboard's live channel from, comma
     # separated. The web application of development by default; a deployment sets its own address.
     allowed-origins: ${AYNI_ALLOWED_ORIGINS:http://localhost:5173}
+  # The secret the monolith and the payments service share: sent in X-Internal-Token on every call
+  # to the service, and required on every call to /internal/**. Development value only; a
+  # deployment sets its own, the same in both containers.
+  internal-token: ${AYNI_INTERNAL_TOKEN:ayni-development-internal-token-change-me}
   bootstrap:
     # The first platform administrator of an empty installation (PlatformAdminBootstrap): created
     # ACTIVE at startup unless an administrator with this address exists. Empty, nothing happens.
