@@ -1187,6 +1187,14 @@ in two to five days.
 6. Starts the backend again with `prod`, also when something before failed, and fails itself when
    the seeding logged `ERROR` or `Could not`.
 
+With the payments service in the stack (ADR 0011), it also takes a `pg_dump` of `ayni_payments`
+into `~/ayni-backups/ayni_payments-<stamp>-before-reset.dump` (the last three kept), stops the
+service together with the backend, empties `payments.purchases` and `payments.outbox` as the owner
+of that database, and starts the service again after the backend. The people of `DemoCast` keep
+their ids from one reset to the next, so a purchase left there would still be in a student's
+history, and count against the monthly limit, while the wallet starts again. Flyway's history of
+the service stays, so it does not migrate again.
+
 The API is down for a few minutes. Everybody's session ends with the old database, and so
 does anything typed into the installation since the last reset; whatever the team wants to keep
 belongs in the seeders (`pe.ayni.shared.demo`), which every reset picks up.
