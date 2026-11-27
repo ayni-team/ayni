@@ -31,6 +31,9 @@ describe('FE-22 VideoCall', () => {
     await waitFor(() => expect(double.instances).toHaveLength(1));
     expect(double.instances[0].domain).toBe('meet.ayni.pe');
     expect(double.instances[0].options).toMatchObject({ roomName: 'room-1', jwt: 'the-jwt' });
+    expect(double.instances[0].options).toMatchObject({
+      configOverwrite: { toolbarButtons: ['microphone', 'camera', 'desktop'], prejoinConfig: { enabled: false } },
+    });
     expect(window.location.href).not.toContain('the-jwt');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
@@ -43,6 +46,7 @@ describe('FE-22 VideoCall', () => {
     const frame = document.querySelector('iframe');
     expect(frame?.src).toContain('http://localhost:8000/room-1?jwt=the-jwt');
     expect(frame?.allow).toContain('camera');
+    expect(decodeURIComponent(frame?.src ?? '')).toContain('config.toolbarButtons=["microphone","camera","desktop"]');
     expect(document.head.querySelector('script')).toBeNull();
     expect(window.location.href).not.toContain('the-jwt');
 

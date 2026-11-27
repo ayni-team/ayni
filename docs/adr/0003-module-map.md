@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-15
-- **Amended:** 2026-09-16, after the domain flows session
+- **Amended:** 2026-09-16, after the domain flows session; 2026-11-25, `payments` extracted as a
+  service and replaced in the monolith by `paymentsfacade` ([0011](0011-extract-payments-as-a-service.md))
 
 ## Context
 

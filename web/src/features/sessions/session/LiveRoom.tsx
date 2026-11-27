@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useUniversity } from '@/shared/brand';
 import { formatInZone, serverNow, useZone } from '@/shared/time';
-import { AyniLogo, Button, Card, Dialog, IconCheck, UniversityLogo, cx } from '@/shared/ui';
+import { AyniLogo, Button, Card, Dialog, IconCheck, IconChevronDown, UniversityLogo, cx } from '@/shared/ui';
 import type { ShareControl } from '../video/VideoCall';
 import { IconShieldCheck } from './icons';
 import { PresencePanel, usePresence, type Presence } from './PresencePanel';
@@ -24,12 +24,26 @@ function needTitle(session: Session): string {
   return session.role === 'TUTOR' ? `Lo que necesita ${otherName(session)}` : 'Lo que pediste';
 }
 
+/** What was asked for: folded by default, since the room is for the work and the need is already known. */
 function NeedCard({ session }: { session: Session }) {
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
   if (!session.needDescription) return null;
   return (
-    <Card className="sm:p-5">
-      <p className="text-[13px] font-semibold text-ink-2">{needTitle(session)}</p>
-      <p className="mt-2 text-sm text-ink">“{session.needDescription}”</p>
+    <Card className="!p-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((was) => !was)}
+        className="flex w-full items-center justify-between gap-2 rounded-[inherit] px-4 py-2.5 text-left text-[13px] font-semibold text-ink-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand sm:px-5"
+      >
+        {needTitle(session)}
+        <IconChevronDown className={cx('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+      <div id={bodyId} hidden={!open} className="px-4 pb-4 sm:px-5">
+        <p className="text-sm text-ink">“{session.needDescription}”</p>
+      </div>
     </Card>
   );
 }

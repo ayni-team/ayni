@@ -22,7 +22,9 @@ class RouteAccessTest {
         "GET, /v3/api-docs",
         "GET, /v3/api-docs/swagger-config",
         "GET, /actuator/health",
-        "GET, /actuator/health/liveness"
+        "GET, /actuator/health/liveness",
+        // No session: the internal token of the payments service guards it instead (ADR 0011).
+        "POST, /internal/v1/events/purchase-confirmed"
     })
     void publicRoutes(String method, String path) {
         assertThat(RouteAccess.of(method, path).isPublic()).isTrue();
@@ -39,7 +41,9 @@ class RouteAccessTest {
         "POST, /api/v1/bookings, STUDENT",
         "PUT, /api/v1/me/profile, STUDENT",
         "POST, /api/v1/me/academic-record/import, STUDENT",
-        "GET, /api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f, STUDENT"
+        "GET, /api/v1/sessions/5b1f0c2a-4d6e-4c7d-8e9f-0a1b2c3d4e5f, STUDENT",
+        "POST, /api/v1/payments/purchases, STUDENT",
+        "GET, /api/v1/admin/demo/payments, PLATFORM_ADMIN"
     })
     void routesOfOneRole(String method, String path, AccessRole role) {
         RouteAccess access = RouteAccess.of(method, path);

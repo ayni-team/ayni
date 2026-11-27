@@ -89,7 +89,6 @@ class DemoProfileStartupTest {
             "PresenceCheckJob", Duration.ofSeconds(5),
             "SessionClosingJob", Duration.ofSeconds(5),
             "TutorNoShowJob", Duration.ofSeconds(5),
-            "PendingPurchaseReconciliationJob", Duration.ofSeconds(5),
             "RepeatedPairJob", Duration.ofSeconds(10));
     atMost.forEach(
         (job, delay) ->

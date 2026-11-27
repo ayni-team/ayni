@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  CALL_CONFIG,
   anybodySharing,
   forgetLoadedScripts,
   isFatal,
@@ -38,10 +39,21 @@ describe('FE-22 the video pass', () => {
     expect(anybodySharing(null)).toBe(false);
   });
 
-  it('writes the address of the iframe of the Jitsi of docker compose', () => {
-    expect(plainFrameUrl('http://localhost:8000/abc', 'a.b.c')).toBe(
-      'http://localhost:8000/abc?jwt=a.b.c#config.prejoinConfig.enabled=false&config.prejoinPageEnabled=false',
-    );
+  it('writes the address of the iframe of the Jitsi of docker compose, with the same configuration', () => {
+    const url = plainFrameUrl('http://localhost:8000/abc', 'a.b.c');
+    expect(url.startsWith('http://localhost:8000/abc?jwt=a.b.c#')).toBe(true);
+    const hash = new URLSearchParams(url.slice(url.indexOf('#') + 1));
+    expect(hash.get('config.prejoinConfig.enabled')).toBe('false');
+    expect(hash.get('config.prejoinPageEnabled')).toBe('false');
+    expect(JSON.parse(hash.get('config.toolbarButtons') ?? 'null')).toEqual(['microphone', 'camera', 'desktop']);
+    expect(hash.get('config.toolbarConfig.alwaysVisible')).toBe('true');
+    expect(hash.get('config.hideConferenceSubject')).toBe('true');
+    expect(hash.get('config.disableInviteFunctions')).toBe('true');
+  });
+
+  it('shows only the microphone, the camera and sharing the screen, with no hang up', () => {
+    expect(CALL_CONFIG.toolbarButtons).toEqual(['microphone', 'camera', 'desktop']);
+    expect(CALL_CONFIG.toolbarButtons).not.toContain('hangup');
   });
 
   it('asks for a new pass before it expires, and never in a tight loop near the end', () => {

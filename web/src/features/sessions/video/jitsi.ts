@@ -41,13 +41,45 @@ declare global {
 }
 
 /**
+ * The buttons of the toolbar of the call: the rest of the room is Ayni's. No hang up: the session
+ * ends with "Terminar sesión", and leaving only the video would leave the room open with no call.
+ */
+export const TOOLBAR_BUTTONS = ['microphone', 'camera', 'desktop'] as const;
+
+/**
+ * What the room changes of Jitsi's own configuration, the same with its API and in the plain iframe.
+ * Every key is one Jitsi lets a client override (its `configWhitelist`). The name of the room is
+ * an identifier nobody needs to read, and nobody else is invited: the room says who comes. The
+ * toolbar stays: with three buttons it is small, and hidden nobody finds the microphone.
+ */
+export const CALL_CONFIG = {
+  prejoinConfig: { enabled: false },
+  prejoinPageEnabled: false,
+  disableDeepLinking: true,
+  toolbarButtons: [...TOOLBAR_BUTTONS],
+  toolbarConfig: { alwaysVisible: true },
+  hideConferenceSubject: true,
+  hideConferenceTimer: true,
+  disableInviteFunctions: true,
+};
+
+/** `{ a: { b: 1 } }` as `config.a.b=1`, how Jitsi reads its configuration from the hash. */
+function configHash(config: Record<string, unknown>, prefix = 'config'): string[] {
+  return Object.entries(config).flatMap(([key, value]) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? configHash(value as Record<string, unknown>, `${prefix}.${key}`)
+      : [`${prefix}.${key}=${encodeURIComponent(JSON.stringify(value))}`],
+  );
+}
+
+/**
  * The address of a plain iframe, for a Jitsi on http: `external_api.js` always writes `https://` in
  * the address of its iframe, whatever the page. This is only for development, where the browser
  * allows the camera on `localhost`. There are no events: the iframe having loaded is all it knows.
  */
 export function plainFrameUrl(url: string, token: string | undefined): string {
   const query = token ? `?jwt=${encodeURIComponent(token)}` : '';
-  return `${url}${query}#config.prejoinConfig.enabled=false&config.prejoinPageEnabled=false`;
+  return `${url}${query}#${configHash(CALL_CONFIG).join('&')}`;
 }
 
 const LOAD_TIMEOUT_MS = 15_000;

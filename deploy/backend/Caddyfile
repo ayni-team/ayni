@@ -53,6 +53,12 @@
 		import mailpit
 	}
 
+	# The door of the payments service into the backend (ADR 0011) is not for the internet: the
+	# service reaches it over the private network of the machine, never through here.
+	handle /internal/* {
+		respond 404
+	}
+
 	handle {
 		reverse_proxy backend:{$AYNI_PORT} {
 			# Takes the backend out of rotation while its readiness is not UP, for instance during

@@ -20,6 +20,11 @@
 #      and seeds, and stops it once the history is played and every event is delivered,
 #   6. starts the backend again with prod alone, whatever happened before.
 #
+# When the stack has the payments service (ADR 0011), it also backs up its database, ayni_payments,
+# stops the service with the backend and empties its purchases and its outbox. The people of the
+# demo profile keep their ids from one reset to the next, so a purchase left there would still be
+# in a student's history and count against the monthly limit while the wallet starts again.
+#
 # The one-off container publishes no port and is not reachable under the name of the backend, so
 # the proxy never sends it a request: the routes of the demo profile (/api/v1/admin/demo/*) and its
 # movable clock never face the Internet. Never set AYNI_DEMO_DATA_RESET on an installation for real
@@ -56,19 +61,31 @@ if [[ "$(env_value AYNI_MAIL_HOST)" != "mailpit" ]]; then
   exit 2
 fi
 
-url="$(env_value AYNI_DB_URL)"
-if [[ ! "$url" =~ ^jdbc:postgresql://([^:/?]+)(:([0-9]+))?/([^?]+)(\?(.*))?$ ]]; then
-  echo "AYNI_DB_URL is not a jdbc:postgresql:// address" >&2
-  exit 1
+# The libpq connection of the JDBC address in the variable $1, as the user in the variable $2.
+libpq_connection() {
+  local url
+  url="$(env_value "$1")"
+  if [[ ! "$url" =~ ^jdbc:postgresql://([^:/?]+)(:([0-9]+))?/([^?]+)(\?(.*))?$ ]]; then
+    echo "$1 is not a jdbc:postgresql:// address" >&2
+    return 1
+  fi
+  local host="${BASH_REMATCH[1]}" port="${BASH_REMATCH[3]:-5432}" database="${BASH_REMATCH[4]}"
+  local sslmode=prefer
+  if [[ "${BASH_REMATCH[6]}" =~ (^|&)sslmode=([a-z-]+) ]]; then
+    sslmode="${BASH_REMATCH[2]}"
+  fi
+  echo "host=$host port=$port dbname=$database user=$(env_value "$2") sslmode=$sslmode"
+}
+
+connection="$(libpq_connection AYNI_DB_URL AYNI_DB_USER)"
+
+# The payments service is in the stack from the version that extracted it (ADR 0011) on; before
+# it, there is nothing of it to empty.
+payments=false
+if docker compose config --services 2>/dev/null | grep -qx payments; then
+  payments=true
+  payments_connection="$(libpq_connection AYNI_PAYMENTS_DB_URL AYNI_PAYMENTS_DB_USER)"
 fi
-host="${BASH_REMATCH[1]}"
-port="${BASH_REMATCH[3]:-5432}"
-database="${BASH_REMATCH[4]}"
-sslmode=prefer
-if [[ "${BASH_REMATCH[6]}" =~ (^|&)sslmode=([a-z-]+) ]]; then
-  sslmode="${BASH_REMATCH[2]}"
-fi
-connection="host=$host port=$port dbname=$database user=$(env_value AYNI_DB_USER) sslmode=$sslmode"
 
 # The owner's password reaches each client container by name (-e PGPASSWORD), never on a command
 # line where ps or the log would show it.
@@ -78,6 +95,16 @@ export PGPASSWORD
 psql_owner() {
   docker run --rm -i -e PGPASSWORD --network "$network" "$client" \
     psql "$connection" -v ON_ERROR_STOP=1 -q -At "$@"
+}
+
+# The same, as the owner of ayni_payments; its password, like the other, only by name.
+payments_owner() {
+  (
+    PGPASSWORD="$(env_value AYNI_PAYMENTS_DB_PASSWORD)"
+    export PGPASSWORD
+    docker run --rm -i -e PGPASSWORD --network "$network" --user "$(id -u):$(id -g)" \
+      -v "$backups:/backups" "$client" "$@"
+  )
 }
 
 # Deletes all but the newest $keep files of a pattern in the folder of the backups. The pattern is
@@ -98,6 +125,10 @@ restart_backend() {
   docker rm -f "$seed" >/dev/null 2>&1 || true
   echo "==> Starting the backend with the prod profile"
   docker compose up -d --wait --wait-timeout 300 backend
+  if [[ "$payments" == "true" ]]; then
+    echo "==> Starting the payments service"
+    docker compose up -d --wait --wait-timeout 300 payments
+  fi
 }
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -111,10 +142,25 @@ docker run --rm -e PGPASSWORD --network "$network" --user "$(id -u):$(id -g)" \
   pg_dump "$connection" --format=custom --file="/backups/ayni-$stamp-before-reset.dump"
 rotate 'ayni-*-before-reset.dump'
 
+if [[ "$payments" == "true" ]]; then
+  echo "==> Backing up the payments database to $backups/ayni_payments-$stamp-before-reset.dump"
+  payments_owner pg_dump "$payments_connection" --format=custom \
+    --file="/backups/ayni_payments-$stamp-before-reset.dump"
+  rotate 'ayni_payments-*-before-reset.dump'
+fi
+
 docker rm -f "$seed" >/dev/null 2>&1 || true
 echo "==> Stopping the backend"
 docker compose stop backend
 trap restart_backend EXIT
+
+if [[ "$payments" == "true" ]]; then
+  # Stopped first, so its jobs (the reconciliation and the outbox relay) do not run meanwhile.
+  echo "==> Stopping the payments service and emptying its purchases and outbox"
+  docker compose stop payments
+  payments_owner psql "$payments_connection" -v ON_ERROR_STOP=1 -q \
+    -c 'TRUNCATE payments.purchases, payments.outbox'
+fi
 
 # One statement, so one transaction: either everything goes or nothing does. The triggers that keep
 # the ledger and the activity log append only refuse UPDATE and DELETE, not DROP. The roles and the

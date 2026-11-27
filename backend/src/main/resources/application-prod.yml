@@ -68,6 +68,10 @@ ayni:
   sessions:
     video:
       jwt-secret: ${AYNI_JITSI_JWT_SECRET}
+  # The secret shared with the payments service (ADR 0011). No default in a deployment.
+  internal-token: ${AYNI_INTERNAL_TOKEN}
+  payments-service:
+    url: ${AYNI_PAYMENTS_SERVICE_URL}
   identity:
     # Where the web application opens an access link, for example
     # https://ayni.example.edu/access/confirm. It goes in every email, so it has no default.
@@ -81,3 +85,5 @@ ayni:
     - AYNI_DB_APP_PASSWORD
     - AYNI_JITSI_JWT_SECRET
     - AYNI_IDENTITY_ACCESS_LINK_BASE_URL
+    - AYNI_INTERNAL_TOKEN
+    - AYNI_PAYMENTS_SERVICE_URL

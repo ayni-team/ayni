@@ -188,7 +188,8 @@ describe('FE-21 presence, inside the room', () => {
 
     expect(server.requests('POST', `${URL}/presence`)[0].body).toEqual({ code: '481902' });
     expect(await screen.findByText('Presencia confirmada')).toBeInTheDocument();
-    expect(screen.getByText(/Confirmaste a las 16:07/)).toBeInTheDocument();
+    // Confirmed, the panel is one line: the detail is not drawn beside the work.
+    expect(screen.queryByText(/Confirmaste a las 16:07/)).not.toBeInTheDocument();
   });
 
   it('says a wrong code is wrong, with the attempts the server has left', async () => {

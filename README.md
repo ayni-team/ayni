@@ -74,10 +74,18 @@ docker build -f backend/Dockerfile.prod -t ayni-backend backend
 `AYNI_MAIL_HOST`, `AYNI_MAIL_PORT`, `AYNI_JITSI_URL`, and `AYNI_BOOTSTRAP_ADMIN_EMAIL` on the first
 start. **Optional:** `AYNI_BOOTSTRAP_ADMIN_FULL_NAME`, `AYNI_MAIL_USER`, **`AYNI_MAIL_PASSWORD`**,
 `AYNI_MAIL_FROM`, `AYNI_JITSI_APP_ID`, `AYNI_ACADEMIC_DIRECTORY`, `AYNI_SKILLS_EVIDENCE_DIR`,
-`AYNI_DB_POOL_SIZE`, `AYNI_API_DOCS_ENABLED`, `AYNI_PORT`, the ten `AYNI_PAYMENTS_*` settings
-(`MONTHLY_CREDIT_LIMIT`, `PRICE_PER_CREDIT`, `PENDING_TIMEOUT`, `RECONCILIATION_DELAY`,
-`SIMULATED_OUTCOME`, `SIMULATED_RESOLUTION_OUTCOME`, `FAILURE_THRESHOLD`, `CIRCUIT_OPEN_DURATION`,
-`TIMEOUT`, `MAX_CONCURRENT_CALLS`), `SPRING_PROFILES_ACTIVE` and `JAVA_TOOL_OPTIONS`.
+`AYNI_DB_POOL_SIZE`, `AYNI_API_DOCS_ENABLED`, `AYNI_PORT`, `AYNI_PAYMENTS_SERVICE_TIMEOUT`,
+`AYNI_PAYMENTS_SERVICE_MAX_CONCURRENT_CALLS`, `SPRING_PROFILES_ACTIVE` and `JAVA_TOOL_OPTIONS`.
+
+The payments service (`payments-service/`, ADR 0011) is a second container with variables of its
+own: **`AYNI_INTERNAL_TOKEN`**, shared with the backend, and the backend's
+`AYNI_PAYMENTS_SERVICE_URL`; `AYNI_PAYMENTS_DB_URL`, `AYNI_PAYMENTS_DB_USER`,
+**`AYNI_PAYMENTS_DB_PASSWORD`**, `AYNI_PAYMENTS_DB_APP_USER`, **`AYNI_PAYMENTS_DB_APP_PASSWORD`** and
+`AYNI_PAYMENTS_MONOLITH_URL` for itself; and the ten `AYNI_PAYMENTS_*` settings of the provider that
+the backend used to read (`MONTHLY_CREDIT_LIMIT`, `PRICE_PER_CREDIT`, `PENDING_TIMEOUT`,
+`RECONCILIATION_DELAY`, `SIMULATED_OUTCOME`, `SIMULATED_RESOLUTION_OUTCOME`, `FAILURE_THRESHOLD`,
+`CIRCUIT_OPEN_DURATION`, `TIMEOUT`, `MAX_CONCURRENT_CALLS`). `deploy/backend/.env.example` lists all
+of them.
 
 - **Two database roles.** Flyway migrates first as the owner (`AYNI_DB_USER`), which creates the
   schemas and, if it does not exist, the application's role with `AYNI_DB_APP_PASSWORD`; then the
@@ -117,7 +125,7 @@ its data and its rules.
 | `wallet` | Credits: balance, expiry, history |
 | `recognition` | Recognition requests and the university's decision |
 | `reputation` | Ratings and tutor scores |
-| `payments` | Credit purchases |
+| `paymentsfacade` | The routes of credit purchases, forwarded to `payments-service` (ADR 0011) |
 | `audit` | Activity log and detection of suspicious behaviour |
 | `analytics` | Usage indicators |
 | `notifications` | Notices |
